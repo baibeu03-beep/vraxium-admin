@@ -410,7 +410,14 @@ async function writeRosterCardStats(
 //   baking 되어 있어(shape 이 아니라 내용이 바뀜) boundary-stale 로는 부족. v44 전량 stale
 //   (version_mismatch) → cron/lazy 재계산으로 fail 카드 checkGate 가 채워진다. (pending·not_applicable
 //   카드는 종전대로 checkGate 미부착 — 값 불변.)
-export const WEEKLY_CARDS_DTO_VERSION = 45;
+// v46 (2026-07-18): 카드에 crewClassPositionCode(직책 원시 position_code) append.
+//   클래스(직책) 표시 SoT 를 roleLabel(멤버십 등급)에서 분리 — 팀장(user_profiles.role=team_leader)이
+//   등급 기반 roleLabel 로는 "일반"으로 오표시되던 문제(운영진(팀장) 미표현). 신 필드는
+//   ① user_position_histories 주차행 → ② 시즌 대표 → ③ 현재 role/level freeze(정규화) 순으로 산출한
+//   원시 position_code(operating_team_leader 등)를 담는다. roleLabel/기타 값은 불변(append-only).
+//   ⚠ **bump 필수** — 기존 v45 snapshot 엔 crewClassPositionCode 가 없어(null) 프론트가 roleLabel 로
+//   과도기 폴백한다. v45 전량 stale(version_mismatch) → cron/lazy 재계산으로 신 필드가 채워진다.
+export const WEEKLY_CARDS_DTO_VERSION = 46;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 

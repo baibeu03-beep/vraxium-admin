@@ -14,6 +14,7 @@ import type {
   WeekRuntimeStatusKey,
   WeekResultStatusKey,
 } from "@/shared/growth.contracts";
+import type { PositionCode } from "@/shared/crewClassPosition";
 
 // DB에 저장되는 주차 결과 상태 (user_week_statuses.status)
 export type WeekDbStatus = WeekDbStatusKey;
@@ -123,6 +124,9 @@ export type WeeklyCardDto = {
   teamNameRaw: string | null;
   partNameRaw: string | null;
   roleLabelRaw: string | null;
+  // 클래스(직책) = 그 카드 "주차 당시" position_code(원시 코드, 라벨 아님). roleLabel(멤버십 등급)과 별개.
+  //   ① user_position_histories 주차행 → ② 시즌 대표 → ③ 현재 role/level freeze(정규화). 없으면 null.
+  crewClassPositionCodeRaw: PositionCode | null;
   membershipStatusLabelRaw: string | null;
   organizationSlug: string | null;
   points: number;

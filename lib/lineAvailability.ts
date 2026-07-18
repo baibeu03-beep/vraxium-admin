@@ -1082,11 +1082,19 @@ export function applyExperienceCheckGate(
   verdict: ExperienceGrowthVerdict,
   gate: { required: number; earned: number; enforced: boolean },
 ): ExperienceGrowthVerdict {
-  if (verdict.status !== "pass") return verdict;
+  // checkGate 는 확정 카드(pass·fail) 모두에 부착한다 — 표시 전용 기준값/획득량이다.
+  //   · pass  : 종전과 동일(게이트 미달+enforced 면 fail 로 강등).
+  //   · fail  : 상태는 불변(슬롯 실패로 이미 fail). Point.A 기준값(required)/획득량(earned)만
+  //             실어 고객앱 Detail Log 가 실패 카드에서도 "투구 인정 기준 N개 중 M개" 를 보여준다.
+  //             (required=recognition_count_n 은 verdict 와 무관하게 이미 계산된 주차·조직 config —
+  //              여기서 버리지 않고 표시용으로만 흘려보낸다. 판정/강등 로직은 그대로.)
+  //   · pending(현재주 미판정)·not_applicable(미오픈/휴식) : 게이트가 무의미 → 종전대로 미부착.
+  if (verdict.status !== "pass" && verdict.status !== "fail") return verdict;
   const passed = gate.earned >= gate.required;
   return {
     ...verdict,
-    status: passed || !gate.enforced ? verdict.status : "fail",
+    // 강등은 성공 후보(pass)가 게이트 미달일 때만. fail 카드는 상태 불변(표시값만 추가).
+    status: verdict.status === "pass" && !passed && gate.enforced ? "fail" : verdict.status,
     checkGate: {
       required: gate.required,
       earned: gate.earned,

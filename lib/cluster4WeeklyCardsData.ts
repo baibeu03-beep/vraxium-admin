@@ -1274,6 +1274,8 @@ function toWeeklyCardDto(
     teamName: card.teamNameRaw,
     partName: card.partNameRaw,
     roleLabel: card.roleLabelRaw,
+    // 클래스(직책) 원시 position_code — roleLabel(멤버십 등급)과 별개 SoT. 프론트는 이 값만 클래스로 변환.
+    crewClassPositionCode: card.crewClassPositionCodeRaw,
     membershipStatusLabel: card.membershipStatusLabelRaw,
 
     // 포인트 표시 정책(2026-07-13 통일): 포인트 C 는 항상 0 이상(양수)으로 담는다.

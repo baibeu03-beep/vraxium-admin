@@ -46,6 +46,9 @@
     "verify:act-check-application-rate-browser": "tsx --env-file=.env.local scripts/browser-verify-act-check-application-rate.ts",
     "verify:crew-act-summary-parity": "tsx --env-file=.env.local scripts/verify-crew-act-summary-parity.ts",
     "verify:crew-act-summary-browser": "tsx --env-file=.env.local scripts/browser-verify-crew-act-summary.ts",
+    "test:crew-act-summary": "tsx scripts/test-crew-act-summary.ts",
+    "verify:crew-act-result-realcase": "tsx --env-file=.env.local scripts/verify-crew-act-result-realcase.ts",
+    "verify:crew-act-result-browser": "tsx --env-file=.env.local scripts/browser-verify-crew-act-result.ts",
     "verify:line-history-type": "tsx --env-file=.env.local scripts/verify-line-history-type-and-shape.ts",
     "verify:line-audience-cache": "tsx --env-file=.env.local scripts/verify-line-audience-cache.ts",
     "verify:weekly-cards-parity": "tsx --env-file=.env.local scripts/verify-weekly-cards-parity.ts"

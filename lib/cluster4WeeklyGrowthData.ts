@@ -23,6 +23,8 @@ import {
   POSITION_CODE_TO_LABEL,
   type PositionCode,
 } from "@/lib/positionHistory";
+// 클래스(직책) position_code 정규화 — 미러 공통 모듈(vraxium 과 byte-identical, parity 검증).
+import { roleLevelToPositionCode } from "@/shared/crewClassPosition";
 import { fetchActiveRestPeriods } from "@/lib/officialRestPeriodsData";
 import {
   matchOfficialRestPeriods,
@@ -590,6 +592,9 @@ async function computeWeeklyCards(
   //   테이블 미적용/조회실패 시 두 맵 모두 비어 ③ 현재값 fallback(무회귀).
   const weekPositionLabelByStart = new Map<string, string>(); // week_start_date → 라벨
   const seasonPositionLabelMap = new Map<string, string>();    // season_key → 시즌대표 라벨
+  // 클래스(직책) 원시 코드 맵 — roleLabel(라벨)과 병행 수집. 스냅샷 crewClassPositionCode 저장용(코드 그대로).
+  const weekPositionCodeByStart = new Map<string, PositionCode>(); // week_start_date → position_code
+  const seasonPositionCodeMap = new Map<string, PositionCode>();   // season_key → 시즌대표 position_code
   if (seasonKeys.length > 0) {
     const { data: positionData, error: positionErr } = await supabaseAdmin
       .from("user_position_histories")
@@ -614,6 +619,7 @@ async function computeWeeklyCards(
             r.week_start_date,
             POSITION_CODE_TO_LABEL[r.position_code],
           );
+          weekPositionCodeByStart.set(r.week_start_date, r.position_code);
         }
         // ② 시즌 대표(gap 주차 fallback)용 코드 수집.
         if (!r.season_key) continue;
@@ -623,10 +629,24 @@ async function computeWeeklyCards(
       }
       for (const [key, codes] of codesBySeason) {
         const resolved = resolveSeasonPosition(codes);
-        if (resolved) seasonPositionLabelMap.set(key, POSITION_CODE_TO_LABEL[resolved]);
+        if (resolved) {
+          seasonPositionLabelMap.set(key, POSITION_CODE_TO_LABEL[resolved]);
+          seasonPositionCodeMap.set(key, resolved);
+        }
       }
     }
   }
+
+  // 6-c. 클래스 tier③(현재 role/level freeze) — position 이력이 없는 native 주차 전용.
+  //   ⚠ 정책: 과거 주차를 현재 role 로 소급 덮어쓰지 않는다. 이 값은 ①(주차행)·②(시즌대표)가
+  //     모두 비는 주차에서만 최후 fallback 으로 쓰인다(이력이 있으면 그 값이 우선).
+  //   ⚠ 알 수 없는 신호(등급/role 미상)는 regular 로 조용히 변환하지 않고 null → 카드 필드 null →
+  //     프론트가 기존 roleLabel 로 과도기 fallback. (fetchCurrentActivityFallback 은 요청 캐시 재사용.)
+  const currentActivityForClass = await fetchCurrentActivityFallback(userId);
+  const currentClassPositionCode: PositionCode | null = roleLevelToPositionCode(
+    currentActivityForClass.role,
+    currentActivityForClass.level,
+  );
 
   // 7. 주차별 포인트 조회 (iso year/week 키).
   const { data: pointsData } = await supabaseAdmin
@@ -1050,6 +1070,13 @@ async function computeWeeklyCards(
         weekPositionLabelByStart.get(startDate) ||
         (seasonKey && seasonPositionLabelMap.get(seasonKey)) ||
         crewMeta.roleLabelRaw,
+      // 클래스(직책) 원시 코드 — roleLabel(등급)과 동일 3-tier 우선순위(단 값은 라벨이 아닌 코드).
+      //   ① 주차행 → ② 시즌대표 → ③ 현재 role/level freeze. 전부 없으면 null(프론트 과도기 fallback).
+      crewClassPositionCodeRaw:
+        weekPositionCodeByStart.get(startDate) ??
+        (seasonKey ? seasonPositionCodeMap.get(seasonKey) : undefined) ??
+        currentClassPositionCode ??
+        null,
       membershipStatusLabelRaw: crewMeta.membershipStatusLabelRaw,
       organizationSlug: crewMeta.organizationSlug,
       points: pts?.points ?? 0,

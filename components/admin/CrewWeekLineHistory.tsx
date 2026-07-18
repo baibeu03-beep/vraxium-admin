@@ -16,6 +16,7 @@ import CrewWeekLineDetailDialog from "@/components/admin/CrewWeekLineDetailDialo
 import WeekTallyingNotice from "@/components/admin/WeekTallyingNotice";
 import type { BadgeTone } from "@/components/ui/badge";
 import { rawOpenLineGrowthRate } from "@/lib/lineHistoryGrowthRate";
+import { formatLineDuration } from "@/lib/adminLineRegistrationsTypes";
 import type {
   CrewWeekLineDetailRow,
   CrewWeekLineSummaryDto,
@@ -602,22 +603,26 @@ function HubLineTable({
   return (
     <div className="overflow-x-auto rounded-md border">
       {/* table-fixed + colgroup: 헤더/바디 동일 폭. 허브 컬럼 제거로 라인명 폭 확보(좌측 정렬),
-          나머지 상태·숫자 컬럼은 가운데 정렬. 좁은 화면은 min-w 로 가로 스크롤 유지. */}
-      <table className="w-full min-w-[56rem] table-fixed border-collapse text-sm">
+          나머지 상태·숫자 컬럼은 가운데 정렬. 좁은 화면은 min-w 로 가로 스크롤 유지.
+          소요 시간 컬럼 추가(2026-07-17) — 라인명이 좁아지지 않도록 min-w 를 56→60rem 으로 함께
+          올려 라인명 실폭을 유지한다(32%×56rem ≈ 28%×60rem). */}
+      <table className="w-full min-w-[60rem] table-fixed border-collapse text-sm">
         <colgroup>
           <col style={{ width: "8%" }} />
-          <col style={{ width: "32%" }} />
+          <col style={{ width: "28%" }} />
           <col style={{ width: "9%" }} />
-          <col style={{ width: "12%" }} />
+          <col style={{ width: "9%" }} />
+          <col style={{ width: "11%" }} />
           <col style={{ width: "7%" }} />
+          <col style={{ width: "9%" }} />
+          <col style={{ width: "9%" }} />
           <col style={{ width: "10%" }} />
-          <col style={{ width: "10%" }} />
-          <col style={{ width: "12%" }} />
         </colgroup>
         <thead>
           <tr className="border-b bg-muted/40 text-xs text-muted-foreground">
             <th className="px-3 py-2 text-center font-medium">유형</th>
             <th className="px-3 py-2 text-center font-medium">라인명</th>
+            <th className="px-3 py-2 text-center font-medium">소요 시간</th>
             <th className="px-3 py-2 text-center font-medium">클럽 오픈</th>
             <th className="px-3 py-2 text-center font-medium">강화 결과</th>
             <th className="px-3 py-2 text-center font-medium">평점</th>
@@ -654,6 +659,15 @@ function HubLineTable({
                     {row.isCompetencyPlaceholder ? "-" : row.lineName}
                   </span>
                 </button>
+              </td>
+              {/* 소요 시간 — 라인 마스터(line_registrations) 원장 값. 개설 여부와 무관하게 표시된다.
+                  공통 formatter 단일 SoT · 미설정/마스터 매핑 실패는 '-'(회색). */}
+              <td className="px-3 py-2 text-center tabular-nums">
+                {row.estimatedDurationMinutes === null ? (
+                  <span className="text-muted-foreground">{formatLineDuration(null)}</span>
+                ) : (
+                  formatLineDuration(row.estimatedDurationMinutes)
+                )}
               </td>
               <td className="px-3 py-2 text-center">
                 <StatusBadge

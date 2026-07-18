@@ -3,6 +3,7 @@
 
 import type { Cluster4OutputLink } from "@/lib/cluster4OutputLinks";
 import type { CareerGrade, CareerRatingStatus } from "@/lib/careerGrade";
+import type { PositionCode } from "@/shared/crewClassPosition";
 
 export type { Cluster4OutputLink } from "@/lib/cluster4OutputLinks";
 export type { CareerGrade, CareerRatingStatus } from "@/lib/careerGrade";
@@ -116,6 +117,10 @@ export type Cluster4ExperienceGrowth = {
   //   레거시 주차 + 강화 성공(평점 ≥4/미평가)일 때만 평가. passed=false && enforced=true 면
   //   주차 실패이지만 requiredSlots 의 enhancementStatus(강화)는 success 유지 — 강화/주차
   //   성공 분리 표시 근거. enforced=false = check 데이터 미이관 사용자 보존(강등 없음).
+  //   ⚠ 2026-07-18(DTO v45): 신정책(2026-summer W1+) 경로 applyExperienceCheckGate 는 확정 카드
+  //   (status=pass·fail) 모두에 checkGate 를 채운다(종전 pass 전용). fail 카드는 상태 불변이고
+  //   required/earned/passed 는 "표시 전용"(고객앱 Detail Log 가 실패 카드에서도 기준값 노출).
+  //   pending·not_applicable 은 종전대로 null. 강등/판정 로직은 불변.
   checkGate?: {
     required: number; // 적용 기준값 (weeks.check_threshold ?? 30)
     earned: number; // 본인 point.check
@@ -451,7 +456,12 @@ export type Cluster4WeeklyCardDto = {
   // 사용자 소속/역할 메타 (raw — 빈 값이면 null)
   teamName: string | null;
   partName: string | null;
-  roleLabel: string | null;            // = membershipLevel
+  roleLabel: string | null;            // = membershipLevel (멤버십 등급 — 의미 불변)
+  // 클래스(직책) = 그 카드 "주차 당시" position_code(원시 코드). roleLabel(등급)과 별개 SoT.
+  //   SoT = user_position_histories.position_code(주차단위) → 없으면 현재 role/level freeze → 없으면 null.
+  //   표시는 shared/crewClassPosition.positionCodeToClassLabel 단일 함수로만 변환한다.
+  //   (신규 필드 — 기존 스냅샷엔 없어 null. 프론트는 null 시 roleLabel 로 과도기 fallback.)
+  crewClassPositionCode?: PositionCode | null;
   membershipStatusLabel: string | null; // = membershipState
 
   // 주차 포인트 (조직 무관 키. 실제 라벨은 조직별 매핑 — encre: 별/방패/번개, oranke: 단감/인절미/어흥)

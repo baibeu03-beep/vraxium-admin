@@ -49,7 +49,11 @@ async function main() {
   ck("[direct·pure] pass+earned>=req+enforced → pass · passed=true", meet.status === "pass" && meet.checkGate?.passed === true);
   const overL = applyExperienceCheckGate(V("pass"), { required: 30, earned: 10, enforced: false });
   ck("[direct·pure] pass+earned<req+!enforced(legacy) → pass 보존 · passed=false", overL.status === "pass" && overL.checkGate?.passed === false);
-  ck("[direct·pure] fail verdict → 무변경·게이트 미부착", applyExperienceCheckGate(V("fail"), { required: 30, earned: 0, enforced: true }).status === "fail" && applyExperienceCheckGate(V("fail"), { required: 30, earned: 0, enforced: true }).checkGate === undefined);
+  // v45(2026-07-18): fail 카드도 checkGate 를 표시 전용으로 부착(상태는 불변). 종전 "미부착" 불변식 폐기.
+  const failGate = applyExperienceCheckGate(V("fail"), { required: 30, earned: 0, enforced: true });
+  ck("[direct·pure] fail verdict → 상태 불변(fail)·게이트 부착(표시 전용, passed=earned>=req)", failGate.status === "fail" && failGate.checkGate?.required === 30 && failGate.checkGate?.earned === 0 && failGate.checkGate?.passed === false);
+  const failMet = applyExperienceCheckGate(V("fail"), { required: 30, earned: 40, enforced: true });
+  ck("[direct·pure] fail verdict + earned>=req → 상태 여전히 fail(강등 아님)·passed=true(표시)", failMet.status === "fail" && failMet.checkGate?.passed === true);
   ck("[direct·pure] pending/na → 무변경", applyExperienceCheckGate(V("pending"), { required: 30, earned: 0, enforced: true }).status === "pending" && applyExperienceCheckGate(V("not_applicable"), { required: 30, earned: 0, enforced: true }).status === "not_applicable");
 
   // ── PART 2: 셋업 — 테스트 유저 + 슬롯1/2/3 마스터 + W12 라인 개설(과거 마감) ──
