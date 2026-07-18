@@ -10,7 +10,16 @@ import {
 } from "@/lib/cluster4SecondEntryOverride";
 import { upsertCareerEvaluation } from "@/lib/adminCareerEvaluationsData";
 import { outputLinksToLegacySlots } from "@/lib/cluster4OutputLinks";
-import { refreshWeeklyCardsSnapshotSafe } from "@/lib/cluster4WeeklyCardsSnapshot";
+import {
+  splitImageSlots,
+  IMAGE_SLOT_COUNT,
+  type Cluster4ImageSlot,
+  type Cluster4OutputImage,
+} from "@/lib/cluster4OutputImages";
+import {
+  refreshWeeklyCardsSnapshotSafe,
+  markWeeklyCardsSnapshotStaleMany,
+} from "@/lib/cluster4WeeklyCardsSnapshot";
 import {
   reconcileLineResultAwardForUser,
   recomputeWeeklyPointsForUsers,
@@ -35,8 +44,11 @@ import type { Cluster4EnhancementStatus, Cluster4OutputLink } from "@/shared/clu
 //   · info/competency 는 배정 자체가 성공 신호 — 별도 표시 override 를 만들지 않는다(기존 경로 제거).
 //
 // 원칙:
-//   · 쓰기 대상 = targets / experience evals / career evals / submissions.  Main Title·허브·라인명·
-//     라인코드·실무자·라인마스터는 절대 쓰지 않는다(allowlist). 클럽 오픈 여부(라인 존재)도 안 바꾼다.
+//   · 쓰기 대상 = targets / experience evals / career evals / submissions / **라인 레벨 아웃풋 이미지
+//     운영진 슬롯(cluster4_lines.output_images ≤1)**.  Main Title·허브·라인명·라인코드·실무자·라인마스터는
+//     절대 쓰지 않는다(allowlist). 클럽 오픈 여부(라인 존재)도 안 바꾼다.
+//   · 이미지 = 예약 슬롯 모델(2026-07-18): 슬롯 0=운영진(라인 레벨), 슬롯 1..3=크루(제출). 두 출처에 각자
+//     저장해 슬롯 순서를 무손실 보존한다. 운영진 슬롯 변경은 클럽 공용이라 같은 라인 타 크루 snapshot 을 무효화.
 //   · 성공 상태의 제출 데이터(A)는 결과가 실패면 "쓰지 않음"으로 보존(삭제/빈값 금지).
 //   · 성장 결과 변경 미리보기: 레버 쓰기 → 재계산 → 주차 성장 결과 flip 확인 → 미확인이면 전체 롤백 후
 //     409(실제 재계산 로직 그대로 재사용 — 분기 없는 정확성). 확인(confirmGrowthFlip) 시 유지.
@@ -63,7 +75,9 @@ export type SaveLineDetailInput = {
     subTitle: string | null;
     growthPoint: string | null;
     outputLinks: { url: string; label: string | null }[];
-    images?: { url: string; caption: string | null }[]; // 미제공 시 기존 이미지 보존
+    // 예약 슬롯 이미지(2026-07-18): 고정 4슬롯. 슬롯 0=운영진(라인 레벨,≤1), 슬롯 1..3=크루(제출).
+    //   빈 슬롯=null(위치 보존). 미제공(undefined) 시 기존 이미지 보존. [[cluster4OutputImages]]
+    imageSlots?: Cluster4ImageSlot[];
     rating: number | null; // 경험
     grade?: CareerGrade | null; // 경력
   };
@@ -389,28 +403,44 @@ export async function saveCrewWeekLineDetail(
   }
 
   // ── 3. 제출 데이터 — 최종 결과가 success 이고 실제 변경이 있을 때만(A 보존) ──
-  //   ⚠ 변경 판정 기준 = **표시값(고객과 동일)** = per-user submission 우선, 없으면 라인 레벨 콘텐츠
-  //   (cluster4_lines.output_links/output_images/info_subtitle…). 팝업이 라인 레벨 값을 보여주고 있으므로,
-  //   이 기준을 안 쓰면 값을 안 바꿨는데도 라인 콘텐츠를 per-user submission 으로 **복사**하게 된다(금지).
+  //   ⚠ 변경 판정 기준 = **표시값(고객과 동일)**.
+  //     · 서브타이틀/그로스/링크 = per-user submission 우선, 없으면 라인 레벨 폴백(미변경 저장이 라인 콘텐츠를
+  //       submission 으로 복사하지 않도록).
+  //     · 이미지 = **예약 슬롯 모델**(2026-07-18): 슬롯 0=운영진(라인 레벨 cluster4_lines.output_images),
+  //       슬롯 1..3=크루(submission.output_images). 운영진/크루를 각자 출처에 저장해 슬롯 순서를 무손실 보존한다.
+  //       (기존 either/or·compact 는 운영진/크루 이미지를 뭉개 슬롯을 이동시켰다 — 이번 버그.)
   const curSub = line.submission;
   const effSubtitle = curSub?.subtitle ?? line.infoSubtitle ?? null;
   const effGrowth = curSub?.growthPoint ?? line.infoGrowthPoint ?? null;
   const hasSubLinks = (curSub?.outputLinks?.length ?? 0) > 0;
-  const hasSubImages = (curSub?.outputImages?.length ?? 0) > 0;
   const effLinks: Cluster4OutputLink[] = hasSubLinks ? curSub!.outputLinks : (line.outputLinks ?? []);
-  const effImageUrls = hasSubImages ? curSub!.outputImages : (line.outputImages ?? []);
-  const effImageCaptions = hasSubImages ? curSub!.outputImageCaptions : (line.outputImageCaptions ?? []);
-  const curImages = effImageUrls.map((url, i) => ({ url, caption: effImageCaptions?.[i] ?? null }));
-  const images = (input.statusData.images ?? curImages)
-    .filter((im) => im.url && im.url.trim())
-    .slice(0, 4)
-    .map((im) => ({ url: im.url.trim(), caption: im.caption?.trim() || null }));
-  const imagesChanged = JSON.stringify(images) !== JSON.stringify(curImages);
+
+  // 현재 이미지 — 운영진(라인 레벨)과 크루(제출)를 분리해서 읽는다(표시/고객과 동일 SoT).
+  const curAdminImages: Cluster4OutputImage[] = (line.outputImages ?? []).map((url, i) => ({
+    url,
+    caption: line.outputImageCaptions?.[i] ?? null,
+  }));
+  const curCrewImages: Cluster4OutputImage[] = (curSub?.outputImages ?? []).map((url, i) => ({
+    url,
+    caption: curSub?.outputImageCaptions?.[i] ?? null,
+  }));
+  // 목표 이미지 — 팝업이 보낸 고정 4슬롯을 운영진/크루로 분리. 미제공 시 현재 유지(보존).
+  const { adminImages: nextAdminImages, crewImages: nextCrewImages } = input.statusData.imageSlots
+    ? splitImageSlots(input.statusData.imageSlots.slice(0, IMAGE_SLOT_COUNT))
+    : { adminImages: curAdminImages, crewImages: curCrewImages };
+
+  const imagesEqual = (a: Cluster4OutputImage[], b: Cluster4OutputImage[]) =>
+    a.length === b.length &&
+    a.every((x, i) => x.url === b[i]?.url && (x.caption ?? null) === (b[i]?.caption ?? null));
+  const crewImagesChanged = !imagesEqual(nextCrewImages, curCrewImages);
+  const adminImagesChanged = !imagesEqual(nextAdminImages, curAdminImages);
+
+  // 3a. 크루(제출) 이미지 + 서브타이틀/그로스/링크 = per-user submission upsert(성공 상태에서만·변경 시).
   const submissionChanged =
     subTitle !== effSubtitle ||
     growthPoint !== effGrowth ||
     !linksEqual(links, effLinks) ||
-    imagesChanged;
+    crewImagesChanged;
   if (desired === "success" && submissionChanged && currentTargetId) {
     const [link2, link3, link4, link5] = outputLinksToLegacySlots(links, 4);
     const { error } = await supabaseAdmin.from(SUBMISSION_TABLE).upsert(
@@ -424,11 +454,45 @@ export async function saveCrewWeekLineDetail(
         output_link_3: link3,
         output_link_4: link4,
         output_link_5: link5,
-        output_images: images,
+        output_images: nextCrewImages, // 크루 이미지만(연속) — 운영진 슬롯 미포함
       },
       { onConflict: "line_target_id,user_id" },
     );
     if (error) return { ok: false, code: 422, error: "제출 내용 저장에 실패했습니다." };
+  }
+
+  // 3b. 운영진(슬롯 0) 이미지 = 라인 레벨 cluster4_lines.output_images(≤1). 고정필드 allowlist 예외 —
+  //   아웃풋 이미지의 운영진 슬롯만 라인 레벨에 쓴다(라인명/코드/허브/실무자 등 identity 는 여전히 불변).
+  //   ⚠ 라인 레벨은 클럽 공용 — 이 크루 팝업에서 슬롯 0을 바꾸면 같은 라인의 모든 크루 카드 1번 슬롯에 반영된다.
+  if (desired === "success" && adminImagesChanged) {
+    const { error } = await supabaseAdmin
+      .from("cluster4_lines")
+      .update({ output_images: nextAdminImages })
+      .eq("id", lineId);
+    if (error) return { ok: false, code: 422, error: "운영진 이미지 저장에 실패했습니다." };
+    // 라인 레벨(클럽 공용) 변경 → 같은 라인의 다른 크루 스냅샷은 stale. 본인은 §5 에서 재계산되므로,
+    //   나머지 대상자만 무효화(lazy/cron 재계산)해 슬롯 0 이 모든 크루 카드에 일관 반영되게 한다(best-effort).
+    try {
+      const { data: otherTargets } = await supabaseAdmin
+        .from(TARGET_TABLE)
+        .select("target_user_id")
+        .eq("line_id", lineId)
+        .eq("target_mode", "user")
+        .neq("target_user_id", userId);
+      const otherIds = Array.from(
+        new Set(
+          ((otherTargets ?? []) as Array<{ target_user_id: string | null }>)
+            .map((t) => t.target_user_id)
+            .filter((id): id is string => !!id),
+        ),
+      );
+      if (otherIds.length > 0) await markWeeklyCardsSnapshotStaleMany(otherIds);
+    } catch (e) {
+      console.warn("[crewWeekLineSave] 라인 레벨 이미지 변경 후 타 크루 무효화 실패(best-effort)", {
+        lineId,
+        message: e instanceof Error ? e.message : String(e),
+      });
+    }
   }
 
   // ── 4. 라인 지급 원장 결과 기준 reconcile (라인 A/B = 대상자 + 강화 성공 시 지급) ──

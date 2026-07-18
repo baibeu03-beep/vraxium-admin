@@ -8,6 +8,7 @@ import {
 import { assertUserInRequestScope } from "@/lib/userScope";
 import { getCrewWeekLineDetail } from "@/lib/adminCrewWeekLineDetail";
 import { saveCrewWeekLineDetail, type SaveLineDetailInput } from "@/lib/adminCrewWeekLineSave";
+import { IMAGE_SLOT_COUNT } from "@/lib/cluster4OutputImages";
 import type { Cluster4EnhancementStatus } from "@/shared/cluster4.contracts";
 
 type Ctx = { params: Promise<{ user_id: string; week_id: string; line_id: string }> };
@@ -115,13 +116,23 @@ export async function PUT(request: NextRequest, { params }: Ctx) {
       url: typeof l.url === "string" ? l.url : "",
       label: typeof l.label === "string" ? l.label : null,
     }));
-  const images = Array.isArray(s.images)
-    ? s.images
-        .filter((im): im is Record<string, unknown> => !!im && typeof im === "object")
-        .map((im) => ({
-          url: typeof im.url === "string" ? im.url : "",
-          caption: typeof im.caption === "string" ? im.caption : null,
-        }))
+  // 예약 슬롯 이미지(2026-07-18): 고정 4슬롯 배열. 각 슬롯 = {url,caption} 또는 null(빈 슬롯 위치 보존).
+  //   슬롯 위치를 그대로 유지한다(filter/compact 금지) — 운영진/크루 슬롯 경계를 서버 split 이 판정한다.
+  //   비정상 페이로드 방어:
+  //     · 길이 > 4        → 앞 4칸만 사용(slice). 초과 슬롯 무시.
+  //     · 슬롯 1~3 중 null → 그대로 null(빈 크루 슬롯). split 이 크루 구간 안에서 연속화(계약: 크루=연속).
+  //     · 슬롯 0 비어있음   → 운영진 이미지 없음(라인 레벨 [] 저장). 크루는 불변.
+  //     · 운영진 2개 이상   → 구조상 불가(슬롯 0 만 운영진). 슬롯 1+ 는 크루로 해석되어 라인 레벨엔 ≤1만 반영.
+  //     · imageSlots 미제공 → undefined → save 가 기존 이미지 보존(레거시 outputImages-only 저장 호환).
+  //   ⚠ 배열이 아닌 값이 오면 undefined 취급(보존) — 부분 페이로드로 이미지가 삭제되지 않게.
+  const imageSlots = Array.isArray(s.imageSlots)
+    ? s.imageSlots.slice(0, IMAGE_SLOT_COUNT).map((im) => {
+        if (!im || typeof im !== "object") return null;
+        const rec = im as Record<string, unknown>;
+        const url = typeof rec.url === "string" ? rec.url : "";
+        if (!url.trim()) return null;
+        return { url: url.trim(), caption: typeof rec.caption === "string" ? rec.caption : null };
+      })
     : undefined;
 
   const input: SaveLineDetailInput = {
@@ -133,7 +144,7 @@ export async function PUT(request: NextRequest, { params }: Ctx) {
       subTitle: typeof s.subTitle === "string" ? s.subTitle : null,
       growthPoint: typeof s.growthPoint === "string" ? s.growthPoint : null,
       outputLinks,
-      images,
+      imageSlots,
       rating: typeof s.rating === "number" ? s.rating : null,
       grade: typeof s.grade === "string" ? (s.grade as SaveLineDetailInput["statusData"]["grade"]) : null,
     },
