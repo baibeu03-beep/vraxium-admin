@@ -98,6 +98,12 @@ export default function LineOpeningStatusBoard({
   const org = readOrgParam(searchParams);
   // 팀별 개설 현황(블록3) 팀 목록 스코프 — operating/test 토글 보존(appendModeQuery).
   const mode = readScopeMode(searchParams);
+  // 두 허브(경험/역량) 개설 탭 모두 드롭다운 선택 주차를 URL(?week)에 단일 SoT 로 보존한다 —
+  //   경험=파트장 그리드, 역량=개설 대시보드가 쓰고, 각 로그창이 읽는 값. 상태창도 같은 ?week 를
+  //   읽어 선택 주차 기준으로 판정·표기('선택한 주차')한다. 선택 주차가 바뀌면 상태창도 그 주차로
+  //   재조회된다(서버가 week_id 로 targetWeek·teams·opened 를 판정). ?week 미지정이면 서버가 오늘 기준
+  //   개설 대상 주차로 폴백 → 기존 동작(회귀 0).
+  const selectedWeekId = searchParams?.get("week")?.trim() || null;
 
   const [data, setData] = useState<StatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -112,10 +118,19 @@ export default function LineOpeningStatusBoard({
       if (!cancelled) {
         setLoading(true);
         setError(null);
+        // 주차 변경 즉시 이전 주차 데이터 폐기 — 로딩 중 이전 주차 상태 잔류 방지.
+        setData(null);
       }
       try {
-        const qs = org ? `?organization=${encodeURIComponent(org)}` : "";
-        const res = await fetch(appendModeQuery(`${endpoint}${qs}`, mode));
+        const params = new URLSearchParams();
+        if (org) params.set("organization", org);
+        // 선택 주차(경험 탭)만 week_id 부착 → 서버가 그 주차 기준으로 targetWeek·teams·extension 판정.
+        //   미부착(역량/미선택)이면 서버는 오늘 기준 개설 대상 주차로 폴백(기존 동작).
+        if (selectedWeekId) params.set("week_id", selectedWeekId);
+        const suffix = params.toString();
+        const res = await fetch(
+          appendModeQuery(`${endpoint}${suffix ? `?${suffix}` : ""}`, mode),
+        );
         const json = await res.json();
         if (cancelled) return;
         if (json?.success) setData(json.data as StatusResponse);
@@ -129,7 +144,7 @@ export default function LineOpeningStatusBoard({
     return () => {
       cancelled = true;
     };
-  }, [endpoint, org, mode, refreshKey]);
+  }, [endpoint, org, mode, selectedWeekId, refreshKey]);
 
   // team variant: 3블록 전부. hub variant: 블록1(엔진 재사용) + 허브 전체 1문장.
   const status: LineOpeningStatus | null = useMemo(() => {
@@ -141,8 +156,10 @@ export default function LineOpeningStatusBoard({
       targetWeek: data.targetWeek,
       extension: data.extension ?? { kind: "none", index: null, total: null },
       teams: data.teams ?? [],
+      // 선택 주차 모드 — targetWeek 가 사용자가 고른 선택 주차일 때 문구를 '선택한 주차'로 표기.
+      selectionMode: selectedWeekId != null,
     });
-  }, [data, hubLabel]);
+  }, [data, hubLabel, selectedWeekId]);
 
   const hubLine: StatusLine | null = useMemo(() => {
     if (!data || variant !== "hub") return null;
@@ -151,8 +168,10 @@ export default function LineOpeningStatusBoard({
       currentWeek: data.currentWeek,
       targetWeek: data.targetWeek,
       opened: data.opened ?? false,
+      // 선택 주차 모드 — 대시보드가 고른 주차(?week)일 때 '선택한 주차' 문구.
+      selectionMode: selectedWeekId != null,
     });
-  }, [data, hubLabel, variant]);
+  }, [data, hubLabel, variant, selectedWeekId]);
 
   return (
     <Card>
@@ -168,7 +187,7 @@ export default function LineOpeningStatusBoard({
         </CardTitle>
         {variant !== "hub" && (
           <CardDescription className="inline-flex flex-wrap items-center gap-1">
-            이번 주 {hubLabel} 라인 개설 운영 현황 (표시 전용)
+            {selectedWeekId ? "선택한 주차" : "이번 주"} {hubLabel} 라인 개설 운영 현황 (표시 전용)
             <AdminHelpIconButton
               size="xs"
               helpKey="admin.lineOpening.statusBoard.desc.board"

@@ -61,19 +61,6 @@ function formatOrgLabel(slug: string | null | undefined): string {
 
 type TabKey = "opening" | "masters" | "cafe";
 
-type CurrentWeekData = {
-  weekId: string | null;
-  seasonName: string;
-  year: number;
-  weekNumber: number;
-  startDate: string;
-  endDate: string;
-  isOfficialRest: boolean;
-  canOpen: boolean;
-  submissionOpensAt: string | null;
-  submissionClosesAt: string | null;
-};
-
 type WeekOption = {
   id: string;             // weeks.id (UUID).
   label: string;          // "{year}년도 {season} {weekNumber}w".
@@ -203,7 +190,6 @@ export default function PracticalCompetencyManager() {
   const [adminOrg, setAdminOrg] = useState<string | null>(null);
   const [teams, setTeams] = useState<TeamItem[]>([]);
   const [masters, setMasters] = useState<LineMasterItem[]>([]);
-  const [currentWeek, setCurrentWeek] = useState<CurrentWeekData | null>(null);
   const [weekOptions, setWeekOptions] = useState<WeekOption[]>([]);
   const [selectedWeekId, setSelectedWeekId] = useState<string>("");
   const [existingLines, setExistingLines] = useState<ExistingLineDto[]>([]);
@@ -286,9 +272,8 @@ export default function PracticalCompetencyManager() {
   const fetchInitialData = useCallback(async () => {
     setLoading(true);
     try {
-      const [orgRes, weekRes, weeksRes] = await Promise.all([
+      const [orgRes, weeksRes] = await Promise.all([
         fetch("/api/admin/cluster4/admin-org"),
-        fetch("/api/admin/cluster4/current-week"),
         fetch(
           appendModeQuery(
             "/api/admin/cluster4/weeks-options?limit=3",
@@ -299,8 +284,6 @@ export default function PracticalCompetencyManager() {
       const orgJson = await orgRes.json();
       const org = orgJson.success ? orgJson.data.organization : null;
       setAdminOrg(org);
-      const weekJson = await weekRes.json();
-      if (weekJson.success) setCurrentWeek(weekJson.data);
       const weeksJson = await weeksRes.json();
       if (weeksJson.success) {
         const opts: WeekOption[] = weeksJson.data.weeks ?? [];
@@ -381,10 +364,11 @@ export default function PracticalCompetencyManager() {
     () => weekOptions.find((w) => w.id === selectedWeekId) ?? null,
     [weekOptions, selectedWeekId],
   );
+  // 개설 가능 여부 = 선택 주차(selectedWeek) 단일 SoT. 선택값이 목록 밖/미로딩이면 false
+  //   (현재 주차 currentWeek 폴백 금지 — 선택과 다른 주차로 열리는 SoT 누수 제거, career/info 와 동일).
   const canOpenSelected = useMemo(() => {
-    if (selectedWeek) return selectedWeek.canOpen;
-    return !!currentWeek?.weekId && currentWeek.canOpen;
-  }, [selectedWeek, currentWeek]);
+    return selectedWeek ? selectedWeek.canOpen : false;
+  }, [selectedWeek]);
 
   const handleSaveLine = useCallback(async () => {
     if (!selectedWeekId) { toast("error", "주차를 선택해주세요"); return; }
@@ -439,7 +423,7 @@ export default function PracticalCompetencyManager() {
       toast("success", LINE_OPENING_RESULT.openSuccess);
       resetLineForm(); setLineRefreshKey((k) => k + 1); await fetchInitialData();
     } catch { toast("error", "저장 중 오류"); } finally { setSaving(false); }
-  }, [currentWeek, selectedWeek, selectedWeekId, canOpenSelected, selectedMaster, lineAssetValid, lineAssetCount, lineLink1, lineLabel1, lineLink2, lineLabel2, lineImage1, lineImage2, lineCaption1, lineCaption2, selectedUserIds, resetLineForm, fetchInitialData]);
+  }, [selectedWeek, selectedWeekId, canOpenSelected, selectedMaster, lineAssetValid, lineAssetCount, lineLink1, lineLabel1, lineLink2, lineLabel2, lineImage1, lineImage2, lineCaption1, lineCaption2, selectedUserIds, resetLineForm, fetchInitialData]);
 
   // 카페 댓글 닉네임 수집 (Phase 1 — read-only, DB/snapshot 미관여)
   const handleCollectCafeComments = useCallback(async () => {
@@ -528,12 +512,11 @@ export default function PracticalCompetencyManager() {
                   )}
                   {!selectedWeek.canOpen && <p className="font-medium text-orange-600">선택한 주차는 공식 휴식 주차입니다.</p>}
                 </div>
-              ) : currentWeek ? (
-                <div className="space-y-1 text-sm">
-                  <p><span className="font-medium">{formatBannerPeriod({ year: currentWeek.year, seasonName: currentWeek.seasonName, weekNumber: currentWeek.weekNumber })}</span>{" "}({fmtDateWithDay(currentWeek.startDate)} ~ {fmtDateWithDay(currentWeek.endDate)})</p>
-                  {!currentWeek.canOpen && <p className="font-medium text-orange-600">{currentWeek.isOfficialRest ? "이번 주는 공식 휴식 주차입니다." : "현재 주차 데이터가 없습니다."}</p>}
-                </div>
-              ) : <p className="text-sm text-muted-foreground">주차 정보를 불러올 수 없습니다.</p>}
+              ) : (
+                /* 선택 주차가 목록에 없거나(과거 열람 등) 아직 미로딩 — 현재 주차(currentWeek)로 대체
+                   표기하지 않는다(SoT 누수 방지). 선택을 요구하는 중립 문구만 노출(career/info 와 동일). */
+                <p className="text-sm text-muted-foreground">주차를 선택해주세요.</p>
+              )}
             </CardContent>
           </Card>
 
@@ -547,9 +530,9 @@ export default function PracticalCompetencyManager() {
 
           {!lineFormOpen && canOpenSelected && <Button onClick={() => setLineFormOpen(true)}><Plus className="mr-2 h-4 w-4" /> 새 실무 역량 라인 개설</Button>}
 
-          {lineFormOpen && canOpenSelected && (selectedWeek?.submissionClosesAt ?? currentWeek?.submissionClosesAt) && (
+          {lineFormOpen && canOpenSelected && selectedWeek?.submissionClosesAt && (
             <Card>
-              <CardHeader><CardTitle className="text-base">새 실무 역량 라인</CardTitle><CardDescription>기입 마감: {fmtDateTimeWithDay((selectedWeek?.submissionClosesAt ?? currentWeek?.submissionClosesAt) as string)}</CardDescription></CardHeader>
+              <CardHeader><CardTitle className="text-base">새 실무 역량 라인</CardTitle><CardDescription>기입 마감: {fmtDateTimeWithDay(selectedWeek!.submissionClosesAt)}</CardDescription></CardHeader>
               <CardContent className="space-y-5">
                 <div className="space-y-2">
                   <Label className="inline-flex items-center gap-1">라인 <span className="text-red-500">*</span>

@@ -98,15 +98,6 @@ type CareerProjectOption = {
   endDate: string | null;
 };
 
-type CurrentWeekData = {
-  weekId: string;
-  weekNumber: number;
-  weekStart: string;
-  weekEnd: string;
-  submissionOpensAt: string;
-  submissionClosesAt: string;
-};
-
 type WeekOption = {
   id: string;             // weeks.id (UUID).
   label: string;          // "{year}년도 {season} {weekNumber}w".
@@ -589,7 +580,6 @@ export default function PracticalCareerManager() {
     dir: "asc" | "desc";
   } | null>(null);
   const [careerOptions, setCareerOptions] = useState<CareerProjectOption[]>([]);
-  const [currentWeek, setCurrentWeek] = useState<CurrentWeekData | null>(null);
   const [weekOptions, setWeekOptions] = useState<WeekOption[]>([]);
   const [selectedWeekId, setSelectedWeekId] = useState<string>("");
   const [existingLines, setExistingLines] = useState<ExistingLineDto[]>([]);
@@ -782,7 +772,6 @@ export default function PracticalCareerManager() {
       const optionsJson = await optionsRes.json();
       if (optionsJson.success) {
         setCareerOptions(optionsJson.data.options);
-        setCurrentWeek(optionsJson.data.currentWeek);
       }
 
       const weeksJson = await weeksRes.json();
@@ -1025,7 +1014,9 @@ export default function PracticalCareerManager() {
     () => weekOptions.find((w) => w.id === selectedWeekId) ?? null,
     [weekOptions, selectedWeekId],
   );
-  const canOpenSelected = selectedWeek ? selectedWeek.canOpen : !!currentWeek?.weekId;
+  // 개설 가능 여부 = 선택 주차(selectedWeek) 단일 SoT. 선택값이 목록 밖/미로딩이면 false
+  //   (현재 주차 currentWeek 폴백 금지 — 선택과 다른 주차로 버튼이 열리는 SoT 누수 제거).
+  const canOpenSelected = selectedWeek ? selectedWeek.canOpen : false;
 
   const handleSaveLine = useCallback(async () => {
     if (!selectedWeekId) { toast("error", "주차를 선택해주세요"); return; }
@@ -1104,8 +1095,8 @@ export default function PracticalCareerManager() {
         // 기입 기간 = 귀속 주차(week_id)의 "다음 주". selectedWeek 는 주차정책 공통
         // helper(submissionWindowForWeekStartMs) 로 이미 다음 주 기간을 담고 있으므로
         // 그대로 전송한다(서버도 동일 규칙으로 강제 저장).
-        submission_opens_at: selectedWeek.submissionOpensAt ?? currentWeek?.submissionOpensAt,
-        submission_closes_at: selectedWeek.submissionClosesAt ?? currentWeek?.submissionClosesAt,
+        submission_opens_at: selectedWeek.submissionOpensAt,
+        submission_closes_at: selectedWeek.submissionClosesAt,
       };
       console.log("[career line open payload]", {
         selectedWeekId,
@@ -1131,7 +1122,7 @@ export default function PracticalCareerManager() {
       setSaving(false);
     }
   }, [
-    currentWeek, selectedWeek, selectedWeekId, selectedOption, lineMainTitle, lineAssetValid, lineAssetCount,
+    selectedWeek, selectedWeekId, selectedOption, lineMainTitle, lineAssetValid, lineAssetCount,
     lineLink1, lineLabel1, lineLink2, lineLabel2, lineImage1, lineImage2,
     lineCaption1, lineCaption2, lineSelectedUserIds,
     loCompanyName, loCompanyLogo, loSupervisorName, loSupervisorDept, loSupervisorPos, loSupervisorPhoto,
@@ -1730,20 +1721,10 @@ export default function PracticalCareerManager() {
                     <p className="font-medium text-orange-600">선택한 주차는 공식 휴식 주차입니다.</p>
                   )}
                 </div>
-              ) : currentWeek ? (
-                <div className="space-y-1 text-sm">
-                  <p>
-                    <span className="font-medium">W{currentWeek.weekNumber}</span>{" "}
-                    ({fmtDateWithDay(currentWeek.weekStart)} ~ {fmtDateWithDay(currentWeek.weekEnd)})
-                  </p>
-                  <p className="text-muted-foreground">
-                    기입 기간: {fmtDateTimeWithDay(currentWeek.submissionOpensAt)} ~ {fmtDateTimeWithDay(currentWeek.submissionClosesAt)}
-                  </p>
-                </div>
               ) : (
-                <p className="font-medium text-orange-600">
-                  현재 주차에 라인을 개설할 수 없습니다.
-                </p>
+                /* 선택 주차가 목록에 없거나(과거 열람 등) 아직 미로딩 — 현재 주차(currentWeek)로
+                   대체 표기하지 않는다(SoT 누수 방지). 선택을 요구하는 중립 문구만 노출. */
+                <p className="text-muted-foreground">주차를 선택해주세요.</p>
               )}
             </CardContent>
           </Card>
@@ -1772,7 +1753,7 @@ export default function PracticalCareerManager() {
           )}
 
           {/* New line form */}
-          {lineFormOpen && canOpenSelected && (selectedWeek?.submissionClosesAt ?? currentWeek?.submissionClosesAt) && (
+          {lineFormOpen && canOpenSelected && selectedWeek?.submissionClosesAt && (
             <Card>
               <CardHeader>
                 <CardTitle className="inline-flex items-center gap-1.5 text-base">
@@ -1784,7 +1765,7 @@ export default function PracticalCareerManager() {
                   />
                 </CardTitle>
                 <CardDescription className="inline-flex flex-wrap items-center gap-1">
-                  기입 마감: {fmtDateTimeWithDay((selectedWeek?.submissionClosesAt ?? currentWeek?.submissionClosesAt) as string)}
+                  기입 마감: {fmtDateTimeWithDay(selectedWeek!.submissionClosesAt)}
                   <AdminHelpIconButton
                     helpKey="admin.lineOpening.career.desc.openForm"
                     title="새 실무 경력 라인 기입 마감 안내"

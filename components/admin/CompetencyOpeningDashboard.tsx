@@ -122,6 +122,21 @@ export default function CompetencyOpeningDashboard() {
   // 선택 가능 = 정규 개설 대상 OR 허용 예외 주차.
   const isSelectableWeek = (w: WeekOption) => w.isOpenTarget || w.hasOpeningException;
 
+  // 최초 진입: 기본 개설 대상 주차(openTargetWeek)를 URL(?week)에 확정 → 형제 상태창
+  //   (LineOpeningStatusBoard, 선택 주차 기준 판정)·로그창이 진입 직후부터 대시보드와 같은 주차를 본다.
+  //   URL 만 갱신(상태 setState 없음 — 개설 폼/POST 는 openTargetWeek 파생값이라 URL 만으로 충분).
+  //   사용자가 이미 고른 주차(?week seed=selectedWeekId)가 있거나 이미 URL 에 반영됐으면 덮지 않는다.
+  //   기본값은 서버 개설 대상과 동일 주차라 resolveEffectiveWeek 가 base 로 귀결(회귀 0) — 예외 주차 선택
+  //   시에만 그 주차로 갈린다.
+  useEffect(() => {
+    if (!openTargetWeek) return;
+    const urlWeek = searchParams?.get("week")?.trim() || "";
+    if (selectedWeekId || urlWeek === openTargetWeek.id) return;
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    params.set("week", openTargetWeek.id);
+    router.replace(`${pathname}?${params.toString()}`);
+  }, [openTargetWeek, selectedWeekId, searchParams, pathname, router]);
+
   const fetchStatus = useCallback(async () => {
     setLoadingStatus(true);
     try {
