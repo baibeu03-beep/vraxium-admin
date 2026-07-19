@@ -701,6 +701,8 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
       {/* 선별 액트 수동 입력 모달 — 대상 크루 + 포인트 직접 입력(C=0 고정). */}
       {manualGrantAct && org && (
         <ProcessCheckManualGrantDialog
+          // 대상 액트가 바뀌면 강제 remount → 포인트 초기값이 새 액트의 마스터 값으로 반드시 재시드된다.
+          key={manualGrantAct.actId}
           act={manualGrantAct}
           hub={hub}
           organization={org}

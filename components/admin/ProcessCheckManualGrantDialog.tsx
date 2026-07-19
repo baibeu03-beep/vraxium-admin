@@ -74,9 +74,12 @@ export default function ProcessCheckManualGrantDialog({
   const [actName, setActName] = useState(act.actName);
   const [duration, setDuration] = useState("");
   const [reason, setReason] = useState("");
-  const [pointA, setPointA] = useState(0);
-  const [pointB, setPointB] = useState(0);
-  // 포인트 C — 선별 규칙상 0 고정(상태 없이 상수).
+  // 포인트 초기값 = 목록에 표시되는 이 액트의 마스터 값(ProcessCheckActRowDto.pointCheck/pointAdvantage).
+  //   목록과 팝업이 동일 DTO 필드를 쓰므로 "목록값 = 팝업 초기값"이 보장된다(0 하드코딩 금지).
+  //   값이 실제로 0인 액트만 0으로 표시된다. mode/org/허브 무관 — 공통 DTO 단일 경로.
+  const [pointA, setPointA] = useState(act.pointCheck);
+  const [pointB, setPointB] = useState(act.pointAdvantage);
+  // 포인트 C — 선별 규칙상 0 고정(상태 없이 상수). 마스터 point_penalty 도 선별 액트는 enforcePointC 로 0.
   // po.A/B/C 표시명 — 조직별 명칭(선별 다이얼로그는 항상 org 컨텍스트가 있음).
   const po = getProcessPointLabels(organization);
 
@@ -105,8 +108,8 @@ export default function ProcessCheckManualGrantDialog({
     actName.trim() !== act.actName ||
     duration.trim() !== "" ||
     reason.trim() !== "" ||
-    pointA !== 0 ||
-    pointB !== 0 ||
+    pointA !== act.pointCheck ||
+    pointB !== act.pointAdvantage ||
     roster.length > 0 ||
     q.trim() !== "";
 
@@ -174,8 +177,9 @@ export default function ProcessCheckManualGrantDialog({
     setActName(act.actName);
     setDuration("");
     setReason("");
-    setPointA(0);
-    setPointB(0);
+    // 초기화 = "팝업을 막 연 상태"로 복귀 → 포인트도 마스터 값으로(0 하드코딩 금지).
+    setPointA(act.pointCheck);
+    setPointB(act.pointAdvantage);
     setQ("");
     setResults([]);
     setCandidate(null);
