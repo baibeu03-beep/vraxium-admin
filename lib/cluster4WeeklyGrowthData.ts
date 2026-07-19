@@ -913,11 +913,19 @@ async function computeWeeklyCards(
     cardWeeksDesc.map((w) => w.id).filter((id): id is string => Boolean(id)),
     organization,
   );
-  const orgResultStatusForWeek = (w: CardWeek) => resolveWeekOrgResultState(
-    w.id ? orgResultRows.get(w.id) : undefined,
-    w.start_date,
-    isWeekPublished(w),
-  ).status;
+  const orgResultStatusForWeek = (w: CardWeek) => {
+    const resolved = resolveWeekOrgResultState(
+      w.id ? orgResultRows.get(w.id) : undefined,
+      w.start_date,
+      isWeekPublished(w),
+    );
+    // 조직별 검수 상태는 org-state SoT(cluster4_week_org_result_states, EFFECTIVE_FROM=2026-06-29~)가
+    // 실제로 존재하는 주차에만 적용한다. 그 이전(legacy) 주차는 org row 가 없어 legacy 폴백으로
+    // 'published'/'aggregating' 이 합성되는데, 이를 resolver 에 넘기면 uws 없는 과거 미참여 주차가
+    // published_without_uws → '검수 중' 카드로 새로 노출된다(구 동작은 no_data → 카드 미생성).
+    // 따라서 source==='legacy' 는 null 로 넘겨 legacy 주차 표시 로직을 100% 보존한다.
+    return resolved.source === "organization" ? resolved.status : null;
+  };
   // 주차별 resolved status 목록(공유 resolver). 카드 조립은 이 결과를 소비한다.
   //   (buildResolvedWeeks 는 flippedToFail 도 반환하지만 요약은 카드 fold 로 산출하므로 미사용.)
   const { byStart: resolvedByStart } = buildResolvedWeeks(
