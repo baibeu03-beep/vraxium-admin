@@ -12,6 +12,7 @@ import {
   Trash2,
   Pencil,
   Users,
+  Loader2,
 } from "lucide-react";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
@@ -775,22 +776,29 @@ export default function PracticalInfoManager() {
     [orderedTypes, activeTypeId],
   );
 
-  // 개설 대상 주차(isOpenTarget, 금요일 경계) — 라인 개설 탭 활동유형별 오픈 여부 판정 기준 주차.
-  const openableWeekId = useMemo(
-    () => weekOptions.find((o) => o.isOpenTarget)?.id ?? null,
+  // 개설 대상 주차(isOpenTarget, 금요일 경계) — 개설 폼 기본값·상태창 초기 선택에 쓰는 참조 주차.
+  //   ⚠ 탭 배지 판정 기준이 아니다(그 기준은 아래 selectedWeekId 단일 SoT). 개설 폼의 기본 주차로만 쓰인다.
+  const openableWeek = useMemo(
+    () => weekOptions.find((o) => o.isOpenTarget) ?? null,
     [weekOptions],
   );
 
-  // 라인 개설 탭 진입 시 — 개설 대상 주차 기준 활동유형별 오픈(개설 대상) 맵 조회(미오픈 탭 배지/어둠용).
-  //   서버 isInfoLineOpenForWeek 단일 SoT. org/mode 로 판정 분기 없음(mode 는 전달만, 결과 불변).
+  // 라인 개설 탭 — 선택 주차(selectedWeekId, 화면 전체 단일 SoT) 기준 활동유형별 오픈(개설 대상) 맵.
+  //   주차를 바꾸면 이 맵도 선택 주차 기준으로 다시 조회된다 → 상단 탭 배지가 상태창·개설 폼과 항상 같은 주차.
+  //   판정 = 서버 isInfoLineOpenForWeek 단일 SoT. org/mode 로 판정 분기 없음(mode 는 전달만, 결과 불변).
+  //   조회 중(openStatusLoading)에는 이전 주차 배지를 유지하지 않는다 — stale 상태 오인 방지(맵 비움 + 로딩 배지).
+  const [openStatusLoading, setOpenStatusLoading] = useState(false);
   useEffect(() => {
-    // 라인 개설 탭 + 개설 대상 주차가 있을 때만 조회. 그 외에는 갱신하지 않는다(탭 미표시 = 무해).
-    if (mainTab !== "open" || !openableWeekId) return;
+    // 라인 개설 탭 + 선택 주차가 있을 때만 조회. 그 외에는 갱신하지 않는다(탭 미표시 = 무해).
+    if (mainTab !== "open" || !selectedWeekId) return;
     let cancelled = false;
+    // 주차 변경 즉시 이전 배지 폐기 + 로딩 표시(다른 주차 상태로 오인 방지).
+    setOpenByActivityType({});
+    setOpenStatusLoading(true);
     (async () => {
       try {
         const org = readOrgParam(new URLSearchParams(window.location.search));
-        const qs = new URLSearchParams({ week_id: openableWeekId });
+        const qs = new URLSearchParams({ week_id: selectedWeekId });
         if (org) qs.set("organization", org);
         const res = await fetch(
           appendModeQuery(
@@ -803,12 +811,14 @@ export default function PracticalInfoManager() {
         setOpenByActivityType(json?.success ? (json.data?.openByActivityType ?? {}) : {});
       } catch {
         if (!cancelled) setOpenByActivityType({});
+      } finally {
+        if (!cancelled) setOpenStatusLoading(false);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [mainTab, openableWeekId]);
+  }, [mainTab, selectedWeekId]);
 
   // ── 탭 dot 산정 — (weekId + activityTypeId) 조합 ──
   // dot 은 activityTypeId 단독이 아니라 "선택 주차에 그 활동 유형의 활성 라인이 있는지"로
@@ -951,12 +961,16 @@ export default function PracticalInfoManager() {
     }
   }, []);
 
-  // ── Week-scoped lines fetch (탭 dot 계산용 — 활동 유형 무관, 선택 주차 전체) ──
+  // ── Week-scoped lines fetch (탭 배지 '개설 완료' 계산용 — 활동 유형 무관, 선택 주차 전체) ──
+  //   ⚠ 주차 변경 즉시 이전 주차 라인(배지 근거)을 폐기하고 로딩 표시 → stale '개설 완료' 배지 방지.
+  const [weekLinesLoading, setWeekLinesLoading] = useState(false);
   const fetchWeekLines = useCallback(async (weekId: string) => {
     if (!weekId) {
       setWeekLines([]);
       return;
     }
+    setWeekLines([]);
+    setWeekLinesLoading(true);
     try {
       const qs = new URLSearchParams({ week_id: weekId });
       const org = readOrgParam(new URLSearchParams(window.location.search));
@@ -972,6 +986,8 @@ export default function PracticalInfoManager() {
     } catch (error) {
       console.error("Failed to fetch week lines", error);
       setWeekLines([]);
+    } finally {
+      setWeekLinesLoading(false);
     }
   }, []);
 
@@ -1743,20 +1759,40 @@ export default function PracticalInfoManager() {
           {/* 활동 유형 탭 (라인 개설 탭 — 섹션0 대상 활동유형 선택, activeTypeId 공유) */}
           <div role="tablist" className="flex flex-wrap items-center gap-2 border-b pb-px">
             {orderedTypes.map((t) => {
-              // 미오픈 = 이번 주 개설 대상 아님. 탭은 목록에 남기되(숨기지 않음) 배지+어둡게 처리.
-              //   클릭은 허용(선택 가능) — 선택 시 개설 폼이 차단 화면을 표시한다.
-              const notOpen = openByActivityType[t.id] === false;
+              // 탭 배지 상태 = 선택 주차(selectedWeekId, 화면 전체 단일 SoT) 기준. 상태창·개설 폼과 동일 주차.
+              //   loading  : 선택 주차 상태 조회 중 — 이전(다른) 주차 배지를 유지하지 않고 로딩 처리.
+              //   created  : 선택 주차에 이 활동유형의 활성 라인이 있음(개설 완료).
+              //   open     : 개설 대상(오픈 확인)이나 아직 미개설(오픈).
+              //   notOpen  : 이번(선택) 주차 개설 대상이 아님(미오픈). 탭은 남기되 배지+어둡게 처리.
+              //     클릭은 항상 허용(선택 가능) — 선택 시 개설 폼이 상태에 맞는 화면을 표시한다.
+              const badgeLoading = openStatusLoading || weekLinesLoading;
+              const created = openedActivityTypeIdsForSelectedWeek.has(t.id);
+              const status: "loading" | "created" | "open" | "notOpen" = badgeLoading
+                ? "loading"
+                : created
+                  ? "created"
+                  : openByActivityType[t.id] === false
+                    ? "notOpen"
+                    : "open";
+              const notOpen = status === "notOpen";
+              const selected = activeTypeId === t.id;
               return (
                 <button
                   key={t.id}
                   type="button"
                   role="tab"
-                  aria-selected={activeTypeId === t.id}
+                  aria-selected={selected}
                   onClick={() => switchTab(t.id)}
-                  title={notOpen ? "이번 주 개설 대상이 아닙니다(미오픈)" : undefined}
+                  title={
+                    status === "notOpen"
+                      ? "이번 주 개설 대상이 아닙니다(미오픈)"
+                      : status === "created"
+                        ? "선택 주차에 개설 완료된 라인입니다"
+                        : undefined
+                  }
                   className={cn(
                     "relative -mb-px inline-flex items-center gap-1.5 rounded-t-md border border-b-0 px-4 py-2 text-sm transition-colors",
-                    activeTypeId === t.id
+                    selected
                       ? notOpen
                         ? // 미오픈(데이터 상태)이라 zinc 로 어둡게 유지하되, 선택은 굵기+진한 테두리로 구분.
                           "border-zinc-500 bg-zinc-200 font-semibold text-zinc-800 dark:border-zinc-400 dark:bg-zinc-700 dark:text-zinc-100"
@@ -1767,7 +1803,25 @@ export default function PracticalInfoManager() {
                   )}
                 >
                   {t.name}
-                  {notOpen && (
+                  {status === "loading" && (
+                    <span
+                      className="inline-flex items-center rounded-full border border-border bg-muted px-1.5 py-0.5 text-2xs font-medium text-muted-foreground"
+                      aria-label="상태 확인 중"
+                    >
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    </span>
+                  )}
+                  {status === "created" && (
+                    <span className="rounded-full border border-green-400 bg-green-100 px-1.5 py-0.5 text-2xs font-semibold text-green-700 dark:border-green-600 dark:bg-green-900/40 dark:text-green-200">
+                      개설 완료
+                    </span>
+                  )}
+                  {status === "open" && (
+                    <span className="rounded-full border border-sky-400 bg-sky-100 px-1.5 py-0.5 text-2xs font-semibold text-sky-700 dark:border-sky-600 dark:bg-sky-900/40 dark:text-sky-200">
+                      오픈
+                    </span>
+                  )}
+                  {status === "notOpen" && (
                     <span className="rounded-full border border-zinc-400 bg-zinc-100 px-1.5 py-0.5 text-2xs font-semibold text-zinc-600 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-200">
                       미오픈
                     </span>
@@ -1787,13 +1841,19 @@ export default function PracticalInfoManager() {
               개설 대상 주차 = isOpenTarget(금요일 경계 규칙, 서버 강제와 동일 함수). */}
           <PracticalInfoOpeningSection0
             currentWeek={currentWeek}
-            openableWeek={weekOptions.find((o) => o.isOpenTarget) ?? null}
+            openableWeek={openableWeek}
             weekOptions={weekOptions}
             exceptionWeeks={exceptionWeeks}
             activeType={activeType}
             // 라인명 드롭다운 후보 = 현재 상단 활동유형 탭의 유형만(탭별 필터링).
             activityTypes={activeType ? [{ id: activeType.id, name: activeType.name }] : []}
             users={users}
+            // 대상 주차 단일 SoT — 상태창·개설 폼과 상단 탭 배지가 모두 이 값을 공유한다.
+            selectedWeekId={selectedWeekId}
+            onSelectWeek={setSelectedWeekId}
+            // 상태창 '미오픈' 문구 판정 = 상단 탭 배지와 동일한 selectedWeekId 기준 상태(openByActivityType).
+            //   별도 판정 로직 없이 배지가 쓰는 맵을 그대로 재사용한다. 조회 중(맵 비움)에는 undefined→false.
+            lineNotOpen={openByActivityType[activeType?.id ?? ""] === false}
             onOpened={() => {
               // 개설 직후 메타·라인 목록·탭 dot 데이터 재조회(manage 탭과 동기화).
               void fetchMeta();

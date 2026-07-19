@@ -57,6 +57,13 @@ type Props = {
   activityTypes: ActivityTypeLike[];
   // 개설 대상 크루 후보.
   users: UserLike[];
+  // 대상 주차 단일 SoT — 상위(Manager)가 소유. 상태창·개설 폼·POST week_id·상단 탭 배지가 모두 이 값을 공유한다.
+  //   (이전에는 이 컴포넌트가 자체 selectedWeekId 를 가져 상단 탭 배지와 어긋났다 → 상위로 승격해 단일화.)
+  selectedWeekId: string;
+  onSelectWeek: (weekId: string) => void;
+  // 선택 주차 + 현재 활동유형이 '미오픈'인지 — 상단 탭 배지와 동일한 판정(openByActivityType, selectedWeekId 기준).
+  //   상위가 배지용 맵에서 그대로 파생해 내려준다(문구용 별도 판정 금지). 상태창 '미오픈' 문구 분기에만 쓰인다.
+  lineNotOpen: boolean;
   // 개설 성공 시 상위(메타/라인 목록) 재조회 트리거.
   onOpened: () => void;
 };
@@ -69,6 +76,9 @@ export default function PracticalInfoOpeningSection0({
   activeType,
   activityTypes,
   users,
+  selectedWeekId,
+  onSelectWeek,
+  lineNotOpen,
   onOpened,
 }: Props) {
   // 지난 주 + 활동유형에 대한 활성 info 라인(개설됨 판정용).
@@ -77,22 +87,10 @@ export default function PracticalInfoOpeningSection0({
   // 개설 직후 로그창 재조회 트리거.
   const [logRefreshTick, setLogRefreshTick] = useState(0);
 
-  // ── 대상 주차 단일 SoT ─────────────────────────────────────────────────────
-  //   상태창(개설 필요/완료) · 개설 폼(개설 판정 · POST week_id) · 개설 후 재조회가 모두 이 값을 쓴다.
-  //   기본값 = 자동 정책(개설 대상) 주차 → 현재 주차 → 첫 항목. 현재 주차 고정이 아니라 과거 주차도 선택 가능.
-  const [selectedWeekId, setSelectedWeekId] = useState<string>("");
-  const defaultWeekId =
-    openableWeek?.id ??
-    weekOptions.find((w) => w.isCurrent)?.id ??
-    weekOptions[0]?.id ??
-    "";
-  // 최초 1회(또는 선택값이 목록에서 사라졌을 때) 기본 주차로 초기화 — 파생 setState 회피 위해 effect 사용.
-  useEffect(() => {
-    setSelectedWeekId((prev) =>
-      prev && weekOptions.some((w) => w.id === prev) ? prev : defaultWeekId,
-    );
-  }, [defaultWeekId, weekOptions]);
-
+  // ── 대상 주차 단일 SoT (상위 Manager 소유) ──────────────────────────────────
+  //   상태창(개설 필요/완료) · 개설 폼(개설 판정 · POST week_id) · 상단 탭 배지 · 개설 후 재조회가 모두
+  //   상위가 내려준 selectedWeekId 를 공유한다. 기본값 초기화도 상위(fetchMeta)가 담당한다.
+  //   선택값이 weekOptions 밖(과거 주차 열람 등)이면 상태창 표기는 openableWeek 로 폴백한다.
   const selectedWeek =
     weekOptions.find((w) => w.id === selectedWeekId) ?? openableWeek;
   const resolvedWeekId = selectedWeek?.id ?? null;
@@ -199,6 +197,13 @@ export default function PracticalInfoOpeningSection0({
                   의 {activityName} 라인은 개설 대상이 아닙니다 (
                   <span className="font-semibold text-red-600">공식 휴식 주차</span>).
                 </p>
+              ) : lineNotOpen ? (
+                /* 미오픈(선택 주차 개설 대상 아님) — 상단 탭 배지와 동일 판정(lineNotOpen).
+                   개설 필요('개설 되어야') 문구 대신 미오픈 상태만 안내한다. */
+                <p className="rounded-md border border-zinc-300 bg-zinc-100 px-3 py-2 text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-200">
+                  {lastWeekPrefix} <span className="font-semibold">[{lastWeekLabel}]</span>{" "}
+                  의 {activityName} 라인은 현재 ‘미오픈’ 상태입니다.
+                </p>
               ) : (
                 <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-amber-800">
                   {lastWeekPrefix} <span className="font-semibold">[{lastWeekLabel}]</span>{" "}
@@ -226,7 +231,7 @@ export default function PracticalInfoOpeningSection0({
         weekOptions={weekOptions}
         exceptionWeeks={exceptionWeeks}
         selectedWeekId={selectedWeekId}
-        onSelectWeek={setSelectedWeekId}
+        onSelectWeek={onSelectWeek}
         activityTypes={activityTypes}
         defaultActivityTypeId={activeType?.id ?? null}
         users={users}
