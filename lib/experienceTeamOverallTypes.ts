@@ -167,6 +167,12 @@ export type OverallBoardStatus = "none" | "reviewed" | "opened";
 
 export type ExperienceTeamOverallBoard = {
   status: OverallBoardStatus;
+  // 이 주차·팀이 실무 경험 라인 "개설 기간"인가(단일 SoT = cluster4_week_opening_configs →
+  //   isExperienceLineOpenForWeek). false 면 개설 검수/완료 UI·API 모두 차단(개설되지 않은 상태와 구분).
+  //   실무 정보(isInfoLineOpenForWeek)·역량(canOpen)과 동일 의미의 필드. status(opened/reviewed)와 독립.
+  canOpen: boolean;
+  // canOpen=false 일 때 사유(개설 차단 패널 문구). true 면 null.
+  openBlockedReason: string | null;
   // 확장 주간 여부 + 종류(상태창 SoT 와 동일 — cluster4_experience_extension_periods).
   extensionActive: boolean;
   extensionKind: "online" | "offline" | null;
@@ -186,6 +192,14 @@ export type OverallLineSelectionDto = {
   // part-derived 카테고리만(도출/분석/견문). 관리/확장은 대상 아님.
   lineType: ExperiencePartLineType;
   selectedLineId: string | null;
+  // 파트장 전용 점수/체크 — 파트장은 [개설 신청] 그리드에서 구조적으로 제외되어(심화(파트장))
+  //   part_submission_cells 가 없다. 그래서 도출/분석/견문 점수를 입력할 정상 경로가 없어
+  //   [개설 검수] 화면에서 직접 선택한다. 일반/에이전트는 이 필드를 보내지 않으며(undefined),
+  //   서버도 파트장 여부로만 반영한다(일반 크루 점수 SoT=개설 신청 셀 불변).
+  //   미지정 시 기존 기본값(checked=true/score=7 = OVERALL_CELL_DEFAULT)으로 처리 — 파트장 전용
+  //   임의 기본값을 새로 만들지 않는다. 허용 점수·보이드 규칙은 일반 크루와 동일(experienceScoreState).
+  checked?: boolean;
+  score?: number;
 };
 
 // ── 저장 payload (POST) ──

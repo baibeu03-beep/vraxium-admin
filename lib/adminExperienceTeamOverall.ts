@@ -24,6 +24,11 @@ import { payLineOpenTargetsOnce } from "@/lib/processPointAccrual";
 import { convergeLineChangeForUsers } from "@/lib/lineChangeDerivation";
 import { invalidateWeeklyCardsForLineOpen } from "@/lib/adminCluster4LinesData";
 import { assertWeekOpenable } from "@/lib/cluster4OfficialRestWeek";
+import {
+  assertExperienceLineOpenable,
+  resolveExperienceLineOpenGate,
+  EXPERIENCE_LINE_NOT_OPEN_REASON,
+} from "@/lib/experienceLineOpenGate";
 import { memberStatusLabel } from "@/lib/adminMembersTypes";
 import { resolveOutputLinks } from "@/lib/cluster4OutputLinks";
 import { insertExperienceOpeningLog } from "@/lib/adminExperienceOpeningLogs";
@@ -52,6 +57,7 @@ import {
   listExperienceOverallLineOptions,
 } from "@/lib/adminExperienceLineData";
 import { updateOverallPartCellLines } from "@/lib/adminExperiencePartInput";
+import { experienceScoreState } from "@/lib/experiencePartInputTypes";
 
 // part_submissions line_type(도출/분석/견문) ↔ overall category 동일 키.
 type PartLineType = "derivation" | "analysis" | "evaluation";
@@ -467,8 +473,14 @@ export async function getTeamOverallBoard(
     ([category, v]) => ({ category, link: v.link, description: v.description, imageUrl: v.imageUrl, imageDescription: v.imageDescription }),
   );
 
+  // 개설 기간 판정(단일 SoT) — 이 주차·팀이 실무 경험 라인 개설 기간인가. 프론트 버튼 게이팅/차단 패널이
+  //   그대로 소비하고, 서버 write 가드(openTeamOverall assertExperienceLineOpenable)와 동일 함수를 쓴다.
+  const canOpen = await resolveExperienceLineOpenGate(organization, weekId, teamId);
+
   return {
     status: stored.status ?? "none",
+    canOpen,
+    openBlockedReason: canOpen ? null : EXPERIENCE_LINE_NOT_OPEN_REASON,
     extensionActive: extension.active,
     extensionKind: extension.kind,
     parts,
@@ -643,15 +655,18 @@ async function assertNoIneligibleManagementCells(
   }
 }
 
-// ── 파트장 도출/분석/견문 라인 선택 저장(셀 find-or-create) ──
+// ── 파트장 도출/분석/견문 점수·라인 선택 저장(셀 find-or-create/update) ──
 // 파트장(심화(파트장))은 파트 신청 그리드에서 구조적으로 제외되어 part_submission_cells 셀이 없다.
-//   그래서 팀 총괄 보드에서 파트장 행의 도출/분석/견문 라인명을 골라도
-//   updateOverallPartCellLines(기존 셀만 갱신)가 스킵 → 선택 미저장(완료 후 화면 초기화) →
+//   그래서 팀 총괄 보드에서 파트장 행의 도출/분석/견문 점수·라인명을 골라도
+//   updateOverallPartCellLines(기존 셀만 갱신·라인만)가 스킵 → 점수·선택 미저장(완료 후 화면 초기화) →
 //   개설 완료 시 대상자(cluster4_line_targets) 미생성 → 강화 실패로 표시되던 버그.
-//   → 선택 라인이 있는 "파트장"에 한해 그 파트의 신청 헤더를 find-or-create 하고 셀을 생성해
-//     일반 크루와 동일한 단일 SoT(part_submission_cells.selected_line_id)로 수렴시킨다.
-//   기본 checked=true/score=7 = 보드가 파트장 행에 쓰는 기본값과 동일(별도 임의 판정 아님).
-//   일반/에이전트는 이미 셀을 가지므로 여기서 손대지 않는다(updateOverallPartCellLines 담당).
+//   → "파트장"에 한해 그 파트의 신청 헤더를 find-or-create 하고 셀을 upsert 해
+//     일반 크루와 동일한 단일 SoT(part_submission_cells)로 수렴시킨다. 점수는 payload(sel.score/checked)
+//     로 전달된 파트장 선택값을 그대로 반영한다(하드코딩 7 폐지). payload 미지정 시에만 기본값
+//     checked=true/score=7 = 보드 파트장 행 기본값(= OVERALL_CELL_DEFAULT)으로 처리 — 파트장 전용
+//     임의 기본값을 새로 만들지 않는다. 점수·보이드 규칙은 일반 크루와 동일(experienceScoreState).
+//   일반/에이전트는 이미 셀을 가지므로 여기서 손대지 않는다(점수 SoT=개설 신청 셀 · 라인만
+//     updateOverallPartCellLines 담당). ⚠ 셀 upsert 로 재검수 시 파트장 점수/체크 변경이 반영된다.
 async function materializePartLeaderPartCells(input: {
   organization: string;
   weekId: string;
@@ -660,11 +675,9 @@ async function materializePartLeaderPartCells(input: {
   mode: ScopeMode;
   selections: OverallLineSelectionDto[];
 }): Promise<void> {
-  // 라인이 선택된 도출/분석/견문 선택만(미선택=셀 생성 불필요 — 미배정 유지).
-  const partSelections = input.selections.filter(
-    (s) =>
-      (OVERALL_PART_CATEGORIES as readonly string[]).includes(s.lineType) &&
-      s.selectedLineId,
+  // 도출/분석/견문 선택 전부(라인 미선택 포함) — 파트장은 점수/체크만 바뀌어도 반영해야 한다.
+  const partSelections = input.selections.filter((s) =>
+    (OVERALL_PART_CATEGORIES as readonly string[]).includes(s.lineType),
   );
   if (partSelections.length === 0) return;
 
@@ -693,7 +706,7 @@ async function materializePartLeaderPartCells(input: {
     await listExperienceOverallLineOptions(input.organization),
   );
 
-  // 팀·주차 신청 헤더 + 기존 셀 키(이미 있는 셀은 updateOverallPartCellLines 가 갱신 → 여기선 스킵).
+  // 팀·주차 신청 헤더 + 기존 셀 키(라인 미선택이어도 기존 셀이 있으면 갱신 — 예: 점수 하향/체크 해제).
   const { data: headers } = await supabaseAdmin
     .from("cluster4_experience_part_submissions")
     .select("id,part_name")
@@ -718,9 +731,20 @@ async function materializePartLeaderPartCells(input: {
 
   const now = new Date().toISOString();
   for (const sel of leaderSelections) {
-    // 이미 셀 존재 → 갱신은 updateOverallPartCellLines(중복 write 회피).
-    if (existingCellKeys.has(`${sel.crewUserId}::${sel.lineType}`)) continue;
-    if (lineIdCategory.get(sel.selectedLineId as string) !== sel.lineType) {
+    // 점수/보이드 정규화 — 일반 크루 개설 신청과 동일 SoT(experienceScoreState).
+    //   payload 미지정 시 기본값 checked=true/score=7(= OVERALL_CELL_DEFAULT). 0 은 유효(미체크).
+    const rawScore =
+      sel.score !== undefined && sel.score !== null ? sel.score : 7;
+    const rawChecked = sel.checked ?? true;
+    const state = experienceScoreState(rawChecked ? rawScore : 0);
+    // 보이드(미체크/0점) → 라인 미선택. score 1~10(체크)은 선택 라인 유지.
+    const selectedLineId =
+      state.checked && state.score >= 1 ? sel.selectedLineId ?? null : null;
+    const cellExists = existingCellKeys.has(`${sel.crewUserId}::${sel.lineType}`);
+    // 선택 라인도 없고 기존 셀도 없으면 생성 불필요(미배정 유지 — 헤더/셀 스팸 방지).
+    //   기존 셀이 있으면(과거 검수로 물질화) 점수/체크/라인 변경을 반드시 반영한다.
+    if (!selectedLineId && !cellExists) continue;
+    if (selectedLineId && lineIdCategory.get(selectedLineId) !== sel.lineType) {
       throw Object.assign(
         new Error(
           "선택한 라인의 유형이 해당 평가 열과 일치하지 않습니다. 잘못된 라인 선택입니다.",
@@ -753,7 +777,7 @@ async function materializePartLeaderPartCells(input: {
       headerId = (hdr as { id: string }).id;
       headerIdByPart.set(partName, headerId);
     }
-    // 파트장 셀 생성 — 기본 checked=true/score=7(보드 파트장 행 기본값) + 선택 라인.
+    // 파트장 셀 upsert — 파트장이 검수 화면에서 고른 점수/체크 + 선택 라인(보이드 시 null).
     const { error: cellErr } = await supabaseAdmin
       .from("cluster4_experience_part_submission_cells")
       .upsert(
@@ -761,9 +785,9 @@ async function materializePartLeaderPartCells(input: {
           submission_id: headerId,
           crew_user_id: sel.crewUserId,
           line_type: sel.lineType,
-          checked: true,
-          score: 7,
-          selected_line_id: sel.selectedLineId,
+          checked: state.checked,
+          score: state.score,
+          selected_line_id: selectedLineId,
         },
         { onConflict: "submission_id,crew_user_id,line_type" },
       );
@@ -1185,6 +1209,11 @@ export async function openTeamOverall(input: {
   // 공식 휴식 주차 차단(UI canOpen 과 동일 판정) — operating/test 무관, 모든 write 전 422.
   //   예외(line_opening_windows)는 org+hub 스코프로 판정(Encre+실무경험 등록 시 그 org·경험만 통과).
   await assertWeekOpenable(input.weekId, input.organization, "experience");
+
+  // ── 개설 기간 게이트(강제) — 실무 정보(info-lines)·역량(competency-lines) POST 와 동일 SoT ──
+  //   그 주차 실무 경험이 개설 기간(open_confirmed && practicalExperience[teamId] 체크)이 아니면 409.
+  //   공식 휴식은 아니지만 개설 기간도 아닌 주차(예: 오픈 확인 전 주차)를 URL/HTTP 직접 호출로 여는 것을 차단.
+  await assertExperienceLineOpenable(input.organization, input.weekId, input.teamId);
 
   const existing = await loadOverallStored(input.organization, input.weekId, input.teamId);
   if (existing.status === "opened") {

@@ -28,7 +28,7 @@ import type {
   LineManageTeamLeader,
 } from "@/lib/experienceLineManageTypes";
 
-const EMPTY_TOTALS = { teamCount: 0, openedCount: 0, neededCount: 0 };
+const EMPTY_TOTALS = { teamCount: 0, openedCount: 0, neededCount: 0, notOpenCount: 0 };
 
 // 팀 인원 요약 — 평가 대상 크루 명부(getTeamOverallBoard 코호트와 동일 필터, 단 휴식/중단 상태도 포함).
 //   상태(활동/휴식/중단) 분류는 명부 전체를 분할하고, 등급(일반/파트장/에이전트)도 명부 전체를 분할한다.
@@ -336,11 +336,15 @@ export async function getExperienceLineManageSummary(
     );
 
     const opened = board.status === "opened";
+    // 개설 기간 판정(SoT = board.canOpen ← cluster4_week_opening_configs). 개설되지 않은 상태(개설 필요)와
+    //   개설 기간이 아님(개설 기간 아님)을 구분한다. opened 는 canOpen 과 독립(과거 개설분은 opened 유지).
+    const canOpen = board.canOpen;
     return {
       teamId: team.id,
       teamName: team.teamName,
       opened,
-      statusLabel: opened ? "개설 완료" : "개설 필요",
+      canOpen,
+      statusLabel: opened ? "개설 완료" : canOpen ? "개설 필요" : "개설 기간 아님",
       // 파트별 [개설 신청] 여부(라이브). 실제 파트 매핑 기준 — 하드코딩 없음.
       parts: board.parts.map((p) => ({
         partName: p.partName,
@@ -353,6 +357,9 @@ export async function getExperienceLineManageSummary(
   });
 
   const openedCount = teams.filter((t) => t.opened).length;
+  // 개설 필요 = 개설 기간이면서 아직 미개설인 팀만(개설 기간 아닌 팀을 개설 필요로 세지 않는다).
+  const neededCount = teams.filter((t) => t.canOpen && !t.opened).length;
+  const notOpenCount = teams.filter((t) => !t.canOpen).length;
   return {
     targetWeek,
     extensionActive,
@@ -360,7 +367,8 @@ export async function getExperienceLineManageSummary(
     totals: {
       teamCount: teams.length,
       openedCount,
-      neededCount: teams.length - openedCount,
+      neededCount,
+      notOpenCount,
     },
     teams,
   };

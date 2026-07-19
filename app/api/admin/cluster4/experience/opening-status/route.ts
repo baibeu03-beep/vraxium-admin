@@ -14,6 +14,13 @@ import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import { listTeams } from "@/lib/adminExperienceLineData";
 import { parseScopeMode } from "@/lib/userScopeShared";
 import { resolveCluster4TestOpenableWeekStartMs } from "@/lib/cluster4TestWeekPolicy";
+import {
+  loadWeekOpeningConfig,
+  type SavedConfig,
+} from "@/lib/adminTeamPartsInfoWeekDetailData";
+import { isExperienceLineOpenForWeek } from "@/lib/weekOpenGate";
+import { EXPERIENCE_LINE_NOT_OPEN_REASON } from "@/lib/experienceLineOpenGate";
+import { isOrganizationSlug } from "@/lib/organizations";
 import type {
   StatusExtension,
   StatusTeam,
@@ -89,34 +96,60 @@ export async function GET(request: NextRequest) {
   const org = request.nextUrl.searchParams.get("organization")?.trim() || null;
   // 팀별 개설 현황(블록3) 팀 목록도 모집단 모드 분기: operating=운영 팀만 / test=(T) 팀만.
   const mode = parseScopeMode(request.nextUrl.searchParams.get("mode"));
+  // 선택 주차(?week_id) — 개설 탭 드롭다운이 고른 주차. 있으면 상태창(targetWeek·teams·extension)이
+  //   그 주차 기준으로 판정한다(화면 단일 SoT = 선택 주차). 없으면 기존 동작(오늘 기준 금요일 경계
+  //   개설 대상 주차 + 테스트 W13 예외). 운영/역량 화면은 미부착이라 회귀 0(byte-identical).
+  const selectedWeekId =
+    request.nextUrl.searchParams.get("week_id")?.trim() || null;
 
   try {
     const todayIso = getCurrentActivityDateIso();
     const currentStartMs = getCurrentWeekStartMs(todayIso);
-    const regularOpenableStartMs = getOpenableWeekStartMs(todayIso);
-    // 테스트 모드 예외(전 조직, 공통 SoT): 휴식 꼬리면 2026 봄 W13 시작 ms, 아니면 정규 대상 그대로.
-    //   운영 모드는 base 그대로(회귀 0). 현재 주차 N(block1)은 불변.
-    const openableStartMs = resolveCluster4TestOpenableWeekStartMs(
-      mode,
-      regularOpenableStartMs,
-      { hub: "experience-line", organization: org },
-    );
-
     const currentInfo =
       currentStartMs != null ? describeWeekByStartMs(currentStartMs) : null;
-    const targetInfo =
-      openableStartMs != null ? describeWeekByStartMs(openableStartMs) : null;
-
     const currentWeek: StatusWeek | null = currentInfo
       ? toStatusWeek(currentInfo)
       : null;
+
+    // ── 대상 주차(targetWeek) 결정 — 상태창 블록2/3·확장 판정의 기준 주차 ──
+    //   선택 주차(selectedWeekId) 있으면: 그 weeks 행(start_date)으로 서술 → 상태창이 선택 주차 기준.
+    //   없으면: 오늘 기준 금요일 경계 개설 대상(테스트 W13 예외 포함) — 기존 동작 그대로(회귀 0).
+    //   ⚠ currentWeek(이번 주 N, block1)은 두 경로 모두 불변 — '오늘' 참조는 선택과 무관하게 유지.
+    let targetWeekStartMs: number | null = null;
+    let targetWeekId: string | null = null;
+    if (selectedWeekId) {
+      const { data: weekRow } = await supabaseAdmin
+        .from("weeks")
+        .select("id,start_date")
+        .eq("id", selectedWeekId)
+        .maybeSingle();
+      const row = weekRow as { id: string; start_date: string } | null;
+      if (row?.start_date) {
+        targetWeekStartMs = toMs(row.start_date);
+        targetWeekId = row.id;
+      }
+    } else {
+      const regularOpenableStartMs = getOpenableWeekStartMs(todayIso);
+      // 테스트 모드 예외(전 조직, 공통 SoT): 휴식 꼬리면 2026 봄 W13 시작 ms, 아니면 정규 대상 그대로.
+      //   운영 모드는 base 그대로(회귀 0).
+      targetWeekStartMs = resolveCluster4TestOpenableWeekStartMs(
+        mode,
+        regularOpenableStartMs,
+        { hub: "experience-line", organization: org },
+      );
+    }
+
+    const targetInfo =
+      targetWeekStartMs != null
+        ? describeWeekByStartMs(targetWeekStartMs)
+        : null;
     const targetWeek: StatusWeek | null = targetInfo
       ? toStatusWeek(targetInfo)
       : null;
 
     // 대상 주차 weeks.id(UUID) — 팀별 개설 라인 조회에 필요.
-    let targetWeekId: string | null = null;
-    if (targetInfo) {
+    //   selectedWeekId 경로는 이미 확보. 정규(오늘 기준) 경로만 iso 로 조회한다.
+    if (!targetWeekId && targetInfo) {
       const { data: weekRow } = await supabaseAdmin
         .from("weeks")
         .select("id")
@@ -159,16 +192,44 @@ export async function GET(request: NextRequest) {
         }
       }
     }
+    // ── 개설 기간 판정(단일 SoT = cluster4_week_opening_configs → isExperienceLineOpenForWeek) ──
+    //   org 지정 시에만 적용(통합=단일 클럽 config 없음 → isOpeningPeriod 미표기, 기존 상태창 동작 유지).
+    //   대상 주차(targetWeekId) 기준. 팀 총괄 board.canOpen·서버 개설 게이트(assertExperienceLineOpenable)와
+    //   동일 함수 → 상태창·버튼·POST 가 같은 개설 기간 판정을 본다.
+    let hubCanOpen = false;
+    let openConfig: SavedConfig | null = null;
+    let openConfirmed = false;
+    const orgSlug = isOrganizationSlug(org) ? org : null;
+    if (orgSlug && targetWeekId) {
+      const loaded = await loadWeekOpeningConfig(targetWeekId, orgSlug);
+      openConfig = loaded.config;
+      openConfirmed = loaded.openConfirmed;
+      hubCanOpen = isExperienceLineOpenForWeek({
+        openConfirmed,
+        config: openConfig,
+        teamId: null,
+      });
+    }
     const teams: StatusTeam[] = teamList.map((tm) => ({
       teamId: tm.id,
       teamName: tm.teamName,
       opened: openedTeamIds.has(tm.id),
+      // org 지정 시에만 개설 기간 판정 부착(통합은 undefined → 기존 '개설 되어야 합니다' 유지).
+      ...(orgSlug && targetWeekId
+        ? {
+            isOpeningPeriod: isExperienceLineOpenForWeek({
+              openConfirmed,
+              config: openConfig,
+              teamId: tm.id,
+            }),
+          }
+        : {}),
     }));
 
     // ── 확장 기간 판정 ──
     // 테이블 미적용(마이그레이션 전)이면 쿼리가 실패할 수 있으므로 fail-closed → kind:"none".
     let extension: StatusExtension = { kind: "none", index: null, total: null };
-    if (targetInfo && openableStartMs != null) {
+    if (targetInfo && targetWeekStartMs != null) {
       try {
         let q = supabaseAdmin
           .from("cluster4_experience_extension_periods")
@@ -195,7 +256,7 @@ export async function GET(request: NextRequest) {
           const { index, total } = computeExtensionIndex(
             matched.start_date,
             matched.end_date,
-            openableStartMs,
+            targetWeekStartMs,
           );
           extension = { kind: matched.extension_kind, index, total };
         }
@@ -212,7 +273,17 @@ export async function GET(request: NextRequest) {
       success: true,
       // targetWeekId = 개설 대상 주차 weeks.id(테스트 W13 예외 반영). 프론트가 개설 주차 기본값으로
       // 직접 사용한다(파트장 입력 그리드 selectedWeekId·드롭다운 표기). null=weeks 행 미존재.
-      data: { currentWeek, targetWeek, targetWeekId, extension, teams },
+      // canOpen = 대상 주차 허브 전체 개설 기간 여부(org 지정 시). openBlockedReason = 차단 사유(canOpen=false).
+      data: {
+        currentWeek,
+        targetWeek,
+        targetWeekId,
+        extension,
+        teams,
+        canOpen: hubCanOpen,
+        openBlockedReason:
+          orgSlug && targetWeekId && !hubCanOpen ? EXPERIENCE_LINE_NOT_OPEN_REASON : null,
+      },
     });
   } catch (error) {
     console.error("[admin/cluster4/experience/opening-status GET]", error);

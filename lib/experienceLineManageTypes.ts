@@ -65,7 +65,10 @@ export type LineManageTeam = {
   teamId: string;
   teamName: string;
   opened: boolean; // 팀 총괄 status === "opened".
-  statusLabel: "개설 완료" | "개설 필요";
+  // 이 주차·팀이 실무 경험 라인 개설 기간인가(SoT = cluster4_week_opening_configs → board.canOpen).
+  //   false 면 개설되지 않은 상태(개설 필요)와 구분해 "개설 기간 아님"으로 표시하고 개설 필요 안내를 하지 않는다.
+  canOpen: boolean;
+  statusLabel: "개설 완료" | "개설 필요" | "개설 기간 아님";
   parts: LineManagePart[];
   headcount: LineManageHeadcount;
   teamLeader: LineManageTeamLeader | null;
@@ -85,6 +88,7 @@ export type ExperienceLineManageSummary = {
   targetWeek: LineManageWeek | null;
   extensionActive: boolean;
   extensionKind: "online" | "offline" | null;
-  totals: { teamCount: number; openedCount: number; neededCount: number };
+  // neededCount = 개설 기간이면서(canOpen) 아직 미개설인 팀 수(개설 필요). notOpenCount = 개설 기간이 아닌 팀 수.
+  totals: { teamCount: number; openedCount: number; neededCount: number; notOpenCount: number };
   teams: LineManageTeam[];
 };

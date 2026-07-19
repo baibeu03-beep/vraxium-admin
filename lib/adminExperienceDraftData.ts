@@ -15,6 +15,7 @@ import {
   outputImageCaptions as toOutputImageCaptions,
 } from "@/lib/cluster4OutputImages";
 import { insertExperienceOpeningLog } from "@/lib/adminExperienceOpeningLogs";
+import { assertExperienceLineOpenable } from "@/lib/experienceLineOpenGate";
 import { resolveUserScope, type ScopeMode } from "@/lib/userScope";
 import {
   collectLineOrgAudience,
@@ -524,6 +525,21 @@ async function openExperienceDraftsImpl(
   const week = weekRow as { id: string; start_date: string; end_date: string };
   const submissionOpensAt = computeSubmissionOpensAt(week.start_date);
   const submissionClosesAt = computeSubmissionClosesAt(week.start_date);
+
+  // 개설 기간 게이트 — 팀 총괄/experience-lines POST 와 동일 SoT(cluster4_week_opening_configs).
+  //   draft 의 (org, team) 조합마다 개설 기간이 아니면 어떤 라인 생성보다 먼저 409. org 미지정 draft 는
+  //   통합 스코프라 게이트 미적용(형제 라우트와 동일 정책 — 단일 클럽 config 없음).
+  const gatedScopes = new Map<string, { org: string; teamId: string | null }>();
+  for (const d of drafts) {
+    if (!d.organization_slug) continue;
+    gatedScopes.set(`${d.organization_slug}::${d.team_id ?? ""}`, {
+      org: d.organization_slug,
+      teamId: d.team_id,
+    });
+  }
+  for (const { org, teamId } of gatedScopes.values()) {
+    await assertExperienceLineOpenable(org, weekId, teamId);
+  }
 
   // 2. (week_id, experience_line_master_id) 기준 그룹핑
   const groups = new Map<string, DraftForOpen[]>();

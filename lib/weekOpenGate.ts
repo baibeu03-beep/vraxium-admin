@@ -64,6 +64,27 @@ export function isInfoLineOpenForWeek(opts: {
   return opts.config?.practicalInfo?.[opts.activityTypeId] === true;
 }
 
+// 실무 경험 라인(팀 단위)이 이번 주 "오픈(개설 대상)" 인가 — 오픈 확인 + practicalExperience[teamId]
+//   중 하나라도 체크(=== true). 실무 정보(isInfoLineOpenForWeek)와 동일한 엄격 규칙:
+//   "설정 없음 / open_confirmed=false = 미오픈"(fallback true 없음). 개설 기간(isOpeningPeriod)의 단일 SoT.
+//   ⚠ 팀 총괄 [개설 완료]는 팀 단위이므로 teamId 로 판정한다. teamId 미지정(허브 전체 상태창)일 때는
+//     어느 팀이든 하나라도 체크돼 있으면 true(허브 단위 개설 기간 판정). mode/actAs/demo 무분기.
+export function isExperienceLineOpenForWeek(opts: {
+  openConfirmed: boolean;
+  config: SavedConfig | null;
+  teamId?: string | null;
+}): boolean {
+  if (!opts.openConfirmed) return false;
+  const exp = opts.config?.practicalExperience;
+  if (!exp) return false;
+  const teamHasAnyChecked = (
+    team: Partial<Record<string, boolean>> | undefined,
+  ): boolean => team != null && Object.values(team).some((v) => v === true);
+  if (opts.teamId != null) return teamHasAnyChecked(exp[opts.teamId]);
+  // 허브 전체 — 어느 팀이든 하나라도 체크되어 있으면 개설 기간.
+  return Object.values(exp).some((team) => teamHasAnyChecked(team));
+}
+
 // 실무 역량 라인이 이번 주 "오픈(개설 대상)" 인가 — 오픈 확인 + practicalCompetency.checked === true.
 //   ⚠ 실무 역량은 라인급 단위가 없어(허브 공유 플래그) 액트 가동(isActOpenForWeek hub="competency")과
 //     "완전히 같은" 단일 SoT(practicalCompetency.checked)를 쓴다 — 프로세스 체크(가동)와 라인 개설(오픈)이

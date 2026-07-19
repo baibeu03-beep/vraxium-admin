@@ -9,6 +9,7 @@ import { assertUserIdsInScope, resolveUserScope, readScopeMode } from "@/lib/use
 import { invalidateWeeklyCardsForLineOpen } from "@/lib/adminCluster4LinesData";
 import { payLineOpenTargetsOnce } from "@/lib/processPointAccrual";
 import { getRegistrationByBridgedMasterId } from "@/lib/lineRegistrationLookup";
+import { assertExperienceLineOpenable } from "@/lib/experienceLineOpenGate";
 import {
   type Cluster4OutputLink,
   outputLinksFromLegacy,
@@ -230,6 +231,23 @@ export async function POST(request: NextRequest) {
         },
         { status: 422 },
       );
+    }
+  }
+
+  // 3) 개설 기간 게이트 — info-lines/competency-lines POST 와 동일 SoT(cluster4_week_opening_configs).
+  //    org 지정 개설만 게이트(통합=단일 클럽 config 없음 → 미적용, 형제 라우트와 동일 정책). 개설 기간이
+  //    아니면 어떤 insert 보다 먼저 409(공식 휴식은 아니지만 오픈 확인 전/미체크 주차 차단).
+  if (scopeOrg) {
+    try {
+      await assertExperienceLineOpenable(scopeOrg, input.week_id, input.team_id);
+    } catch (error) {
+      if ((error as { status?: number })?.status === 409) {
+        return Response.json(
+          { success: false, error: (error as Error).message },
+          { status: 409 },
+        );
+      }
+      throw error;
     }
   }
 

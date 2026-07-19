@@ -165,6 +165,9 @@ export default function ExperiencePartLeadInput({
     partSubmitted: Record<string, boolean>;
     boardStatus: OverallBoardDto["status"];
     allPartsApplied: boolean;
+    // 선택 주차·팀이 실무 경험 라인 개설 기간인가(SoT = team-overall board.canOpen). false 면 개설 신청/완료 차단.
+    canOpen: boolean;
+    openBlockedReason: string | null;
   } | null>(null);
   const [statusKey, setStatusKey] = useState(0);
   // 신청/취소·검수/완료/취소 직후: 상단 상태 재조회(statusKey) + 상위(상태창/로그) 갱신.
@@ -507,6 +510,9 @@ export default function ExperiencePartLeadInput({
             partSubmitted: map,
             boardStatus: b.status,
             allPartsApplied: b.application.allPartsApplied,
+            // fail-closed: 구버전 응답(필드 없음)이면 false → 개설 신청/완료 UI 차단.
+            canOpen: b.canOpen ?? false,
+            openBlockedReason: b.openBlockedReason ?? null,
           });
         } else {
           setOpeningStatus(null);
@@ -557,6 +563,19 @@ export default function ExperiencePartLeadInput({
     },
     [searchParams, pathname, router],
   );
+
+  // 선택 주차를 URL(?week)에 반영 — 형제 상태창(LineOpeningStatusBoard)·로그창(ExperienceOpeningLogPanel)이
+  //   같은 주차를 조회하도록 개설 탭 화면 단일 SoT 를 URL 로 통일한다. 최초 기본 주차(부트에서 결정)도
+  //   이 효과가 URL 에 심어, 진입 직후부터 상태창·로그창이 그리드와 같은 선택 주차를 본다.
+  //   (이전에는 기본 주차가 로컬 state 에만 설정돼 ?week 가 비어, 상태창이 오늘 기준 대상 주차로 어긋났다.)
+  useEffect(() => {
+    if (!selectedWeekId) return;
+    const urlWeek = searchParams?.get("week")?.trim() || "";
+    if (urlWeek === selectedWeekId) return;
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    params.set("week", selectedWeekId);
+    router.replace(`${pathname}?${params.toString()}`);
+  }, [selectedWeekId, searchParams, pathname, router]);
 
   // ── 셀 편집(체크/점수 연동) ──
   const updateCell = useCallback(
@@ -764,6 +783,13 @@ export default function ExperiencePartLeadInput({
   //   ⚠ currentProgress(신청/검수 단계 포함)로 판정하면 팀 총괄을 "선택"만 해도 체크가 붙어 혼동 → 금지.
   //     상단 진행 단계(ExperienceOpeningProgressSteps)는 currentProgress 를 그대로 쓰되, 여기 완료 체크는 분리한다.
   const selectionCompleted = isOverall ? overallCompleted : isPartCompleted(part);
+
+  // 개설 기간 판정(선택 주차·팀) — SoT=openingStatus.canOpen(team-overall board.canOpen ← 주차 운영 설정).
+  //   openingStatus 를 수신했고 canOpen=false 일 때만 "개설 기간 아님"으로 확정 차단한다(로딩/미선택 중
+  //   조기 비활성 방지 — 서버 assertExperienceLineOpenable 이 최종 권위). 공식 휴식(isRest)과 별개 상태.
+  const openPeriodBlocked = openingStatus != null && !openingStatus.canOpen;
+  const openBlockedReason =
+    openingStatus?.openBlockedReason ?? "선택한 주차는 실무 경험 라인의 개설 기간이 아닙니다.";
 
   // 개설 주차 라벨(트리거/옵션 공유) — 공통 Select 로 파트 드롭다운과 동일 높이 규칙(h-9) 적용.
   const renderWeekLabel = useCallback(
@@ -1017,6 +1043,8 @@ export default function ExperiencePartLeadInput({
                 lineOptions={data?.lineOptions ?? EMPTY_PART_INPUT_LINE_OPTIONS}
                 saving={saving}
                 submitted={submitted}
+                openPeriodBlocked={openPeriodBlocked}
+                openBlockedReason={openBlockedReason}
                 onReset={resetLocal}
                 onSubmit={submit}
                 onCancel={cancelSubmission}
@@ -1039,6 +1067,8 @@ function PartGrid({
   lineOptions,
   saving,
   submitted,
+  openPeriodBlocked,
+  openBlockedReason,
   onReset,
   onSubmit,
   onCancel,
@@ -1051,6 +1081,9 @@ function PartGrid({
   lineOptions: PartInputLineOptions;
   saving: boolean;
   submitted: boolean;
+  // 선택 주차·팀이 개설 기간이 아님(SoT=board.canOpen). true 면 [개설 신청] 비활성 + 안내 배너.
+  openPeriodBlocked: boolean;
+  openBlockedReason: string;
   onReset: () => void;
   onSubmit: () => void;
   onCancel: () => void;
@@ -1058,6 +1091,12 @@ function PartGrid({
   const crews = data?.crews ?? [];
   return (
     <div className="space-y-3">
+      {/* 개설 기간 아님(!canOpen) 안내 — 개설되지 않은 상태와 구분. [개설 신청] 비활성(서버 409 게이트와 동일 판정). */}
+      {openPeriodBlocked && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <span className="font-semibold">미오픈</span> · {openBlockedReason}
+        </div>
+      )}
       {/* 데스크톱: [그리드][오른쪽 세로 액션 컬럼] / 모바일: 세로 stack */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
         <div className="min-w-0 flex-1 overflow-x-auto">
@@ -1243,13 +1282,16 @@ function PartGrid({
             className="w-full justify-center"
             onClick={onSubmit}
             loading={saving}
-            // 이미 [개설 신청]된 파트는 재신청 불가(중복 방지) — 수정하려면 [신청 취소] 후 다시 신청.
-            //   서버는 upsert(멱등)라 재요청이 중복 행을 만들지 않지만, UI 에서도 재신청을 막는다.
-            disabled={saving || crews.length === 0 || submitted}
+            // 개설 기간 아님(openPeriodBlocked)·이미 신청(submitted)·대상 0명이면 비활성.
+            //   ⚠ openPeriodBlocked 는 서버 assertExperienceLineOpenable(409)와 동일 판정(UI 우회 대비).
+            //   재신청 방지: 서버는 upsert(멱등)라 중복 행을 만들지 않지만 UI 에서도 재신청을 막는다.
+            disabled={saving || crews.length === 0 || submitted || openPeriodBlocked}
             title={
-              submitted
-                ? "이미 개설 신청이 완료된 파트입니다. 수정하려면 [신청 취소] 후 다시 신청하세요."
-                : undefined
+              openPeriodBlocked
+                ? openBlockedReason
+                : submitted
+                  ? "이미 개설 신청이 완료된 파트입니다. 수정하려면 [신청 취소] 후 다시 신청하세요."
+                  : undefined
             }
           >
             <Send className="mr-1.5 h-4 w-4" />

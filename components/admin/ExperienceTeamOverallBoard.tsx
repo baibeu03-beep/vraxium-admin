@@ -163,6 +163,12 @@ export default function ExperienceTeamOverallBoard({
 
   const opened = board?.status === "opened";
   const extensionActive = board?.extensionActive ?? false;
+  // 개설 기간 판정(단일 SoT = board.canOpen ← cluster4_week_opening_configs). fail-closed:
+  //   board 미수신(null·조회 실패)·구버전 응답(필드 없음)이면 false → 개설 검수/완료 차단(개설 가능으로 오처리 금지).
+  const canOpen = board?.canOpen ?? false;
+  const openBlockedReason =
+    board?.openBlockedReason ??
+    (board ? null : "개설 가능 기간을 확인하지 못했습니다. 다시 시도해 주세요.");
   // 개설 검수 이미 완료(reviewed 또는 opened) — 재실행 방지(멱등 안내).
   const reviewCompleted = board?.status === "reviewed" || board?.status === "opened";
 
@@ -176,8 +182,9 @@ export default function ExperienceTeamOverallBoard({
     [board],
   );
   const allPartsApplied = application?.allPartsApplied ?? false;
-  // 버튼 비활성(시각) 기준 — 개설완료·검수완료·미신청/대상0(=!allPartsApplied) 중 하나라도면 disabled.
-  const reviewBlocked = opened || reviewCompleted || !allPartsApplied;
+  // 버튼 비활성(시각) 기준 — 개설 기간 아님(!canOpen)·개설완료·검수완료·미신청/대상0 중 하나라도면 disabled.
+  //   ⚠ !canOpen 을 최우선으로 둔다(개설 기간이 아니면 검수/완료 모두 불가) — 서버 409 게이트와 동일 판정.
+  const reviewBlocked = !canOpen || opened || reviewCompleted || !allPartsApplied;
 
   // 미개설(=[개설 신청] 미완료) 파트 집합 — 공통 SoT(board.parts[].submitted)로만 판정.
   //   파트명 문자열이 아니라 DTO 의 파트별 submitted 플래그 기준(개설된 파트=활성 유지, 미개설=행 시각 비활성).
@@ -201,6 +208,13 @@ export default function ExperienceTeamOverallBoard({
       for (const crew of part.crews) {
         for (const cat of OVERALL_LEADER_CATEGORIES) {
           lc.set(leaderKey(crew.userId, cat), { ...crew.cells[cat] });
+        }
+        // 파트장은 도출/분석/견문 점수도 [개설 검수]에서 직접 편집한다(일반/에이전트는 개설 신청 셀
+        //   SoT 라 읽기전용). 저장된/기본 셀을 로컬 편집 state 로 흡수해 라운드트립을 보존한다.
+        if (crew.isPartLeader) {
+          for (const cat of OVERALL_PART_CATEGORIES) {
+            lc.set(leaderKey(crew.userId, cat), { ...crew.cells[cat] });
+          }
         }
         // 선택 라인 — 5카테고리 전부 초기화(도출/분석/견문=파트 셀, 관리/확장=팀장 셀 미러).
         for (const cat of EXPERIENCE_OVERALL_CATEGORIES) {
@@ -359,14 +373,21 @@ export default function ExperienceTeamOverallBoard({
       return { category: c.key, link: o.link, description: o.description, imageUrl: o.imageUrl, imageDescription: o.imageDescription };
     });
     // 도출/분석/견문 라인명 편집값 — 파트 카테고리 전 크루. 서버가 보이드/유형 검증·null 정규화.
+    //   파트장은 점수/체크를 검수 화면에서 직접 선택하므로 함께 실어 보낸다(서버가 파트장만 반영).
     const lineSels: OverallLineSelectionDto[] = [];
     for (const crew of allCrews) {
       for (const cat of OVERALL_PART_CATEGORIES) {
-        lineSels.push({
+        const sel: OverallLineSelectionDto = {
           crewUserId: crew.userId,
           lineType: cat as ExperiencePartLineType,
           selectedLineId: getLineSel(crew.userId, cat),
-        });
+        };
+        if (crew.isPartLeader) {
+          const lc = getLeaderCell(crew.userId, cat);
+          sel.checked = lc.checked;
+          sel.score = lc.score;
+        }
+        lineSels.push(sel);
       }
     }
     return { cells, outs, lineSels };
@@ -433,6 +454,10 @@ export default function ExperienceTeamOverallBoard({
   //   키보드/직접 이벤트 호출도 이 라우터를 통과해야 하며, 최종 방어선은 서버 가드(409/422/403).
   const handleReviewClick = useCallback(() => {
     if (saving) return;
+    if (!canOpen) {
+      toast("warning", openBlockedReason ?? "선택한 주차는 실무 경험 라인의 개설 기간이 아닙니다.");
+      return;
+    }
     if (opened) {
       toast("warning", "이미 개설 완료된 상태입니다. [개설 취소] 후 다시 검수할 수 있습니다.");
       return;
@@ -456,7 +481,7 @@ export default function ExperienceTeamOverallBoard({
       return;
     }
     void onReview();
-  }, [saving, opened, reviewCompleted, application, allPartsApplied, onReview, toast]);
+  }, [saving, canOpen, openBlockedReason, opened, reviewCompleted, application, allPartsApplied, onReview, toast]);
 
   const onReset = useCallback(() => {
     // DB 통신 없음 — 프론트 화면 입력값만 기본값으로 복원.
@@ -465,6 +490,13 @@ export default function ExperienceTeamOverallBoard({
     for (const crew of allCrews) {
       for (const cat of OVERALL_LEADER_CATEGORIES) {
         lc.set(leaderKey(crew.userId, cat), { ...OVERALL_CELL_DEFAULT });
+      }
+      // 파트장 도출/분석/견문 점수는 라인명과 함께 로드된 값(미러)으로 되돌린다 — 저장된 파트장
+      //   점수를 프론트 초기화가 임의로 기본값(7)으로 덮어써 유실하지 않도록(라인명과 동일 처리).
+      if (crew.isPartLeader) {
+        for (const cat of OVERALL_PART_CATEGORIES) {
+          lc.set(leaderKey(crew.userId, cat), { ...crew.cells[cat] });
+        }
       }
       // 라인명은 5카테고리 전부 로드된 값(미러)으로 되돌린다 — 선택 유실 방지.
       for (const cat of EXPERIENCE_OVERALL_CATEGORIES) {
@@ -478,6 +510,11 @@ export default function ExperienceTeamOverallBoard({
   }, [allCrews, toast]);
 
   const onOpen = useCallback(async () => {
+    // 개설 기간 게이트(프론트 1차) — 서버 openTeamOverall 이 동일 판정으로 409 재검증한다(UI 우회 대비).
+    if (!canOpen) {
+      toast("warning", openBlockedReason ?? "선택한 주차는 실무 경험 라인의 개설 기간이 아닙니다.");
+      return;
+    }
     if (
       !(await adminDialog.confirm({
         title: "개설 완료",
@@ -516,7 +553,7 @@ export default function ExperienceTeamOverallBoard({
       dismissToast(progressToastId);
       setSaving(false);
     }
-  }, [post, fetchBoard, onActivity, toast, showLoadingToast, dismissToast]);
+  }, [canOpen, openBlockedReason, post, fetchBoard, onActivity, toast, showLoadingToast, dismissToast]);
 
   const onCancel = useCallback(async () => {
     if (
@@ -552,15 +589,25 @@ export default function ExperienceTeamOverallBoard({
     return <LoadingState active />;
   }
   if (!board) {
+    // fail-closed: 보드(개설 기간 판정 포함) 조회 실패 시 개설 UI 자체를 렌더하지 않는다.
+    //   개설 검수/완료 버튼이 없으므로 개설 불가 기간이 '개설 가능'으로 표시되는 일이 없다.
     return (
       <p className="py-8 text-center text-sm text-muted-foreground">
-        팀 총괄 데이터를 불러올 수 없습니다.
+        개설 가능 기간을 확인하지 못했습니다. 다시 시도해 주세요.
       </p>
     );
   }
 
   return (
     <div className="space-y-4">
+      {/* 개설 기간 아님(!canOpen) 안내 — 개설되지 않은 상태(needs-opening)와 명확히 구분한다.
+          이 주차·팀이 실무 경험 라인의 개설 기간이 아님(cluster4_week_opening_configs SoT). 개설 검수/완료 비활성. */}
+      {!canOpen && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <span className="font-semibold">미오픈</span> ·{" "}
+          {openBlockedReason ?? "선택한 주차는 실무 경험 라인의 개설 기간이 아닙니다."}
+        </div>
+      )}
       {/* 상태 헤더 */}
       <div className="flex flex-wrap items-center gap-2 text-sm">
         {/* 확장 주간일 때만 안내(확장 비활성 배지는 노이즈라 제거 — 대체 문구/placeholder 없음). */}
@@ -677,10 +724,73 @@ export default function ExperienceTeamOverallBoard({
                       c.key,
                     );
                     if (!isLeader) {
+                      const partLineType = c.key as ExperiencePartLineType;
+                      // 파트장 — 도출/분석/견문 점수를 직접 선택(입력 경로가 여기뿐). 일반/에이전트는 개설
+                      //   신청 셀 SoT 라 아래 읽기전용 배지 유지. 체크박스+점수 select 컴포넌트·허용 점수
+                      //   (1~10)·보이드 규칙은 관리/확장 leader 셀과 동일 — 파트장 전용 임의 UI/기본값 없음.
+                      if (crew.isPartLeader) {
+                        const cell = getLeaderCell(crew.userId, c.key);
+                        const fail = isOverallCellFail(cell);
+                        // 개설완료·저장중·미개설 파트면 잠금(검수 진행 중 입력 차단 = saving).
+                        const disabled = opened || saving || partInactive;
+                        // 라인명은 체크&1점 이상에서만 편집(0점/미체크=강화 실패 → '-'). 로컬 편집 셀 기준.
+                        const lineDisabled = disabled || !cell.checked || cell.score < 1;
+                        return (
+                          <TableCell key={c.key} className="text-center align-top">
+                            <div className="flex flex-col items-center">
+                              {/* 1단: 체크박스+점수 박스(공통 높이 슬롯) — leader 셀과 동일 구조. */}
+                              <div className={OVERALL_CELL_TOP_SLOT_CLASS}>
+                                <div
+                                  className={cn(
+                                    "inline-flex items-center gap-2 rounded-md border px-2 py-1.5",
+                                    fail ? "border-red-400 bg-red-50" : "border-input bg-background",
+                                    checkedRowClass(cell.checked && !fail),
+                                  )}
+                                >
+                                  <Checkbox
+                                    checked={cell.checked}
+                                    disabled={disabled}
+                                    onChange={() => toggleLeaderCheck(crew.userId, c.key)}
+                                    aria-label={`${crew.displayName} ${c.label} 체크`}
+                                  />
+                                  <select
+                                    className="rounded border border-input bg-background px-1.5 py-0.5 text-sm disabled:opacity-60"
+                                    // 점수는 1~10만 유효. 미체크(=미평가)면 '-'(0='0점'과 혼동 방지).
+                                    value={cell.checked && cell.score >= 1 ? String(cell.score) : ""}
+                                    disabled={disabled}
+                                    onChange={(e) =>
+                                      setLeaderScore(crew.userId, c.key, Number(e.target.value))
+                                    }
+                                    aria-label={`${crew.displayName} ${c.label} 점수`}
+                                  >
+                                    <option value="" disabled>
+                                      -
+                                    </option>
+                                    {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                                      <option key={n} value={n}>
+                                        {n}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </div>
+                              {/* 2단: 라인명 드롭다운 — 검수 편집(파트 신청 셀 SoT 로 write-back). */}
+                              <div className={OVERALL_CELL_LINE_SLOT_CLASS}>
+                                <ExperienceLineSelect
+                                  value={getLineSel(crew.userId, c.key)}
+                                  options={lineOptions[partLineType]}
+                                  onChange={(id) => setLineSel(crew.userId, c.key, id)}
+                                  disabled={lineDisabled}
+                                  ariaLabel={`${crew.displayName} ${c.label} 라인명`}
+                                />
+                              </div>
+                            </div>
+                          </TableCell>
+                        );
+                      }
                       // 도출/분석/견문 — 체크/점수는 파트신청 라이브(읽기 전용), 라인명은 검수에서 편집.
                       const cell = crew.cells[c.key];
                       const fail = isOverallCellFail(cell);
-                      const partLineType = c.key as ExperiencePartLineType;
                       // 라인명은 체크&1점 이상에서만 편집(0점/미체크=강화 실패 → '-'). 미개설/개설완료도 잠금.
                       const lineDisabled =
                         opened ||
@@ -996,13 +1106,17 @@ export default function ExperienceTeamOverallBoard({
                 className="min-w-0 flex-1 justify-center"
                 onClick={onOpen}
                 loading={saving}
-                disabled={saving || opened}
+                // 개설 기간 아님(!canOpen)이면 팀장이라도 비활성 — 서버 409 게이트와 동일 판정(개설되지 않은
+                //   상태와 개설 불가 기간을 구분). opened(이미 완료)도 비활성.
+                disabled={saving || opened || !canOpen}
                 title={
-                  opened
-                    ? "이미 개설 완료됨 — 수정하려면 [개설 취소] 후 진행하세요."
-                    : board.status !== "reviewed"
-                      ? "권장 순서는 에이전트 [개설 검수] 후이지만, 팀장은 바로 개설 완료할 수 있습니다."
-                      : undefined
+                  !canOpen
+                    ? openBlockedReason ?? "선택한 주차는 실무 경험 라인의 개설 기간이 아닙니다."
+                    : opened
+                      ? "이미 개설 완료됨 — 수정하려면 [개설 취소] 후 진행하세요."
+                      : board.status !== "reviewed"
+                        ? "권장 순서는 에이전트 [개설 검수] 후이지만, 팀장은 바로 개설 완료할 수 있습니다."
+                        : undefined
                 }
               >
                 <CheckCircle2 className="mr-1.5 h-4 w-4" /> 개설 완료
