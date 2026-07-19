@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 import {
   Card,
@@ -165,6 +165,7 @@ export default function TeamPartsInfoWeeksManager({
   detailBasePath?: string;
 } = {}) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const mode = readScopeMode(searchParams);
   // 통합/개별 판정 SoT = URL 의 유효한 org 유무. ?org 있으면 개별(scoped)로 자동 진입 —
@@ -184,9 +185,19 @@ export default function TeamPartsInfoWeeksManager({
     allowedOrgs.length === 0 ||
     (scoped && scopedOrg != null && !allowedOrgs.includes(scopedOrg));
 
-  const [activeTab, setActiveTab] = useState<TabKey>(
-    () => allowedOrgs[0] ?? "integrated",
-  );
+  // 조직 탭 SoT = URL ?club (통합 모드). 유효하고 허용된 club 이면 그 탭, 없거나 무효면 기본 탭으로
+  //   fallback 한다 — React state 가 아니라 URL 이라, 직접 접속·새로고침·브라우저 뒤로가기 모두에서
+  //   선택 조직 탭이 복원된다. (특정 org 하드코딩 없음 · integrated 포함.)
+  const clubParam = searchParams.get("club")?.trim() ?? "";
+  const requestedTab: TabKey | null = isOrganizationSlug(clubParam)
+    ? clubParam
+    : clubParam === "integrated"
+      ? "integrated"
+      : null;
+  const activeTab: TabKey =
+    requestedTab && visibleTabs.includes(requestedTab)
+      ? requestedTab
+      : (allowedOrgs[0] ?? "integrated");
   const [page, setPage] = useState(1);
   // 서버사이드 정렬 상태(전체 목록 기준). null = 기본순(최신 주차 최상단).
   const [sort, setSort] = useState<WeeksSort | null>(null);
@@ -245,7 +256,12 @@ export default function TeamPartsInfoWeeksManager({
   }, [effectiveTab, page, sort, isIntegrated, scopedMissing, noAccess, load]);
 
   const onTabChange = (tab: TabKey) => {
-    setActiveTab(tab);
+    // URL ?club 을 SoT 로 갱신 — 기존 query(mode/org/기타)는 URLSearchParams 병합으로 보존한다.
+    //   replace = 탭 전환마다 히스토리 항목을 쌓지 않되, 현재 목록 항목에 club 을 남겨 상세 → 뒤로가기
+    //   시 그대로 복원되게 한다. 특정 org 문자열 분기 없음.
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("club", tab);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
     setPage(1);
   };
 

@@ -1060,10 +1060,14 @@ export default function TeamPartsInfoWeekDetailManager({
   const [lineError, setLineError] = useState<string | null>(null);
 
   // 뒤로가기(← 주차 내역)는 진입 컨텍스트를 그대로 보존한다: 개별(?org)이면 ?org 유지(사이드바
-  //   [개별] 유지), 통합(?org 없음)이면 org 없는 통합 목록으로. club(?club) 로 ?org 를 만들면
-  //   통합 상세에서 개별로 새는 문제가 생기므로 orgFocus 를 SoT 로 쓴다.
+  //   [개별] 유지), 통합(?org 없음)이면 진입 시 선택한 클럽 탭(?club)을 유지한다. ?club 은 목록의
+  //   조직 탭 SoT 일 뿐 scoped(개별) 판정은 ?org 로만 하므로 통합→개별 누수는 없다(orgFocus 미사용).
   const listHref = appendModeQuery(
-    isIndividual ? `${listHrefBase}?org=${orgFocus}` : listHrefBase,
+    isIndividual
+      ? `${listHrefBase}?org=${orgFocus}`
+      : club
+        ? `${listHrefBase}?club=${club}`
+        : listHrefBase,
     mode,
   );
 
