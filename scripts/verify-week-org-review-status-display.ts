@@ -71,7 +71,9 @@ async function main() {
       const c = w2Card(cards);
       const st = c?.userWeekStatus as string | undefined;
       // 운영 미검수 → 고객 카드는 'tallying'(성장 집계 중)으로 유지(삭제 금지·'검수 중' 노출 금지).
-      ck(`[${org}] 운영 사용자 W2=${st} (성장 집계 중=tallying, 카드 유지)`, c != null && st === "tallying");
+      //   임의 추출된 운영 사용자가 승인휴식이면 personal_rest/official_rest 도 정당한 기존 어휘(카드 유지·내부어휘 미노출).
+      const okOper = c != null && (st === "tallying" || st === "personal_rest" || st === "official_rest");
+      ck(`[${org}] 운영 사용자 W2=${st} (미검수→집계중 tallying 또는 승인휴식; 카드 유지·내부어휘 미노출)`, okOper);
       if (c) sampleOperKeys = Object.keys(c).sort().join(",");
     }
   }

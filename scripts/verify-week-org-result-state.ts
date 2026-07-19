@@ -22,8 +22,9 @@ function verify(label: string, published: Org[], expected: Record<Org, string>) 
   console.log(`PASS ${label}`, actual);
 }
 
-verify("phalanx only", ["phalanx"], { phalanx: "success", oranke: "aggregating", encre: "aggregating" });
-verify("phalanx + oranke", ["phalanx", "oranke"], { phalanx: "success", oranke: "fail", encre: "aggregating" });
+// 미공표(org=aggregating) → 고객 카드는 내부어휘(aggregating/reviewing) 미노출, 기존 'tallying'(성장 집계 중)으로 매핑.
+verify("phalanx only", ["phalanx"], { phalanx: "success", oranke: "tallying", encre: "tallying" });
+verify("phalanx + oranke", ["phalanx", "oranke"], { phalanx: "success", oranke: "fail", encre: "tallying" });
 verify("all", ["phalanx", "oranke", "encre"], { phalanx: "success", oranke: "fail", encre: "success" });
 
 const mismatch = resolveWeekResultStatus({
@@ -31,7 +32,8 @@ const mismatch = resolveWeekResultStatus({
   organizationReviewStatus: "published", weekIsOfficialRest: false,
   experienceVerdictStatus: null,
 });
-if (mismatch.status !== "reviewing" || mismatch.inconsistency !== "published_without_uws") {
+// 공표됐으나 그 사용자 uws 부재 = 데이터 불일치: 카드 드롭 없이 'tallying'으로 유지하고 inconsistency 만 기록(어휘 미노출).
+if (mismatch.status !== "tallying" || mismatch.inconsistency !== "published_without_uws") {
   throw new Error(`published-without-UWS invariant failed: ${JSON.stringify(mismatch)}`);
 }
-console.log("PASS published without UWS remains a reviewing card", mismatch);
+console.log("PASS published without UWS remains a tallying card + inconsistency flag", mismatch);
