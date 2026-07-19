@@ -71,7 +71,7 @@ type IrregularSortKey =
   | "pointB"
   | "pointC"
   | "createdAt"
-  | "scheduledCheckAt"
+  | "completedAt"
   | "status";
 type IrregularSortDir = "asc" | "desc";
 type IrregularSortType = "string" | "number" | "date" | "status";
@@ -93,7 +93,8 @@ const IRREGULAR_SORT_META: Record<
   pointB: { type: "number", get: (a) => a.pointB },
   pointC: { type: "number", get: (a) => a.pointC },
   createdAt: { type: "date", get: (a) => a.createdAt },
-  scheduledCheckAt: { type: "date", get: (a) => a.scheduledCheckAt },
+  // 검수 시점(실제) = 실제 검수가 완료된 서버 시각(completed_at). 예정값(scheduled_check_at) 아님.
+  completedAt: { type: "date", get: (a) => a.completedAt },
   status: { type: "status", get: (a) => a.status },
 };
 
@@ -516,7 +517,7 @@ export default function ProcessIrregularManager() {
                     <HeadCell label="po B" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnPoB} {...headSort("pointB")} />
                     <HeadCell label="po C" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnPoC} {...headSort("pointC")} />
                     <HeadCell label="신청 시점(실제)" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnApplyTimeActual} {...headSort("createdAt")} />
-                    <HeadCell label="검수 시점(실제)" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnReviewTimeActual} {...headSort("scheduledCheckAt")} />
+                    <HeadCell label="검수 시점(실제)" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnReviewTimeActual} {...headSort("completedAt")} />
                     <HeadCell label="체크 상태" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnStatus} {...headSort("status")} />
                     {/* 즉시 검수 = 액션 컬럼(정렬 제외) — 도움말만. */}
                     <HeadCell
@@ -715,8 +716,10 @@ function IrregularRow({
       <TableCell className="whitespace-nowrap text-muted-foreground">
         {act.createdAt ? formatCheckDateTimeKo(act.createdAt) : "—"}
       </TableCell>
+      {/* 검수 시점(실제) = 실제 검수 완료 서버 시각(completed_at). 미완료면 "—"
+          (예정 시각 scheduled_check_at 을 실제로 위장 표시하지 않는다). */}
       <TableCell className="whitespace-nowrap text-muted-foreground">
-        {act.scheduledCheckAt ? formatCheckDateTimeKo(act.scheduledCheckAt) : "—"}
+        {act.completedAt ? formatCheckDateTimeKo(act.completedAt) : "—"}
       </TableCell>
       <TableCell className="text-center">
         {/* 상태 배지 클릭 → 상세 모달(체크 취소/삭제·검수 링크는 모달 내). */}

@@ -47,7 +47,7 @@ type ActSortKey =
   | "kind"
   | "cafeLabel"
   | "requestedAt"
-  | "scheduledCheckAt"
+  | "completedAt"
   | "status";
 type ActSortDir = "asc" | "desc";
 type ActSortType = "string" | "number" | "date" | "status";
@@ -71,7 +71,8 @@ const ACT_SORT_META: Record<
   kind: { type: "string", get: (a) => a.crewReactionLabel },
   cafeLabel: { type: "string", get: (a) => a.cafeLabel },
   requestedAt: { type: "date", get: (a) => a.requestedAt },
-  scheduledCheckAt: { type: "date", get: (a) => a.scheduledCheckAt },
+  // 검수 시점(실제) = 실제 검수가 완료된 서버 시각(completed_at). 예정값(scheduled_check_at) 아님.
+  completedAt: { type: "date", get: (a) => a.completedAt },
   status: { type: "status", get: (a) => a.status },
 };
 
@@ -325,7 +326,7 @@ export default function ProcessCheckActTable({
                   {renderHead({
                     label: "검수 시점(실제)",
                     helpKey: "admin.processCheck.actTable.column.reviewTimeActual",
-                    sortKey: "scheduledCheckAt",
+                    sortKey: "completedAt",
                   })}
                 </TableRow>
               </TableHeader>
@@ -448,8 +449,10 @@ export default function ProcessCheckActTable({
                     <TableCell className="whitespace-nowrap text-muted-foreground">
                       {a.requestedAt ? formatCheckDateTimeKo(a.requestedAt) : "—"}
                     </TableCell>
+                    {/* 검수 시점(실제) = 실제 검수 완료 서버 시각(completed_at). 미완료면 "—"
+                        (예정 시각 scheduled_check_at 을 실제로 위장 표시하지 않는다). */}
                     <TableCell className="whitespace-nowrap text-muted-foreground">
-                      {a.scheduledCheckAt ? formatCheckDateTimeKo(a.scheduledCheckAt) : "—"}
+                      {a.completedAt ? formatCheckDateTimeKo(a.completedAt) : "—"}
                     </TableCell>
                   </TableRow>
                 ))}
