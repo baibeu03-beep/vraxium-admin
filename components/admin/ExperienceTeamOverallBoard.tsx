@@ -139,7 +139,7 @@ export default function ExperienceTeamOverallBoard({
   useReportLoading(loading);
   const [saving, setSaving] = useState(false);
   // 검수 차단(미신청 파트 등) 안내는 화면 하단 고정 Toast(<ToastViewport /> · Layout)로 표시.
-  const { toast } = useToast();
+  const { toast, loading: showLoadingToast, dismiss: dismissToast } = useToast();
   const t = useActionToast();
 
   // 팀장 직접 입력(관리/확장) 로컬 편집값.
@@ -487,6 +487,12 @@ export default function ExperienceTeamOverallBoard({
     )
       return;
     setSaving(true);
+    // 실제 개설은 대상 인원 수에 따라 오래 걸릴 수 있으므로, 요청을 시작하기 직전에
+    // 진행 중(로딩) 토스트를 먼저 띄운다. 요청 완료(성공/실패) 시 finally 에서 정리한다.
+    // ⚠ UI 피드백 전용 — payload/API/DTO/서버 처리(post("open"))는 일절 변경하지 않는다.
+    const progressToastId = showLoadingToast(
+      "라인 개설을 처리하고 있습니다. 대상 인원에 따라 완료까지 다소 시간이 걸릴 수 있으니 잠시만 기다려 주세요.",
+    );
     try {
       const json = await post("open");
       if (!json?.success) {
@@ -507,9 +513,10 @@ export default function ExperienceTeamOverallBoard({
     } catch {
       toast("error", "개설 완료 중 오류가 발생했습니다");
     } finally {
+      dismissToast(progressToastId);
       setSaving(false);
     }
-  }, [post, fetchBoard, onActivity, toast]);
+  }, [post, fetchBoard, onActivity, toast, showLoadingToast, dismissToast]);
 
   const onCancel = useCallback(async () => {
     if (
