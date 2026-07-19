@@ -42,9 +42,29 @@ import {
   hasOpenedApplications,
   openApprovedApplications,
 } from "@/lib/adminCompetencyApplications";
+import { loadWeekOpeningConfig } from "@/lib/adminTeamPartsInfoWeekDetailData";
+import { isCompetencyLineOpenForWeek } from "@/lib/weekOpenGate";
 import type { OrganizationSlug } from "@/lib/organizations";
 import type { ScopeMode } from "@/lib/userScopeShared";
 import type { StatusWeek } from "@/lib/lineOpeningStatusEngine";
+
+// 실무 역량이 그 주차에 "정상 진행"(practicalCompetency.checked===true)으로 설정되지 않아 개설을
+//   거부할 때의 사유 문구. API(409)·상태창 DTO(openBlockedReason)·UI 차단 패널이 같은 문장을 쓴다.
+export const COMPETENCY_LINE_NOT_NORMAL_REASON =
+  "해당 주차에는 실무 역량이 정상 진행으로 설정되어 있지 않아 라인을 개설할 수 없습니다.";
+
+// 실무 역량 라인 개설 오픈 게이트(단일 SoT) — targetWeekId+org 의 주차 운영 설정에서
+//   open_confirmed && practicalCompetency.checked===true 일 때만 개설 허용.
+//   프로세스 체크(isActOpenForWeek hub="competency")와 완전히 같은 플래그를 본다.
+//   org 미지정(통합)은 단일 클럽 config 가 없어 개설 대상이 아니므로 false(개설은 항상 org 필요).
+async function resolveCompetencyLineOpenGate(
+  org: OrganizationSlug | null,
+  targetWeekId: string | null,
+): Promise<boolean> {
+  if (!org || !targetWeekId) return false;
+  const { config, openConfirmed } = await loadWeekOpeningConfig(targetWeekId, org);
+  return isCompetencyLineOpenForWeek({ openConfirmed, config });
+}
 
 type WeekInfo = NonNullable<ReturnType<typeof describeWeekByStartMs>>;
 
@@ -328,6 +348,11 @@ export type CompetencyOpeningStatus = {
   currentWeek: StatusWeek | null;
   targetWeek: StatusWeek | null;
   opened: boolean;
+  // 이번 개설 대상 주차에 "실무 역량 정상 진행" 이 설정되어 라인을 개설할 수 있는가(단일 SoT 게이트).
+  //   프로세스 체크 가동 판정과 동일 플래그(practicalCompetency.checked). false 면 개설 UI/API 모두 차단.
+  canOpen: boolean;
+  // canOpen=false 일 때 사유(개설 차단 패널 문구). true 면 null.
+  openBlockedReason: string | null;
   // 폼 prefill — 현재 적용된 주차 공통 아웃풋(링크/설명). 미적용/미저장 시 빈 문자열.
   outputLink1: string;
   outputDescription: string;
@@ -346,19 +371,30 @@ export async function getCompetencyOpeningStatus(
     org,
   );
   let opened = false;
+  let canOpen = false;
   let outputLink1 = "";
   let outputDescription = "";
   if (org && targetWeekId) {
     const lines = await loadOrgCompetencyLines(org, targetWeekId);
     // opened = 활성 org 라인 ≥1 OR 신청 명단 기반 개설(resolution='opened') ≥1.
     opened = lines.some((l) => l.isActive) || (await hasOpenedApplications(org, targetWeekId));
+    // 개설 가능 여부 = 그 주차 실무 역량 정상 진행 설정(프로세스 체크와 동일 SoT).
+    canOpen = await resolveCompetencyLineOpenGate(org, targetWeekId);
     const wo = await loadWeekOutput(org, targetWeekId);
     if (wo) {
       outputLink1 = wo.outputLink1 ?? "";
       outputDescription = wo.description ?? "";
     }
   }
-  return { currentWeek, targetWeek, opened, outputLink1, outputDescription };
+  return {
+    currentWeek,
+    targetWeek,
+    opened,
+    canOpen,
+    openBlockedReason: canOpen ? null : COMPETENCY_LINE_NOT_NORMAL_REASON,
+    outputLink1,
+    outputDescription,
+  };
 }
 
 export type CompetencyOpeningActionResult = {
@@ -401,6 +437,15 @@ async function openCompetencyHubImpl(input: {
     throw Object.assign(new Error("개설 대상 주차 정보를 확인할 수 없습니다"), { status: 400 });
   }
   const org = input.organization;
+
+  // ── 라인 개설 오픈 게이트(강제) — 프로세스 체크와 동일 SoT ────────────────────────
+  //   그 주차 실무 역량이 "정상 진행"(open_confirmed && practicalCompetency.checked===true)이 아니면
+  //   어떤 write(토글/신청 반영)보다 먼저 409 로 중단한다. URL/HTTP 직접 호출로도 우회 불가(서버 강제).
+  //   개설 취소(cancelCompetencyHub)는 게이트하지 않는다 — 잘못 개설된 라인 원복은 항상 허용.
+  if (!(await resolveCompetencyLineOpenGate(org, targetWeekId))) {
+    throw Object.assign(new Error(COMPETENCY_LINE_NOT_NORMAL_REASON), { status: 409 });
+  }
+
   const link = (input.outputLink1 ?? "").trim() || null;
   const desc = (input.description ?? "").trim() || null;
 

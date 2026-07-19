@@ -30,6 +30,9 @@ import {
   type Cluster4OutputImage,
   parseOutputImagesInput,
 } from "@/lib/cluster4OutputImages";
+import { loadWeekOpeningConfig } from "@/lib/adminTeamPartsInfoWeekDetailData";
+import { isCompetencyLineOpenForWeek } from "@/lib/weekOpenGate";
+import { COMPETENCY_LINE_NOT_NORMAL_REASON } from "@/lib/adminCompetencyLineOpening";
 
 type CompetencyLineCreateBody = {
   competency_line_master_id: string;
@@ -356,6 +359,20 @@ export async function POST(request: NextRequest) {
       weekRowId = (weekRow as { id: string }).id;
       submissionOpensAt = week.submissionOpensAt;
       submissionClosesAt = week.submissionClosesAt;
+    }
+
+    // ── 라인 개설 오픈 게이트(강제) — 프로세스 체크·개설 대시보드와 동일 SoT ───────────────
+    //   org-scoped 개설에만 적용(통합=단일 config 없음). 그 주차 실무 역량이 "정상 진행"
+    //   (open_confirmed && practicalCompetency.checked===true)이 아니면 라인 생성 전 409 로 중단.
+    //   URL/HTTP 직접 호출로도 우회 불가(서버 강제). isCompetencyLineOpenForWeek 공용 함수.
+    if (scopeOrg) {
+      const { config: openCfg, openConfirmed } = await loadWeekOpeningConfig(weekRowId, scopeOrg);
+      if (!isCompetencyLineOpenForWeek({ openConfirmed, config: openCfg })) {
+        return Response.json(
+          { success: false, error: COMPETENCY_LINE_NOT_NORMAL_REASON },
+          { status: 409 },
+        );
+      }
     }
 
     // 2. Lookup line_code + main_title — (2E-3) line_registrations(bridged 역참조) 우선,

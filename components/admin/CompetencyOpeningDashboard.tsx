@@ -65,6 +65,8 @@ export default function CompetencyOpeningDashboard() {
   // 운영/테스트 모드 — 개설 완료 시 라인 타깃 생성 가드(서버)와 같은 모드로 판정되도록 보존.
 
   const [opened, setOpened] = useState<boolean | null>(null);
+  // 개설 가능 여부(그 주차 실무 역량 정상 진행 설정) — 프로세스 체크와 동일 SoT. false 면 "미오픈"(개설 차단).
+  const [canOpen, setCanOpen] = useState<boolean>(false);
   const [loadingStatus, setLoadingStatus] = useState(true);
   useReportLoading(loadingStatus);
   const [acting, setActing] = useState(false);
@@ -133,6 +135,7 @@ export default function CompetencyOpeningDashboard() {
       const json = await res.json();
       if (json?.success) {
         setOpened(Boolean(json.data?.opened));
+        setCanOpen(Boolean(json.data?.canOpen));
         setTargetStartDate(json.data?.targetWeek?.startDate ?? null);
         // 현재 적용된 공통 아웃풋으로 입력칸 prefill(개설 완료/취소 직후 동기화).
         const link = json.data?.outputLink1 ?? "";
@@ -144,9 +147,11 @@ export default function CompetencyOpeningDashboard() {
         setInitialDesc(desc);
       } else {
         setOpened(null);
+        setCanOpen(false);
       }
     } catch {
       setOpened(null);
+      setCanOpen(false);
     } finally {
       setLoadingStatus(false);
     }
@@ -203,6 +208,12 @@ export default function CompetencyOpeningDashboard() {
     async (action: "open" | "cancel") => {
       if (!org) {
         toast("error", "클럽(?org)이 지정되지 않았습니다");
+        return;
+      }
+      // 개설(open)은 그 주차 실무 역량 정상 진행 설정이 있어야만 허용 — 서버(409)와 동일 게이트를
+      //   클라에서도 선차단(취소는 원복이라 게이트 없음). URL 조작 등으로 버튼이 눌려도 여기서 막힘.
+      if (action === "open" && !canOpen) {
+        toast("error", "미오픈 — 활동 관리에서 ‘정상 진행’으로 설정한 뒤 개설할 수 있습니다.");
         return;
       }
       if (action === "open") {
@@ -273,7 +284,7 @@ export default function CompetencyOpeningDashboard() {
         setActing(false);
       }
     },
-    [org, linkUrl, linkDesc, fetchStatus, openTargetWeek, toast],
+    [org, linkUrl, linkDesc, fetchStatus, openTargetWeek, toast, t, canOpen],
   );
 
   return (
@@ -303,9 +314,11 @@ export default function CompetencyOpeningDashboard() {
             <Button
               onClick={() => runAction("open")}
               loading={acting}
-              disabled={acting || loadingStatus || !org}
+              // 개설은 그 주차 실무 역량이 "정상 진행" 으로 설정된 경우에만 가능(프로세스 체크와 동일 SoT).
+              //   미오픈이면 버튼 라벨 자체를 "미오픈" 으로 바꿔 왜 개설이 안 되는지 즉시 드러낸다.
+              disabled={acting || loadingStatus || !org || !canOpen}
             >
-              개설
+              {org && !loadingStatus && !canOpen ? "미오픈" : "개설"}
             </Button>
             <AdminHelpIconButton
               helpKey="admin.lineOpening.competency.action.open"
@@ -340,6 +353,18 @@ export default function CompetencyOpeningDashboard() {
             <p className="text-sm text-muted-foreground">
               클럽(?org)이 지정되어야 개설/취소할 수 있습니다.
             </p>
+          )}
+          {/* 개설 차단 표시 — "미오픈" 한 단어로 이유를 즉시 드러낸다(내부 개념 노출 없음).
+              드롭다운으로 다른(정상 진행) 주차를 선택하면 canOpen 재계산되어 개설 가능해진다. */}
+          {org && !loadingStatus && !canOpen && (
+            <div className="space-y-0.5">
+              <p className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+                <span aria-hidden>⚪</span> 미오픈
+              </p>
+              <p className="text-xs text-muted-foreground">
+                활동 관리에서 해당 라인을 ‘정상 진행’으로 설정하면 개설할 수 있습니다.
+              </p>
+            </div>
           )}
 
           {/* [개설 주차] | [아웃풋 링크 1] | [설명 1] — 한 행 */}

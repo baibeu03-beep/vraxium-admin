@@ -63,3 +63,16 @@ export function isInfoLineOpenForWeek(opts: {
   if (!opts.openConfirmed) return false;
   return opts.config?.practicalInfo?.[opts.activityTypeId] === true;
 }
+
+// 실무 역량 라인이 이번 주 "오픈(개설 대상)" 인가 — 오픈 확인 + practicalCompetency.checked === true.
+//   ⚠ 실무 역량은 라인급 단위가 없어(허브 공유 플래그) 액트 가동(isActOpenForWeek hub="competency")과
+//     "완전히 같은" 단일 SoT(practicalCompetency.checked)를 쓴다 — 프로세스 체크(가동)와 라인 개설(오픈)이
+//     동일한 주차 운영 설정으로 판정된다. info 라인과 마찬가지로 "설정 없음 / open_confirmed=false = 미오픈"
+//     엄격(=== true). fallback true 없음.
+export function isCompetencyLineOpenForWeek(opts: {
+  openConfirmed: boolean;
+  config: SavedConfig | null;
+}): boolean {
+  if (!opts.openConfirmed) return false;
+  return opts.config?.practicalCompetency?.checked === true;
+}
