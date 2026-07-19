@@ -707,6 +707,7 @@ export async function finalizeWeekUws(
       .from(RUN_LOG_TABLE)
       .insert({
         week_id: week.id,
+        organization_slug: opts.organization ?? null,
         scope,
         actor_id: actor,
         created_uws_ids: createdIds,
@@ -754,12 +755,14 @@ export type RevertUwsResult = {
 
 // 이 주차의 아직 되돌리지 않은 최신 run 을 찾아: 생성 uws DELETE + 갱신 uws prev_status 복원.
 //   되돌린 뒤 run.reverted_at 세팅(재롤백 방지). run-log 없으면 no-op(경고).
-export async function revertWeekUws(weekId: string): Promise<RevertUwsResult> {
-  const { data: runData, error: runErr } = await supabaseAdmin
+export async function revertWeekUws(weekId: string, organization?: OrganizationSlug): Promise<RevertUwsResult> {
+  let runQuery = supabaseAdmin
     .from(RUN_LOG_TABLE)
     .select("id,created_uws_ids,updated_uws")
     .eq("week_id", weekId)
-    .is("reverted_at", null)
+    .is("reverted_at", null);
+  if (organization) runQuery = runQuery.eq("organization_slug", organization);
+  const { data: runData, error: runErr } = await runQuery
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();

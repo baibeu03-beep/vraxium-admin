@@ -71,6 +71,7 @@ import { recalcUserGrowthStats } from "@/lib/userGrowthStatsData";
 import { loadGrowthInput } from "@/lib/growthLoader";
 import { buildResolvedWeeks } from "@/lib/growthResolve";
 import { getApprovedRestWeekStarts } from "@/lib/approvedRestWeeks";
+import { loadWeekOrgResultStates, resolveWeekOrgResultState } from "@/lib/weekOrgResultState";
 
 // ─────────────────────────────────────────────────────────────────────
 // Date/week utilities
@@ -908,6 +909,15 @@ async function computeWeeklyCards(
 
   // 9. 카드 조립 (최신순)
   const cards: WeeklyCardDto[] = [];
+  const orgResultRows = await loadWeekOrgResultStates(
+    cardWeeksDesc.map((w) => w.id).filter((id): id is string => Boolean(id)),
+    organization,
+  );
+  const orgResultStatusForWeek = (w: CardWeek) => resolveWeekOrgResultState(
+    w.id ? orgResultRows.get(w.id) : undefined,
+    w.start_date,
+    isWeekPublished(w),
+  ).status;
   // 주차별 resolved status 목록(공유 resolver). 카드 조립은 이 결과를 소비한다.
   //   (buildResolvedWeeks 는 flippedToFail 도 반환하지만 요약은 카드 fold 로 산출하므로 미사용.)
   const { byStart: resolvedByStart } = buildResolvedWeeks(
@@ -919,6 +929,7 @@ async function computeWeeklyCards(
       activeRestPeriods,
       isCurrentWeekStart,
       isWeekPublished,
+      getOrganizationReviewStatus: orgResultStatusForWeek,
       isCurrentSeasonRestWeek: (s) => currentSeasonRestStarts.has(s),
       isApprovedPersonalRestWeek: (s) => approvedRestStarts.has(s),
     },

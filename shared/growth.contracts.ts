@@ -17,7 +17,7 @@
 export type WeekDbStatusKey = "success" | "fail" | "personal_rest" | "official_rest";
 
 // 런타임 전용 상태 (현재 주차 / 집계 전 판별용)
-export type WeekRuntimeStatusKey = "running" | "tallying";
+export type WeekRuntimeStatusKey = "running" | "tallying" | "aggregating" | "reviewing";
 
 // 통합 6종 상태
 export type WeekResultStatusKey = WeekDbStatusKey | WeekRuntimeStatusKey;
@@ -34,6 +34,8 @@ export const WEEK_DB_STATUSES: readonly WeekDbStatusKey[] = [
 export const WEEK_RESULT_LABELS: Record<WeekResultStatusKey, string> = {
   running: "성장(진행 중)",
   tallying: "성장(집계 중)",
+  aggregating: "집계 중",
+  reviewing: "검수 중",
   success: "성장(성공)",
   fail: "성장(실패)",
   personal_rest: "휴식(개인)",

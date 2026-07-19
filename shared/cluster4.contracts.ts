@@ -132,6 +132,8 @@ export type Cluster4ExperienceGrowth = {
 export type Cluster4UserWeekStatus =
   | "running"
   | "tallying"
+  | "aggregating"
+  | "reviewing"
   | "success"
   | "fail"
   | "personal_rest"

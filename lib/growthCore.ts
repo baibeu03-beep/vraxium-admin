@@ -31,6 +31,7 @@ export type ResolveWeekResultInput = {
   isCurrentWeek: boolean;
   // 결과 공표 완료 여부. isWeekPublished(week) 결과.
   isPublished: boolean;
+  organizationReviewStatus?: "aggregating" | "reviewing" | "published" | null;
   // 공식 휴식 주차인가(신규 SoT): seasonCalendar rule ∨ official_rest_periods overlap.
   weekIsOfficialRest: boolean;
   // 실무 경험 필수 슬롯 verdict 상태(없으면 null = 미적용).
@@ -42,6 +43,7 @@ export type ResolveWeekResultOutput = {
   status: WeekResultStatusKey | null;
   // DB success → verdict=fail 로 전환되었는가(요약 approved/failed 보정용).
   flippedToFail: boolean;
+  inconsistency?: "published_without_uws" | null;
 };
 
 // 주차별 resolved status 1건 (cluster3/cluster4 공유 소비용).
@@ -92,6 +94,7 @@ export function resolveWeekResultStatus(
     uwsStatus,
     isCurrentWeek,
     isPublished,
+    organizationReviewStatus,
     weekIsOfficialRest,
     experienceVerdictStatus,
   } = input;
@@ -108,13 +111,15 @@ export function resolveWeekResultStatus(
   } else if (isCurrentWeek) {
     // 현재 주차는 결과 확정 전이므로 항상 진행 중 — 단, 개인 휴식은 휴식으로 표시.
     resultStatus = uwsStatus === "personal_rest" ? "personal_rest" : "running";
+  } else if (uwsStatus === "personal_rest") {
+    resultStatus = "personal_rest";
+  } else if (organizationReviewStatus && organizationReviewStatus !== "published") {
+    resultStatus = organizationReviewStatus;
   } else if (uwsStatus !== null) {
     // ── uws 존재(비-현재주, 비-공식휴식): 기존 표시 로직 100% 보존 (과거/직전 카드 불변) ──
     if (uwsStatus === "official_rest") {
       // 공식 휴식으로 기록됐으나 재판정상 활동 주차(!weekIsOfficialRest) → 성장 주차로 간주.
       resultStatus = isPublished ? "fail" : "tallying";
-    } else if (uwsStatus === "personal_rest") {
-      resultStatus = uwsStatus;
     } else if (!isPublished) {
       // 성장 주차(success/fail) + 미공표 → 집계 중.
       resultStatus = "tallying";
@@ -127,6 +132,9 @@ export function resolveWeekResultStatus(
     if (!isPublished) {
       resultStatus = "tallying";
     } else {
+      if (organizationReviewStatus === "published") {
+        return { status: "reviewing", flippedToFail: false, inconsistency: "published_without_uws" };
+      }
       return { status: null, flippedToFail: false };
     }
   }
@@ -139,7 +147,7 @@ export function resolveWeekResultStatus(
   const flippedToFail =
     baseStatusBeforeVerdict === "success" && resultStatus === "fail";
 
-  return { status: resultStatus, flippedToFail };
+  return { status: resultStatus, flippedToFail, inconsistency: null };
 }
 
 // ─────────────────────────────────────────────────────────────────────

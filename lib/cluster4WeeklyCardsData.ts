@@ -1028,6 +1028,8 @@ function statusTone(status: WeekResultStatus): Cluster4StatusTone {
       return "warning";
     case "running":
     case "tallying":
+    case "aggregating":
+    case "reviewing":
       return "info";
   }
 }
@@ -1105,6 +1107,8 @@ const STATUS_ICON_URL: Record<Cluster4StatusIconKey, string> = {
   fail: "/images/0/cluster4/icon/icon-growth-fail.png",
   running: "/images/0/cluster4/icon/icon-growth-running.png",
   tallying: "/images/0/cluster4/icon/icon-growth-tallying.png",
+  aggregating: "/images/0/cluster4/icon/icon-growth-tallying.png",
+  reviewing: "/images/0/cluster4/icon/icon-growth-tallying.png",
   personal_rest: "/images/0/cluster4/icon/icon-rest-personal.png",
   official_rest: "/images/0/cluster4/icon/icon-rest-official.png",
 };

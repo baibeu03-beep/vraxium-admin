@@ -62,6 +62,7 @@ import {
 } from "@/lib/adminWeekUwsFinalize";
 import { recomputeWeeklyCardsSnapshotsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { recalcUserGrowthStatsForUsers } from "@/lib/userGrowthStatsData";
+import { setWeekOrgResultStatus } from "@/lib/weekOrgResultState";
 import {
   prepareWeekRecognition,
   recognitionUpsertFields,
@@ -619,6 +620,7 @@ export async function markTeamPartsWeekReviewed(
   //   persist 한다. 레거시/공식휴식/현재·미래 주차는 내부에서 skip. 적립 미완료(전원 0점 fail 위험)·
   //   평가 미입력(pending) 이면 여기서 422 로 차단해 공표/검수를 진행하지 않는다(사고 방지).
   //   ⚠ 반드시 공표 전 — 공표의 코호트 스냅샷 재계산이 이 uws 를 읽어 카드를 success/fail 로 굳힌다.
+  await setWeekOrgResultStatus(weekId, opts.organization, "reviewing", actor);
   let uwsFinalize: FinalizeUwsResult;
   try {
     uwsFinalize = await finalizeWeekUws(
@@ -661,6 +663,7 @@ export async function markTeamPartsWeekReviewed(
   //     재계산하고, 곧바로 1.5) 가 affected(코호트의 부분집합)를 c=8 로 다시 재계산 → 같은 85명을
   //     두 번 계산했다. 이제 공표 SoT 쓰기(markWeekResultPublished)와 코호트 재계산을 분리해,
   //     코호트 전원을 c=8 로 한 번만 재계산한다.
+  await setWeekOrgResultStatus(weekId, opts.organization, "published", actor);
   const alreadyPublished = week.result_published_at != null;
   let publishedAt = week.result_published_at;
   let snapshotRecompute = { requested: 0, recomputed: 0, failed: 0 };
@@ -803,7 +806,8 @@ export async function revertTeamPartsWeekReview(
   //   생성분 DELETE + 갱신분 prev_status 복원. run-log(cluster4_week_finalize_runs) provenance 기준.
   //   ⚠ revertWeeklyCardFinalization 의 코호트 재계산은 "현재 uws 보유자" 기준이라, 삭제된 uws 의
   //   사용자는 그 재계산에 안 잡힌다 → 아래에서 affected 를 명시 재계산해 카드가 skeleton/집계중으로 복귀.
-  const uwsRevert = await revertWeekUws(weekId);
+  if (organization) await setWeekOrgResultStatus(weekId, organization, "aggregating", actor);
+  const uwsRevert = await revertWeekUws(weekId, organization);
 
   // 1) 공용 rollback 로직 재사용(공표/검수 해제 + 코호트 재계산).
   const r = await revertWeeklyCardFinalization({

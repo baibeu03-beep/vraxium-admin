@@ -43,6 +43,7 @@ export type BuildResolvedWeeksDeps<W> = {
   activeRestPeriods: readonly OfficialRestPeriodDto[];
   isCurrentWeekStart: (start: string) => boolean;
   isWeekPublished: (w: W) => boolean;
+  getOrganizationReviewStatus?: (w: W) => "aggregating" | "reviewing" | "published" | null;
   // 현재 시즌이 "시즌 휴식(seasonal_rest)"인 회원의 주차인가(현재 휴식 시즌 한정).
   //   true 면 그 시즌의 활동주차(비공식휴식·비전환)를 휴식(개인)으로 채운다.
   //   미지정 시 false — 비휴식 회원·과거 시즌은 영향 없음(기존 동작 불변).
@@ -80,6 +81,7 @@ export function buildResolvedWeeks<W extends ResolvableWeek>(
       uwsStatus: (deps.getUwsStatus(startDate) ?? null) as WeekDbStatusKey | null,
       isCurrentWeek,
       isPublished: deps.isWeekPublished(week),
+      organizationReviewStatus: deps.getOrganizationReviewStatus?.(week) ?? null,
       weekIsOfficialRest,
       experienceVerdictStatus: deps.getVerdictStatus(weekId),
     });
@@ -100,7 +102,10 @@ export function buildResolvedWeeks<W extends ResolvableWeek>(
     if (forcePersonalRest) {
       resultStatus = "personal_rest";
     }
-    if (resultStatus === null) continue; // no_data → 카드 미생성
+    if (resolved.inconsistency === "published_without_uws") {
+      console.error("[weekly-cards][invariant] organization published but UWS missing", { weekId, startDate });
+    }
+    if (resultStatus === null) continue; // true no_data only; normal review states remain cards
     if (resolved.flippedToFail) flippedToFail++;
     byStart.set(startDate, {
       startDate,
