@@ -227,24 +227,29 @@ const DAY_COLS_PER_ROW = 4;
 
 // 요약 위계: 1=주차 전체(최상위·진한 배경·큰 제목), 2=허브 급(중간), 3=팀(하위·연한 라인 박스).
 type SummaryLevel = 1 | 2 | 3;
-const SUMMARY_STYLE: Record<SummaryLevel, { box: string; title: string; num: string; label: string }> = {
+// box 에 gap-x/gap-y·padding·기본 폰트를 위계별로 담는다(색/테두리/배경은 불변). item = 항목 span 내부 gap.
+// 요약 바 전체를 크게: 위계 1·2 는 큰 폰트/여백, 3(팀)은 하위 유지(단, 소폭 확대해 균형).
+const SUMMARY_STYLE: Record<SummaryLevel, { box: string; title: string; num: string; label: string; item: string }> = {
   1: {
-    box: "rounded-lg border-2 border-emerald-800 bg-emerald-600 px-4 py-3 text-emerald-50 shadow-sm",
-    title: "text-lg font-extrabold text-white",
-    num: "text-lg text-white",
-    label: "text-emerald-50/90",
+    box: "gap-x-6 gap-y-2 rounded-lg border-2 border-emerald-800 bg-emerald-600 px-5 py-4 text-base text-emerald-50 shadow-sm",
+    title: "text-xl font-extrabold text-white",
+    num: "text-xl font-bold text-white",
+    label: "text-base text-emerald-50/90",
+    item: "gap-1.5",
   },
   2: {
-    box: "rounded-md border border-emerald-300 bg-emerald-100/80 px-4 py-2.5 text-emerald-900",
-    title: "text-base font-bold text-emerald-900",
-    num: "text-base text-emerald-950",
-    label: "text-emerald-800",
+    box: "gap-x-5 gap-y-2 rounded-md border border-emerald-300 bg-emerald-100/80 px-5 py-4 text-base text-emerald-900",
+    title: "text-lg font-bold text-emerald-900",
+    num: "text-lg font-bold text-emerald-950",
+    label: "text-base text-emerald-800",
+    item: "gap-1.5",
   },
   3: {
-    box: "ml-4 rounded border border-emerald-200 border-l-4 border-l-emerald-400 bg-white px-4 py-1.5 text-foreground",
-    title: "text-sm font-semibold text-emerald-700",
-    num: "text-sm text-foreground",
-    label: "text-muted-foreground",
+    box: "gap-x-4 gap-y-1.5 ml-4 rounded border border-emerald-200 border-l-4 border-l-emerald-400 bg-white px-4 py-2.5 text-sm text-foreground",
+    title: "text-base font-semibold text-emerald-700",
+    num: "text-base font-bold text-foreground",
+    label: "text-sm text-muted-foreground",
+    item: "gap-1",
   },
 };
 
@@ -267,13 +272,13 @@ function ActSummaryRow({
   // level 1 = 진한 emerald 배경(SUMMARY_STYLE[1].box) → 돋보기 흰색. 2·3은 밝은 배경 → 기존 색.
   const onDark = level === 1;
   const item = (label: string, value: number | string, helpKey?: string) => (
-    <span className={"inline-flex items-center gap-1 whitespace-nowrap " + st.label}>
+    <span className={"inline-flex items-center whitespace-nowrap " + st.item + " " + st.label}>
       <span>· {label} <strong className={st.num}>{value}</strong></span>
       {withHelp && helpKey ? <AdminHelpIconButton helpKey={helpKey} title={label} onDark={onDark} /> : null}
     </span>
   );
   return (
-    <div className={"flex flex-wrap items-center gap-x-4 gap-y-1 text-sm " + st.box}>
+    <div className={"flex flex-wrap items-center " + st.box}>
       {title ? (
         <span className={"inline-flex items-center gap-1.5 " + st.title}>
           {title}
@@ -308,13 +313,13 @@ function LineSummaryRow({
   // level 1 = 진한 emerald 배경(SUMMARY_STYLE[1].box) → 돋보기 흰색. 2·3은 밝은 배경 → 기존 색.
   const onDark = level === 1;
   const item = (label: string, value: number | string, helpKey?: string) => (
-    <span className={"inline-flex items-center gap-1 whitespace-nowrap " + st.label}>
+    <span className={"inline-flex items-center whitespace-nowrap " + st.item + " " + st.label}>
       <span>· {label} <strong className={st.num}>{value}</strong></span>
       {withHelp && helpKey ? <AdminHelpIconButton helpKey={helpKey} title={label} onDark={onDark} /> : null}
     </span>
   );
   return (
-    <div className={"flex flex-wrap items-center gap-x-4 gap-y-1 text-sm " + st.box}>
+    <div className={"flex flex-wrap items-center " + st.box}>
       <span className={"inline-flex items-center gap-1.5 " + st.title}>
         {title}
         {withHelp && titleHelpKey ? <AdminHelpIconButton helpKey={titleHelpKey} title={title} size="sm" onDark={onDark} /> : null}
@@ -439,7 +444,7 @@ function LineOpeningTable({ lines, lineAttr }: { lines: InfoLineRow[]; lineAttr:
   const { sort, onSort } = useTableSort<LineCol>();
   const sortedLines = useMemo(() => sortLineRows(lines, sort), [lines, sort]);
   const th = (label: string, key: LineCol, col: string) => (
-    <th aria-sort={ariaSort(sort, key)} className="border px-2 py-2 font-semibold">
+    <th aria-sort={ariaSort(sort, key)} className="border px-2 py-3.5 font-semibold">
       <SortableHeadContent
         label={label}
         sortKey={key}
@@ -476,16 +481,16 @@ function LineOpeningTable({ lines, lineAttr }: { lines: InfoLineRow[]; lineAttr:
               const created = state === "created_ontime" || state === "created_late";
               return (
                 <tr key={l.lineId} {...{ [lineAttr]: l.lineId }} data-line-state={state} className="align-middle">
-                  <td className="border px-2 py-1.5">
+                  <td className="border px-2 py-3.5">
                     {/* 라인명 = 상태 카드(액트 카드처럼). 배경/색은 여기에만 적용. */}
                     <span className={"inline-block rounded border px-2 py-0.5 font-semibold " + INFO_NAME_CHIP_CLASS[state]}>
                       {l.lineName}
                     </span>
                   </td>
-                  <td className="border px-2 py-1.5 whitespace-nowrap">
+                  <td className="border px-2 py-3.5 whitespace-nowrap">
                     {created && l.operatorName ? `${l.operatorName} 님` : dash}
                   </td>
-                  <td className="border px-2 py-1.5 text-center">
+                  <td className="border px-2 py-3.5 text-center">
                     <span
                       className={
                         "inline-block rounded px-2 py-0.5 text-xs font-bold " +
@@ -495,14 +500,14 @@ function LineOpeningTable({ lines, lineAttr }: { lines: InfoLineRow[]; lineAttr:
                       {l.isOpenThisWeek ? "오픈" : "미오픈"}
                     </span>
                   </td>
-                  <td className="border px-2 py-1.5">{created ? <CreatedAtCell row={l} /> : dash}</td>
-                  <td className="border px-2 py-1.5 text-center tabular-nums whitespace-nowrap">
+                  <td className="border px-2 py-3.5">{created ? <CreatedAtCell row={l} /> : dash}</td>
+                  <td className="border px-2 py-3.5 text-center tabular-nums whitespace-nowrap">
                     {created ? `${l.createdCrewCount} / ${l.eligibleCrewCount}` : dash}
                   </td>
-                  <td className="border px-2 py-1.5 text-center tabular-nums whitespace-nowrap">
+                  <td className="border px-2 py-3.5 text-center tabular-nums whitespace-nowrap">
                     {created ? `${l.submittedCrewCount} / ${l.submissionEligibleCrewCount}` : dash}
                   </td>
-                  <td className="border px-2 py-1.5 text-center">
+                  <td className="border px-2 py-3.5 text-center">
                     <ProgressBadge status={l.progressStatus} />
                   </td>
                 </tr>
@@ -775,7 +780,7 @@ function ActCheckGroupTable({
           {/* 라인 급 = 이 매트릭스에서 유일한 단일값 컬럼 → 3단계 정렬(요일 셀은 다중 카드라 정렬 제외). */}
           <th
             aria-sort={ariaSort(sort, "lineGrade")}
-            className="border px-1.5 py-2 text-center align-middle font-semibold whitespace-nowrap"
+            className="border px-1.5 py-3.5 text-center align-middle font-semibold whitespace-nowrap"
           >
             <SortableHeadContent
               label="라인 급"
@@ -786,7 +791,7 @@ function ActCheckGroupTable({
             />
           </th>
           {cols.map((d) => (
-            <th key={d.key} className="border px-2 py-2 text-left align-middle font-semibold">
+            <th key={d.key} className="border px-2 py-3.5 text-left align-middle font-semibold">
               <DayHeader label={d.label} stats={dayStats(lines, variableActsByDay, d.key)} />
             </th>
           ))}
@@ -807,7 +812,7 @@ function ActCheckGroupTable({
             <tr key={line.lineId} data-info-line-row={line.lineId} className="align-top">
               {/* 라인 급 셀 — 라인명은 말줄임 없이 전부 노출한다. 한 줄 우선, 부족하면 셀 안에서
                   줄바꿈(break-keep=한글 단어 단위)으로 흐른다. truncate/overflow-hidden 미사용. */}
-              <td className="border px-1.5 py-2 text-center font-bold">
+              <td className="border px-1.5 py-3.5 text-center font-bold">
                 <span
                   title={line.lineName}
                   className={
@@ -819,7 +824,7 @@ function ActCheckGroupTable({
                 </span>
               </td>
               {cols.map((d) => (
-                <td key={d.key} className="border px-1.5 py-1.5 align-top">
+                <td key={d.key} className="border px-1.5 py-3.5 align-top">
                   <div className="flex min-w-0 flex-col gap-1">
                     {line.regularActsByDay[d.key].length === 0 ? (
                       <span className="text-xs text-muted-foreground/40">–</span>
@@ -837,11 +842,11 @@ function ActCheckGroupTable({
         )}
         {/* 변동 액트 행 — 항상 존재(요일별 실제 신청분만). */}
         <tr data-variable-row className="align-top">
-          <td className="border bg-orange-50 px-1.5 py-2 text-center text-sm font-bold text-orange-900 whitespace-nowrap">
+          <td className="border bg-orange-50 px-1.5 py-3.5 text-center text-sm font-bold text-orange-900 whitespace-nowrap">
             <HeadHelp label="변동 액트" helpKey={`${HELP}.actCheck.row.variable`} />
           </td>
           {cols.map((d) => (
-            <td key={d.key} className="border px-1.5 py-1.5 align-top">
+            <td key={d.key} className="border px-1.5 py-3.5 align-top">
               <div className="flex flex-col gap-1">
                 {variableActsByDay[d.key].length === 0 ? (
                   <span className="text-xs text-muted-foreground/40">–</span>
@@ -2008,7 +2013,7 @@ export default function TeamPartsInfoWeekDetailManager({
                   ) : lineError ? (
                     <p className="py-6 text-center text-sm text-red-700">{lineError}</p>
                   ) : lineData ? (
-                    <div className="space-y-10" data-line-opening-panel>
+                    <div className="space-y-12" data-line-opening-panel>
                       {/* [0] 주차 전체 요약 — 최상위(지표/제목 돋보기는 여기 한 번만) */}
                       <LineSummaryRow
                         title="# 주차 전체 라인칸 개설 관리"
@@ -2032,7 +2037,7 @@ export default function TeamPartsInfoWeekDetailManager({
                 ) : actError ? (
                   <p className="py-6 text-center text-sm text-red-700">{actError}</p>
                 ) : actData ? (
-                  <div className="space-y-10" data-act-check-panel>
+                  <div className="space-y-12" data-act-check-panel>
                     {/* [0] 주차 전체 요약 — 최상위(지표/제목 돋보기는 여기 한 번만) */}
                     <ActSummaryRow
                       title="# 주차 전체 액트 체크 관리"
