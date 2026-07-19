@@ -71,7 +71,11 @@ import { recalcUserGrowthStats } from "@/lib/userGrowthStatsData";
 import { loadGrowthInput } from "@/lib/growthLoader";
 import { buildResolvedWeeks } from "@/lib/growthResolve";
 import { getApprovedRestWeekStarts } from "@/lib/approvedRestWeeks";
-import { loadWeekOrgResultStates, resolveWeekOrgResultState } from "@/lib/weekOrgResultState";
+import {
+  loadWeekOrgResultStates,
+  resolveWeekOrgResultState,
+  type OrgResultScope,
+} from "@/lib/weekOrgResultState";
 
 // ─────────────────────────────────────────────────────────────────────
 // Date/week utilities
@@ -909,9 +913,16 @@ async function computeWeeklyCards(
 
   // 9. 카드 조립 (최신순)
   const cards: WeeklyCardDto[] = [];
+  // 조직 검수 상태 scope = "그 사용자가 속한 코호트" — 테스트 사용자(test_user_markers)면 test,
+  //   아니면 operating. 스냅샷은 사용자 단위이므로 대상 사용자 scope 로 (week,org,scope) 를 읽는다.
+  //   → 같은 주차·같은 조직이라도 테스트 사용자는 test 검수결과(success/fail)를, 운영 사용자는
+  //     operating 상태(미검수면 집계 중)를 본다. 일반/데모/actAs 경로 모두 대상 사용자 id 로 이 함수를
+  //     타므로 분기 없이 동일 계산.
+  const userScope: OrgResultScope = (await isMarkedTestUser(userId)) ? "test" : "operating";
   const orgResultRows = await loadWeekOrgResultStates(
     cardWeeksDesc.map((w) => w.id).filter((id): id is string => Boolean(id)),
     organization,
+    userScope,
   );
   const orgResultStatusForWeek = (w: CardWeek) => {
     const resolved = resolveWeekOrgResultState(

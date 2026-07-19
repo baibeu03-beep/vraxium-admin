@@ -114,7 +114,9 @@ export function resolveWeekResultStatus(
   } else if (uwsStatus === "personal_rest") {
     resultStatus = "personal_rest";
   } else if (organizationReviewStatus && organizationReviewStatus !== "published") {
-    resultStatus = organizationReviewStatus;
+    // 조직 내부 상태(aggregating/reviewing)는 서버·어드민 전용 — 고객 카드에는 노출하지 않는다.
+    //   둘 다 기존 'tallying'(성장 집계 중)으로 매핑한다(새 상태/문구/CSS 추가 금지).
+    resultStatus = "tallying";
   } else if (uwsStatus !== null) {
     // ── uws 존재(비-현재주, 비-공식휴식): 기존 표시 로직 100% 보존 (과거/직전 카드 불변) ──
     if (uwsStatus === "official_rest") {
@@ -133,7 +135,9 @@ export function resolveWeekResultStatus(
       resultStatus = "tallying";
     } else {
       if (organizationReviewStatus === "published") {
-        return { status: "reviewing", flippedToFail: false, inconsistency: "published_without_uws" };
+        // 공표됐지만 그 사용자 uws 부재 = 데이터 불일치. 카드를 드롭하지 않고 'tallying'(성장 집계 중)으로
+        //   유지하고, 호출부(growthResolve)가 서버 로그를 남긴다. 고객에 '검수 중' 노출 금지.
+        return { status: "tallying", flippedToFail: false, inconsistency: "published_without_uws" };
       }
       return { status: null, flippedToFail: false };
     }

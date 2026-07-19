@@ -25,7 +25,11 @@
 //                                     info=activity_type_id · exp=experience_line_master_id · comp=competency_line_master_id
 //                                     주차 링크 = cluster4_line_targets.week_id(전 허브 공통) ∪ cluster4_lines.week_id(info 전용)
 //                                     org 노출 = info: line_code 토큰 / exp·comp: 마스터 organization_slug
-//   · 주차 검수                    = weeks.result_reviewed_at != null (주차 전역 — org 무관)
+//   · 주차 검수 상태(집계중/검수중/검수완료) = cluster4_week_org_result_states[(week_id, org)]
+//       가 단일 SoT. 행 없으면 resolveWeekOrgResultState 로 레거시 폴백(<2026-06-29 & result_reviewed_at
+//       → 검수완료). weeks.result_reviewed_at(전역 컬럼)은 레거시 폴백 입력으로만 쓰고 직접 표시하지 않는다.
+//       (2026-07-19 이전엔 전역 result_reviewed_at 을 그대로 봤기에, 한 조직만 검수해도 세 조직 모두
+//        "검수 완료"로 표시되는 버그가 있었다 — 조직별 상태로 통일.)
 //
 // mode(operating/test):
 //   주차·시즌·라인칸·개설 라인 목록·검수 여부·정규 액트 카탈로그는 사용자 모집단과 무관해 mode 불변이다.
@@ -52,6 +56,13 @@ import {
 import { loadActCheckApplicationInputsByWeek } from "@/lib/adminActCheckApplicationInputs";
 import type { OrganizationSlug } from "@/lib/organizations";
 import type { ScopeMode } from "@/lib/userScopeShared";
+import {
+  loadWeekOrgResultStates,
+  resolveWeekOrgResultState,
+  resolveOrgResultScope,
+  type WeekOrgResultStatus,
+  type OrgResultScope,
+} from "@/lib/weekOrgResultState";
 
 // 라인 허브 = cluster4_lines.part_type 중 운영 라인 3종(career 제외). **라인(라인칸) 집계 전용 축**.
 //   ⚠ 액트 집계에는 쓰지 않는다 — 액트 허브 범위는 상세 기준(ACT_CHECK_HUBS, club 포함)으로 통일했다.
@@ -70,6 +81,10 @@ export type TeamPartsInfoWeekItem = {
   lineOpenRate: number; // 0~100 (%)
   totalLines: number;
   openLines: number;
+  // 조직별 검수 상태(cluster4_week_org_result_states) — aggregating(집계 중)/reviewing(검수 중)/published(검수 완료).
+  //   현재 선택 조직(organization) 기준 단일 값. 전역 result_reviewed_at 은 직접 노출하지 않는다.
+  reviewStatus: WeekOrgResultStatus;
+  // 하위호환·정렬용 파생값(= reviewStatus === "published"). 신규 소비자는 reviewStatus 를 쓴다.
   weekReviewed: boolean;
   // UI 하이라이트 편의용(양 모드 공통 — DTO 구조/값 파리티 유지).
   isCurrentWeek: boolean;
@@ -412,9 +427,9 @@ async function loadOpenLinesByWeek(
   return counts;
 }
 
-// 주차별 검수 여부 — weeks.result_reviewed_at != null(주차 전역). QA overlay 는 쓰지 않는다
-//   (operating/test 동일 값 유지). 컬럼 미적용 환경이면 전부 false 로 graceful degrade.
-async function loadWeekReviewed(weekIds: string[]): Promise<Map<string, boolean>> {
+// 레거시 폴백 입력 — weeks.result_reviewed_at != null(전역). 조직별 상태 행이 없는(대개 <2026-06-29)
+//   주차의 "검수 완료" 폴백 판정용으로만 쓴다. QA overlay 는 쓰지 않는다(operating/test 동일 값 유지).
+async function loadLegacyReviewed(weekIds: string[]): Promise<Map<string, boolean>> {
   const map = new Map<string, boolean>();
   if (weekIds.length === 0) return map;
   const { data, error } = await supabaseAdmin
@@ -434,6 +449,32 @@ async function loadWeekReviewed(weekIds: string[]): Promise<Map<string, boolean>
   return map;
 }
 
+// 주차별 조직 검수 상태 — (week_id, organization) 조직별 상태 테이블이 SoT.
+//   행 없으면 resolveWeekOrgResultState 로 판정(레거시 주차는 result_reviewed_at 폴백, 그 외 aggregating).
+//   ⚠ operating/test 동일 값(조직별 상태는 모집단과 무관 — 검수 이벤트는 org 단위 1건).
+async function loadWeekReviewStatus(
+  metaRows: SeasonWeekDto[],
+  organization: OrganizationSlug,
+  scope: OrgResultScope,
+): Promise<Map<string, WeekOrgResultStatus>> {
+  const map = new Map<string, WeekOrgResultStatus>();
+  const weekIds = metaRows.map((r) => r.week_id);
+  if (weekIds.length === 0) return map;
+  const [orgStates, legacyReviewed] = await Promise.all([
+    loadWeekOrgResultStates(weekIds, organization, scope),
+    loadLegacyReviewed(weekIds),
+  ]);
+  for (const r of metaRows) {
+    const status = resolveWeekOrgResultState(
+      orgStates.get(r.week_id),
+      r.week_start_date ?? "",
+      legacyReviewed.get(r.week_id) === true,
+    ).status;
+    map.set(r.week_id, status);
+  }
+  return map;
+}
+
 // 주차 메타 rows(페이지 또는 전체)에 대해 집계 아이템을 만든다.
 //   전역 카탈로그(액트·전체 라인)는 주차와 무관, 주차별 집계(체크율·오픈라인·검수)는 weekIds 기준.
 async function buildItems(
@@ -444,16 +485,17 @@ async function buildItems(
   const weekIds = metaRows.map((r) => r.week_id);
   // 액트 요약 = 상세와 동일한 공통 로더(주차별 오픈 게이트·신청 판정·변동 포함)를 1회 벌크 호출.
   //   ⚠ 액트 카탈로그/상태행/변동/오픈설정은 로더가 한 번에 모아 오므로 주차 수만큼 N+1 이 생기지 않는다.
-  const [totalLines, actInputsByWeek, openLinesByWeek, reviewedByWeek] = await Promise.all([
+  const [totalLines, actInputsByWeek, openLinesByWeek, reviewStatusByWeek] = await Promise.all([
     loadTotalLines(organization),
     loadActCheckApplicationInputsByWeek({ weekIds, organization, mode }),
     loadOpenLinesByWeek(organization, weekIds),
-    loadWeekReviewed(weekIds),
+    loadWeekReviewStatus(metaRows, organization, resolveOrgResultScope(mode)),
   ]);
 
   return metaRows.map((r) => {
     const openLines = openLinesByWeek.get(r.week_id) ?? 0;
     const inputs = actInputsByWeek.get(r.week_id) ?? { regular: [], variable: [] };
+    const reviewStatus = reviewStatusByWeek.get(r.week_id) ?? "aggregating";
     return {
       weekId: r.week_id,
       weekName: weekTableName(r),
@@ -463,7 +505,8 @@ async function buildItems(
       lineOpenRate: totalLines > 0 ? Math.round((openLines / totalLines) * 100) : 0,
       totalLines,
       openLines,
-      weekReviewed: reviewedByWeek.get(r.week_id) === true,
+      reviewStatus,
+      weekReviewed: reviewStatus === "published",
       isCurrentWeek: r.is_current_week,
     };
   });
@@ -518,7 +561,8 @@ function sortAggregateItems(
       case "openLines":
         return it.openLines;
       case "weekReviewed":
-        return it.weekReviewed ? 1 : 0;
+        // 집계 중(0) < 검수 중(1) < 검수 완료(2) 순위로 정렬.
+        return it.reviewStatus === "published" ? 2 : it.reviewStatus === "reviewing" ? 1 : 0;
       default:
         return null;
     }

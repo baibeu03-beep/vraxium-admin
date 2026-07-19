@@ -62,7 +62,14 @@ import {
 } from "@/lib/adminWeekUwsFinalize";
 import { recomputeWeeklyCardsSnapshotsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { recalcUserGrowthStatsForUsers } from "@/lib/userGrowthStatsData";
-import { setWeekOrgResultStatus } from "@/lib/weekOrgResultState";
+import {
+  setWeekOrgResultStatus,
+  loadWeekOrgResultStates,
+  resolveWeekOrgResultState,
+  resolveOrgResultScope,
+  type WeekOrgResultStatus,
+  type OrgResultScope,
+} from "@/lib/weekOrgResultState";
 import {
   prepareWeekRecognition,
   recognitionUpsertFields,
@@ -128,6 +135,10 @@ export type TeamPartsInfoWeekDetailData = {
     weekBannerName: string;
     weekRangeLabel: string;
     activityStatus: WeekActivityStatus;
+    // 조직별 검수 상태(현재 선택 조직 기준) — aggregating(집계 중)/reviewing(검수 중)/published(검수 완료).
+    //   SoT = cluster4_week_org_result_states. 전역 result_reviewed_at 을 직접 보지 않는다.
+    reviewStatus: WeekOrgResultStatus;
+    // 하위호환·액션 게이트용 파생값(= reviewStatus === "published").
     reviewed: boolean;
     // [오픈 확인] 저장 여부(주차×클럽). GET 시 V 표시 복원용.
     openConfirmed: boolean;
@@ -212,18 +223,29 @@ export async function loadWeekOpeningConfig(
   return { config: row?.config ?? null, openConfirmed: row?.open_confirmed === true };
 }
 
-// weeks.result_reviewed_at != null. 컬럼 미적용 시 false.
-async function loadReviewed(weekId: string): Promise<boolean> {
-  const { data, error } = await supabaseAdmin
-    .from("weeks")
-    .select("result_reviewed_at")
-    .eq("id", weekId)
-    .maybeSingle();
-  if (error) {
-    console.warn("[team-parts/info/weeks/detail] result_reviewed_at read unavailable:", error.message);
-    return false;
+// 조직별 검수 상태 — (week_id, organization) 조직별 상태 테이블이 SoT(aggregating/reviewing/published).
+//   행 없으면 resolveWeekOrgResultState 로 판정(레거시 주차는 전역 result_reviewed_at 폴백).
+//   전역 result_reviewed_at 을 직접 보지 않는다 — 한 조직만 검수해도 세 조직이 "검수 완료"로 뜨던 버그 방지.
+async function loadReviewStatus(
+  weekId: string,
+  organization: OrganizationSlug,
+  scope: OrgResultScope,
+  startDate: string | null,
+): Promise<WeekOrgResultStatus> {
+  const [orgStates, legacy] = await Promise.all([
+    loadWeekOrgResultStates([weekId], organization, scope),
+    supabaseAdmin
+      .from("weeks")
+      .select("result_reviewed_at")
+      .eq("id", weekId)
+      .maybeSingle(),
+  ]);
+  if (legacy.error) {
+    console.warn("[team-parts/info/weeks/detail] result_reviewed_at read unavailable:", legacy.error.message);
   }
-  return (data as { result_reviewed_at: string | null } | null)?.result_reviewed_at != null;
+  const legacyReviewed =
+    (legacy.data as { result_reviewed_at: string | null } | null)?.result_reviewed_at != null;
+  return resolveWeekOrgResultState(orgStates.get(weekId), startDate ?? "", legacyReviewed).status;
 }
 
 // 실무 정보 라인 개설(8) 카탈로그 — 키=activity_type id(개설 판정 회로 cluster4_lines.activity_type_id
@@ -297,7 +319,7 @@ export async function loadTeamPartsInfoWeekDetail(opts: {
 
   const [
     { config: saved, openConfirmed },
-    reviewed,
+    reviewStatus,
     infoCatalog,
     teams,
     infoLineGroups,
@@ -306,7 +328,7 @@ export async function loadTeamPartsInfoWeekDetail(opts: {
     weekRecognitionCount,
   ] = await Promise.all([
     loadWeekOpeningConfig(weekId, organization),
-    loadReviewed(weekId),
+    loadReviewStatus(weekId, organization, resolveOrgResultScope(mode), managedRow.week_start_date),
     loadInfoLineCatalog(),
     listTeams(organization, mode),
     loadProcessLineGroups("info"),
@@ -382,7 +404,8 @@ export async function loadTeamPartsInfoWeekDetail(opts: {
       weekBannerName: weekBannerName(managedRow),
       weekRangeLabel: weekRangeLabel(managedRow),
       activityStatus: activityStatusOf(managedRow),
-      reviewed,
+      reviewStatus,
+      reviewed: reviewStatus === "published",
       openConfirmed,
       weekPhase,
       weekRecognitionCount,
@@ -594,6 +617,8 @@ export async function markTeamPartsWeekReviewed(
   // scope: operating(기본, 실유저·운영 weeks) / qa(mode=test·테스트 코호트·qa_weeks_state).
   //   allowIncompleteTestData 는 finalizeWeekUws 내부에서 test/QA 스코프일 때만 안전장치를 bypass 한다.
   const scope: StateScope = opts.scope ?? "operating";
+  // 검수 상태 저장 scope — finalize 코호트와 동일 규칙(QA/qa → test). 운영/테스트 상태는 독립 행.
+  const orgScope: OrgResultScope = resolveOrgResultScope(scope);
   // 0) 주차 존재 + 현재 공표/검수 상태 + uws 확정에 필요한 메타.
   const { data: wk, error: wkErr } = await supabaseAdmin
     .from("weeks")
@@ -620,7 +645,7 @@ export async function markTeamPartsWeekReviewed(
   //   persist 한다. 레거시/공식휴식/현재·미래 주차는 내부에서 skip. 적립 미완료(전원 0점 fail 위험)·
   //   평가 미입력(pending) 이면 여기서 422 로 차단해 공표/검수를 진행하지 않는다(사고 방지).
   //   ⚠ 반드시 공표 전 — 공표의 코호트 스냅샷 재계산이 이 uws 를 읽어 카드를 success/fail 로 굳힌다.
-  await setWeekOrgResultStatus(weekId, opts.organization, "reviewing", actor);
+  await setWeekOrgResultStatus(weekId, opts.organization, orgScope, "reviewing", actor);
   let uwsFinalize: FinalizeUwsResult;
   try {
     uwsFinalize = await finalizeWeekUws(
@@ -663,7 +688,7 @@ export async function markTeamPartsWeekReviewed(
   //     재계산하고, 곧바로 1.5) 가 affected(코호트의 부분집합)를 c=8 로 다시 재계산 → 같은 85명을
   //     두 번 계산했다. 이제 공표 SoT 쓰기(markWeekResultPublished)와 코호트 재계산을 분리해,
   //     코호트 전원을 c=8 로 한 번만 재계산한다.
-  await setWeekOrgResultStatus(weekId, opts.organization, "published", actor);
+  await setWeekOrgResultStatus(weekId, opts.organization, orgScope, "published", actor);
   const alreadyPublished = week.result_published_at != null;
   let publishedAt = week.result_published_at;
   let snapshotRecompute = { requested: 0, recomputed: 0, failed: 0 };
@@ -806,7 +831,7 @@ export async function revertTeamPartsWeekReview(
   //   생성분 DELETE + 갱신분 prev_status 복원. run-log(cluster4_week_finalize_runs) provenance 기준.
   //   ⚠ revertWeeklyCardFinalization 의 코호트 재계산은 "현재 uws 보유자" 기준이라, 삭제된 uws 의
   //   사용자는 그 재계산에 안 잡힌다 → 아래에서 affected 를 명시 재계산해 카드가 skeleton/집계중으로 복귀.
-  if (organization) await setWeekOrgResultStatus(weekId, organization, "aggregating", actor);
+  if (organization) await setWeekOrgResultStatus(weekId, organization, resolveOrgResultScope(scope), "aggregating", actor);
   const uwsRevert = await revertWeekUws(weekId, organization);
 
   // 1) 공용 rollback 로직 재사용(공표/검수 해제 + 코호트 재계산).

@@ -50,8 +50,6 @@ export const WEEK_STATUS_STYLE: Record<
 > = {
   running: { bg: "bg-sky-50", text: "text-sky-700" },
   tallying: { bg: "bg-violet-50", text: "text-violet-700" },
-  aggregating: { bg: "bg-violet-50", text: "text-violet-700" },
-  reviewing: { bg: "bg-amber-50", text: "text-amber-700" },
   success: { bg: "bg-emerald-50", text: "text-emerald-700" },
   fail: { bg: "bg-red-50", text: "text-red-700" },
   personal_rest: { bg: "bg-amber-50", text: "text-amber-700" },

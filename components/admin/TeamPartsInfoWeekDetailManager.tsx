@@ -916,6 +916,37 @@ function CheckV() {
 
 // 조회 전용(개별 조직) 상태 배지 — 완료=초록 / 대기=회색·노랑. 통합 어드민에서 설정한
 //   검수·오픈 확인 상태를 그대로 보여주기만 한다(입력 불가).
+// 조직별 검수 상태 3종 라벨(현재 선택 조직 기준). SoT = cluster4_week_org_result_states.
+//   전역 result_reviewed_at 이 아니라 조직별 상태를 그대로 표시한다(한 조직만 검수해도 세 조직이
+//   "검수 완료"로 뜨던 버그 방지).
+const REVIEW_STATUS_PILL: Record<
+  TeamPartsInfoWeekDetailData["managedWeek"]["reviewStatus"],
+  { label: string; cls: string }
+> = {
+  aggregating: { label: "주차 집계 중", cls: "bg-zinc-100 text-zinc-600" },
+  reviewing: { label: "주차 검수 중", cls: "bg-amber-100 text-amber-800" },
+  published: { label: "주차 검수 완료", cls: "bg-emerald-100 text-emerald-800" },
+};
+
+// 읽기 전용(개별 조직 운영진) 검수 상태 표시 — 3종 상태를 그대로 보여준다.
+function ReadOnlyReviewStatusPill({
+  status,
+}: {
+  status: TeamPartsInfoWeekDetailData["managedWeek"]["reviewStatus"];
+}) {
+  const { label, cls } = REVIEW_STATUS_PILL[status];
+  return (
+    <span
+      data-reviewed={status === "published" ? "true" : "false"}
+      data-review-status={status}
+      className={"inline-flex items-center gap-1 rounded-md px-3 py-1 text-sm font-bold " + cls}
+    >
+      {status === "published" ? <CheckV /> : null}
+      {label}
+    </span>
+  );
+}
+
 function ReadOnlyStatusPill({
   done,
   doneLabel,
@@ -1663,11 +1694,9 @@ export default function TeamPartsInfoWeekDetailManager({
                   </div>
                 )}
                 {readOnly ? (
-                  <ReadOnlyStatusPill
-                    done={reviewed}
-                    doneLabel="주차 검수 완료"
-                    pendingLabel="주차 검수 대기"
-                    dataAttr="data-reviewed"
+                  // 조직별 상태 3종(집계 중/검수 중/검수 완료) — 확정(published)은 optimistic reviewed 로 즉시 반영.
+                  <ReadOnlyReviewStatusPill
+                    status={reviewed ? "published" : (managedWeek?.reviewStatus ?? "aggregating")}
                   />
                 ) : reviewed ? (
                   <span className="inline-flex items-center gap-1" data-reviewed="true">

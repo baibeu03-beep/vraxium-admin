@@ -123,7 +123,7 @@ async function main() {
       // 2026-07-17: 평면 actCheckRate/totalActs/activeActs → 중첩 actCheck(ActCheckApplicationSummary).
       check(`[${org}] item DTO 키 정합(필드명)`, keys === [
         "actCheck", "clubActivityStatus", "isCurrentWeek", "lineOpenRate",
-        "openLines", "totalLines", "weekName", "weekReviewed", "weekId",
+        "openLines", "totalLines", "weekName", "reviewStatus", "weekReviewed", "weekId",
       ].sort().join(","), { keys });
       const ac = first.actCheck;
       check(`[${org}] actCheck 키 정합`, Object.keys(ac).sort().join(",") === [

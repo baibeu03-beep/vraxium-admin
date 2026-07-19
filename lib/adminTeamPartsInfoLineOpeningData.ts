@@ -42,6 +42,12 @@ import {
 } from "@/lib/experienceTeamOverallTypes";
 import { resolveUserScope } from "@/lib/userScope";
 import type { OrganizationSlug } from "@/lib/organizations";
+import {
+  loadWeekOrgResultStates,
+  resolveWeekOrgResultState,
+  resolveOrgResultScope,
+  type OrgResultScope,
+} from "@/lib/weekOrgResultState";
 import type { ScopeMode } from "@/lib/userScopeShared";
 
 // 실무 정보 활동유형 표시 순서(adminCluster4InfoLineResults PREFERRED_ORDER 미러 — 라인 목록 정렬 SoT).
@@ -565,21 +571,35 @@ async function loadInfoCatalog(): Promise<Array<{ id: string; name: string }>> {
   return rows.map((r) => ({ id: r.id, name: r.name ?? r.id }));
 }
 
-// 주차 메타 — 월요일(start_date, 개설 타이밍 기준) + 검수 여부(result_reviewed_at, 크루 기입 종료 판정).
+// 주차 메타 — 월요일(start_date, 개설 타이밍 기준) + 조직별 검수 여부(크루 기입 종료 판정).
+//   ⚠ 크루 기입 종료(crew_submission_closed)는 "그 조직이 검수 완료(published)했는가"로 판정한다.
+//   전역 result_reviewed_at 을 쓰면 한 조직만 검수해도 세 조직의 라인 개설이 "기입 종료"로 잠기는
+//   버그가 있었다 → cluster4_week_org_result_states[(week_id, org)] 를 SoT 로 사용(레거시 폴백만 전역).
 async function loadWeekMeta(
   weekId: string,
+  organization: OrganizationSlug,
+  scope: OrgResultScope,
 ): Promise<{ startDate: string | null; reviewed: boolean }> {
-  const { data, error } = await supabaseAdmin
-    .from("weeks")
-    .select("start_date,result_reviewed_at")
-    .eq("id", weekId)
-    .maybeSingle();
+  const [{ data, error }, orgStates] = await Promise.all([
+    supabaseAdmin
+      .from("weeks")
+      .select("start_date,result_reviewed_at")
+      .eq("id", weekId)
+      .maybeSingle(),
+    loadWeekOrgResultStates([weekId], organization, scope),
+  ]);
   if (error) {
     console.warn("[line-opening-management] weeks meta unavailable:", error.message);
     return { startDate: null, reviewed: false };
   }
   const row = data as { start_date: string | null; result_reviewed_at: string | null } | null;
-  return { startDate: row?.start_date ?? null, reviewed: row?.result_reviewed_at != null };
+  const startDate = row?.start_date ?? null;
+  const status = resolveWeekOrgResultState(
+    orgStates.get(weekId),
+    startDate ?? "",
+    row?.result_reviewed_at != null,
+  ).status;
+  return { startDate, reviewed: status === "published" };
 }
 
 export async function loadTeamPartsInfoLineOpeningManagement(opts: {
@@ -609,7 +629,7 @@ export async function loadTeamPartsInfoLineOpeningManagement(opts: {
       );
       return null;
     }),
-    loadWeekMeta(weekId),
+    loadWeekMeta(weekId, organization, resolveOrgResultScope(mode)),
     // 개설 가능했던 크루(모집단) = 조직 활동 크루(휴식 제외·현재 모드 스코프). 라인 공통 분모.
     listCrewsForTargetSelection({ organization, status: "active", mode }).catch((e) => {
       console.warn(

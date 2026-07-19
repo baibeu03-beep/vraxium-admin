@@ -67,6 +67,31 @@ function statusBadge(status: TeamPartsInfoWeekItem["clubActivityStatus"]) {
   );
 }
 
+// 조직별 검수 상태 배지 — 현재 선택 조직 기준 단일 값(집계 중/검수 중/검수 완료).
+//   SoT = cluster4_week_org_result_states. 전역 result_reviewed_at 이 아니라 조직별 상태를 표시한다.
+const REVIEW_STATUS_BADGE: Record<
+  TeamPartsInfoWeekItem["reviewStatus"],
+  { label: string; cls: string }
+> = {
+  aggregating: { label: "집계 중", cls: "bg-zinc-100 text-zinc-500" },
+  reviewing: { label: "검수 중", cls: "bg-amber-50 text-amber-700" },
+  published: { label: "검수 완료", cls: "bg-emerald-600 text-white" },
+};
+
+function reviewStatusBadge(status: TeamPartsInfoWeekItem["reviewStatus"]) {
+  const { label, cls } = REVIEW_STATUS_BADGE[status];
+  return (
+    <span
+      data-review-status={status}
+      data-week-reviewed={status === "published" ? "true" : "false"}
+      className={"inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium " + cls}
+      title={label}
+    >
+      {label}
+    </span>
+  );
+}
+
 // 정렬 상태 아이콘 — 기본(중립) / 오름 / 내림.
 function SortIcon({ dir }: { dir: "asc" | "desc" | null }) {
   if (dir === "asc") return <ChevronUp className="size-3.5" aria-hidden />;
@@ -544,22 +569,7 @@ export default function TeamPartsInfoWeeksManager({
                             {item.openLines}
                           </td>
                           <td className="px-3 py-2 text-center">
-                            {item.weekReviewed ? (
-                              <span
-                                data-week-reviewed="true"
-                                className="inline-flex h-6 w-6 items-center justify-center rounded bg-emerald-600 text-xs font-bold text-white"
-                                title="검수 완료"
-                              >
-                                V
-                              </span>
-                            ) : (
-                              <span
-                                data-week-reviewed="false"
-                                className="text-xs text-muted-foreground"
-                              >
-                                -
-                              </span>
-                            )}
+                            {reviewStatusBadge(item.reviewStatus)}
                           </td>
                         </tr>
                       ))
