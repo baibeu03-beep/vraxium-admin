@@ -217,6 +217,8 @@ export default function PracticalInfoOpeningForm({
   openableWeek,
   weekOptions,
   exceptionWeeks = [],
+  selectedWeekId,
+  onSelectWeek,
   activityTypes,
   defaultActivityTypeId,
   onOpened,
@@ -225,6 +227,10 @@ export default function PracticalInfoOpeningForm({
   weekOptions: OpeningFormWeek[];
   // 활성 라인 개설 예외 주차 — 일반 모드에서 자동 정책 주차와 함께 선택 가능.
   exceptionWeeks?: ExceptionFormWeek[];
+  // 대상 주차 단일 SoT — 상위(Section0)가 소유. 상태창·개설 판정·POST week_id·재조회가 모두 이 값을 쓴다.
+  //   현재/자동 정책 주차 고정이 아니라 시즌의 선택 가능한 주차(weekOptions) 중 관리자가 고른 주차.
+  selectedWeekId: string;
+  onSelectWeek: (weekId: string) => void;
   activityTypes: ActivityTypeOption[];
   defaultActivityTypeId: string | null;
   // users prop 은 더 이상 쓰지 않는다(크루는 카페 검수/수동추가 API 로 채운다).
@@ -235,10 +241,9 @@ export default function PracticalInfoOpeningForm({
   const { toast } = useToast();
   const t = useActionToast();
 
+  // dev(?dev=true) 관리자 강제 개설 토글 — 저장 시 dev=true 를 붙여 서버 통합/휴식 fail-closed 게이트까지
+  //   우회한다(테스트용). org-scoped 관리자 수동 개설은 dev 없이도 선택 주차를 서버가 허용(활동 관리 오픈 재검증).
   const [adminUnlock, setAdminUnlock] = useState(false);
-  const [forcedWeekId, setForcedWeekId] = useState<string>("");
-  // 일반 모드에서 선택한 주차(자동 정책 또는 예외 허용). 기본 = 자동 정책 주차.
-  const [normalWeekId, setNormalWeekId] = useState<string>("");
 
   const [lineId, setLineId] = useState<string>(defaultActivityTypeId ?? "");
   // 상단 활동유형 탭이 바뀌면(=defaultActivityTypeId 변경) "라인명" 선택값을 현재 탭으로 맞춘다.
@@ -279,62 +284,37 @@ export default function PracticalInfoOpeningForm({
 
   const unlocked = devMode && adminUnlock;
 
-  // 일반 모드 선택지 = 자동 정책 주차 + 활성 예외 주차(중복 id 는 예외가 우선 — 휴식 덮어쓰기).
-  //   isException=false → 자동 정책, true → 예외 허용. allowed = 예외의 허용 라인(null=전체).
-  const normalOptions = useMemo(() => {
-    const map = new Map<
-      string,
-      {
-        week: OpeningFormWeek;
-        isException: boolean;
-        allowed: string[] | null;
-      }
-    >();
-    if (openableWeek) {
-      map.set(openableWeek.id, {
-        week: openableWeek,
-        isException: false,
-        allowed: null,
-      });
-    }
-    for (const e of exceptionWeeks) {
-      // 같은 id 면 예외가 자동 항목을 덮어쓴다(휴식 주차 예외 등).
-      map.set(e.id, {
-        week: e,
-        isException: true,
-        allowed: e.allowedActivityTypeIds,
-      });
-    }
-    // 자동 정책 주차 먼저.
+  // 대상 주차 옵션 = 시즌의 선택 가능한 주차(weekOptions) ∪ 활성 예외 주차(창 밖 과거/미래 포함).
+  //   weeks-options 가 이미 scope=all 예외를 병합하지만, 라인-스코프 예외(allowed 목록)는 exceptionWeeks 로만
+  //   내려오므로 누락 방지를 위해 합집합으로 구성한다(중복 id 는 첫 항목 유지).
+  const weekChoices = useMemo<OpeningFormWeek[]>(() => {
+    const map = new Map<string, OpeningFormWeek>();
+    for (const w of weekOptions) map.set(w.id, w);
+    for (const e of exceptionWeeks) if (!map.has(e.id)) map.set(e.id, e);
+    // 최신순(시작일 내림차순) — weeks-options 정렬과 동일.
     return Array.from(map.values()).sort((a, b) =>
-      a.isException === b.isException ? 0 : a.isException ? 1 : -1,
+      a.startDate < b.startDate ? 1 : a.startDate > b.startDate ? -1 : 0,
     );
-  }, [openableWeek, exceptionWeeks]);
+  }, [weekOptions, exceptionWeeks]);
 
-  // 일반 모드 유효 선택 id — 사용자가 고른 값이 유효하면 그대로, 아니면 자동 정책 주차 기본값.
-  //   (effect 로 setState 하지 않고 파생값으로 계산 — 불필요한 cascading render 방지)
-  const effectiveNormalId = normalOptions.some((o) => o.week.id === normalWeekId)
-    ? normalWeekId
-    : openableWeek?.id ?? normalOptions[0]?.week.id ?? "";
+  // 유효 선택 id — 상위가 준 selectedWeekId 가 목록에 있으면 그대로, 아니면 자동 정책 주차 → 첫 항목 fallback.
+  const effectiveWeekIdResolved = weekChoices.some((w) => w.id === selectedWeekId)
+    ? selectedWeekId
+    : openableWeek?.id ?? weekChoices[0]?.id ?? "";
 
-  const effectiveWeek = useMemo<OpeningFormWeek | null>(() => {
-    if (unlocked) {
-      return weekOptions.find((w) => w.id === forcedWeekId) ?? openableWeek;
-    }
-    const found = normalOptions.find((o) => o.week.id === effectiveNormalId);
-    return found?.week ?? openableWeek;
-  }, [unlocked, weekOptions, forcedWeekId, openableWeek, normalOptions, effectiveNormalId]);
-
-  // 일반 모드에서 단일 자동 주차만 있는지(예외 없음) — 드롭다운 고정 여부.
-  const normalFixed = normalOptions.length <= 1;
+  const effectiveWeek = useMemo<OpeningFormWeek | null>(
+    () => weekChoices.find((w) => w.id === effectiveWeekIdResolved) ?? openableWeek,
+    [weekChoices, effectiveWeekIdResolved, openableWeek],
+  );
 
   // 선택한 주차가 라인-스코프 예외인데 현재 라인이 허용 목록에 없으면 개설 불가.
+  //   (dev 잠금 해제 시 우회 — 강제 개설 테스트용.)
   const lineNotAllowedForException = useMemo(() => {
     if (unlocked) return false;
-    const opt = normalOptions.find((o) => o.week.id === effectiveWeek?.id);
-    if (!opt || !opt.isException || opt.allowed === null) return false;
-    return !!lineId && !opt.allowed.includes(lineId);
-  }, [unlocked, normalOptions, effectiveWeek, lineId]);
+    const ex = exceptionWeeks.find((e) => e.id === effectiveWeek?.id);
+    if (!ex || ex.allowedActivityTypeIds === null) return false;
+    return !!lineId && !ex.allowedActivityTypeIds.includes(lineId);
+  }, [unlocked, exceptionWeeks, effectiveWeek, lineId]);
 
   // 현재 (선택 주차 + 선택 라인) 에 이미 개설된 활성 라인 조회 — [개설 취소] 대상 판정.
   //   라인 개설/취소 후 refreshTick 으로 재조회. setTimeout(0) 로 비동기 분리(effect 동기 setState 회피).
@@ -392,7 +372,6 @@ export default function PracticalInfoOpeningForm({
   const resetForm = useCallback(() => {
     setLineId(defaultActivityTypeId ?? "");
     setAdminUnlock(false);
-    setForcedWeekId("");
     setMainTitle("");
     setLinkUrl("");
     setLinkDesc("");
@@ -585,6 +564,87 @@ export default function PracticalInfoOpeningForm({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* 대상 주차 — 항상 최상단·게이트 바깥에 둔다. 선택 주차가 미오픈이어도 여기서 다른(오픈된) 주차로
+            이동할 수 있어야 하므로 아래 openThisWeek 차단 패널 바깥에 배치한다. 단일 SoT=selectedWeekId(상위 소유). */}
+        <section className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1">
+              <Label className="text-sm font-semibold">
+                대상 주차 <span className="text-red-500">*</span>
+              </Label>
+              <AdminHelpIconButton
+                helpKey="admin.lineOpening.info.filter.openingWeek"
+                title="대상 주차"
+                size="xs"
+              />
+            </div>
+            {devMode && (
+              <label className="flex cursor-pointer items-center gap-1.5 text-xs text-amber-700">
+                <Checkbox
+                  checked={adminUnlock}
+                  onChange={(e) => setAdminUnlock(e.target.checked)}
+                />
+                {adminUnlock ? (
+                  <Unlock className="h-3.5 w-3.5" />
+                ) : (
+                  <Lock className="h-3.5 w-3.5" />
+                )}
+                <span className={cn(checkedTextClass(adminUnlock))}>
+                  관리자 강제 개설(휴식·통합 게이트 우회 · dev)
+                </span>
+              </label>
+            )}
+          </div>
+
+          {/* 대상 주차 드롭다운 — 시즌의 선택 가능한 주차 전체를 항상 활성으로 노출(현재 주차 고정 아님).
+              주차를 바꾸면 상위 selectedWeekId 가 갱신되어 상태창/개설 판정/POST week_id/재조회가 함께 이동한다.
+              드롭다운 자체는 목록이 없을 때만 비활성 — 개설 가능 여부(휴식/미오픈/중복 등)는 아래 [개설] 버튼에만 적용. */}
+          <select
+            aria-label="대상 주차"
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:bg-muted/50"
+            disabled={weekChoices.length === 0}
+            value={effectiveWeek?.id ?? ""}
+            onChange={(e) => onSelectWeek(e.target.value)}
+          >
+            {weekChoices.length === 0 && (
+              <option value="">개설 대상 주차를 계산할 수 없습니다</option>
+            )}
+            {weekChoices.map((w) => (
+              <option key={w.id} value={w.id}>
+                {weekTitle(w)} · {weekRange(w)}
+                {w.isOpenTarget ? " · 개설 대상" : ""}
+                {w.isCurrent ? " · 현재" : ""}
+                {!w.canOpen ? " · 휴식" : ""}
+              </option>
+            ))}
+          </select>
+
+          {effectiveWeek ? (
+            <div
+              className={cn(
+                "rounded-md border px-3 py-2",
+                effectiveWeek.canOpen
+                  ? "border-input bg-muted/30"
+                  : "border-orange-300 bg-orange-50",
+              )}
+            >
+              <p className="text-sm font-semibold text-foreground">
+                {weekTitle(effectiveWeek)}
+              </p>
+              <p className="text-xs text-muted-foreground">{weekRange(effectiveWeek)}</p>
+              {!effectiveWeek.canOpen && (
+                <p className="mt-1 text-xs font-medium text-orange-600">
+                  공식 휴식 주차 — 라인 개설 불가
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              개설 대상 주차 정보를 확인할 수 없습니다.
+            </p>
+          )}
+        </section>
+
         {openThisWeek === false ? (
           // 미오픈 라인 — 이번 주 개설 대상이 아님. 폼 본문 대신 차단 패널(어둡게)만 표시(개설 불가).
           //   판정 = 서버 isInfoLineOpenForWeek(개설 저장 API 와 동일). URL 직접 선택도 동일 차단.
@@ -670,105 +730,6 @@ export default function PracticalInfoOpeningForm({
             </ul>
           )}
         </div>
-
-        {/* 1. 개설할 주차 */}
-        <section className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1">
-              <Label className="text-sm font-semibold">
-                개설 주차 <span className="text-red-500">*</span>
-              </Label>
-              <AdminHelpIconButton
-                helpKey="admin.lineOpening.info.filter.openingWeek"
-                title="개설 주차"
-                size="xs"
-              />
-            </div>
-            {devMode && (
-              <label className="flex cursor-pointer items-center gap-1.5 text-xs text-amber-700">
-                <Checkbox
-                  checked={adminUnlock}
-                  onChange={(e) => {
-                    setAdminUnlock(e.target.checked);
-                    if (e.target.checked && openableWeek)
-                      setForcedWeekId((p) => p || openableWeek.id);
-                  }}
-                />
-                {adminUnlock ? (
-                  <Unlock className="h-3.5 w-3.5" />
-                ) : (
-                  <Lock className="h-3.5 w-3.5" />
-                )}
-                <span className={cn(checkedTextClass(adminUnlock))}>
-                  관리자 강제 선택(잠금 해제 · dev)
-                </span>
-              </label>
-            )}
-          </div>
-
-          <select
-            aria-label="개설 주차"
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:bg-muted/50"
-            disabled={!unlocked && normalFixed}
-            value={effectiveWeek?.id ?? ""}
-            onChange={(e) =>
-              unlocked
-                ? setForcedWeekId(e.target.value)
-                : setNormalWeekId(e.target.value)
-            }
-          >
-            {!openableWeek &&
-              weekOptions.length === 0 &&
-              normalOptions.length === 0 && (
-                <option value="">개설 대상 주차를 계산할 수 없습니다</option>
-              )}
-            {unlocked
-              ? weekOptions.map((w) => (
-                  <option key={w.id} value={w.id} disabled={!w.canOpen}>
-                    {weekTitle(w)} · {weekRange(w)}
-                    {w.isOpenTarget ? " · 개설 대상" : ""}
-                    {w.isCurrent ? " · 현재" : ""}
-                    {!w.canOpen ? " · 휴식" : ""}
-                  </option>
-                ))
-              : normalOptions.map((o) => (
-                  <option
-                    key={o.week.id}
-                    value={o.week.id}
-                    disabled={!o.week.canOpen}
-                  >
-                    {weekTitle(o.week)} · {weekRange(o.week)}
-                    {o.isException ? " · 예외 허용" : " · 자동 정책"}
-                    {!o.week.canOpen ? " · 휴식" : ""}
-                  </option>
-                ))}
-          </select>
-
-          {effectiveWeek ? (
-            <div
-              className={cn(
-                "rounded-md border px-3 py-2",
-                effectiveWeek.canOpen
-                  ? "border-input bg-muted/30"
-                  : "border-orange-300 bg-orange-50",
-              )}
-            >
-              <p className="text-sm font-semibold text-foreground">
-                {weekTitle(effectiveWeek)}
-              </p>
-              <p className="text-xs text-muted-foreground">{weekRange(effectiveWeek)}</p>
-              {!effectiveWeek.canOpen && (
-                <p className="mt-1 text-xs font-medium text-orange-600">
-                  공식 휴식 주차 — 라인 개설 불가
-                </p>
-              )}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              개설 대상 주차 정보를 확인할 수 없습니다.
-            </p>
-          )}
-        </section>
 
         {/* 2. 라인명 — 상단 활동유형 탭에서 선택된 유형의 라인만 후보로 노출(Manager 가 필터). */}
         <section className="space-y-2">

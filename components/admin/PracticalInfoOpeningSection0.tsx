@@ -77,19 +77,37 @@ export default function PracticalInfoOpeningSection0({
   // 개설 직후 로그창 재조회 트리거.
   const [logRefreshTick, setLogRefreshTick] = useState(0);
 
-  const openableWeekId = openableWeek?.id ?? null;
+  // ── 대상 주차 단일 SoT ─────────────────────────────────────────────────────
+  //   상태창(개설 필요/완료) · 개설 폼(개설 판정 · POST week_id) · 개설 후 재조회가 모두 이 값을 쓴다.
+  //   기본값 = 자동 정책(개설 대상) 주차 → 현재 주차 → 첫 항목. 현재 주차 고정이 아니라 과거 주차도 선택 가능.
+  const [selectedWeekId, setSelectedWeekId] = useState<string>("");
+  const defaultWeekId =
+    openableWeek?.id ??
+    weekOptions.find((w) => w.isCurrent)?.id ??
+    weekOptions[0]?.id ??
+    "";
+  // 최초 1회(또는 선택값이 목록에서 사라졌을 때) 기본 주차로 초기화 — 파생 setState 회피 위해 effect 사용.
+  useEffect(() => {
+    setSelectedWeekId((prev) =>
+      prev && weekOptions.some((w) => w.id === prev) ? prev : defaultWeekId,
+    );
+  }, [defaultWeekId, weekOptions]);
+
+  const selectedWeek =
+    weekOptions.find((w) => w.id === selectedWeekId) ?? openableWeek;
+  const resolvedWeekId = selectedWeek?.id ?? null;
   const activeTypeId = activeType?.id ?? null;
 
-  // 지난 주(개설 대상) + 활동유형의 활성 라인 존재 여부를 조회한다(개설됨/필요 판정).
+  // 선택 주차 + 활동유형의 활성 라인 존재 여부를 조회한다(개설됨/필요 판정) — 대상 주차 SoT 기준.
   const loadLine = useCallback(async () => {
-    if (!openableWeekId || !activeTypeId) {
+    if (!resolvedWeekId || !activeTypeId) {
       setActiveLineId(null);
       return;
     }
     setLoadingLine(true);
     try {
       const qs = new URLSearchParams({
-        week_id: openableWeekId,
+        week_id: resolvedWeekId,
         activity_type_id: activeTypeId,
       });
       // org 컨텍스트(?org) → organization 변환.
@@ -112,7 +130,7 @@ export default function PracticalInfoOpeningSection0({
     } finally {
       setLoadingLine(false);
     }
-  }, [openableWeekId, activeTypeId]);
+  }, [resolvedWeekId, activeTypeId]);
 
   useEffect(() => {
     loadLine();
@@ -121,19 +139,19 @@ export default function PracticalInfoOpeningSection0({
   const opened = activeLineId != null;
 
   const activityName = activeType?.name ?? "해당";
-  const lastWeekLabel = openableWeek ? formatBannerPeriod(openableWeek) : null;
+  // 상태창 문구 = 대상 주차(selectedWeek) 기준. 현재 주차 고정이 아니라 관리자가 고른 주차를 따라간다.
+  const lastWeekLabel = selectedWeek ? formatBannerPeriod(selectedWeek) : null;
   const thisWeekLabel = currentWeek ? formatBannerPeriod(currentWeek) : null;
 
-  // 대상 주차 호칭 — 금요일 경계(금~일)로 개설 대상이 현재 주차와 같아지면 "이번 주",
-  //   다르면 "개설 대상 주차". (공용 엔진 targetWeekPrefix 와 동일 규칙 — 같은 주를 한 화면에서
-  //   '이번 주'이자 '지난 주'로 부르던 오표기 제거.) 비교 = 시즌/연도/주차번호.
+  // 대상 주차 호칭 — 선택 주차가 현재 주차와 같으면 "이번 주", 다르면 "선택 주차"(과거 주차 보정 등).
+  //   비교 = 시즌/연도/주차번호.
   const targetIsCurrent =
     !!currentWeek &&
-    !!openableWeek &&
-    currentWeek.year === openableWeek.year &&
-    currentWeek.seasonName === openableWeek.seasonName &&
-    currentWeek.weekNumber === openableWeek.weekNumber;
-  const lastWeekPrefix = targetIsCurrent ? "이번 주" : "개설 대상 주차";
+    !!selectedWeek &&
+    currentWeek.year === selectedWeek.year &&
+    currentWeek.seasonName === selectedWeek.seasonName &&
+    currentWeek.weekNumber === selectedWeek.weekNumber;
+  const lastWeekPrefix = targetIsCurrent ? "이번 주" : "선택 주차";
 
   return (
     <div className="space-y-4">
@@ -174,7 +192,7 @@ export default function PracticalInfoOpeningSection0({
                   {lastWeekPrefix} <span className="font-semibold">[{lastWeekLabel}]</span>{" "}
                   의 {activityName} 라인이 ‘개설’ 되어, 크루 기입이 가능합니다.
                 </p>
-              ) : openableWeek?.isOfficialRest ? (
+              ) : selectedWeek?.isOfficialRest ? (
                 /* 공식 휴식 주차 — 액션(개설 되어야) 요구하지 않는다(공용 엔진과 동일). */
                 <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-foreground">
                   {lastWeekPrefix} <span className="font-semibold">[{lastWeekLabel}]</span>{" "}
@@ -207,6 +225,8 @@ export default function PracticalInfoOpeningSection0({
         openableWeek={openableWeek}
         weekOptions={weekOptions}
         exceptionWeeks={exceptionWeeks}
+        selectedWeekId={selectedWeekId}
+        onSelectWeek={setSelectedWeekId}
         activityTypes={activityTypes}
         defaultActivityTypeId={activeType?.id ?? null}
         users={users}

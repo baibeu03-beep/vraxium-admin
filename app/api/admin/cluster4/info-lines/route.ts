@@ -470,8 +470,40 @@ export async function POST(request: NextRequest) {
         effectiveWeekId = (exRow as { id: string }).id;
         effectiveOpensAt = win.submissionOpensAt;
         effectiveClosesAt = win.submissionClosesAt;
+      } else if (scopeOrg) {
+        // 3) org-scoped 관리자 수동 개설 — 선택한 과거 주차를 존중한다(현재/자동정책 주차 고정 제한 해제).
+        //    "임의 주차 무조건 개설"이 아니다: 아래 라인 개설 오픈 게이트(isInfoLineOpenForWeek)가
+        //    effectiveWeekId 기준으로 활동 관리 오픈 설정을 서버에서 재검증하고, 주차 존재/중복/권한도
+        //    각각 강제한다. 운영 중 개설 누락·잘못 개설 취소 후 재개설·장애 복구·과거 주차 보정 등
+        //    관리자 수동 개설 예외 상황을 위한 경로. (통합/org 미지정은 config 축이 없어 아래 4)에서 fail-closed.)
+        //    기입 기간은 선택 주차 시작(월요일) 기준으로 서버가 산출한다(클라이언트 값 불신).
+        const { data: selRow, error: selErr } = await supabaseAdmin
+          .from("weeks")
+          .select("id,start_date")
+          .eq("id", clientWeekId)
+          .maybeSingle();
+        if (selErr) {
+          return Response.json(
+            { success: false, error: selErr.message },
+            { status: 500 },
+          );
+        }
+        if (!selRow) {
+          return Response.json(
+            { success: false, error: "선택한 주차에 해당하는 weeks 행이 없습니다" },
+            { status: 404 },
+          );
+        }
+        const win = submissionWindowForWeekStartIso(
+          (selRow as { start_date: string }).start_date,
+        );
+        effectiveWeekId = (selRow as { id: string }).id;
+        effectiveOpensAt = win.submissionOpensAt;
+        effectiveClosesAt = win.submissionClosesAt;
       } else {
-        // 3) 자동도 예외도 아님 → 차단(fail-closed).
+        // 4) 통합(org 미지정) 자동도 예외도 아님 → 차단(fail-closed).
+        //    활동 관리 config 는 org-scoped 이므로 통합 개설은 오픈 설정 재검증 축이 없다 →
+        //    현재 주차/자동 정책/예외만 허용하는 종전 규칙 유지(무접촉).
         if (openable && !openableUsable && clientWeekId === openableRowId) {
           return Response.json(
             {
