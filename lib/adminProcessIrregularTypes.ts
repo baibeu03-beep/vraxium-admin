@@ -8,7 +8,7 @@
 //   - ⚠ user_weekly_points.points · 주차 성장 계산 · snapshot · checkGate · demoUserId 무접촉.
 //     point A/B/C 는 표시/관리용 정의값(고객앱 점수 미연동).
 
-import type { ProcessCheckWeekDto } from "@/lib/adminProcessCheckTypes";
+import type { ProcessCheckWeekDto, CommentCollectionStatusKind } from "@/lib/adminProcessCheckTypes";
 
 // 주차 DTO 는 프로세스 체크와 동일 SoT(공용) 재사용.
 export type { ProcessCheckWeekDto } from "@/lib/adminProcessCheckTypes";
@@ -211,6 +211,10 @@ export type ProcessIrregularActRowDto = {
   // worker 진행/실패 표시.
   attemptCount: number;
   lastError: string | null;
+  // 댓글 수집 상태(2026-07-19) — 정규와 동일 SoT(deriveCommentCollectionStatus). "정상 0 vs 오류 0"·
+  //   "매칭 실패" 구분 + [댓글 다시 수집] 노출 판정. 레거시/미기록이면 rawCommentCount=null → unknown.
+  rawCommentCount: number | null;
+  collectionKind: CommentCollectionStatusKind;
 };
 
 export type ProcessIrregularSummary = {

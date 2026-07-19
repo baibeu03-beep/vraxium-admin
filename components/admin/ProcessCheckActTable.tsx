@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/table";
 import { SelectBadge, StatusBadge } from "@/components/ui/status-badge";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import CommentCollectionStatusView from "@/components/admin/CommentCollectionStatusView";
 import { ActionControl, INSTANT_REVIEW_BUTTON_CLASS } from "@/components/admin/ActionControl";
 import { ACTION_CONTROL_REGISTRY } from "@/lib/actionControl/registry";
 import {
@@ -344,7 +345,8 @@ export default function ProcessCheckActTable({
                     {/* 1열 신청 시점(필요) · 2열 검수 시점(필요) — 헤더와 동일 순서. */}
                     <TableCell className="whitespace-nowrap">{a.occurWhen}</TableCell>
                     <TableCell className="whitespace-nowrap">{a.checkWhen}</TableCell>
-                    {/* 3열 상태 — 미가동이면 '미가동' 배지(클릭 불가). 그 외는 클릭/읽기전용/도움말 동작 불변. */}
+                    {/* 3열 상태 — 미가동이면 '미가동' 배지(클릭 불가). 그 외는 클릭/읽기전용/도움말 동작 불변.
+                        배지 아래 보조: 댓글 수집/매칭 카운트 + 수집 상태(정상 0·매칭 없음·일시 오류 구분). */}
                     <TableCell className="text-center">
                       {!a.isOpenThisWeek ? (
                         <StatusBadge
@@ -355,23 +357,29 @@ export default function ProcessCheckActTable({
                           title="이번 주 오픈 대상이 아닙니다(오픈 설정 미포함). 활동 관리에서 오픈된 액트만 체크할 수 있습니다."
                         />
                       ) : a.isCheckTarget ? (
-                        readOnly ? (
-                          // 팀 전체 스코프 — 읽기 전용 배지(클릭 불가).
-                          <StatusBadge
-                            label={processCheckActStatusLabel(a.status, a.completionType)}
-                            size="sm"
-                            className="opacity-70"
-                            title="‘팀 전체’ 범위는 읽기 전용입니다. 팀 총괄/파트를 선택하면 체크할 수 있습니다."
-                          />
-                        ) : (
-                          <StatusBadge
-                            label={processCheckActStatusLabel(a.status, a.completionType)}
-                            size="sm"
-                            onClick={() => onOpenAct(a)}
-                            disabled={weekDisabled}
-                            title={weekDisabled ? "현재 주차 weeks 행 없음" : "클릭하여 체크 신청/취소"}
-                          />
-                        )
+                        <div className="inline-flex flex-col items-center gap-0.5">
+                          {readOnly ? (
+                            // 팀 전체 스코프 — 읽기 전용 배지(클릭 불가).
+                            <StatusBadge
+                              label={processCheckActStatusLabel(a.status, a.completionType)}
+                              size="sm"
+                              className="opacity-70"
+                              title="‘팀 전체’ 범위는 읽기 전용입니다. 팀 총괄/파트를 선택하면 체크할 수 있습니다."
+                            />
+                          ) : (
+                            <StatusBadge
+                              label={processCheckActStatusLabel(a.status, a.completionType)}
+                              size="sm"
+                              onClick={() => onOpenAct(a)}
+                              disabled={weekDisabled}
+                              title={weekDisabled ? "현재 주차 weeks 행 없음" : "클릭하여 체크 신청/취소"}
+                            />
+                          )}
+                          {/* 신청 후(대기/완료) 행만 수집 상태 보조 표시 — needed 는 아직 수집 개념이 없음. */}
+                          {a.status !== "needed" && (
+                            <CommentCollectionStatusView debug={a.reviewerDebug} variant="compact" />
+                          )}
+                        </div>
                       ) : (
                         <span className="text-xs text-muted-foreground">체크 대상 아님</span>
                       )}

@@ -55,7 +55,9 @@
     "verify:crew-act-result-browser": "tsx --env-file=.env.local scripts/browser-verify-crew-act-result.ts",
     "verify:line-history-type": "tsx --env-file=.env.local scripts/verify-line-history-type-and-shape.ts",
     "verify:line-audience-cache": "tsx --env-file=.env.local scripts/verify-line-audience-cache.ts",
-    "verify:weekly-cards-parity": "tsx --env-file=.env.local scripts/verify-weekly-cards-parity.ts"
+    "verify:weekly-cards-parity": "tsx --env-file=.env.local scripts/verify-weekly-cards-parity.ts",
+    "verify:comment-collection-unit": "tsx scripts/verify-comment-collection-status-unit.ts",
+    "verify:comment-collection-sweep": "tsx --env-file=.env.local scripts/verify-comment-collection-sweep.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

@@ -20,11 +20,15 @@ import {
   formatCheckDateTimeKo,
   validateReviewLink,
   validateScheduledCheckAt,
-  REVIEWER_RESOLUTION_LABEL,
+  commentCollectionAllowsRecollect,
   type ProcessCheckActRowDto,
   type ProcessCheckScopeKind,
 } from "@/lib/adminProcessCheckTypes";
 import ProcessCheckCompletedCrewList from "@/components/admin/ProcessCheckCompletedCrewList";
+import CommentCollectionStatusView from "@/components/admin/CommentCollectionStatusView";
+
+// 재수집 실패 시 사용자 문구(도메인 상수 · 서버 원문 아님) — 반드시 "일시적으로" 포함.
+const RECOLLECT_FAIL_MESSAGE = "댓글 정보를 일시적으로 가져오지 못했습니다. 다시 수집해주세요.";
 
 // 30분 단위 시간 슬롯(00:00 ~ 23:30).
 const TIME_SLOTS: string[] = (() => {
@@ -91,6 +95,8 @@ export default function ProcessCheckActDialog({
   const [time, setTime] = useState("");
   const [banner, setBanner] = useState<Banner>(null);
   const [submitting, setSubmitting] = useState(false);
+  // [댓글 다시 수집] 진행 상태 — 중복 클릭 방지 + "수집 중" 표시.
+  const [recollecting, setRecollecting] = useState(false);
 
   // 닫기 확인용 — needed 상태에서 입력값이 있을 때만 한 번 더 확인.
   const dirty = reviewLink !== "" || date !== "" || time !== "";
@@ -206,6 +212,38 @@ export default function ProcessCheckActDialog({
       t.error(action === "request" ? "submit" : "cancel");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // 댓글 수집 상태(서버 파생) + 재수집 가능 여부(일시 오류만).
+  const collectionKind = act.reviewerDebug.collectionKind;
+  const canRecollect =
+    status !== "needed" && commentCollectionAllowsRecollect(collectionKind) && Boolean(act.checkStatusId);
+
+  // [댓글 다시 수집] — 그 행만 즉시 재수집. 중복 클릭 방지·수집 중 표시·성공 시 최신 결과로 즉시 갱신.
+  //   실패해도 기존 정상 수집 결과를 0 으로 덮어쓰지 않는다(서버 sweep 가 보존) — 오류 안내만 표시.
+  const recollect = async () => {
+    if (recollecting || submitting || !act.checkStatusId) return;
+    setBanner(null);
+    setRecollecting(true);
+    try {
+      const res = await fetch("/api/admin/processes/check/recollect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organization, statusId: act.checkStatusId, source: "regular" }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
+      t.success("review", "댓글을 다시 수집했습니다.");
+      onDone();
+      onClose();
+    } catch (err) {
+      console.error("[ProcessCheckActDialog] recollect failed", err);
+      // 서버 원문이 아니라 도메인 상수("일시적으로" 포함)로 안내 — 단정적 실패 문구 금지.
+      t.error("review", { message: RECOLLECT_FAIL_MESSAGE });
+      setBanner({ kind: "error", message: RECOLLECT_FAIL_MESSAGE });
+    } finally {
+      setRecollecting(false);
     }
   };
 
@@ -349,16 +387,29 @@ export default function ProcessCheckActDialog({
           <ProcessCheckCompletedCrewList crews={act.completedCrewList} />
         </div>
 
-        {/* 검수 크루 식별 진단(테스트/관리자용) — "검수 크루 0명"의 원인 분리. needed 는 의미 없음(생략). */}
-        {status !== "needed" && act.reviewerDebug && (
-          <div className="mt-3 rounded-md border border-dashed border-muted-foreground/30 bg-muted/20 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-            <p className="font-semibold">검수 진단</p>
-            <p>
-              원인: <span className="font-medium text-foreground">{REVIEWER_RESOLUTION_LABEL[act.reviewerDebug.resolutionStatus]}</span>
-              {" · "}식별 닉네임 {act.reviewerDebug.crawledCommentCount} · 매칭 {act.reviewerDebug.matchedCrewCount} · 미매칭 {act.reviewerDebug.unmatchedCommentAuthors.length}
-            </p>
-            {act.reviewerDebug.attemptCount > 0 && (
-              <p>worker 시도 {act.reviewerDebug.attemptCount}회{act.reviewerDebug.lastError ? ` · 오류: ${act.reviewerDebug.lastError}` : ""}</p>
+        {/* 댓글 수집 상태 — "댓글 수집"과 "사용자 매칭"을 분리해 표시. 정상 0(댓글 없음)·매칭 사용자 없음·
+            일시 오류를 구분한다. needed 는 아직 수집 개념이 없어 생략. 재수집 진행 중이면 "수집 중"으로 표시. */}
+        {status !== "needed" && (
+          <div className="mt-3 space-y-2">
+            <CommentCollectionStatusView
+              debug={act.reviewerDebug}
+              variant="card"
+              kindOverride={recollecting ? "collecting" : undefined}
+            />
+            {/* [댓글 다시 수집] — 일시 오류 상태에서만 노출. 중복 클릭 방지 + 수집 중 표시. */}
+            {canRecollect && (
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  loading={recollecting}
+                  disabled={recollecting || submitting}
+                  onClick={() => void recollect()}
+                >
+                  {recollecting ? "수집 중…" : "댓글 다시 수집"}
+                </Button>
+              </div>
             )}
           </div>
         )}

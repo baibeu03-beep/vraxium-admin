@@ -14,6 +14,20 @@ import {
   type CrewSortKey,
 } from "@/lib/cafeCrewSort";
 import { excludeAddedByUserId } from "@/lib/crewSearchExclude";
+import {
+  deriveCommentCollectionStatus,
+  type CommentCollectionStatusKind,
+} from "@/lib/adminProcessCheckTypes";
+import CommentCollectionStatusView from "@/components/admin/CommentCollectionStatusView";
+
+// 크롤/파싱 "일시 오류"로 볼 크롤러 error code(사용자 입력 오류 invalid_url 은 제외 — 검증 문구 유지).
+//   프로세스 체크와 동일한 "댓글 수집 일시 오류" 문구를 이 코드들에만 적용한다.
+const CAFE_TRANSIENT_ERROR_CODES = new Set([
+  "login_required",
+  "article_not_accessible",
+  "crawl_failed",
+  "match_failed",
+]);
 
 // 라인 개설 크루 선택기 — 네이버 카페 댓글 검수(자동 매칭) + 수동 추가/삭제/초기화.
 //   "라인 개설" 폼과 "개설 대상 크루 수정" 모달이 공유하는 단일 UI/로직(SoT). 두 경로가
@@ -55,6 +69,8 @@ export default function CafeCrewPicker({
   const [cafeUrl, setCafeUrl] = useState("");
   const [cafeLoading, setCafeLoading] = useState(false);
   const [cafeError, setCafeError] = useState<string | null>(null);
+  // 마지막 검수 오류의 크롤러 코드 — 일시 오류(수집 실패) vs 입력 오류(invalid_url) 구분용.
+  const [cafeErrorCode, setCafeErrorCode] = useState<string | null>(null);
   const [cafeMeta, setCafeMeta] = useState<CafeCrewMeta>(null);
   const [review, setReview] = useState<CafeReviewItem[]>([]);
   // 자동 매칭됐지만 이미 대상자라 추가하지 않은 건수(이번 검수 기준).
@@ -114,10 +130,12 @@ export default function CafeCrewPicker({
   const handleVerifyCafe = useCallback(async () => {
     if (!cafeUrl.trim()) {
       setCafeError("네이버 카페 게시물 링크를 입력해주세요");
+      setCafeErrorCode(null);
       return;
     }
     setCafeLoading(true);
     setCafeError(null);
+    setCafeErrorCode(null);
     try {
       // 현재 org + mode(운영/테스트) 모집단으로만 매칭 — 조직/모드 경계 밖 동명이인 제외.
       const loc = new URLSearchParams(window.location.search);
@@ -136,7 +154,14 @@ export default function CafeCrewPicker({
       );
       const json = await res.json();
       if (!json.success) {
-        setCafeError(json.message ?? json.error ?? "검수 실패");
+        const code = typeof json.error === "string" ? json.error : null;
+        setCafeErrorCode(code);
+        // 일시 수집 오류(로그인/접근/크롤 실패 등)는 공통 문구로, 그 외(잘못된 URL 등)는 서버 안내 문구로.
+        setCafeError(
+          code && CAFE_TRANSIENT_ERROR_CODES.has(code)
+            ? "댓글 정보를 일시적으로 가져오지 못했습니다. 다시 수집해주세요."
+            : json.message ?? json.error ?? "검수 실패",
+        );
         return;
       }
       const d = json.data as {
@@ -207,6 +232,22 @@ export default function CafeCrewPicker({
     };
   }, [manualQ]);
 
+  // 댓글 수집 상태(표시 전용 · 프로세스 체크와 동일 SoT) — 성공 시 원본/매칭 수로 파생, 일시 오류면 error.
+  //   입력 오류(invalid_url 등)는 수집 상태가 아니라 검증 문구로 남긴다(kind 없음). 라이브 피커라 저장/적립 없음.
+  const isTransientCafeError = Boolean(
+    cafeError && cafeErrorCode && CAFE_TRANSIENT_ERROR_CODES.has(cafeErrorCode),
+  );
+  const collectionKind: CommentCollectionStatusKind | null = isTransientCafeError
+    ? "error"
+    : cafeMeta && !cafeError
+      ? deriveCommentCollectionStatus({
+          status: "completed",
+          collectionStatus: "success",
+          rawCommentCount: cafeMeta.rawCommentCount,
+          matchedCount: cafeMeta.matchedCrewCount,
+        })
+      : null;
+
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between">
@@ -245,24 +286,58 @@ export default function CafeCrewPicker({
             }}
             disabled={disabled || cafeLoading}
           />
-          <Button
-            type="button"
-            onClick={handleVerifyCafe}
-            loading={cafeLoading}
-            disabled={disabled || cafeLoading}
-            className="shrink-0"
-          >
-            <Search className="mr-2 h-4 w-4" />
-            검수
-          </Button>
+          {/* 상태별 단일 액션 — 일시 수집 오류일 때만 [댓글 다시 수집], 그 외(최초/URL변경/정상완료/입력오류)는
+              [검수]. 둘 다 같은 handleVerifyCafe(같은 URL 재수집)를 호출하지만 UI 에는 하나만 노출한다.
+              진행 중(cafeLoading)엔 loading+disabled 로 중복 클릭을 차단한다. */}
+          {collectionKind === "error" ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleVerifyCafe}
+              loading={cafeLoading}
+              disabled={disabled || cafeLoading}
+              className="shrink-0"
+            >
+              {cafeLoading ? "수집 중…" : "댓글 다시 수집"}
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              onClick={handleVerifyCafe}
+              loading={cafeLoading}
+              disabled={disabled || cafeLoading}
+              className="shrink-0"
+            >
+              <Search className="mr-2 h-4 w-4" />
+              검수
+            </Button>
+          )}
           <AdminHelpIconButton
             helpKey="admin.lineOpening.info.action.verifyCafe"
             title="검수(매칭)"
             size="xs"
           />
         </div>
-        {cafeError && <p className="text-sm text-red-600">{cafeError}</p>}
-        {cafeMeta && (
+        {/* 입력/검증 오류(잘못된 URL 등)만 빨간 안내 — 일시 수집 오류는 아래 수집 상태 카드로 통일 표시. */}
+        {cafeError && !isTransientCafeError && <p className="text-sm text-red-600">{cafeError}</p>}
+        {/* 댓글 수집 상태 — 성공 시 '댓글 없음/매칭 사용자 없음/매칭 완료', 일시 오류 시 '댓글 수집 일시 오류'.
+            프로세스 체크와 동일한 상태·문구(CommentCollectionStatusView). 라이브 피커라 상태 저장은 없다. */}
+        {collectionKind && (
+          <CommentCollectionStatusView
+            variant="card"
+            debug={
+              collectionKind === "error"
+                ? { rawCommentCount: null, matchedCrewCount: 0, collectionKind }
+                : {
+                    rawCommentCount: cafeMeta!.rawCommentCount,
+                    matchedCrewCount: cafeMeta!.matchedCrewCount,
+                    collectionKind,
+                  }
+            }
+          />
+        )}
+        {/* 세부 카운트(수동 확인·이미 추가됨 포함) — 성공(오류 없음) 시에만. */}
+        {cafeMeta && !cafeError && (
           <p className="text-xs text-muted-foreground">
             원본 댓글 {cafeMeta.rawCommentCount} · 자동 매칭 {cafeMeta.matchedCrewCount} · 수동
             확인 {review.length}

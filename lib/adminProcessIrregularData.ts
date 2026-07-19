@@ -15,6 +15,10 @@ import {
   resolveSelectableProcessWeeks,
 } from "@/lib/adminProcessCheckData";
 import {
+  deriveCommentCollectionStatus,
+  isCommentCollectionStoredStatus,
+} from "@/lib/adminProcessCheckTypes";
+import {
   getActiveProcessCheckExceptionWeekIds,
   hasActiveProcessCheckException,
 } from "@/lib/processCheckWindowsData";
@@ -114,10 +118,32 @@ type IrregularRow = {
   created_at: string;
   attempt_count: number | null;
   last_error: string | null;
+  // 댓글 수집 상태(2026-07-19) — 컬럼 미적용/미선택이면 undefined → null(collectionKind=unknown/not_collected).
+  raw_comment_count?: number | null;
+  comment_collection_status?: string | null;
+  comment_collection_error_code?: string | null;
 };
 
 const ROW_SELECT =
   "id,week_id,kind,act_name,applicant_admin_name,target_user_id,target_user_name,duration_minutes,reason,point_a,point_b,point_c,crew_reaction,review_link,scheduled_check_at,status,completed_at,created_at,attempt_count,last_error";
+// 댓글 수집 상태 컬럼 — 적용 시에만 SELECT 에 덧붙인다(getIrregularBoard 에서 collectionColumnsAvailable 게이트).
+const COLLECTION_COLS = "raw_comment_count,comment_collection_status,comment_collection_error_code";
+
+// 수집 상태 컬럼 적용 여부 — true 만 캐시(적용 후 영구). 미적용이면 SELECT 제외(조회는 unknown/not_collected).
+let _irrCollectionColAvailable = false;
+async function collectionColumnsAvailable(): Promise<boolean> {
+  if (_irrCollectionColAvailable) return true;
+  const { error } = await supabaseAdmin
+    .from("process_irregular_acts")
+    .select("comment_collection_status")
+    .limit(1);
+  if (!error) {
+    _irrCollectionColAvailable = true;
+    return true;
+  }
+  if (error.code === "42703" || error.code === "PGRST204" || error.code === "PGRST205") return false;
+  return true; // 다른 에러면 있다고 보고 진행(실제 쿼리에서 표면화).
+}
 
 type RecipientRow = {
   user_id: string | null;
@@ -173,6 +199,17 @@ function toRowDto(
     matchedCount: recs.filter((x) => x.matchType === "matched").length,
     attemptCount: r.attempt_count ?? 0,
     lastError: r.last_error,
+    // 댓글 수집 상태 — 정규와 동일 SoT. ⚠ rawStatus(DB 원본) 기준으로 파생한다: 검수 시점 경과로 표시만
+    //   완료된(autoCompleted·worker 미처리) 행은 아직 수집한 적이 없으므로 not_collected 로 보여야 한다.
+    rawCommentCount: r.raw_comment_count ?? null,
+    collectionKind: deriveCommentCollectionStatus({
+      status: rawStatus,
+      collectionStatus: isCommentCollectionStoredStatus(r.comment_collection_status)
+        ? r.comment_collection_status
+        : null,
+      rawCommentCount: r.raw_comment_count ?? null,
+      matchedCount: recs.filter((x) => x.matchType === "matched").length,
+    }),
   };
 }
 
@@ -274,11 +311,14 @@ export async function getIrregularBoard(
       .eq("week_id", effectiveWeekId)
       .eq("scope_mode", mode)
       .order("created_at", { ascending: false });
+  // 댓글 수집 상태 컬럼(적용 시에만 SELECT). origin 컬럼과 독립적으로 degrade.
+  const collectionAvail = await collectionColumnsAvailable();
+  const baseSel = collectionAvail ? `${ROW_SELECT},${COLLECTION_COLS}` : ROW_SELECT;
   let hasOrigin = true;
-  let res = await runQuery(ROW_SELECT + ",origin");
+  let res = await runQuery(baseSel + ",origin");
   if (res.error && res.error.code === "42703") {
     hasOrigin = false;
-    res = await runQuery(ROW_SELECT);
+    res = await runQuery(baseSel);
   }
   if (res.error) throw migrationHint(res.error) ?? new ProcessMasterError(500, res.error.message);
 

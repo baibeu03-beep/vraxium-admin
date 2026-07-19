@@ -50,6 +50,9 @@ import {
   validateScheduledCheckAt,
   isPartLineGroupName,
   deriveReviewerResolutionStatus,
+  deriveCommentCollectionStatus,
+  isCommentCollectionStoredStatus,
+  type CommentCollectionStoredStatus,
   type ProcessCheckReviewerDebug,
   TEAM_OVERALL_LABEL,
   type ProcessCheckAction,
@@ -152,6 +155,23 @@ async function completionColumnsAvailable(): Promise<boolean> {
 
 const MANUAL_GRANT_MIGRATION_HINT =
   "선별 액트 수동 부여는 completion_type/manual_point_* 컬럼이 필요합니다. db/migrations/2026-06-18_process_check_manual_grant.sql 을 SQL Editor 에서 적용해주세요.";
+
+// 댓글 수집 상태 컬럼(raw_comment_count/comment_collection_status/…) 적용 여부 — true 만 캐시(적용 후 영구).
+//   미적용이면 SELECT 에서 제외(조회는 collectionStatus=null → collectionKind=unknown/not_collected 로 안전 처리).
+let _collectionColAvailable = false;
+async function commentCollectionColumnsAvailable(): Promise<boolean> {
+  if (_collectionColAvailable) return true;
+  const { error } = await supabaseAdmin
+    .from("process_check_statuses")
+    .select("comment_collection_status")
+    .limit(1);
+  if (!error) {
+    _collectionColAvailable = true;
+    return true;
+  }
+  if (isPartColumnMissing(error)) return false;
+  return true; // 다른 에러면 있다고 보고 진행(실제 쿼리에서 표면화).
+}
 
 // 선택 팀의 팀명 조회(org·active 검증). 없으면 null.
 async function resolveTeamName(teamId: string, organization: string): Promise<string | null> {
@@ -505,6 +525,10 @@ type StatusRow = {
   attempt_count: number | null;
   last_error: string | null;
   completion_type?: string | null; // 수동 부여 컬럼(미적용이면 미선택 → undefined)
+  // 댓글 수집 상태(2026-07-19) — 컬럼 미적용/미선택이면 undefined → null(collectionKind=unknown/not_collected).
+  raw_comment_count?: number | null;
+  comment_collection_status?: string | null;
+  comment_collection_error_code?: string | null;
 };
 type StatusState = {
   statusRowId: string | null; // recipients(ref_id) 조인 키. needed(행 없음)면 null.
@@ -517,11 +541,17 @@ type StatusState = {
   checkedCrewCount: number | null;
   attemptCount: number;
   lastError: string | null;
+  // 댓글 수집 상태(저장값) — reviewerDebug/collectionKind 파생용. 미기록/레거시=null.
+  rawCommentCount: number | null;
+  collectionStatus: CommentCollectionStoredStatus | null;
+  collectionErrorCode: string | null;
 };
 const STATUS_SELECT_BASE =
   "id,act_id,status,review_link,scheduled_check_at,requested_at,completed_at,checked_crew_count,attempt_count,last_error";
 // completion 컬럼 적용 시에만 추가(미적용 보드는 BASE 만으로 동작 — degrade).
 const STATUS_SELECT_FULL = `${STATUS_SELECT_BASE},completion_type`;
+// 댓글 수집 상태 컬럼 — 적용 시에만 SELECT 에 덧붙인다(loadStatusRows 에서 collectionAvail 로 게이트).
+const STATUS_SELECT_COLLECTION = "raw_comment_count,comment_collection_status,comment_collection_error_code";
 
 function toStatusState(r: StatusRow): StatusState {
   const status: ProcessCheckStatus =
@@ -537,6 +567,11 @@ function toStatusState(r: StatusRow): StatusState {
     checkedCrewCount: r.checked_crew_count,
     attemptCount: r.attempt_count ?? 0,
     lastError: r.last_error ?? null,
+    rawCommentCount: r.raw_comment_count ?? null,
+    collectionStatus: isCommentCollectionStoredStatus(r.comment_collection_status)
+      ? r.comment_collection_status
+      : null,
+    collectionErrorCode: r.comment_collection_error_code ?? null,
   };
 }
 
@@ -690,6 +725,16 @@ function buildReviewerDebug(
     unmatchedCommentAuthors,
     attemptCount: st.attemptCount,
     lastError: st.lastError,
+    // 댓글 수집 상태(저장값) + 화면 표시 파생. matchedCount 는 위 스코프 교집합까지 반영된 값을 그대로 쓴다.
+    rawCommentCount: st.rawCommentCount,
+    collectionStatus: st.collectionStatus,
+    collectionErrorCode: st.collectionErrorCode,
+    collectionKind: deriveCommentCollectionStatus({
+      status: st.status,
+      collectionStatus: st.collectionStatus,
+      rawCommentCount: st.rawCommentCount,
+      matchedCount,
+    }),
   };
 }
 
@@ -704,9 +749,11 @@ async function loadStatusRows(
   teamId: string | null,
   partAvail: boolean,
   completionAvail: boolean,
+  collectionAvail: boolean = false,
 ): Promise<StatusRowFull[]> {
-  const base = completionAvail ? STATUS_SELECT_FULL : STATUS_SELECT_BASE;
-  const sel = partAvail ? `${base},part_name` : base;
+  let sel = completionAvail ? STATUS_SELECT_FULL : STATUS_SELECT_BASE;
+  if (collectionAvail) sel = `${sel},${STATUS_SELECT_COLLECTION}`;
+  if (partAvail) sel = `${sel},part_name`;
   let query = supabaseAdmin
     .from("process_check_statuses")
     .select(sel)
@@ -739,6 +786,9 @@ const NEEDED: StatusState = {
   checkedCrewCount: null,
   attemptCount: 0,
   lastError: null,
+  rawCommentCount: null,
+  collectionStatus: null,
+  collectionErrorCode: null,
 };
 
 // 상태창1(팀별) 완료 판정 — 요약(summary.isAllCompleted)과 "동일 SoT"를 팀 단위로 적용한다.
@@ -864,10 +914,11 @@ export async function getProcessCheckBoard(
     }
   }
 
-  // 상태 행 로드 + 스코프별 액트→상태 맵 구성. completion_type(수동 부여)도 함께(적용 시).
+  // 상태 행 로드 + 스코프별 액트→상태 맵 구성. completion_type(수동 부여)·댓글 수집 상태도 함께(적용 시).
   const completionAvail = await completionColumnsAvailable();
+  const collectionAvail = await commentCollectionColumnsAvailable();
   const rows = effectiveWeekId
-    ? await loadStatusRows(organization, hub, effectiveWeekId, teamId, partAvail, completionAvail)
+    ? await loadStatusRows(organization, hub, effectiveWeekId, teamId, partAvail, completionAvail, collectionAvail)
     : [];
   // 검수 크루 식별 결과(recipients) 조인 — reviewerDebug + 체크 완료 명단(read-only·best-effort).
   const { agg: recipients, crewLists } = await loadRecipientData(
@@ -1451,7 +1502,7 @@ export async function applyProcessCheckAction(input: {
     checkedCrewCount: st.checked_crew_count,
     // 신청/취소는 completed 가 아님 — 체크 완료 명단 없음.
     completedCrewList: [],
-    // 신청/취소 직후 — 검수는 아직 미실행(worker 미처리). 디버그는 not_started 기본값.
+    // 신청/취소 직후 — 검수는 아직 미실행(worker 미처리). 디버그는 not_started/미수집 기본값.
     reviewerDebug: {
       resolutionStatus: deriveReviewerResolutionStatus({
         status: st.status,
@@ -1464,6 +1515,15 @@ export async function applyProcessCheckAction(input: {
       unmatchedCommentAuthors: [],
       attemptCount: 0,
       lastError: null,
+      rawCommentCount: null,
+      collectionStatus: null,
+      collectionErrorCode: null,
+      collectionKind: deriveCommentCollectionStatus({
+        status: st.status,
+        collectionStatus: null,
+        rawCommentCount: null,
+        matchedCount: st.checked_crew_count ?? 0,
+      }),
     },
   };
 }
@@ -2128,6 +2188,16 @@ export async function applyProcessManualGrant(input: {
       unmatchedCommentAuthors: [],
       attemptCount: 0,
       lastError: null,
+      // 수동 부여는 크롤 수집이 아님(관리자 직접 명단) — 수집 상태는 없지만 매칭이 확정이라 '매칭 완료'로 파생.
+      rawCommentCount: null,
+      collectionStatus: null,
+      collectionErrorCode: null,
+      collectionKind: deriveCommentCollectionStatus({
+        status: "completed",
+        collectionStatus: null,
+        rawCommentCount: null,
+        matchedCount: totalCrew,
+      }),
     },
   };
 }

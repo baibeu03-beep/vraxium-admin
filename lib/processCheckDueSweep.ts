@@ -40,12 +40,45 @@ const DEFAULT_MAX_ITEMS = Number(process.env.PROCESS_CHECK_SWEEP_MAX_ITEMS ?? 25
 
 export type SweepMatched = { userId: string | null; nickname: string | null; reason?: string | null };
 export type SweepReview = { nickname: string | null; reason?: string | null };
+// rawCommentCount = 크롤 원본 댓글 총수(totalComments). 주입 mock 이 생략하면 매칭+미매칭 닉네임 수로 폴백.
 export type SweepCrawlAndMatch = (
   org: string,
   mode: string,
   url: string,
-) => Promise<{ matched: SweepMatched[]; review: SweepReview[] }>;
+) => Promise<{ matched: SweepMatched[]; review: SweepReview[]; rawCommentCount?: number }>;
 export type SweepAccrue = (source: AccrualSource, refId: string) => Promise<unknown>;
+
+// 크롤/파싱 실패(수집 단계) — 완료 실패 중에서도 "댓글 수집 일시 오류"로 분류하기 위한 타입 오류.
+//   errorCode = 크롤러 error code(invalid_url/login_required/article_not_accessible/crawl_failed).
+export class CommentCollectionError extends Error {
+  constructor(
+    public readonly errorCode: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = "CommentCollectionError";
+  }
+}
+
+// 수집 상태 컬럼(2026-07-19) 적용 여부 — true 만 캐시(적용 후 영구). 미적용이면 해당 컬럼 write 를 생략(degrade).
+//   미적용 DB 에서 신규 컬럼을 update 하면 "column does not exist" 로 완료 update 전체가 실패하므로 가드한다.
+let _collectionColsAvailable = false;
+async function commentCollectionColumnsAvailable(): Promise<boolean> {
+  if (_collectionColsAvailable) return true;
+  const { error } = await supabaseAdmin
+    .from("process_check_statuses")
+    .select("comment_collection_status")
+    .limit(1);
+  if (!error) {
+    _collectionColsAvailable = true;
+    return true;
+  }
+  // 컬럼 없음(42703/PGRST204) → 미적용. 그 외(권한 등)는 있다고 보고 진행(실제 쿼리에서 표면화).
+  if (error.code === "42703" || error.code === "PGRST204" || /column .* does not exist/i.test(error.message)) {
+    return false;
+  }
+  return true;
+}
 
 type DueItem = {
   id: string;
@@ -67,6 +100,7 @@ export type SweepItemResult =
       outcome: "completed";
       matched: number;
       review: number;
+      rawCommentCount: number; // 원본 댓글 총수(크롤러 집계 · 폴백=닉네임 수)
       accrued: number | null; // 적립된 user 수(스킵/실패 시 null)
       accrualSkippedReason?: string;
     }
@@ -78,6 +112,8 @@ export type SweepItemResult =
       outcome: "failed";
       attempt: number;
       error: string;
+      errorCode: string; // 수집 오류 코드(crawl_failed 등) — 재수집/메시지 매핑용
+      isCollectionError: boolean; // 크롤/파싱 단계 실패(CommentCollectionError)인가
     };
 
 export type SweepResult = {
@@ -133,10 +169,12 @@ export async function inProcessCrawlAndMatch(
   org: string,
   mode: string,
   url: string,
-): Promise<{ matched: SweepMatched[]; review: SweepReview[] }> {
+): Promise<{ matched: SweepMatched[]; review: SweepReview[]; rawCommentCount: number }> {
   const collected = await fetchCafeNicknames(url);
   if (!collected.ok) {
-    throw new Error(`crawl_failed(${collected.error}): ${collected.message}`);
+    // 수집 단계 실패 — 원본 댓글 수/매칭 결과를 만들지 못했다. 상태 컬럼에 'error'+코드로 기록되도록
+    //   일반 Error 가 아닌 CommentCollectionError 로 던진다(recipients·raw_comment_count 는 보존).
+    throw new CommentCollectionError(collected.error, collected.message);
   }
   const scopeMode: ScopeMode = mode === "test" ? "test" : "operating";
   const scope = await resolveUserScope(scopeMode, isOrganizationSlug(org) ? org : null);
@@ -154,6 +192,8 @@ export async function inProcessCrawlAndMatch(
       reason: m.matchReason,
     })),
     review: result.review.map((r) => ({ nickname: r.nickname, reason: r.reason })),
+    // 원본 댓글 총수(닉네임 dedupe 전 · 크롤러 집계). "정상 0 vs 오류 0" 구분의 근거.
+    rawCommentCount: collected.data.totalComments,
   };
 }
 
@@ -204,6 +244,10 @@ export async function runDueProcessCheckSweep(opts: {
   const { data: markerRows } = await supabaseAdmin.from("test_user_markers").select("user_id");
   const testIds = new Set(((markerRows ?? []) as { user_id: string | null }[]).map((r) => r.user_id).filter(Boolean));
 
+  // 수집 상태 컬럼(raw_comment_count/comment_collection_status/…) 적용 여부(sweep 당 1회).
+  //   미적용이면 해당 컬럼 write 를 생략해 완료/실패 update 가 깨지지 않게 한다(degrade → 조회는 unknown).
+  const collectionCols = await commentCollectionColumnsAvailable();
+
   // org/mode 한정 + (옵션)id 화이트리스트 + 재시도 소진/쿨다운 필터 — 워커 eligible 과 동일.
   const eligibleAll = due.filter(
     (d) =>
@@ -226,11 +270,13 @@ export async function runDueProcessCheckSweep(opts: {
   for (const item of eligible) {
     const mode: ScopeMode = item.scope_mode === "test" ? "test" : "operating";
     try {
-      const { matched, review } = await crawlAndMatch(
+      const { matched, review, rawCommentCount } = await crawlAndMatch(
         item.organization_slug,
         mode,
         item.review_link ?? "",
       );
+      // 원본 댓글 총수 — 크롤러가 주면 그대로, 주입 mock 이 생략하면 식별 닉네임 수로 폴백(기존 근사 유지).
+      const rawCount = rawCommentCount ?? matched.length + review.length;
 
       // ── 쓰기 직전 스코프 재검증(defense-in-depth) — cafe 매칭이 이미 org+mode 로 좁히지만,
       //   다른 write 경로(createManualGrant·info-lines·competency)와 동일하게 2차 가드를 둔다.
@@ -308,6 +354,12 @@ export async function runDueProcessCheckSweep(opts: {
         last_attempt_at: completedAt,
       };
       if (item.source === "regular") upd.checked_crew_count = matched.length;
+      // 수집 성공 — 원본 댓글 수 + 상태 각인(오류 코드 clear). 이 값으로 "정상 0 vs 오류 0"을 구분한다.
+      if (collectionCols) {
+        upd.raw_comment_count = rawCount;
+        upd.comment_collection_status = "success";
+        upd.comment_collection_error_code = null;
+      }
       const { error: uErr } = await supabaseAdmin.from(item.table).update(upd).eq("id", item.id);
       if (uErr) throw new Error(`complete update: ${uErr.message}`);
 
@@ -359,6 +411,7 @@ export async function runDueProcessCheckSweep(opts: {
         outcome: "completed",
         matched: matched.length,
         review: review.length,
+        rawCommentCount: rawCount,
         accrued,
         ...(accrualSkippedReason ? { accrualSkippedReason } : {}),
       });
@@ -369,14 +422,20 @@ export async function runDueProcessCheckSweep(opts: {
       failed++;
       const attempt = (item.attempt_count ?? 0) + 1;
       const msg = String((e as Error)?.message ?? e).slice(0, 500);
-      await supabaseAdmin
-        .from(item.table)
-        .update({
-          attempt_count: attempt,
-          last_attempt_at: new Date(now).toISOString(),
-          last_error: msg,
-        })
-        .eq("id", item.id);
+      // 수집/처리 실패 — 상태를 'error'로 각인해 조회 시 "일시 오류"로 노출(다시 수집 유도).
+      //   ⚠ raw_comment_count·recipients·checked_crew_count 는 건드리지 않는다 — 이전 정상 수집 결과를
+      //     0 으로 덮어쓰지 않는다(재수집 실패가 기존 결과를 지우면 안 된다). error_code 는 크롤러 코드 우선.
+      const errorCode = e instanceof CommentCollectionError ? e.errorCode : "crawl_failed";
+      const failUpd: Record<string, unknown> = {
+        attempt_count: attempt,
+        last_attempt_at: new Date(now).toISOString(),
+        last_error: msg,
+      };
+      if (collectionCols) {
+        failUpd.comment_collection_status = "error";
+        failUpd.comment_collection_error_code = errorCode;
+      }
+      await supabaseAdmin.from(item.table).update(failUpd).eq("id", item.id);
       items.push({
         id: item.id,
         source: item.source,
@@ -385,6 +444,8 @@ export async function runDueProcessCheckSweep(opts: {
         outcome: "failed",
         attempt,
         error: msg,
+        errorCode,
+        isCollectionError: e instanceof CommentCollectionError,
       });
       log(`✗ ${item.source} ${item.id} attempt ${attempt}/${MAX_ATTEMPTS}: ${msg}`);
     }

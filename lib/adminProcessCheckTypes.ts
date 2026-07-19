@@ -169,8 +169,8 @@ export function deriveReviewerResolutionStatus(input: {
 }
 
 // 검수 크루 식별 디버그(액트 행에 부착) — "- (0명)"의 원인을 구분하기 위한 read-only 진단 필드.
-//   ⚠ crawledCommentCount 는 "식별된 닉네임 수(매칭+수동확인)"다 — 카페 원문 댓글 총수는
-//      저장하지 않으므로(worker 가 폐기) 식별 닉네임 기준의 근사치다.
+//   ⚠ crawledCommentCount 는 "식별된 닉네임 수(매칭+수동확인)"다 — 카페 원문 댓글 총수가 아니다.
+//      원문 댓글 총수는 rawCommentCount(아래) 로 별도 저장/노출한다(2026-07-19 이후).
 export type ProcessCheckReviewerDebug = {
   resolutionStatus: ReviewerResolutionStatus;
   crawledCommentCount: number; // 식별 닉네임 수(matched + review). 원문 댓글 총수 아님.
@@ -178,7 +178,128 @@ export type ProcessCheckReviewerDebug = {
   unmatchedCommentAuthors: string[]; // 매칭 실패(수동확인) 닉네임 목록.
   attemptCount: number; // worker 시도 횟수(진단 보조).
   lastError: string | null; // worker 마지막 오류(진단 보조).
+  // ── 댓글 수집 상태(2026-07-19) — "정상 0 vs 오류 0", "수집 성공 vs 매칭 실패" 분리의 SoT ──
+  //   rawCommentCount        : 크롤 원본 댓글 총수(process_check_statuses.raw_comment_count).
+  //                            null = 미기록(레거시 완료 행/미수집) → collectionKind 가 unknown/not_collected.
+  //   collectionStatus       : 마지막 수집 결과(저장값). 'success'|'error'|null(미수집/레거시).
+  //   collectionErrorCode    : 오류 시 크롤러 error code(사용자 문구 매핑은 UI). 성공/미수집=null.
+  //   collectionKind         : 화면 표시용 파생 상태(라벨·색·재수집 버튼 노출의 단일 SoT).
+  rawCommentCount: number | null;
+  collectionStatus: CommentCollectionStoredStatus | null;
+  collectionErrorCode: string | null;
+  collectionKind: CommentCollectionStatusKind;
 };
+
+// ── 댓글 수집 상태(저장값 · 표시 파생) — 정규/변동/운영/테스트 공용 SoT ───────────────────
+//   저장 컬럼 comment_collection_status 는 마지막 크롤 결과만 담는다(성공/오류). "정상 0 vs 오류 0"·
+//   "매칭 실패" 같은 화면 상태는 저장값(status·raw_comment_count·collectionStatus)+매칭 수로 파생한다.
+export type CommentCollectionStoredStatus = "success" | "error";
+export function isCommentCollectionStoredStatus(v: unknown): v is CommentCollectionStoredStatus {
+  return v === "success" || v === "error";
+}
+
+// 화면 표시 상태 — 크롤 수집 상태와 사용자 매칭 결과를 분리해 노출한다.
+//   not_collected        = 아직 수집하지 않음(needed/대기·worker 미처리).
+//   collecting           = 수집 중(클라 전용 — [댓글 다시 수집] 진행 중. 서버 파생에는 등장하지 않음).
+//   collected_matched    = 수집 성공 + 매칭 사용자 ≥1.
+//   collected_no_match   = 수집 성공 + 원본 댓글 ≥1 + 매칭 사용자 0.       (기능 실패 아님 · 경고)
+//   collected_no_comments= 수집 성공 + 원본 댓글 0.                        (정상 · 중립)
+//   error                = 크롤/파싱 일시 오류.                            (다시 수집 · 위험)
+//   unknown              = 레거시 완료 행(신규 수집 컬럼 없음·매칭 0) → 임의 판정 금지, 안전 처리.
+export type CommentCollectionStatusKind =
+  | "not_collected"
+  | "collecting"
+  | "collected_matched"
+  | "collected_no_match"
+  | "collected_no_comments"
+  | "error"
+  | "unknown";
+
+// 짧은 제목(배지/카드 제목) — 요구 문구 그대로. mode/org 무관.
+export const COMMENT_COLLECTION_LABEL: Record<CommentCollectionStatusKind, string> = {
+  not_collected: "미수집",
+  collecting: "수집 중",
+  collected_matched: "매칭 완료",
+  collected_no_match: "매칭 사용자 없음",
+  collected_no_comments: "댓글 없음",
+  error: "댓글 수집 일시 오류",
+  unknown: "상태 확인 불가",
+};
+
+// 본문 설명 — 요구 문구 그대로(오류는 반드시 "일시적으로" 포함, 단정적 표현 금지).
+export const COMMENT_COLLECTION_DESCRIPTION: Record<CommentCollectionStatusKind, string> = {
+  not_collected: "아직 댓글을 수집하지 않았습니다.",
+  collecting: "댓글을 수집하고 있습니다.",
+  collected_matched: "댓글 수집이 정상적으로 완료되었습니다.",
+  collected_no_match: "댓글은 수집되었지만 등록된 사용자와 매칭되지 않았습니다.",
+  collected_no_comments: "댓글 수집은 정상적으로 완료되었습니다.",
+  error: "댓글 정보를 일시적으로 가져오지 못했습니다. 다시 수집해주세요.",
+  unknown: "이전 기록에 수집 상태 정보가 없어 확인할 수 없습니다.",
+};
+
+// 색 톤 — 회색(중립)/노랑(경고)/빨강(위험). 요구: 댓글없음=회색 · 매칭없음=주황 경고 · 오류=위험.
+export type CommentCollectionTone = "neutral" | "warning" | "danger";
+export const COMMENT_COLLECTION_TONE: Record<CommentCollectionStatusKind, CommentCollectionTone> = {
+  not_collected: "neutral",
+  collecting: "neutral",
+  collected_matched: "neutral",
+  collected_no_match: "warning",
+  collected_no_comments: "neutral",
+  error: "danger",
+  unknown: "warning",
+};
+
+// 재수집([댓글 다시 수집]) 버튼을 노출할 상태 — 일시 오류만(정상 0/매칭 실패는 재수집 유도 대상 아님).
+export function commentCollectionAllowsRecollect(kind: CommentCollectionStatusKind): boolean {
+  return kind === "error";
+}
+
+// 수집 상태 표시(공용 컴포넌트) 입력 최소 형태 — 정규(reviewerDebug)·변동(irregular row) 공용.
+//   ProcessCheckReviewerDebug 가 이 형태를 만족하므로 그대로 넘길 수 있다.
+export type CommentCollectionViewData = {
+  rawCommentCount: number | null;
+  matchedCrewCount: number;
+  collectionKind: CommentCollectionStatusKind;
+};
+
+// 화면 표시 상태 파생(서버/클라 공용 단일 SoT) — 순수 함수.
+//   ⚠ count===0 만으로 오류를 판정하지 않는다. 저장된 수집 상태(collectionStatus)·원본 댓글 수
+//     (rawCommentCount)·매칭 수를 기준으로 구분하고, 신규 컬럼이 없는 레거시 완료 행은 unknown 으로
+//     안전 처리한다(정상/오류 임의 판정 금지).
+export function deriveCommentCollectionStatus(input: {
+  status: ProcessCheckStatus;
+  collectionStatus: CommentCollectionStoredStatus | null;
+  rawCommentCount: number | null;
+  matchedCount: number;
+}): CommentCollectionStatusKind {
+  const { status, collectionStatus, rawCommentCount, matchedCount } = input;
+
+  if (status !== "completed") {
+    // 신청 후 크롤이 실패해 대기 상태에 머문 경우 — 저장된 오류 상태를 그대로 노출(다시 수집 유도).
+    if (collectionStatus === "error") return "error";
+    return "not_collected";
+  }
+
+  // 완료 행 — 우선 저장된 수집 상태로 판정.
+  if (collectionStatus === "success") {
+    if (rawCommentCount != null) {
+      if (rawCommentCount <= 0) return "collected_no_comments";
+      return matchedCount > 0 ? "collected_matched" : "collected_no_match";
+    }
+    // 성공인데 원본 수 미기록(드묾) — 매칭이 있으면 매칭, 없으면 안전 처리.
+    return matchedCount > 0 ? "collected_matched" : "unknown";
+  }
+  if (collectionStatus === "error") {
+    // 완료로 남았는데 마지막 수집이 오류로 기록됨(예: 완료 후 재수집 실패) — 기존 매칭이 있으면 그 결과
+    //   유지, 없으면 오류로 노출(0 으로 위장하지 않는다).
+    return matchedCount > 0 ? "collected_matched" : "error";
+  }
+
+  // collectionStatus 미기록(레거시 완료 행) — recipients 매칭이 있으면 그 사실은 신뢰(매칭 완료),
+  //   매칭 0 이면 정상 0 인지 오류 0 인지 알 수 없으므로 임의 판정하지 않고 unknown.
+  if (matchedCount > 0) return "collected_matched";
+  return "unknown";
+}
 
 // ── DTO ──────────────────────────────────────────────────────────────────────
 // [섹션.1] 액트 목록 테이블 한 행 — 마스터(process_acts) + 체크 상태(현재값).

@@ -20,7 +20,12 @@ import {
   irregularStatusClass,
   type ProcessIrregularActRowDto,
 } from "@/lib/adminProcessIrregularTypes";
+import { commentCollectionAllowsRecollect } from "@/lib/adminProcessCheckTypes";
+import CommentCollectionStatusView from "@/components/admin/CommentCollectionStatusView";
 import { getProcessPointLabels } from "@/lib/pointLabels";
+
+// 재수집 실패 시 사용자 문구(도메인 상수 · 서버 원문 아님) — 반드시 "일시적으로" 포함.
+const RECOLLECT_FAIL_MESSAGE = "댓글 정보를 일시적으로 가져오지 못했습니다. 다시 수집해주세요.";
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -50,7 +55,10 @@ export default function ProcessIrregularReviewDetail({
   const confirm = useConfirm();
   const t = useActionToast();
   const [submitting, setSubmitting] = useState(false);
+  const [recollecting, setRecollecting] = useState(false);
   const isReview = act.kind === "review_request";
+  // [댓글 다시 수집] — 일시 오류(collectionKind==='error')인 검수 링크 액트만.
+  const canRecollect = isReview && commentCollectionAllowsRecollect(act.collectionKind);
   const po = getProcessPointLabels(organization);
   // 체크 취소(=신청 삭제)는 현재 주차 · 검수 링크 · pending(검수 시점 전) 일 때만.
   //   수동 부여/완료/과거 주차는 취소 불가.
@@ -77,6 +85,30 @@ export default function ProcessIrregularReviewDetail({
       t.error("cancel", status ? { status } : undefined);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // [댓글 다시 수집] — 그 변동 액트만 즉시 재수집(source='irregular'). 중복 클릭 방지·수집 중 표시.
+  //   성공 시 최신 결과로 갱신. 실패해도 기존 결과를 0 으로 덮어쓰지 않는다(서버 sweep 보존).
+  const recollect = async () => {
+    if (recollecting || submitting) return;
+    setRecollecting(true);
+    try {
+      const res = await fetch("/api/admin/processes/check/recollect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organization, statusId: act.id, source: "irregular" }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
+      t.success("review", "댓글을 다시 수집했습니다.");
+      onDone();
+      onClose();
+    } catch (err) {
+      console.error("irregular recollect failed", err);
+      t.error("review", { message: RECOLLECT_FAIL_MESSAGE });
+    } finally {
+      setRecollecting(false);
     }
   };
 
@@ -145,6 +177,35 @@ export default function ProcessIrregularReviewDetail({
             <Row label="완료 시점" value={act.completedAt ? formatCheckDateTimeKo(act.completedAt) : "—"} />
           )}
         </div>
+
+        {/* 댓글 수집 상태 — 검수 링크 액트만. "정상 0(댓글 없음)·매칭 사용자 없음·일시 오류" 구분 + 재수집. */}
+        {isReview && (
+          <div className="mt-3 space-y-2">
+            <CommentCollectionStatusView
+              debug={{
+                rawCommentCount: act.rawCommentCount,
+                matchedCrewCount: act.matchedCount,
+                collectionKind: act.collectionKind,
+              }}
+              variant="card"
+              kindOverride={recollecting ? "collecting" : undefined}
+            />
+            {canRecollect && editable && (
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  loading={recollecting}
+                  disabled={recollecting || submitting}
+                  onClick={() => void recollect()}
+                >
+                  {recollecting ? "수집 중…" : "댓글 다시 수집"}
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* 자동 검수 결과 — 완료 후 식별 크루 */}
         {act.status === "completed" && (
