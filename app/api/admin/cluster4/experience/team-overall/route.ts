@@ -125,6 +125,8 @@ function parseLeaderCells(raw: unknown): OverallLeaderCellDto[] {
 }
 
 // 도출/분석/견문 라인명 편집 payload — part-derived 유형만 통과. selectedLineId 빈값=null.
+//   파트장 전용 점수(checked/score)는 있을 때만 실어 보낸다 — 서버가 파트장 여부로만 반영하고
+//   일반/에이전트에는 무시하므로(점수 SoT=개설 신청 셀) 여기선 형만 정규화한다.
 function parseLineSelections(raw: unknown): OverallLineSelectionDto[] {
   const out: OverallLineSelectionDto[] = [];
   if (!Array.isArray(raw)) return out;
@@ -137,7 +139,15 @@ function parseLineSelections(raw: unknown): OverallLineSelectionDto[] {
       typeof row.selectedLineId === "string" && row.selectedLineId.trim()
         ? row.selectedLineId.trim()
         : null;
-    out.push({ crewUserId, lineType, selectedLineId });
+    const sel: OverallLineSelectionDto = { crewUserId, lineType, selectedLineId };
+    // 파트장 점수(선택 필드) — boolean/유한 숫자일 때만 전달. 0 은 유효(미체크/보이드)이므로
+    //   falsy 로 누락하지 않는다. 서버가 experienceScoreState 로 재정규화·클램프(0~10).
+    if (typeof row.checked === "boolean") sel.checked = row.checked;
+    const scoreNum = Number(row.score);
+    if (row.score !== undefined && row.score !== null && Number.isFinite(scoreNum)) {
+      sel.score = Math.max(0, Math.min(10, Math.round(scoreNum)));
+    }
+    out.push(sel);
   }
   return out;
 }
