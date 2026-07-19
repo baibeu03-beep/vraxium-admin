@@ -1,10 +1,11 @@
 // 오픈확인 확정 설정 → 주차별 인정 개수 N 입력 해석 + 계산/미설정 검증.  [Phase 3]
 //
-//   확정 정책(2026-07-11):
-//    - 라인 SoT: info=activity_types.id · experience=(org,category) 팀공유(단 오픈 팀×category
-//      instance 수만큼 각각 합산) · competency=해당 주차 target 걸린 master 만 · career/club 라인 없음.
+//   확정 정책(2026-07-11 · experience 중복 합산은 2026-07-19 폐기):
+//    - 라인 SoT: info=activity_types.id · experience=(org,category) 팀공유(config_key=category 별
+//      조직·주차당 최대 1회 — 팀 instance 수 무관) · competency=해당 주차 target 걸린 master 만 · career/club 없음.
 //    - 액트: process_acts(가동=openConfirmed && 라인급 체크 && check_target='check'). A=required·B=basic외.
-//      experience 액트는 라인과 동일하게 "체크된 팀 instance 수만큼" 합산(라인 정책과 일관).
+//      experience 액트는 동일 act_id 를 조직·주차당 최대 1회만 합산("팀 시작"/"파트 시작"은 별개 act_id 라
+//      각각 1회). team_id/instance 수는 오픈 여부 판단 근거로만 쓰고 합산 횟수를 늘리지 않는다.
 //    - Point.A=point_check · Point.B=point_advantage · C 제외.
 //
 //   fail-closed(§7·table-applied 일 때만): 포인트 config 테이블 + recognition 저장 컬럼이 실제 적용된
@@ -100,14 +101,16 @@ export async function resolveRecognitionInputs(opts: {
     if (isOpen) flagMissing("info", at.id, at.name ?? at.id);
   }
 
-  // experience: 팀 × 카테고리(type). config_key = category enum(type). 팀별 오픈 instance 각각 합산.
-  for (const teamId of lineTeamIds) {
-    for (const type of EXPERIENCE_LINE_TYPES) {
-      const isOpen = openConfirmed && config.practicalExperience?.[teamId]?.[type] === true;
-      const p = pointCfg.get("experience", type);
-      lines.push({ id: `exp:${teamId}:${type}`, hub: "experience", isOpen, pointA: p.pointA, pointB: p.pointB });
-      if (isOpen) flagMissing("experience", type, EXP_LABEL[type] ?? type);
-    }
+  // experience: config_key = category enum(type). 라인 config 는 팀 공통(team/part scope 구분 없음·
+  //   포인트는 pointCfg.get("experience", type) 로 team_id 무관) → 조직·주차당 config_key 별 최대 1회만
+  //   합산한다. team_id/instance 수는 "해당 type 이 열렸는지" 판단 근거로만 쓰고 합산 횟수를 늘리지 않는다.
+  //   isOpen = 어느 한 팀이라도 그 type 을 오픈. (2026-07-19 정책: 팀 instance 중복 합산 폐기.)
+  for (const type of EXPERIENCE_LINE_TYPES) {
+    const isOpen =
+      openConfirmed && lineTeamIds.some((teamId) => config.practicalExperience?.[teamId]?.[type] === true);
+    const p = pointCfg.get("experience", type);
+    lines.push({ id: `exp:${type}`, hub: "experience", isOpen, pointA: p.pointA, pointB: p.pointB });
+    if (isOpen) flagMissing("experience", type, EXP_LABEL[type] ?? type);
   }
 
   // competency: checked && 해당 주차 실제 target 걸린 master 만. config_key = master line_code.
@@ -136,11 +139,13 @@ export async function resolveRecognitionInputs(opts: {
     const actType: ActType = a.act_type ?? "basic";
     const base = { actType, pointA: a.point_check ?? 0, pointB: a.point_advantage ?? 0 };
     if (a.hub === "experience") {
-      // 체크된 팀 instance 수만큼 각각(라인 정책과 일관).
-      for (const teamId of actTeamIds) {
-        const open = openConfirmed && actChecked(config.actCheck?.experience?.[teamId]?.[a.line_group_id ?? ""]);
-        acts.push({ id: `act:${a.id}:${teamId}`, isOpen: open, ...base });
-      }
+      // team/part scope 구분 없음(포인트=process_acts 고유값·team 무관) → 동일 act_id 는 조직·주차당
+      //   최대 1회만 합산한다. "팀 시작"/"파트 시작"은 서로 다른 act_id 라 각각 1회씩 반영된다.
+      //   isOpen = 어느 한 팀이라도 그 라인급(line_group_id)을 체크. (2026-07-19 정책: 팀 중복 폐기.)
+      const open =
+        openConfirmed &&
+        actTeamIds.some((teamId) => actChecked(config.actCheck?.experience?.[teamId]?.[a.line_group_id ?? ""]));
+      acts.push({ id: `act:${a.id}`, isOpen: open, ...base });
     } else {
       let open = openConfirmed;
       if (a.hub === "info") open = open && actChecked(config.actCheck?.info?.[a.line_group_id ?? ""]);
