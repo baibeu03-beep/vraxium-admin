@@ -88,8 +88,10 @@ export function formatLogDateTime(iso: string): string {
   return formatClubDateTime(iso, iso);
 }
 
-export type OpeningLogAction = "open" | "cancel";
+export type OpeningLogAction = "open" | "cancel" | "close";
 export const OPENING_LOG_ACTION_LABEL: Record<OpeningLogAction, string> = {
   open: "개설 완료",
   cancel: "개설 취소",
+  // 수동 "2차 기입 마감"(force-close) — submission_closes_at 을 현재 시각으로 단축한 조기 마감 이벤트.
+  close: "2차 기입 마감",
 };
