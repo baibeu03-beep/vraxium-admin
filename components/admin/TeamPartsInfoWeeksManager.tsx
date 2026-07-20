@@ -67,27 +67,30 @@ function statusBadge(status: TeamPartsInfoWeekItem["clubActivityStatus"]) {
   );
 }
 
-// 조직별 검수 상태 배지 — 현재 선택 조직 기준 단일 값(집계 중/검수 중/검수 완료).
-//   SoT = cluster4_week_org_result_states. 전역 result_reviewed_at 이 아니라 조직별 상태를 표시한다.
-const REVIEW_STATUS_BADGE: Record<
-  TeamPartsInfoWeekItem["reviewStatus"],
-  { label: string; cls: string }
-> = {
-  aggregating: { label: "집계 중", cls: "bg-zinc-100 text-zinc-500" },
-  reviewing: { label: "검수 중", cls: "bg-amber-50 text-amber-700" },
-  published: { label: "검수 완료", cls: "bg-emerald-600 text-white" },
-};
-
-function reviewStatusBadge(status: TeamPartsInfoWeekItem["reviewStatus"]) {
-  const { label, cls } = REVIEW_STATUS_BADGE[status];
+// 주차 검수 셀 — "주차 검수" 텍스트 + 읽기 전용 상태 배지.
+//   완료 여부 SoT = 활동 관리 A 페이지에서 관리자가 [주차 검수] 를 완료(published)했는지.
+//   두 화면(목록 배지·상세 주차 검수)은 동일 SoT(cluster4_week_org_result_states)를 읽으므로 항상 일치한다.
+function ReviewCheckCell({ status }: { status: TeamPartsInfoWeekItem["reviewStatus"] }) {
+  const reviewed = status === "published";
   return (
     <span
       data-review-status={status}
-      data-week-reviewed={status === "published" ? "true" : "false"}
-      className={"inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium " + cls}
-      title={label}
+      data-week-reviewed={reviewed ? "true" : "false"}
+      className="inline-flex items-center justify-center gap-1.5 text-xs text-muted-foreground"
+      title={reviewed ? "주차 검수 완료" : "주차 검수 미완료"}
     >
-      {label}
+      <span>주차 검수</span>
+      <span
+        className={
+          "inline-flex h-6 w-6 items-center justify-center rounded text-xs font-bold " +
+          (reviewed
+            ? "bg-emerald-600 text-white"
+            : "border border-zinc-300 bg-white text-zinc-400")
+        }
+        aria-label={reviewed ? "주차 검수 완료" : "주차 검수 미완료"}
+      >
+        {reviewed ? "V" : null}
+      </span>
     </span>
   );
 }
@@ -587,7 +590,7 @@ export default function TeamPartsInfoWeeksManager({
                             {item.openLines}
                           </td>
                           <td className="px-3 py-2 text-center">
-                            {reviewStatusBadge(item.reviewStatus)}
+                            <ReviewCheckCell status={item.reviewStatus} />
                           </td>
                         </tr>
                       ))
