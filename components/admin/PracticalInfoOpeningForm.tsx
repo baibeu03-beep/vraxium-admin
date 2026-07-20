@@ -27,6 +27,11 @@ import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { useToast } from "@/components/ui/toast";
 import { useActionToast } from "@/lib/actionToast";
 import { LINE_OPENING_RESULT, lineOpenSuccessMessage } from "@/lib/lineOpeningResultMessages";
+import {
+  OPENING_INVALID_HIGHLIGHT,
+  OPENING_INVALID_HIGHLIGHT_MS,
+  scrollFocusInvalidTarget,
+} from "@/lib/openingInvalidHighlight";
 
 // 실무 정보 라인 개설 폼 — [섹션 0] 하단 실제 개설 영역.
 //   (1) 개설할 주차: getOpenableWeekStartMs(금요일 경계 규칙)로 자동 고정 + disabled.
@@ -103,10 +108,8 @@ type OpeningFieldKey =
   | "image"
   | "imageDesc";
 
-// 누락 필드 wrapper 임시 강조 — ring(레이아웃 시프트 없는 빨간 테두리)+연한 배경. 약 1.6s 후 해제.
-//   prefers-reduced-motion 이면 motion-reduce:animate-none 으로 깜빡임 없이 테두리 강조만 남긴다.
-const OPENING_INVALID_HIGHLIGHT =
-  "rounded-md bg-red-50 ring-2 ring-red-400 animate-pulse motion-reduce:animate-none dark:bg-red-950/30";
+// 누락 필드 wrapper 임시 강조 클래스·스크롤/포커스 로직은 공용 SoT(lib/openingInvalidHighlight)에서
+//   가져온다 — practical-experience 등 다른 개설 폼과 동일한 UX(붉은 ring + 깜빡임 + 스크롤/포커스)를 공유.
 
 // 강조된 필드 바로 아래 오류 설명(aria-describedby 로 연결). 강조 중이 아닐 땐 렌더하지 않는다.
 function OpeningFieldError({
@@ -545,18 +548,11 @@ export default function PracticalInfoOpeningForm({
     [],
   );
 
-  // 대상 필드로 스크롤 + 포커스(preventScroll). main 이 유일 스크롤 컨테이너라 scrollIntoView 가 그걸 스크롤한다.
+  // 대상 필드로 스크롤 + 포커스 — 공용 helper(scrollFocusInvalidTarget) 재사용.
   const scrollFocusInvalid = useCallback(
     (key: OpeningFieldKey) => {
-      const reduce =
-        typeof window !== "undefined" &&
-        window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
       const { wrap, target } = resolveInvalidTargets(key);
-      target?.focus({ preventScroll: true });
-      (wrap ?? target)?.scrollIntoView({
-        behavior: reduce ? "auto" : "smooth",
-        block: "center",
-      });
+      scrollFocusInvalidTarget(wrap, target);
     },
     [resolveInvalidTargets],
   );
@@ -649,7 +645,7 @@ export default function PracticalInfoOpeningForm({
       });
       // 닫힌 뒤 한 번 더 확정(혹시 모를 복원 대비) + 1.6s 후 강조 해제(무한 깜빡임 금지).
       requestAnimationFrame(() => scrollFocusInvalid(key));
-      invalidTimerRef.current = setTimeout(() => setInvalidKey(null), 1600);
+      invalidTimerRef.current = setTimeout(() => setInvalidKey(null), OPENING_INVALID_HIGHLIGHT_MS);
       return;
     }
     // 필드 아닌 하드 게이트(미오픈) — 스크롤 대상 없음. 안내만.

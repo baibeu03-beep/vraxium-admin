@@ -28,6 +28,11 @@ import {
   validateCompetencyOutput,
   COMPETENCY_OUTPUT_MESSAGE,
 } from "@/lib/competencyOutputValidation";
+import {
+  OPENING_INVALID_HIGHLIGHT,
+  OPENING_INVALID_HIGHLIGHT_MS,
+  scrollFocusInvalidTarget,
+} from "@/lib/openingInvalidHighlight";
 
 // 실무 역량 [라인 개설] 탭 — 운영 대시보드.
 //   상태창(허브 전체 1문장) + 로그창 + [개설 주차 | 아웃풋 링크 1 | 설명 1] 입력행 + [개설 완료]/[개설 취소].
@@ -84,8 +89,28 @@ export default function CompetencyOpeningDashboard() {
   const [linkUrl, setLinkUrl] = useState("");
   const [linkDesc, setLinkDesc] = useState("");
   // 필수 입력 누락 시 팝업 확인 후 첫 누락 항목으로 스크롤·포커스하기 위한 ref.
+  //   포커스 대상 = Input, 강조/스크롤 대상 = 필드 wrapper(box). practical-info 와 동일 UX 재사용.
   const linkInputRef = useRef<HTMLInputElement>(null);
   const descInputRef = useRef<HTMLInputElement>(null);
+  const linkBoxRef = useRef<HTMLDivElement>(null);
+  const descBoxRef = useRef<HTMLDivElement>(null);
+  // 누락 강조(일시) — 붉은 ring+깜빡임(OPENING_INVALID_HIGHLIGHT)을 입힐 필드. null=강조 없음.
+  const [invalidKey, setInvalidKey] = useState<"link" | "desc" | null>(null);
+  const invalidTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 누락 강조 즉시 해제(타이머 정리 포함) — 입력 편집·언마운트 시 호출.
+  const clearInvalidHighlight = useCallback(() => {
+    if (invalidTimerRef.current) {
+      clearTimeout(invalidTimerRef.current);
+      invalidTimerRef.current = null;
+    }
+    setInvalidKey((k) => (k === null ? k : null));
+  }, []);
+  useEffect(
+    () => () => {
+      if (invalidTimerRef.current) clearTimeout(invalidTimerRef.current);
+    },
+    [],
+  );
   // 초기화 기준값(폼 로드 시점의 prefill). [초기화] = DB 통신 없이 이 값으로 복원.
   const [initialLink, setInitialLink] = useState("");
   const [initialDesc, setInitialDesc] = useState("");
@@ -245,19 +270,28 @@ export default function CompetencyOpeningDashboard() {
       if (action === "open") {
         const missing = validateCompetencyOutput(linkUrl, linkDesc);
         if (missing) {
+          // "description" = 링크는 채워졌고 설명만 누락 → 설명 칸. 그 외(both/link)는 링크 칸.
+          const key = missing === "description" ? "desc" : "link";
+          const scrollFocus = () =>
+            scrollFocusInvalidTarget(
+              (key === "desc" ? descBoxRef : linkBoxRef).current,
+              (key === "desc" ? descInputRef : linkInputRef).current,
+            );
+          // ⚠ practical-info 와 동일: 팝업을 열기 전에 먼저 강조 + 스크롤/포커스한다(팝업 닫힘 시 포커스
+          //    복원이 [개설 완료] 버튼이 아니라 이 필드로 향하도록). 약 1.6s 후 강조 해제(무한 깜빡임 금지).
+          if (invalidTimerRef.current) {
+            clearTimeout(invalidTimerRef.current);
+            invalidTimerRef.current = null;
+          }
+          setInvalidKey(key);
+          scrollFocus();
           await adminDialog.alert({
             variant: "warning",
             title: "필수 입력 확인",
             description: COMPETENCY_OUTPUT_MESSAGE[missing],
           });
-          // "description" = 링크는 채워졌고 설명만 누락 → 설명 칸. 그 외(both/link)는 링크 칸.
-          const target =
-            missing === "description" ? descInputRef.current : linkInputRef.current;
-          if (target) {
-            target.scrollIntoView({ behavior: "smooth", block: "center" });
-            // 팝업 닫힘 시 포커스가 트리거(개설 버튼)로 복귀하므로 다음 프레임에 포커스를 옮긴다.
-            requestAnimationFrame(() => target.focus());
-          }
+          requestAnimationFrame(scrollFocus);
+          invalidTimerRef.current = setTimeout(() => setInvalidKey(null), OPENING_INVALID_HIGHLIGHT_MS);
           return;
         }
       }
@@ -428,7 +462,10 @@ export default function CompetencyOpeningDashboard() {
               </p>
             </div>
 
-            <div className="space-y-1">
+            <div
+              ref={linkBoxRef}
+              className={cn("space-y-1", invalidKey === "link" && OPENING_INVALID_HIGHLIGHT)}
+            >
               <Label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                 아웃풋 링크 1 <span className="text-red-500">*</span>
                 <AdminHelpIconButton
@@ -439,14 +476,21 @@ export default function CompetencyOpeningDashboard() {
               <Input
                 ref={linkInputRef}
                 value={linkUrl}
-                onChange={(e) => setLinkUrl(e.target.value)}
+                onChange={(e) => {
+                  clearInvalidHighlight();
+                  setLinkUrl(e.target.value);
+                }}
                 placeholder="카페 공표 게시물 링크 (https://...)"
                 aria-label="아웃풋 링크 1"
+                aria-invalid={invalidKey === "link" || undefined}
                 disabled={acting}
               />
             </div>
 
-            <div className="space-y-1">
+            <div
+              ref={descBoxRef}
+              className={cn("space-y-1", invalidKey === "desc" && OPENING_INVALID_HIGHLIGHT)}
+            >
               <Label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                 설명 1 <span className="text-red-500">*</span>
                 <AdminHelpIconButton
@@ -457,9 +501,13 @@ export default function CompetencyOpeningDashboard() {
               <Input
                 ref={descInputRef}
                 value={linkDesc}
-                onChange={(e) => setLinkDesc(e.target.value)}
+                onChange={(e) => {
+                  clearInvalidHighlight();
+                  setLinkDesc(e.target.value);
+                }}
                 placeholder="아웃풋 링크 1 설명"
                 aria-label="설명 1"
+                aria-invalid={invalidKey === "desc" || undefined}
                 disabled={acting}
               />
             </div>

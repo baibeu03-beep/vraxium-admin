@@ -10,6 +10,10 @@ import {
   openCompetencyHub,
 } from "@/lib/adminCompetencyLineOpening";
 import { observeApiRoute } from "@/lib/apiObservability";
+import {
+  validateCompetencyOutput,
+  COMPETENCY_OUTPUT_MESSAGE,
+} from "@/lib/competencyOutputValidation";
 
 // 실무 역량 [라인 개설] — 허브 전체 개설 완료/취소.
 //   POST { action: 'open'|'cancel', organization, output_link_1?, output_description? }
@@ -59,6 +63,19 @@ export async function POST(request: NextRequest) {
     typeof b.output_link_1 === "string" ? b.output_link_1 : null;
   const outputDescription =
     typeof b.output_description === "string" ? b.output_description : null;
+
+  // 개설(open) 한정 필수 입력 검증 — 아웃풋 링크 1·설명 1 은 모두 필수(공백만=미입력).
+  //   프론트 폼과 동일한 공용 검증 함수(validateCompetencyOutput)를 사용해 클라 우회 요청도
+  //   4xx 로 거부한다. mode=test/operating·모든 org 동일. (cancel 은 원복이라 검증 없음.)
+  if (action === "open") {
+    const missing = validateCompetencyOutput(outputLink1, outputDescription);
+    if (missing) {
+      return Response.json(
+        { success: false, error: COMPETENCY_OUTPUT_MESSAGE[missing] },
+        { status: 400 },
+      );
+    }
+  }
   // 대시보드에서 선택한 개설 주차(허용 예외 포함). 미지정=정규 개설 대상 주차.
   const weekId = typeof b.week_id === "string" && b.week_id.trim() ? b.week_id.trim() : null;
   // 운영/테스트 모드 — 개설 완료 시 신청/승인 명단 기반 라인 타깃 생성 가드로 전달.

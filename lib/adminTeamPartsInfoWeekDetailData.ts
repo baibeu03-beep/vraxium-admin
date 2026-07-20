@@ -291,16 +291,19 @@ export async function loadProcessLineGroups(
   return ((data ?? []) as Array<{ id: string; name: string | null }>).map((r) => ({ id: r.id, name: r.name ?? r.id }));
 }
 
-// 액트 체크(7) 라인급 기본값 = 전체 체크(§4 경험 명시 규칙을 info/club 에도 통일 적용).
-//   저장값(actCheck.<hub>[id]) 이 boolean 이면 우선. 액트 체크는 읽기전용 모니터링 → 결과/포인트/snapshot 무영향.
+// 액트 체크(7) 라인급 병합 — 저장값(actCheck.<hub>[id]) 이 boolean 이면 우선, 없으면 defaultChecked.
+//   기본값 정책(2026-07-20): [실무 정보] 라인 급(체크)= 미체크(false) — 신규 주차는 관리자가 수동으로
+//   오픈 확인(체크)하기 전까지 아무것도 오픈되지 않은 상태가 기본이다. 실무 경험/클럽 라인급은 기존
+//   정책(전체 체크) 유지. 액트 체크는 읽기전용 모니터링 게이트 → 결과/포인트/snapshot 무영향.
 function mergeActCheck(
   groups: Array<{ id: string; name: string }>,
   saved: Record<string, boolean> | undefined,
+  defaultChecked: boolean,
 ): ActCheckLineGroup[] {
   return groups.map((g) => ({
     lineGroupId: g.id,
     name: g.name,
-    checked: typeof saved?.[g.id] === "boolean" ? saved![g.id] : true,
+    checked: typeof saved?.[g.id] === "boolean" ? saved![g.id] : defaultChecked,
   }));
 }
 
@@ -362,15 +365,16 @@ export async function loadTeamPartsInfoWeekDetail(opts: {
     };
   });
 
-  // ── (1)(3)(6) 라인급(체크) → 액트 체크(7). process_line_groups + config.actCheck(기본 전체 체크). ──
+  // ── (1)(3)(6) 라인급(체크) → 액트 체크(7). process_line_groups + config.actCheck. ──
+  //   실무 정보(1) 기본 미체크(신규 주차 오픈 안 됨 정책). 경험(3)/클럽(6)은 기존 기본 전체 체크 유지.
   const savedAct = saved?.actCheck ?? {};
-  const actCheckInfo = mergeActCheck(infoLineGroups, savedAct.info);
+  const actCheckInfo = mergeActCheck(infoLineGroups, savedAct.info, false);
   const actCheckExperience: ActCheckExperienceTeam[] = teams.map((t) => ({
     teamId: t.id,
     teamName: t.teamName,
-    lineGroups: mergeActCheck(expLineGroups, savedAct.experience?.[t.id]),
+    lineGroups: mergeActCheck(expLineGroups, savedAct.experience?.[t.id], true),
   }));
-  const actCheckClub = mergeActCheck(clubLineGroups, savedAct.club);
+  const actCheckClub = mergeActCheck(clubLineGroups, savedAct.club, true);
 
   // ── (5) 실무 역량 — 정상 진행(공유·기본 checked). ──
   const practicalCompetency: OpeningCompetency = {
@@ -534,6 +538,39 @@ export async function saveWeekOpenConfirm(opts: {
   return {
     openConfirmed: true,
     weekRecognitionCount: recognition.featureAvailable ? recognition.result.recognitionCountN : null,
+  };
+}
+
+// [활동 인정 개수 N 미리보기] — 저장하지 않고, 현재(미저장) 오픈 설정 config 로 N 을 계산만 한다.
+//   화면의 체크박스 변경마다 호출해 표시 N 을 즉시 재계산하는 용도. saveWeekOpenConfirm 과 **동일한**
+//   prepareWeekRecognition(=순수 read+compute, write 없음)을 재사용하므로, 화면 표시 N 과 오픈 확인 시
+//   실제 저장/스냅샷/집계에 쓰이는 N 이 산식·입력 해석까지 100% 동일하다(SoT 분기 없음).
+//   featureAvailable=false(마이그 전)면 recognitionCountN=null → 호출부가 기존 기본값으로 폴백.
+//   org 만 입력(모드 무관) — 일반/mode=test/actAsTestUserId/demoUserId 동일 결과.
+export async function previewWeekRecognition(opts: {
+  weekId: string;
+  organization: OrganizationSlug;
+  config: unknown;
+}): Promise<{
+  featureAvailable: boolean;
+  recognitionCountN: number | null;
+  minPointsA: number;
+  execPointsB: number;
+  missing: string[];
+}> {
+  const normalized = normalizeConfig(opts.config);
+  const recognition = await prepareWeekRecognition({
+    weekId: opts.weekId,
+    organization: opts.organization,
+    config: normalized,
+  });
+  return {
+    featureAvailable: recognition.featureAvailable,
+    // 저장 흐름과 동일: featureAvailable 일 때만 확정 N, 아니면 null(폴백).
+    recognitionCountN: recognition.featureAvailable ? recognition.result.recognitionCountN : null,
+    minPointsA: recognition.result.minimalA,
+    execPointsB: recognition.result.diligentB,
+    missing: recognition.missing.map((m) => `${m.hubLabel}: ${m.label}`),
   };
 }
 

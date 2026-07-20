@@ -23,6 +23,11 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { Checkbox, checkedRowClass } from "@/components/ui/checkbox";
+import {
+  OPENING_INVALID_HIGHLIGHT,
+  OPENING_INVALID_HIGHLIGHT_MS,
+  scrollFocusInvalidTarget,
+} from "@/lib/openingInvalidHighlight";
 import type { ScopeMode } from "@/lib/userScopeShared";
 import {
   EXPERIENCE_OVERALL_CATEGORIES,
@@ -46,8 +51,10 @@ import {
 } from "@/lib/experienceTeamOverallTypes";
 import {
   displayCrewStatusLabel,
+  experienceScoreState,
   type ExperiencePartLineType,
 } from "@/lib/experiencePartInputTypes";
+import { confirmReinforcementFailure } from "@/lib/experienceReinforcementFailureConfirm";
 import ExperienceLineSelect from "@/components/admin/cluster4/ExperienceLineSelect";
 
 // 실무 경험 [팀 총괄] — 개설 검수/완료/취소 편집 보드.
@@ -144,7 +151,12 @@ export default function ExperienceTeamOverallBoard({
   const { toast, loading: showLoadingToast, dismiss: dismissToast } = useToast();
   const t = useActionToast();
   const outputSectionRef = useRef<HTMLDivElement>(null);
+  // 포커스 대상(링크 Input / 이미지 업로드 버튼) — key=`${category}:link` | `${category}:image`.
   const outputFieldRefs = useRef(new Map<string, HTMLElement>());
+  // 스크롤/강조 대상 wrapper(필드 묶음 div) — 같은 key. 붉은 ring+깜빡임을 이 wrapper 에 입힌다.
+  const outputWrapRefs = useRef(new Map<string, HTMLElement>());
+  // 누락 강조 자동 해제 타이머(약 1.6s 후). 무한 깜빡임 방지 + 언마운트 시 정리.
+  const invalidTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lineSelectionSectionRef = useRef<HTMLDivElement>(null);
   const lineSelectionRefs = useRef(new Map<string, HTMLButtonElement>());
 
@@ -157,6 +169,27 @@ export default function ExperienceTeamOverallBoard({
   // 도출/분석/견문 라인명 로컬 편집값 — key=`crewUserId::category`(part 카테고리만). 저장=파트 신청 셀 SoT.
   const [lineSelections, setLineSelections] = useState<Map<string, string | null>>(
     new Map(),
+  );
+  // 필수 입력 누락 강조(일시) — validateOutputsAndGuide 가 스크롤/포커스하는 첫 누락 필드 키
+  //   (`${category}:link` | `${category}:image`). 해당 필드에 aria-invalid + 붉은 테두리를 표시하고,
+  //   사용자가 아웃풋을 편집하거나 다음 검증을 통과하면 해제한다.
+  const [invalidOutputKey, setInvalidOutputKey] = useState<string | null>(null);
+
+  // 누락 강조 즉시 해제(타이머 정리 포함) — 아웃풋 편집·검증 통과·언마운트 시 호출.
+  const clearInvalidHighlight = useCallback(() => {
+    if (invalidTimerRef.current) {
+      clearTimeout(invalidTimerRef.current);
+      invalidTimerRef.current = null;
+    }
+    setInvalidOutputKey((k) => (k === null ? k : null));
+  }, []);
+
+  // 언마운트 시 강조 타이머 정리.
+  useEffect(
+    () => () => {
+      if (invalidTimerRef.current) clearTimeout(invalidTimerRef.current);
+    },
+    [],
   );
 
   const allCrews = useMemo<OverallBoardCrew[]>(
@@ -298,9 +331,12 @@ export default function ExperienceTeamOverallBoard({
   );
 
   const toggleLeaderCheck = useCallback(
-    (userId: string, category: ExperienceOverallCategory) => {
+    async (userId: string, crewName: string, category: ExperienceOverallCategory) => {
       const cur = getLeaderCell(userId, category);
       const nextChecked = !cur.checked;
+      // 체크 해제 → <강화 실패>(활동 인정 불가). 개설 신청 단계와 **동일한** 확인 팝업(공용 SoT).
+      //   취소 시 setLeaderCell 미호출 → 컨트롤드 체크박스가 기존 상태로 복구된다.
+      if (!nextChecked && !(await confirmReinforcementFailure(crewName))) return;
       // 체크 해제 → 점수 0. 재체크(점수 0이었으면) → 기본 7.
       const nextScore = nextChecked ? (cur.score === 0 ? 7 : cur.score) : 0;
       setLeaderCell(userId, category, { checked: nextChecked, score: nextScore });
@@ -309,8 +345,19 @@ export default function ExperienceTeamOverallBoard({
   );
 
   const setLeaderScore = useCallback(
-    (userId: string, category: ExperienceOverallCategory, score: number) => {
-      // 점수 선택 → 체크 자동 ON.
+    async (
+      userId: string,
+      crewName: string,
+      category: ExperienceOverallCategory,
+      score: number,
+    ) => {
+      // 점수 선택 → 체크 자동 ON. 4점 미만(강화 실패=활동 인정 불가)이면 개설 신청과 동일한 확인 팝업.
+      //   판정 SoT = experienceScoreState().isReinforcementSuccess(점수 ≥ 4). 취소 시 컨트롤드 select 복구.
+      if (
+        !experienceScoreState(score).isReinforcementSuccess &&
+        !(await confirmReinforcementFailure(crewName))
+      )
+        return;
       setLeaderCell(userId, category, { checked: true, score });
     },
     [setLeaderCell],
@@ -342,6 +389,8 @@ export default function ExperienceTeamOverallBoard({
 
   const setOutput = useCallback(
     (category: ExperienceOverallCategory, patch: { link?: string; description?: string; imageUrl?: string; imageDescription?: string }) => {
+      // 편집 시작 = 누락 강조 해제(다음 검증에서 다시 판정). 링크/설명/이미지 어느 것이든 편집이면 해제한다.
+      clearInvalidHighlight();
       setOutputs((prev) => {
         const m = new Map(prev);
         const cur = m.get(category) ?? { link: "", description: "", imageUrl: "", imageDescription: "" };
@@ -349,7 +398,7 @@ export default function ExperienceTeamOverallBoard({
         return m;
       });
     },
-    [],
+    [clearInvalidHighlight],
   );
 
   // ── payload 빌더 ──
@@ -424,24 +473,46 @@ export default function ExperienceTeamOverallBoard({
     [buildPayload, organization, weekId, teamId, teamName, mode, actAsTestUserId],
   );
 
+  // 첫 누락 필드로 스크롤/포커스 — practical-info 와 동일한 공용 helper 재사용.
+  //   wrap = 강조/스크롤 대상(필드 wrapper), target = 포커스 대상(링크 Input / 이미지 업로드 버튼).
+  const scrollFocusInvalidKey = useCallback((key: string) => {
+    scrollFocusInvalidTarget(
+      outputWrapRefs.current.get(key) ?? null,
+      outputFieldRefs.current.get(key) ?? null,
+    );
+  }, []);
+
   const validateOutputsAndGuide = useCallback(async (): Promise<boolean> => {
     const { outs } = buildPayload();
     const issue = validateOverallOutputRequirements(outs, extensionActive);
-    if (!issue) return true;
+    if (!issue) {
+      clearInvalidHighlight();
+      return true;
+    }
+    // 공통 검증이 돌려준 첫 누락 필드(firstMissingCategory:firstMissingField)를 스크롤/포커스/강조의 단일 대상으로 삼는다.
+    const targetKey = `${issue.firstMissingCategory}:${issue.firstMissingField}`;
+    // ⚠ practical-info 와 동일: 팝업을 열기 전에 먼저 강조 + 스크롤/포커스한다. 이렇게 하면 팝업이 닫힐 때
+    //    포커스 복원 대상이 [개설 검수]/[개설 완료] 버튼이 아니라 이 필드가 되어, 스크롤이 버튼 쪽으로 되돌지 않는다.
+    if (invalidTimerRef.current) {
+      clearTimeout(invalidTimerRef.current);
+      invalidTimerRef.current = null;
+    }
+    setInvalidOutputKey(targetKey);
+    scrollFocusInvalidKey(targetKey);
     await adminDialog.alert({
       variant: "warning",
       title: "필수 입력 안내",
       description: issue.message,
       confirmLabel: "확인",
     });
-    outputSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    window.setTimeout(() => {
-      outputFieldRefs.current
-        .get(`${issue.firstMissingCategory}:${issue.firstMissingField}`)
-        ?.focus({ preventScroll: true });
-    }, 350);
+    // 닫힌 뒤 한 번 더 확정(포커스 복원 대비) + 약 1.6s 후 강조 해제(무한 깜빡임 금지).
+    requestAnimationFrame(() => scrollFocusInvalidKey(targetKey));
+    invalidTimerRef.current = setTimeout(
+      () => setInvalidOutputKey(null),
+      OPENING_INVALID_HIGHLIGHT_MS,
+    );
     return false;
-  }, [buildPayload, extensionActive]);
+  }, [buildPayload, extensionActive, clearInvalidHighlight, scrollFocusInvalidKey]);
 
   const validatePartLeaderLinesAndGuide = useCallback(async (): Promise<boolean> => {
     const { lineSels } = buildPayload();
@@ -806,7 +877,7 @@ export default function ExperienceTeamOverallBoard({
                                   <Checkbox
                                     checked={cell.checked}
                                     disabled={disabled}
-                                    onChange={() => toggleLeaderCheck(crew.userId, c.key)}
+                                    onChange={() => toggleLeaderCheck(crew.userId, crew.displayName, c.key)}
                                     aria-label={`${crew.displayName} ${c.label} 체크`}
                                   />
                                   <select
@@ -815,7 +886,7 @@ export default function ExperienceTeamOverallBoard({
                                     value={cell.checked && cell.score >= 1 ? String(cell.score) : ""}
                                     disabled={disabled}
                                     onChange={(e) =>
-                                      setLeaderScore(crew.userId, c.key, Number(e.target.value))
+                                      setLeaderScore(crew.userId, crew.displayName, c.key, Number(e.target.value))
                                     }
                                     aria-label={`${crew.displayName} ${c.label} 점수`}
                                   >
@@ -946,7 +1017,7 @@ export default function ExperienceTeamOverallBoard({
                               <Checkbox
                                 checked={cell.checked}
                                 disabled={disabled}
-                                onChange={() => toggleLeaderCheck(crew.userId, c.key)}
+                                onChange={() => toggleLeaderCheck(crew.userId, crew.displayName, c.key)}
                                 aria-label={`${crew.displayName} ${c.label} 체크`}
                               />
                               <select
@@ -956,7 +1027,7 @@ export default function ExperienceTeamOverallBoard({
                                 value={cell.checked && cell.score >= 1 ? String(cell.score) : ""}
                                 disabled={disabled}
                                 onChange={(e) =>
-                                  setLeaderScore(crew.userId, c.key, Number(e.target.value))
+                                  setLeaderScore(crew.userId, crew.displayName, c.key, Number(e.target.value))
                                 }
                                 aria-label={`${crew.displayName} ${c.label} 점수`}
                               >
@@ -1026,7 +1097,17 @@ export default function ExperienceTeamOverallBoard({
                   링크(1.1fr)·링크 설명(1fr)은 충분한 입력 폭 유지. 상단 정렬(items-start)로 시작선 통일. */}
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-[minmax(240px,1.1fr)_minmax(220px,1fr)_minmax(200px,auto)_minmax(320px,1.6fr)] lg:items-start">
                 {/* 아웃풋 링크 */}
-                <div className="space-y-1.5">
+                <div
+                  ref={(element) => {
+                    const key = `${c.key}:link`;
+                    if (element) outputWrapRefs.current.set(key, element);
+                    else outputWrapRefs.current.delete(key);
+                  }}
+                  className={cn(
+                    "space-y-1.5",
+                    invalidOutputKey === `${c.key}:link` && OPENING_INVALID_HIGHLIGHT,
+                  )}
+                >
                   <Label className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-medium text-muted-foreground">
                     링크1
                     {!(c.key === "extension" && !extensionActive) && (
@@ -1048,6 +1129,8 @@ export default function ExperienceTeamOverallBoard({
                     value={o.link}
                     disabled={disabled}
                     placeholder="URL 입력"
+                    // 누락 강조 — Input 은 aria-invalid 에 붉은 테두리+링을 자동 적용(ui/input.tsx).
+                    aria-invalid={invalidOutputKey === `${c.key}:link` || undefined}
                     onChange={(e) => setOutput(c.key, { link: e.target.value })}
                   />
                 </div>
@@ -1073,11 +1156,17 @@ export default function ExperienceTeamOverallBoard({
                 <OutputImageInput
                   value={o.imageUrl}
                   disabled={disabled}
+                  invalid={invalidOutputKey === `${c.key}:image`}
                   onChange={(imageUrl) => setOutput(c.key, { imageUrl })}
                   focusRef={(element) => {
                     const key = `${c.key}:image`;
                     if (element) outputFieldRefs.current.set(key, element);
                     else outputFieldRefs.current.delete(key);
+                  }}
+                  wrapRef={(element) => {
+                    const key = `${c.key}:image`;
+                    if (element) outputWrapRefs.current.set(key, element);
+                    else outputWrapRefs.current.delete(key);
                   }}
                   required={!(c.key === "extension" && !extensionActive)}
                 />
@@ -1235,7 +1324,7 @@ export default function ExperienceTeamOverallBoard({
   );
 }
 
-function OutputImageInput({ value, disabled, onChange, focusRef, required }: { value: string; disabled: boolean; onChange: (url: string) => void; focusRef?: (element: HTMLButtonElement | null) => void; required?: boolean }) {
+function OutputImageInput({ value, disabled, invalid, onChange, focusRef, wrapRef, required }: { value: string; disabled: boolean; invalid?: boolean; onChange: (url: string) => void; focusRef?: (element: HTMLButtonElement | null) => void; wrapRef?: (element: HTMLDivElement | null) => void; required?: boolean }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
@@ -1261,7 +1350,8 @@ function OutputImageInput({ value, disabled, onChange, focusRef, required }: { v
   };
 
   return (
-    <div className="space-y-1.5">
+    // wrapRef + 누락 강조(붉은 ring + 깜빡임) — 링크 필드 wrapper 와 동일한 공용 클래스로 시각 일치.
+    <div ref={wrapRef} className={cn("space-y-1.5", invalid && OPENING_INVALID_HIGHLIGHT)}>
       <Label className="inline-flex items-center gap-1">
         아웃풋 이미지 1
         {required && <span className="text-destructive" aria-hidden="true">*</span>}

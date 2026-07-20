@@ -1044,6 +1044,12 @@ export default function TeamPartsInfoWeekDetailManager({
 
   const [reviewed, setReviewed] = useState(false);
   const [openConfirmed, setOpenConfirmed] = useState(false);
+  // [활동 인정 개수 N] 라이브 미리보기 — 체크 상태 변경 시 서버(prepareWeekRecognition 동일 산식)로
+  //   재계산한 값. null 이면 아직 계산 전/미적용 → 저장값·기본값으로 폴백. featureAvailable=false 면
+  //   저장 흐름과 동일하게 N 을 확정하지 않는다(표시는 기본값 폴백).
+  const [recognitionPreview, setRecognitionPreview] = useState<
+    { recognitionCountN: number | null; featureAvailable: boolean } | null
+  >(null);
   const [reviewing, setReviewing] = useState(false);
   const [reverting, setReverting] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -1109,6 +1115,8 @@ export default function TeamPartsInfoWeekDetailManager({
     let cancelled = false;
     setLoading(true);
     setError(null);
+    // 새 주차/조직 로드 시 이전 인정 개수 미리보기 초기화(이전 주차 N 잔상 방지) → 로드된 저장값으로 폴백.
+    setRecognitionPreview(null);
     void (async () => {
       try {
         const params = new URLSearchParams({ club });
@@ -1266,6 +1274,54 @@ export default function TeamPartsInfoWeekDetailManager({
       club: actClubChecked,
     },
   });
+
+  // [활동 인정 개수 N] 라이브 재계산 — 오픈 설정 체크 상태가 바뀔 때마다(디바운스 300ms) 서버
+  //   recognition-preview 를 호출해 표시 N 을 갱신한다. 서버는 [오픈 확인] 저장과 **동일한**
+  //   prepareWeekRecognition(순수 read+compute)을 실행하므로, 화면 표시 N == 오픈 확인 저장값 ==
+  //   snapshot == 이후 집계값 이 항상 일치한다(클라 재계산·산식 복제 없음). 편집 대상 6개 상태
+  //   (라인급/라인 정보·경험·클럽·역량) 무엇이 바뀌어도 재계산되고, 초기 로드/초기화/저장 상태 불러오기도
+  //   상태 변경이므로 자동 반영된다. 조회 전용(readOnly)은 편집이 없어 호출하지 않고 저장값을 그대로 쓴다.
+  //   경합 방지: 최신 요청 seq 만 반영. 실패는 무음(기존 표시 유지).
+  const recognitionPreviewSeq = useRef(0);
+  useEffect(() => {
+    if (readOnly || !club || !data) return;
+    // 현재 미저장 체크 상태로 config 구성(buildConfig 와 동일 shape).
+    const config = {
+      practicalInfo: lineInfoChecked,
+      practicalExperience: lineExpChecked,
+      practicalCompetency: { checked: compChecked },
+      actCheck: { info: actInfoChecked, experience: actExpChecked, club: actClubChecked },
+    };
+    const seq = ++recognitionPreviewSeq.current;
+    const timer = setTimeout(() => {
+      void (async () => {
+        try {
+          const res = await fetch(
+            appendModeQuery(`/api/admin/team-parts/info/weeks/${weekId}/recognition-preview?club=${club}`, mode),
+            {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ config }),
+            },
+          );
+          const json = await res.json();
+          if (!res.ok || !json.success) return; // 무음: 실패 시 기존 표시 유지
+          if (seq !== recognitionPreviewSeq.current) return; // 최신 요청만 반영(경합 방지)
+          setRecognitionPreview({
+            recognitionCountN: (json.data?.recognitionCountN ?? null) as number | null,
+            featureAvailable: Boolean(json.data?.featureAvailable),
+          });
+        } catch {
+          // 무음 — 다음 변경에서 재시도.
+        }
+      })();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [
+    readOnly, club, mode, weekId, data,
+    lineInfoChecked, lineExpChecked, compChecked,
+    actInfoChecked, actExpChecked, actClubChecked,
+  ]);
 
   const onOpenConfirm = async () => {
     if (!club || readOnly) return;
@@ -1525,9 +1581,14 @@ export default function TeamPartsInfoWeekDetailManager({
 
   const currentWeek = data?.currentWeek ?? null;
   const managedWeek = data?.managedWeek ?? null;
-  // 인정 개수 표시값 — 오픈확인 시점 확정 계산값(managedWeek.weekRecognitionCount) 우선,
-  //   인정 컬럼 미적용/미계산(null)일 때만 Phase1 기본값으로 폴백.
-  const recognitionCount = managedWeek?.weekRecognitionCount ?? DEFAULT_WEEK_RECOGNITION_COUNT;
+  // 인정 개수 표시값 — 우선순위:
+  //   1) 라이브 미리보기(현재 체크 상태 기준·featureAvailable && N!=null) — 편집 즉시 반영·저장값과 동일 산식.
+  //   2) 저장된 확정값(managedWeek.weekRecognitionCount) — 아직 미리보기 전이거나 조회 전용(readOnly).
+  //   3) Phase1 기본값(인정 컬럼 미적용/미계산 폴백).
+  const recognitionCount =
+    recognitionPreview && recognitionPreview.featureAvailable && recognitionPreview.recognitionCountN != null
+      ? recognitionPreview.recognitionCountN
+      : managedWeek?.weekRecognitionCount ?? DEFAULT_WEEK_RECOGNITION_COUNT;
 
   return (
     <>
@@ -2075,7 +2136,7 @@ export default function TeamPartsInfoWeekDetailManager({
                   ) : lineError ? (
                     <p className="py-6 text-center text-sm text-red-700">{lineError}</p>
                   ) : lineData ? (
-                    <div className="space-y-12" data-line-opening-panel>
+                    <div className="space-y-16" data-line-opening-panel>
                       {/* [0] 주차 전체 요약 — 최상위(지표/제목 돋보기는 여기 한 번만) */}
                       <LineSummaryRow
                         title="# 주차 전체 라인칸 개설 관리"
@@ -2084,12 +2145,17 @@ export default function TeamPartsInfoWeekDetailManager({
                         withHelp
                         titleHelpKey={`${HELP}.section.lineOpening`}
                       />
+                      {/* 허브 간 큰 간격(space-y-16) + 허브별 상단 구분선/pt-8 — 액트 체크 패널과 동일 리듬. */}
                       {/* 허브 급 1: 실무 정보 — 요약 + 라인별 표 */}
                       <InfoLineOpeningSection data={lineData.practicalInfo} />
                       {/* 허브 급 2: 실무 경험 — 요약 + 팀 탭 + 선택 팀 라인표 */}
-                      <ExperienceLineOpeningSection data={lineData.practicalExperience} />
+                      <div className="border-t border-zinc-200 pt-8 dark:border-zinc-800">
+                        <ExperienceLineOpeningSection data={lineData.practicalExperience} />
+                      </div>
                       {/* 허브 급 3: 실무 역량 — 요약 + 등록 라인별 표 */}
-                      <CompetencyLineOpeningSection data={lineData.practicalCompetency} />
+                      <div className="border-t border-zinc-200 pt-8 dark:border-zinc-800">
+                        <CompetencyLineOpeningSection data={lineData.practicalCompetency} />
+                      </div>
                     </div>
                   ) : (
                     <p className="py-6 text-center text-sm text-muted-foreground">데이터가 없습니다.</p>
@@ -2099,7 +2165,7 @@ export default function TeamPartsInfoWeekDetailManager({
                 ) : actError ? (
                   <p className="py-6 text-center text-sm text-red-700">{actError}</p>
                 ) : actData ? (
-                  <div className="space-y-12" data-act-check-panel>
+                  <div className="space-y-16" data-act-check-panel>
                     {/* [0] 주차 전체 요약 — 최상위(지표/제목 돋보기는 여기 한 번만) */}
                     <ActSummaryRow
                       title="# 주차 전체 액트 체크 관리"
@@ -2110,7 +2176,8 @@ export default function TeamPartsInfoWeekDetailManager({
                     />
 
                     {/* 허브 급 0: 클럽 총괄 — 실무 정보와 동일 UI(허브 요약 + 라인급/요일 액트). */}
-                    <div className="space-y-3" data-hub-section="club">
+                    {/* 세로 리듬(허브 간 큰 간격=space-y-16 + 허브별 상단 구분선/pt-8, 허브 내부=space-y-4). */}
+                    <div className="space-y-4" data-hub-section="club">
                       <ActSummaryRow title="허브 급 0 : [클럽 총괄]" s={actData.clubOverall.summary} level={2} />
                       <HubActTable
                         lines={actData.clubOverall.lines}
@@ -2119,7 +2186,7 @@ export default function TeamPartsInfoWeekDetailManager({
                     </div>
 
                     {/* 허브 급 1: 실무 정보 — 중위 */}
-                    <div className="space-y-3" data-hub-section="info">
+                    <div className="space-y-4 border-t border-zinc-200 pt-8 dark:border-zinc-800" data-hub-section="info">
                       <ActSummaryRow title="허브 급 1 : [실무 정보]" s={actData.practicalInfo.summary} level={2} />
                       <HubActTable
                         lines={actData.practicalInfo.lines}
@@ -2132,14 +2199,15 @@ export default function TeamPartsInfoWeekDetailManager({
                       const teams = actData.practicalExperience.teams;
                       const selected = teams.find((t) => t.teamId === expTeamId) ?? teams[0] ?? null;
                       return (
-                        <div className="space-y-3" data-hub-section="experience">
+                        <div className="space-y-4 border-t border-zinc-200 pt-8 dark:border-zinc-800" data-hub-section="experience">
                           <ActSummaryRow title="허브 급 2 : [실무 경험]" s={actData.practicalExperience.summary} level={2} />
                           {teams.length === 0 ? (
                             <p className="rounded-md border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
                               이번 주 활동하는 팀이 없습니다.
                             </p>
                           ) : (
-                            <>
+                            // 팀 탭(작은 간격)과 선택 팀 요약/표(중간 간격)를 한 그룹으로 — 허브 요약과는 중간 간격.
+                            <div className="space-y-3">
                               {/* 팀 탭 */}
                               <div className="flex flex-wrap gap-1" role="tablist" aria-label="실무 경험 팀 선택">
                                 {teams.map((t) => (
@@ -2172,14 +2240,14 @@ export default function TeamPartsInfoWeekDetailManager({
                                   />
                                 </>
                               ) : null}
-                            </>
+                            </div>
                           )}
                         </div>
                       );
                     })()}
 
                     {/* 허브 급 3: 실무 역량 — 실무 정보와 동일 UI(허브 요약 + 라인급/요일 액트). */}
-                    <div className="space-y-3" data-hub-section="competency">
+                    <div className="space-y-4 border-t border-zinc-200 pt-8 dark:border-zinc-800" data-hub-section="competency">
                       <ActSummaryRow title="허브 급 3 : [실무 역량]" s={actData.practicalCompetency.summary} level={2} />
                       <HubActTable
                         lines={actData.practicalCompetency.lines}

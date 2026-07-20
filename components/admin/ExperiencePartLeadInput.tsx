@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { adminDialog } from "@/components/ui/admin-dialog";
+import { confirmReinforcementFailure } from "@/lib/experienceReinforcementFailureConfirm";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -610,12 +611,7 @@ export default function ExperiencePartLeadInput({
       const nextScore = nextChecked ? (cur.score === 0 ? 7 : cur.score) : 0;
       if (
         !nextChecked &&
-        !(await adminDialog.confirm({
-          title: "강화 실패 확인",
-          description: `${crewName} 크루의 해당 라인이 <강화 실패>가 됩니다.\n이상이 없으신가요?`,
-          confirmLabel: "확인",
-          cancelLabel: "취소",
-        }))
+        !(await confirmReinforcementFailure(crewName))
       ) return; // 취소 시 updateCell 미호출 → 기존 체크·점수·라인명 원상 복구.
       // 체크 해제 → 점수 0 + 라인 '-'(null). 재체크는 기존 라인 유지(해제 시 이미 null).
       updateCell(crewUserId, lineType, {
@@ -639,12 +635,7 @@ export default function ExperiencePartLeadInput({
       const next = experienceScoreState(score);
       if (
         !next.isReinforcementSuccess &&
-        !(await adminDialog.confirm({
-          title: "강화 실패 확인",
-          description: `${crewName} 크루의 해당 라인이 <강화 실패>가 됩니다.\n이상이 없으신가요?`,
-          confirmLabel: "확인",
-          cancelLabel: "취소",
-        }))
+        !(await confirmReinforcementFailure(crewName))
       ) return; // 취소 시 updateCell 미호출 → 기존 체크·점수·라인명 원상 복구.
       // 0점 → 라인 '-'(null). 1점 이상(1~3 강화실패 포함)은 선택 라인 유지(§4).
       updateCell(crewUserId, lineType, {
