@@ -27,6 +27,11 @@ const CAFE_TRANSIENT_ERROR_CODES = new Set([
   "article_not_accessible",
   "crawl_failed",
   "match_failed",
+  // 댓글 영역 탐지 실패(2026-07-20) — success+0 대신 오류로 내려오므로 프로세스 체크와 동일하게 "일시 오류"로.
+  "comment_container_not_found",
+  "empty_state_not_confirmed",
+  "layout_mismatch",
+  "pagination_incomplete",
 ]);
 
 // 라인 개설 크루 선택기 — 네이버 카페 댓글 검수(자동 매칭) + 수동 추가/삭제/초기화.

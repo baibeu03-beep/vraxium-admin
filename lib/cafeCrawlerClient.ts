@@ -21,6 +21,12 @@ const KNOWN_CODES: ReadonlySet<string> = new Set([
   "login_required",
   "article_not_accessible",
   "crawl_failed",
+  // 수집 진단 오류(2026-07-20) — 탐지 실패를 "정상 빈"과 구분하는 코드. 미등록이면 crawl_failed 로 뭉개져
+  //   진단 코드가 유실되므로 반드시 통과시킨다(사용자 문구는 아래에서 공통 "일시 오류"로 매핑).
+  "comment_container_not_found",
+  "empty_state_not_confirmed",
+  "layout_mismatch",
+  "pagination_incomplete",
 ]);
 
 function mapErrorCode(raw: unknown): CafeCommentsErrorCode {
@@ -38,6 +44,11 @@ function reviewerMessage(code: CafeCommentsErrorCode): string {
       return "카페 댓글 자동 수집이 일시적으로 불가합니다(세션 점검 필요). 잠시 후 다시 시도하거나 운영자에게 알려주세요.";
     case "article_not_accessible":
       return "게시글에 접근하지 못했습니다. URL과 게시판 권한을 확인해주세요.";
+    // 댓글 영역 탐지 실패류 — 내부 코드/selector/DOM 을 노출하지 않고 공통 "일시 오류" 문구로만 안내한다.
+    case "comment_container_not_found":
+    case "empty_state_not_confirmed":
+    case "layout_mismatch":
+    case "pagination_incomplete":
     case "crawl_failed":
     default:
       return "댓글 수집 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";

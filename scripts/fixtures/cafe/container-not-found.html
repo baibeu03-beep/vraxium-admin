@@ -1,0 +1,11 @@
+<!-- fixture: 본문은 정상 열림이나 댓글 컨테이너(ul.comment_list)를 못 찾음.
+     실제 댓글이 있는 신형 f-e 레이아웃(다른 컨테이너 selector)이 현행 후보 배열에 없을 때를 모사.
+     → 판정은 layout_mismatch(일시 오류) 여야 한다(과거의 잘못된 success+0 금지). -->
+<div class="article_container">
+  <div class="ArticleContentBox">본문</div>
+  <!-- 신형 레이아웃 댓글 영역(미검증 selector) — 후보 배열에 없어 탐지 실패로 이어진다 -->
+  <div class="CommentContainerFE">
+    <div class="CommentItemFE"><span class="nick">박철수</span><span>실제 댓글1</span></div>
+    <div class="CommentItemFE"><span class="nick">최지현</span><span>실제 댓글2</span></div>
+  </div>
+</div>

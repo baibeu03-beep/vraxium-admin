@@ -37,6 +37,11 @@ const ERROR_STATUS: Record<CafeCommentsErrorCode, number> = {
   login_required: 409,
   article_not_accessible: 502,
   crawl_failed: 502,
+  // 수집 진단 오류(2026-07-20) — 탐지 실패는 재시도 가능한 서버측 실패(502)로 응답(클라 재수집 유도).
+  comment_container_not_found: 502,
+  empty_state_not_confirmed: 502,
+  layout_mismatch: 502,
+  pagination_incomplete: 502,
 };
 
 // Bearer 토큰 상수시간 비교(길이 불일치는 즉시 false).

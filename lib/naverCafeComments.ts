@@ -13,6 +13,13 @@
 
 import path from "node:path";
 import type { BrowserContext, Frame, Page } from "playwright-core";
+import {
+  classifyCafeCrawlOutcome,
+  type CafeCrawlSignals,
+  type CafeLayoutKind,
+} from "./cafeCrawlOutcome";
+
+export type { CafeLayoutKind } from "./cafeCrawlOutcome";
 
 export type CafeCommentEntry = {
   nickname: string;
@@ -27,6 +34,17 @@ export type CafeCommentsData = {
   nicknames: string[];
   /** 닉네임별 댓글 수 (검증용 — 합계 = totalComments) */
   nicknameCounts: Array<{ nickname: string; count: number }>;
+  // ── 수집 진단(2026-07-20) — "정상 빈 게시물" vs "댓글 영역 탐지 실패" 구분 근거(선택·후방호환) ──
+  //   commentContainerFound : 댓글 컨테이너(후보 selector 중 하나) 발견 여부.
+  //   emptyStateConfirmed   : "댓글 0개" 명시 빈 상태 DOM 확인 여부(컨테이너 없는 레이아웃의 정상 빈 판정).
+  //   postBodyFound         : 게시물 본문 영역 발견 여부.
+  //   paginationCompleted   : 댓글 페이지네이션/더보기 순회 완료 여부.
+  //   layoutKind            : 진단용 레이아웃 추정(사용자 미노출).
+  commentContainerFound?: boolean;
+  emptyStateConfirmed?: boolean;
+  postBodyFound?: boolean;
+  paginationCompleted?: boolean;
+  layoutKind?: CafeLayoutKind;
 };
 
 export type CafeCommentsResult =
@@ -37,11 +55,24 @@ export type CafeCommentsErrorCode =
   | "invalid_url"
   | "login_required"
   | "article_not_accessible"
-  | "crawl_failed";
+  | "crawl_failed"
+  // ── 수집 진단 오류(2026-07-20) — 댓글 영역 탐지 실패를 "정상 빈(success+0)"과 구분하기 위한 코드 ──
+  //   comment_container_not_found : 본문은 열렸으나 댓글 컨테이너 후보를 하나도 못 찾음.
+  //   empty_state_not_confirmed   : 컨테이너 아이템 0인데 빈 상태도 확정 못함(아이템 selector 불일치 의심).
+  //   layout_mismatch             : 컨테이너·빈상태 모두 미발견(새 레이아웃 가능성) — retryable.
+  //   pagination_incomplete       : 댓글 순회가 끝나지 않음(부분 수집을 완료로 처리 금지).
+  //   ⚠ 사용자 문구는 전부 공통 "일시 오류"로 매핑(내부 코드·selector·DOM 미노출). 저장·진단용.
+  | "comment_container_not_found"
+  | "empty_state_not_confirmed"
+  | "layout_mismatch"
+  | "pagination_incomplete";
 
 const PROFILE_DIR = path.join(process.cwd(), ".naver-profile");
 const NAV_TIMEOUT_MS = 30_000;
 const COMMENT_AREA_TIMEOUT_MS = 20_000;
+// 댓글 lazy-load 대비 — 컨테이너 shell(ul.comment_list)은 떴는데 <li> 가 아직 안 채워진 순간에 세면 0이 된다.
+//   컨테이너가 있으면 첫 아이템이 렌더될 때까지 이 시간까지 기다린다(정말 빈 글이면 타임아웃 후 진행 → success(0)).
+const COMMENT_ITEM_WAIT_MS = 8_000;
 const MAX_COMMENT_PAGES = 200;
 
 /** 동시 수집 방지 — persistent profile은 단일 프로세스만 사용 가능. */
@@ -137,8 +168,131 @@ const ARTICLE_READY_SELECTOR = "ul.comment_list, .article_container, .ArticleCon
 // 주의: RelatedArticles/PopularArticles 에도 동일 클래스 pager 가 있어 반드시 CommentBox 로 스코프.
 const COMMENT_PAGER_SELECTOR = ".CommentBox .ArticlePaginate";
 
-/** 현재 표시 중인 댓글 페이지에서 (nickname, content, date) 목록 추출. */
-async function extractCommentsOnPage(frame: Frame): Promise<CafeCommentEntry[]> {
+// ── 댓글 영역 탐지 후보 selector(구조화 · 요구 §2) ────────────────────────────────
+//   한 레이아웃 하드코딩 대신 "후보 배열 + 명시 탐지 결과"를 쓴다. 배열에 추가하면 판정/추출이
+//   자동으로 그 레이아웃을 포함한다(판정 로직 변경 불필요).
+//   ✅ 검증됨: 레거시 데스크톱 컨테이너 `ul.comment_list`(현행 동작 그대로).
+//   ⚠ 미검증 확장 지점: f-e(신형) 컨테이너·빈 상태 DOM selector 는 **라이브 네이버 DOM 확인이 필요**하다.
+//     추정 selector 를 넣지 않는다(빈 배열 유지) — 확인 후 값을 채우면 된다. 확인 전까지 f-e/신레이아웃
+//     게시물은 layout_mismatch(일시 오류·retryable)로 정직하게 처리된다(과거의 잘못된 success+0 대신).
+export const CAFE_DETECT_CONFIG: {
+  container: string[];
+  body: string[];
+  emptyState: string[];
+  feHint: string[];
+} = {
+  container: [COMMENT_LIST_SELECTOR], // [검증] 레거시. [미검증 추가지점] f-e 댓글 컨테이너 selector
+  body: [".article_container", ".ArticleContentBox", COMMENT_LIST_SELECTOR], // 본문 발견(ARTICLE_READY 와 정합)
+  emptyState: [], // [미검증] "댓글 0개" 명시 빈 상태 DOM selector — 라이브 확인 후 채운다(추정 금지)
+  feHint: [], // [미검증] f-e 레이아웃 힌트 selector(진단용·비차단)
+};
+
+// 브라우저 컨텍스트에서 실행(frame.evaluate) — 후보 배열로 컨테이너/본문/빈상태/레이아웃 신호를 수집한다.
+//   ⚠ self-contained(외부 참조 금지 · selector 는 config 로만 전달) — 오프라인 fixture 테스트도 이 동일
+//     함수를 page.evaluate 로 구동한다(운영 parser 와 동일 로직 · 판정 복제 없음). 정확한 댓글 "개수"는
+//     여기서 세지 않고 extractCommentsOnPage 순회(중복 제거)가 담당한다.
+export function collectCafeContainerSignals(config: {
+  container: string[];
+  body: string[];
+  emptyState: string[];
+  feHint: string[];
+}): {
+  postBodyFound: boolean;
+  commentContainerFound: boolean;
+  containerSelectorMatched: string | null;
+  emptyStateConfirmed: boolean;
+  layoutKind: CafeLayoutKind;
+} {
+  // ⚠ 이 함수는 frame.evaluate 로 브라우저에 "직렬화"돼 실행된다 — 중첩 named 함수/화살표를 두지 않는다
+  //   (번들러 keepNames 가 __name 래퍼를 주입해 브라우저에서 Reference__name 오류를 낸다). 전부 인라인 루프.
+  let containerSelectorMatched: string | null = null;
+  for (const s of config.container) {
+    try {
+      if (document.querySelector(s)) {
+        containerSelectorMatched = s;
+        break;
+      }
+    } catch {
+      // 잘못된 selector 는 무시(다음 후보 진행).
+    }
+  }
+  const commentContainerFound = containerSelectorMatched !== null;
+
+  let postBodyFound = commentContainerFound;
+  if (!postBodyFound) {
+    for (const s of config.body) {
+      try {
+        if (document.querySelector(s)) {
+          postBodyFound = true;
+          break;
+        }
+      } catch {
+        // 무시.
+      }
+    }
+  }
+
+  let emptyStateConfirmed = false;
+  for (const s of config.emptyState) {
+    try {
+      if (document.querySelector(s)) {
+        emptyStateConfirmed = true;
+        break;
+      }
+    } catch {
+      // 무시.
+    }
+  }
+
+  let feHintMatched = false;
+  for (const s of config.feHint) {
+    try {
+      if (document.querySelector(s)) {
+        feHintMatched = true;
+        break;
+      }
+    } catch {
+      // 무시.
+    }
+  }
+
+  let layoutKind: CafeLayoutKind = "unknown";
+  try {
+    if (document.querySelector('iframe[name="cafe_main"]')) layoutKind = "legacy-iframe";
+    else if (commentContainerFound) layoutKind = "legacy";
+    else if (feHintMatched) layoutKind = "fe";
+  } catch {
+    // noop — 진단용이라 실패해도 판정에 영향 없음.
+  }
+
+  return {
+    postBodyFound,
+    commentContainerFound,
+    containerSelectorMatched,
+    emptyStateConfirmed,
+    layoutKind,
+  };
+}
+
+// 수집 진단 오류 코드 → 검수자 안전 문구(내부 코드·selector·DOM 미노출). 탐지 실패류는 전부 공통 "일시 오류".
+function crawlDiagnosticMessage(code: CafeCommentsErrorCode): string {
+  switch (code) {
+    case "login_required":
+      return LOGIN_GUIDE_MESSAGE;
+    case "article_not_accessible":
+      return "게시글에 접근하지 못했습니다. URL과 게시판 권한을 확인해주세요.";
+    case "comment_container_not_found":
+    case "empty_state_not_confirmed":
+    case "layout_mismatch":
+    case "pagination_incomplete":
+    case "crawl_failed":
+    default:
+      return "댓글 정보를 일시적으로 가져오지 못했습니다. 다시 시도해주세요.";
+  }
+}
+
+/** 현재 표시 중인 댓글 페이지에서 (nickname, content, date) 목록 추출. (오프라인 fixture 테스트도 재사용) */
+export async function extractCommentsOnPage(frame: Frame): Promise<CafeCommentEntry[]> {
   return frame.evaluate(() => {
     const items = Array.from(document.querySelectorAll("ul.comment_list > li"));
     const out: Array<{ nickname: string; content: string; date: string }> = [];
@@ -305,10 +459,21 @@ async function crawlArticleComments(url: string): Promise<CafeCommentsResult> {
       };
     }
 
-    const hasCommentList = await frame.locator(COMMENT_LIST_SELECTOR).count();
-    const seen = new Map<string, CafeCommentEntry>();
+    // 댓글 lazy-load 레이스 방지 — 컨테이너 후보가 뜨면 첫 아이템이 렌더될 때까지 짧게 기다린다.
+    //   (댓글이 있는 글을 "컨테이너 shell 만 뜬 순간"에 세어 0으로 저장하는 것을 막는다. 실제 문제 사례
+    //    encreclub/41450: 로컬은 81, 그런데 shell 만 잡히는 타이밍이면 0이 됨.) 정말 빈 글이면 타임아웃→진행.
+    const itemWaitSelector = CAFE_DETECT_CONFIG.container.map((c) => `${c} > li`).join(", ");
+    if (itemWaitSelector) {
+      await frame.waitForSelector(itemWaitSelector, { timeout: COMMENT_ITEM_WAIT_MS }).catch(() => null);
+    }
 
-    if (hasCommentList > 0) {
+    // 판정 신호 수집(후보 배열 기반) — 컨테이너/본문/빈상태/레이아웃. 아이템 개수는 아래 순회가 센다.
+    const sig = await frame.evaluate(collectCafeContainerSignals, CAFE_DETECT_CONFIG);
+    const seen = new Map<string, CafeCommentEntry>();
+    let paginationCompleted = true;
+
+    if (sig.commentContainerFound) {
+      // 컨테이너 발견 → 기존 추출/순회(검증된 레거시 로직) 그대로.
       // 1페이지 수집
       for (const c of await extractCommentsOnPage(frame)) seen.set(dedupeKey(c), c);
 
@@ -332,6 +497,8 @@ async function crawlArticleComments(url: string): Promise<CafeCommentsResult> {
         for (const c of await extractCommentsOnPage(frame)) seen.set(dedupeKey(c), c);
         guard++;
       }
+      // guard 소진(= MAX 도달)으로 while 을 빠져나온 경우만 미완료. 정상 break(더 볼 페이지 없음/정지)는 완료.
+      paginationCompleted = guard < MAX_COMMENT_PAGES;
     }
 
     const comments = Array.from(seen.values());
@@ -339,14 +506,37 @@ async function crawlArticleComments(url: string): Promise<CafeCommentsResult> {
     for (const c of comments) counts.set(c.nickname, (counts.get(c.nickname) ?? 0) + 1);
     const nicknames = Array.from(counts.keys());
 
+    // ── 결과 판정(요구 §4) — "정상 빈 게시물"과 "댓글 영역 탐지 실패"를 신호로 구분한다. ──
+    //   loginRequired/accessDenied 는 위 ready 게이트에서 이미 반환되므로 여기선 false(본문 정상 열림).
+    const signals: CafeCrawlSignals = {
+      postBodyFound: sig.postBodyFound,
+      commentContainerFound: sig.commentContainerFound,
+      commentItemCount: comments.length,
+      emptyStateConfirmed: sig.emptyStateConfirmed,
+      paginationCompleted,
+      loginRequired: false,
+      accessDenied: false,
+      layoutKind: sig.layoutKind,
+    };
+    const verdict = classifyCafeCrawlOutcome(signals);
+    if (verdict.kind === "error") {
+      // 탐지 실패(컨테이너/빈상태 미발견 등) → success+0 대신 오류(코드는 진단용·문구는 공통 "일시 오류").
+      return { ok: false, error: verdict.errorCode, message: crawlDiagnosticMessage(verdict.errorCode) };
+    }
+
     return {
       ok: true,
       data: {
         articleUrl: url,
-        totalComments: comments.length,
+        totalComments: verdict.totalComments,
         uniqueNicknames: nicknames.length,
         nicknames,
         nicknameCounts: nicknames.map((n) => ({ nickname: n, count: counts.get(n) ?? 0 })),
+        commentContainerFound: sig.commentContainerFound,
+        emptyStateConfirmed: sig.emptyStateConfirmed,
+        postBodyFound: sig.postBodyFound,
+        paginationCompleted,
+        layoutKind: sig.layoutKind,
       },
     };
   } catch {

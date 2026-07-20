@@ -1,0 +1,9 @@
+<!-- fixture: 컨테이너(ul.comment_list)는 없지만 "댓글 0개" 명시 빈 상태 DOM 이 존재하는 레이아웃.
+     빈 상태 selector 를 config.emptyState 로 주입하면 정상 빈(success+0)으로 판정돼야 한다.
+     (⚠ 실제 네이버 빈 상태 selector 는 미검증 — 이 fixture 는 "메커니즘"만 증명한다.) -->
+<div class="article_container">
+  <div class="ArticleContentBox">본문</div>
+  <div class="CommentBoxFE">
+    <div class="CommentEmptyStateTest">등록된 댓글이 없습니다.</div>
+  </div>
+</div>
