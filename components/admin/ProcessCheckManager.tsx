@@ -24,6 +24,10 @@ import ProcessCheckManualGrantDialog from "@/components/admin/ProcessCheckManual
 import ProcessCheckProgress from "@/components/admin/ProcessCheckProgress";
 import { WeekSelectRow } from "@/components/admin/WeekSelectRow";
 import {
+  StatusList,
+  StatusListItem,
+} from "@/components/admin/lineOpeningStatusUi";
+import {
   PROCESS_CHECK_HELP_KEYS,
   PROCESS_CHECK_LOG_ACTION_LABEL,
   emptyProcessCheckBoard,
@@ -399,62 +403,57 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
               </span>
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <p className="rounded-md border border-border bg-muted/40 px-3 py-2">
-              오늘은 <Red>{formatCheckTodayCompact(today)}</Red>
-              이며, 이번 주는 [<Red>{periodLabel}</Red>] 입니다. (월 ~ 일)
-            </p>
-            {teamMode ? (
-              teams.length === 0 ? (
-                <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-muted-foreground">
-                  이 클럽에 등록된 팀이 없습니다.
-                </p>
-              ) : (
-                teams.map((tm) => (
-                  <p
-                    key={tm.teamId}
-                    className={cn(
-                      "rounded-md border px-3 py-2",
-                      tm.isAllCompleted
-                        ? "border-green-300 bg-green-50 text-green-800"
-                        : "border-amber-300 bg-amber-50 text-amber-800",
-                    )}
-                  >
-                    이번 주 [<Red>{periodLabel}</Red>] <Red>{tm.teamName}</Red> 팀의 [{hubLabel} 급]
-                    프로세스 액트가{" "}
-                    {tm.isAllCompleted ? (
-                      <>
-                        모두 ‘<Red>체크 완료</Red>’ 되었습니다.
-                      </>
-                    ) : (
-                      <>
-                        ‘<Red>체크 중</Red>’ 에 있습니다.
-                      </>
-                    )}
-                  </p>
-                ))
-              )
-            ) : (
-              <p
-                className={cn(
-                  "rounded-md border px-3 py-2",
-                  summary.isAllCompleted
-                    ? "border-green-300 bg-green-50 text-green-800"
-                    : "border-amber-300 bg-amber-50 text-amber-800",
-                )}
-              >
-                이번 주 [<Red>{periodLabel}</Red>] [{hubLabel} 급] 프로세스 액트가{" "}
-                {summary.isAllCompleted ? (
-                  <>
-                    모두 ‘<Red>체크 완료</Red>’ 되었습니다.
-                  </>
+          <CardContent className="text-sm">
+            {/* 상태 문장 = /admin/line-opening 과 동일한 공용 bullet 목록(StatusList). 문장별 박스
+                (rounded-md border bg-*) 제거 — 상태 구분은 bullet 색만, 핵심 텍스트만 <Red> 강조. */}
+            <StatusList>
+              {/* 오늘 + 이번 주 (정보성 → neutral bullet) */}
+              <StatusListItem tone="neutral">
+                오늘은 <Red>{formatCheckTodayCompact(today)}</Red>
+                이며, 이번 주는 [<Red>{periodLabel}</Red>] 입니다. (월 ~ 일)
+              </StatusListItem>
+              {teamMode ? (
+                teams.length === 0 ? (
+                  <StatusListItem tone="neutral">
+                    <span className="text-muted-foreground">
+                      이 클럽에 등록된 팀이 없습니다.
+                    </span>
+                  </StatusListItem>
                 ) : (
-                  <>
-                    ‘<Red>체크 중</Red>’ 에 있습니다.
-                  </>
-                )}
-              </p>
-            )}
+                  teams.map((tm) => (
+                    <StatusListItem
+                      key={tm.teamId}
+                      tone={tm.isAllCompleted ? "positive" : "warning"}
+                    >
+                      이번 주 [<Red>{periodLabel}</Red>] <Red>{tm.teamName}</Red> 팀의 [{hubLabel} 급]
+                      프로세스 액트가{" "}
+                      {tm.isAllCompleted ? (
+                        <>
+                          모두 ‘<Red>체크 완료</Red>’ 되었습니다.
+                        </>
+                      ) : (
+                        <>
+                          ‘<Red>체크 중</Red>’ 에 있습니다.
+                        </>
+                      )}
+                    </StatusListItem>
+                  ))
+                )
+              ) : (
+                <StatusListItem tone={summary.isAllCompleted ? "positive" : "warning"}>
+                  이번 주 [<Red>{periodLabel}</Red>] [{hubLabel} 급] 프로세스 액트가{" "}
+                  {summary.isAllCompleted ? (
+                    <>
+                      모두 ‘<Red>체크 완료</Red>’ 되었습니다.
+                    </>
+                  ) : (
+                    <>
+                      ‘<Red>체크 중</Red>’ 에 있습니다.
+                    </>
+                  )}
+                </StatusListItem>
+              )}
+            </StatusList>
           </CardContent>
         </Card>
 
