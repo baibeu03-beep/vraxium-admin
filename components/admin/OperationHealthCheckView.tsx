@@ -215,7 +215,7 @@ export default function OperationHealthCheckView() {
   const busy = processing !== null;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="admin-section-stack-lg">
       <div className="flex items-end justify-between gap-3">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">운영 정합성 점검</h2>

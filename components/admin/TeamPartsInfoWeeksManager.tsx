@@ -338,7 +338,9 @@ export default function TeamPartsInfoWeeksManager({
           <AdminHelp />
         </div>
       </CardHeader>
-      <CardContent className="space-y-5">
+      {/* 섹션 간 세로 리듬 = 공용 SoT(admin-section-stack-lg). space-y-5(20px) 직접값 대신
+          단일 출처로 이관 → 전역 2배 확대에 자동 정합(활동 관리 상세와 동일 패턴). */}
+      <CardContent className="admin-section-stack-lg">
         {/* ── 클럽 탭(유일한 상단 필터) ─────────────────────────────── */}
         {/* scoped(개별 조직)는 자기 조직 탭만 고정 노출(비활성). 통합은 4개 탭. */}
         <div className="flex flex-wrap items-center gap-x-8 gap-y-3">

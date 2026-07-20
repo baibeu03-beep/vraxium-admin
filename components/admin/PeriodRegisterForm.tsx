@@ -432,7 +432,7 @@ export default function PeriodRegisterForm() {
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="admin-section-stack">
       {/* 상단: 페이지 제목 */}
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="mr-auto text-xl font-semibold tracking-normal text-foreground">

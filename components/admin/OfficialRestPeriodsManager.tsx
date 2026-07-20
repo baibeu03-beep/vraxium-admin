@@ -344,7 +344,7 @@ export default function OfficialRestPeriodsManager() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="admin-section-stack">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="mr-auto text-xl font-semibold tracking-normal text-foreground">
           공식 휴식 관리

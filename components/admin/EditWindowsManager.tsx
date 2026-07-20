@@ -399,7 +399,7 @@ export default function EditWindowsManager() {
   const hasNext = pageEnd < total;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="admin-section-stack-lg">
       <div className="flex flex-wrap items-end gap-3">
         <div className="mr-auto">
           <h2 className="text-2xl font-semibold tracking-tight">작성 기간 관리</h2>

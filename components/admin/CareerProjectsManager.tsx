@@ -313,7 +313,7 @@ export default function CareerProjectsManager() {
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="admin-section-stack">
       <div className="flex justify-end">
         <AdminHelp />
       </div>

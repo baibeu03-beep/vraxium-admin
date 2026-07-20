@@ -587,7 +587,9 @@ export default function SeasonWeeksTable() {
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    {/* 섹션 간 세로 리듬 = 공용 SoT(admin-section-stack). flex flex-col gap-4(16px) 직접값
+        대신 단일 출처로 이관 → 전역 2배 확대에 자동 정합(display 는 동일 flex-column). */}
+    <div className="admin-section-stack">
       {/* 상단: 페이지 제목 */}
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="mr-auto text-xl font-semibold tracking-normal text-foreground">

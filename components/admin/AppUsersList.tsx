@@ -226,7 +226,7 @@ export default function AppUsersList({ mode }: { mode: ScopeMode }) {
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="admin-section-stack-lg">
       <div className="flex justify-end">
         <AdminHelp />
       </div>

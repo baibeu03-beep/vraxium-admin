@@ -539,7 +539,9 @@ export default function TeamPartsInfoManager() {
           <AdminHelp />
         </div>
       </CardHeader>
-      <CardContent className="space-y-6">
+      {/* 섹션 간 세로 리듬 = 공용 SoT(admin-section-stack-lg). space-y-6(24px) 직접값 대신
+          단일 출처로 이관 → 전역 2배 확대에 자동 정합. */}
+      <CardContent className="admin-section-stack-lg">
         {banner ? (
           <div
             className={

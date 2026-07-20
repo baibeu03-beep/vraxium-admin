@@ -422,7 +422,7 @@ export default function AccountsManager() {
   const hasNext = pageEnd < total;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="admin-section-stack-lg">
       <div className="flex items-end justify-between gap-3">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">어드민 계정</h2>

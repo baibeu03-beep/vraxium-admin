@@ -250,7 +250,7 @@ export default function SeasonParticipationsView() {
   const summary = data?.summary;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="admin-section-stack-lg">
       <div className="flex flex-wrap items-end gap-3">
         <div className="mr-auto">
           <h2 className="text-2xl font-semibold tracking-tight">시즌 참여/휴식</h2>

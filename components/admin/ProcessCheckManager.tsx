@@ -382,8 +382,10 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
         helpKey={PROCESS_CHECK_HELP_KEYS.filterWeek}
       />
 
-      {/* 상태창1 (좌) + 로그창 (우) */}
-      <div className="grid items-start gap-4 lg:grid-cols-2">
+      {/* 상태창1 (좌) + 로그창 (우) — 독립 카드 묶음.
+          세로(모바일 스택) 카드 간격만 2배(16→32px)로 넓히고, 데스크톱 2열 가로 거터(16px)는
+          유지한다(가로 밀도 불변). lg 단일 행에선 gap-y 가 작동하지 않아 데스크톱 레이아웃 무변경. */}
+      <div className="grid items-start gap-x-4 gap-y-8 lg:grid-cols-2">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">
