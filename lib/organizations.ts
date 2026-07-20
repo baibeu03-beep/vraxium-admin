@@ -174,7 +174,7 @@ export const HOME_LAUNCH_CARDS: HomeLaunchCard[] = [
   {
     key: "integrated",
     ko: "통합 검수 시스템",
-    en: "전체 조직 통합 관리",
+    en: "Club",
     href: "/admin/members",
     icon: "🗂️",
     variant: "neutral",
