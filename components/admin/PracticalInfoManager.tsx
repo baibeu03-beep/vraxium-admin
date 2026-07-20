@@ -41,6 +41,7 @@ import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
 import { formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
 import { formatAdminDateWithWeekday } from "@/lib/adminDateTime";
 import { readOrgParam } from "@/lib/adminOrgContext";
+import { organizationAccent } from "@/lib/organizations";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { buildLineOpeningTabs } from "@/lib/adminHeaderTabs";
 import PracticalInfoOpeningSection0 from "@/components/admin/PracticalInfoOpeningSection0";
@@ -355,18 +356,104 @@ function CanEditBadge({
 }
 
 // ──────────────────────────────────────────────────────────────
-// 라인 종류(활동 유형) 탭 — 시각 상태 클래스 SoT
+// 라인 종류(활동 유형) 탭 — 캡슐형 스타일 SoT
 // ──────────────────────────────────────────────────────────────
-// 탭은 밑줄(underline) 스타일 — 박스/배경 없이 '선택'만 아래 파란 밑줄 + 파란 진한 글자로 강조한다.
-//   오픈/미오픈/개설 완료 여부는 탭 이름 옆의 작은 점(dot)으로만 표시(아래 렌더) → 색 사용을 최소화해 정돈.
-// 탭 이름 하드코딩 없이 selected 값만으로 본체 스타일 결정 → mode/org 무관 동일 로직.
-function lineTypeTabClass(selected: boolean): string {
+// 탭은 둥근 캡슐(pill) 스타일 — 카드/버튼이 모두 둥근 전체 UI 와 통일.
+//   · 선택 = 파란 캡슐(bg-blue-600 + text-white), 미선택 = 흰(카드) 캡슐 + 테두리.
+//   · 오픈/미오픈/개설 완료는 "탭 전체 색"이 아니라 이름 오른쪽의 작은 배지 하나로만 표현 → 시선 분산 최소화.
+//   · 탭 이름 하드코딩 없이 selected 값만으로 본체 스타일 결정 → mode/org 무관 동일 로직.
+
+type InfoTabStatus = "loading" | "created" | "open" | "notOpen";
+
+// 캡슐 본체 클래스 — 선택/오픈/미오픈에 따라. "전체 색"은 선택 여부만 좌우(오픈은 배지로).
+//   · 선택 = 조직 대표색 캡슐(encre 분홍 / oranke 황금 / phalanx 초록). org 없으면 중립(파랑) 폴백.
+//   · 미선택 = 흰(카드) 캡슐 + 테두리, hover 시 옅은 배경.
+//   · 미오픈(미선택)만 opacity 를 낮춰 차분하게(선택 시엔 항상 또렷하게).
+function infoTabCapsuleClass(
+  selected: boolean,
+  status: InfoTabStatus,
+  accentSolid: string | null,
+): string {
   if (selected) {
-    // 선택 — 파란 밑줄(border-b-2) + 파란 진한 글자.
-    return "border-blue-600 font-semibold text-blue-700 dark:border-blue-500 dark:text-blue-400";
+    return cn(
+      "font-semibold shadow-sm",
+      accentSolid ??
+        // 통합(org 없음) 폴백 — 중립 파랑.
+        "border-blue-600 bg-blue-600 text-white hover:bg-blue-700 dark:border-blue-500 dark:bg-blue-500",
+    );
   }
-  // 미선택 — 투명 밑줄 + 흐린 글자. hover 시 글자·밑줄이 살짝 드러난다.
-  return "border-transparent font-medium text-muted-foreground hover:border-border hover:text-foreground";
+  if (status === "notOpen") {
+    return "border-border bg-card font-medium text-muted-foreground opacity-60 hover:bg-muted hover:opacity-100";
+  }
+  return "border-border bg-card font-medium text-foreground hover:bg-muted";
+}
+
+// 이름 오른쪽 상태 배지 — 지금보다 훨씬 작게. 오픈=초록 점 / 미오픈=빈 점 / 개설 완료=체크 / 로딩=스피너.
+//   선택된(파란) 캡슐 위에선 흰색 대비로 전환해 배지가 파묻히지 않게 한다.
+function InfoTabStatusBadge({ status, selected }: { status: InfoTabStatus; selected: boolean }) {
+  if (status === "loading") {
+    return (
+      <Loader2
+        className={cn("h-3 w-3 animate-spin", selected ? "text-white/80" : "text-muted-foreground")}
+        aria-label="상태 확인 중"
+      />
+    );
+  }
+  if (status === "created") {
+    return (
+      <span
+        className={cn(
+          "inline-flex items-center gap-1 text-[11px] font-semibold leading-none",
+          selected ? "text-white/90" : "text-emerald-700 dark:text-emerald-400",
+        )}
+        aria-label="개설 완료"
+      >
+        <span
+          className={cn(
+            "inline-flex h-3.5 w-3.5 items-center justify-center rounded-full",
+            selected ? "bg-white/25 text-white" : "bg-emerald-500 text-white dark:bg-emerald-600",
+          )}
+        >
+          <Check className="h-2.5 w-2.5" strokeWidth={3} />
+        </span>
+        완료
+      </span>
+    );
+  }
+  if (status === "open") {
+    return (
+      <span
+        className={cn(
+          "inline-flex items-center gap-1 text-[11px] font-medium leading-none",
+          selected ? "text-white/90" : "text-emerald-700 dark:text-emerald-400",
+        )}
+        aria-label="오픈"
+      >
+        <span
+          className={cn("h-1.5 w-1.5 shrink-0 rounded-full", selected ? "bg-white" : "bg-emerald-500 dark:bg-emerald-400")}
+        />
+        오픈
+      </span>
+    );
+  }
+  // notOpen — 빈(테두리만) 점 + 회색 라벨.
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 text-[11px] font-medium leading-none",
+        selected ? "text-white/80" : "text-muted-foreground",
+      )}
+      aria-label="미오픈"
+    >
+      <span
+        className={cn(
+          "h-1.5 w-1.5 shrink-0 rounded-full border-[1.5px] bg-transparent",
+          selected ? "border-white/80" : "border-zinc-400 dark:border-zinc-500",
+        )}
+      />
+      미오픈
+    </span>
+  );
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -769,6 +856,8 @@ export default function PracticalInfoManager() {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const orgScoped = readOrgParam(searchParams) != null;
+  // 선택된 캡슐 탭 = 조직 대표색(encre 분홍 / oranke 황금 / phalanx 초록). 통합(org 없음)이면 null → 중립 폴백.
+  const orgAccentSolid = organizationAccent(readOrgParam(searchParams))?.solid ?? null;
   const mainTab: "manage" | "open" =
     orgScoped && searchParams?.get("tab") === "open" ? "open" : "manage";
 
@@ -1771,8 +1860,8 @@ export default function PracticalInfoManager() {
 
       {mainTab === "open" && (
         <div className="space-y-6">
-          {/* 활동 유형 탭 (라인 개설 탭 — 섹션0 대상 활동유형 선택, activeTypeId 공유) */}
-          <div role="tablist" className="flex flex-wrap items-center gap-1 border-b">
+          {/* 활동 유형 탭 (라인 개설 탭 — 섹션0 대상 활동유형 선택, activeTypeId 공유). 캡슐형(pill). */}
+          <div role="tablist" className="flex flex-wrap items-center gap-2">
             {orderedTypes.map((t) => {
               // 탭 배지 상태 = 선택 주차(selectedWeekId, 화면 전체 단일 SoT) 기준. 상태창·개설 폼과 동일 주차.
               //   loading  : 선택 주차 상태 조회 중 — 이전(다른) 주차 배지를 유지하지 않고 로딩 처리.
@@ -1805,37 +1894,14 @@ export default function PracticalInfoManager() {
                         : undefined
                   }
                   className={cn(
-                    // 밑줄 탭 — 박스/배경 없이 하단 2px 밑줄만. -mb-px 로 tablist 의 baseline 위에 겹친다.
-                    "relative -mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm transition-colors",
-                    // 본체 스타일은 선택 여부만 반영(탭 이름 무관, mode/org 동일 SoT). 상태는 아래 점(dot).
-                    lineTypeTabClass(selected),
+                    // 캡슐형 — 둥근 pill + 테두리. 선택 여부만 "전체 색"을 좌우, 상태는 우측 배지로.
+                    "relative inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm transition-colors",
+                    infoTabCapsuleClass(selected, status, orgAccentSolid),
                   )}
                 >
                   {t.name}
-                  {/* 상태 점(dot) — 오픈=채운점 / 미오픈=빈점 / 개설 완료=체크 / 로딩=스피너. 정확한 뜻은 title 툴팁. */}
-                  {status === "loading" && (
-                    <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" aria-label="상태 확인 중" />
-                  )}
-                  {status === "created" && (
-                    <span
-                      className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-500 text-white dark:bg-emerald-600"
-                      aria-label="개설 완료"
-                    >
-                      <Check className="h-2.5 w-2.5" strokeWidth={3} />
-                    </span>
-                  )}
-                  {status === "open" && (
-                    <span
-                      className="h-2 w-2 shrink-0 rounded-full bg-emerald-500 dark:bg-emerald-400"
-                      aria-label="오픈"
-                    />
-                  )}
-                  {status === "notOpen" && (
-                    <span
-                      className="h-2 w-2 shrink-0 rounded-full border-[1.5px] border-zinc-400 bg-transparent dark:border-zinc-500"
-                      aria-label="미오픈"
-                    />
-                  )}
+                  {/* 상태 배지 — 오픈=초록점 / 미오픈=빈점 / 개설 완료=체크 / 로딩=스피너. 정확한 뜻은 title 툴팁. */}
+                  <InfoTabStatusBadge status={status} selected={selected} />
                 </button>
               );
             })}

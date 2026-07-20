@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { usePathname, useParams } from "next/navigation";
+import { usePathname, useParams, useSearchParams } from "next/navigation";
 import { CircleHelp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AdminHelpModal from "@/components/admin/AdminHelpModal";
@@ -13,7 +13,13 @@ import {
   markHelpSeen,
   readHelpSeen,
 } from "@/lib/adminHelpEmphasis";
+import { resolveAdminOrgFocus } from "@/lib/adminOrgContext";
+import { organizationAccent } from "@/lib/organizations";
 import { cn } from "@/lib/utils";
+
+// 통합(org 없음) 모드 도움말 버튼 색 — 조직 대표색이 없을 때의 중립 폴백(하늘색).
+const HELP_BUTTON_NEUTRAL =
+  "border-transparent bg-sky-500 text-white hover:bg-sky-600 hover:text-white dark:bg-sky-600 dark:hover:bg-sky-500";
 
 // 각 어드민 페이지 제목 영역 우측 [도움말] 버튼 + "관련 도움말" 편집/저장 모달.
 //   · 페이지(path)별로 도움말 본문을 조회/저장(공유 모달 AdminHelpModal, API: /api/admin/help).
@@ -73,10 +79,15 @@ type Props = { className?: string };
 export default function AdminHelp({ className }: Props) {
   const pathname = usePathname();
   const params = useParams();
+  const searchParams = useSearchParams();
   const storageKey = useMemo(
     () => normalizeHelpPath(pathname, params as Record<string, string | string[]> | null),
     [pathname, params],
   );
+  // 버튼 색 = 현재 화면의 조직 대표색(encre 분홍 / oranke 황금 / phalanx 초록). 통합(org 없음)이면 중립 하늘색.
+  //   org 판정 = 화면 컨텍스트 SoT(resolveAdminOrgFocus: /admin/crews/{org} path 또는 ?org). 도움말 내용/응답과 무관.
+  const orgButtonAccent =
+    organizationAccent(resolveAdminOrgFocus(pathname, searchParams))?.button ?? HELP_BUTTON_NEUTRAL;
   const [open, setOpen] = useState(false);
 
   // 도움말 "존재/열람" 상태(강조 판단 전용). 본문/권한 판단은 모달이 담당 — 여기선 강조에만 쓴다.
@@ -147,7 +158,7 @@ export default function AdminHelp({ className }: Props) {
     <>
       {/* 알림 점을 버튼 모서리에 얹기 위한 relative 래퍼(레이아웃 영향 없음, ml-auto 등은 래퍼가 받음). */}
       <span className={cn("relative inline-flex shrink-0", className)}>
-        {/* 트리거 버튼 — 눈에 띄는 색(sky). 최초 진입 시에만 가벼운 펄스(유한·reduced-motion 자동 정지). */}
+        {/* 트리거 버튼 — 조직 대표색(통합=하늘색). 최초 진입 시에만 가벼운 펄스(유한·reduced-motion 자동 정지). */}
         <Button
           type="button"
           variant="outline"
@@ -160,7 +171,9 @@ export default function AdminHelp({ className }: Props) {
           data-admin-help-trigger="page"
           title={disabled ? "이 페이지에 등록된 도움말이 없습니다" : "이 페이지의 관련 도움말"}
           className={cn(
-            "h-[34px] shrink-0 gap-1.5 border-transparent bg-sky-500 px-3 text-sm font-semibold text-white shadow-sm hover:bg-sky-600 hover:text-white dark:bg-sky-600 dark:hover:bg-sky-500",
+            "h-[34px] shrink-0 gap-1.5 px-3 text-sm font-semibold shadow-sm",
+            // 조직 대표색(또는 통합 중립 하늘색). 도움말 강조 로직/열람 상태와 무관하게 색만 조직화.
+            orgButtonAccent,
             isNew && "admin-help-nudge",
           )}
         >

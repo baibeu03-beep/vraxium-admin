@@ -85,6 +85,39 @@ export function organizationMeta(
   return isOrganizationSlug(slug) ? ORGANIZATION_META[slug] : null;
 }
 
+// ── 조직 대표색 "채움(solid)" 강조 — 단일 SoT ──────────────────────────────
+// 조직색으로 배경을 "채우는" 곳(선택된 캡슐 탭, 조직 스코프 강조 버튼)의 팔레트.
+//   · ORGANIZATION_TEXT_CLASS(pink/amber/emerald)와 동일 계열. encre=분홍 · oranke=황금(amber) · phalanx=초록.
+//   · 글자는 흰색 — 어드민 폰트 확대 스케일(≈large text)에서 -600 채움 대비를 확보한다.
+//   · 정적 문자열(Tailwind JIT 인식). 라이트/다크 공통(캡슐/버튼이 자체 배경을 가지므로 -600 유지).
+//   · solid  = 선택 캡슐(테두리+채움) · button = 강조 버튼(채움 + hover 진하게). 같은 계열이되 용도별로 분리.
+export type OrganizationAccent = {
+  solid: string;
+  button: string;
+};
+
+export const ORGANIZATION_ACCENT: Record<OrganizationSlug, OrganizationAccent> = {
+  encre: {
+    solid: "border-pink-600 bg-pink-600 text-white hover:bg-pink-700",
+    button: "border-transparent bg-pink-600 text-white hover:bg-pink-700 hover:text-white",
+  },
+  oranke: {
+    solid: "border-amber-600 bg-amber-600 text-white hover:bg-amber-700",
+    button: "border-transparent bg-amber-600 text-white hover:bg-amber-700 hover:text-white",
+  },
+  phalanx: {
+    solid: "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700",
+    button: "border-transparent bg-emerald-600 text-white hover:bg-emerald-700 hover:text-white",
+  },
+};
+
+// slug → 조직 채움 강조. 미매핑/공통(통합 모드)은 null(호출부에서 중립색 폴백).
+export function organizationAccent(
+  slug: string | null | undefined,
+): OrganizationAccent | null {
+  return isOrganizationSlug(slug) ? ORGANIZATION_ACCENT[slug] : null;
+}
+
 // ── /admin 홈 조직 선택 카드(통합 SoT) ──────────────────────────────────────
 // 홈의 조직 선택 카드는 환경 배너와 **동일한 조직 메타(ORGANIZATION_META)** 를 재사용한다
 //   — 조직명/색을 홈에서 별도 하드코딩하지 않는다. 실제 org(encre/oranke/phalanx)는 META 참조,
