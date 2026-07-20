@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -175,8 +174,8 @@ export default function LineOpeningStatusBoard({
 
   return (
     <Card>
-      {/* hub variant(실무 역량)는 설명 문구 제거 + 헤더 컴팩트. team variant(실무 경험)는 기존 유지(회귀 방지). */}
-      <CardHeader className={variant === "hub" ? "pb-2" : "pb-3"}>
+      {/* ③ 운영 현황 설명 문구 + 도움말 아이콘 제거 — team/hub 공통으로 헤더는 '상태창' 제목만 유지. */}
+      <CardHeader className="pb-2">
         <CardTitle className="inline-flex items-center gap-1.5 text-base">
           상태창
           <AdminHelpIconButton
@@ -185,16 +184,6 @@ export default function LineOpeningStatusBoard({
             title="라인 개설 상태창"
           />
         </CardTitle>
-        {variant !== "hub" && (
-          <CardDescription className="inline-flex flex-wrap items-center gap-1">
-            {selectedWeekId ? "선택한 주차" : "이번 주"} {hubLabel} 라인 개설 운영 현황 (표시 전용)
-            <AdminHelpIconButton
-              size="xs"
-              helpKey="admin.lineOpening.statusBoard.desc.board"
-              title="라인 개설 상태창 안내"
-            />
-          </CardDescription>
-        )}
       </CardHeader>
       <CardContent className="space-y-4 text-sm">
         {loading ? (

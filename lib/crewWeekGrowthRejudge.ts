@@ -8,6 +8,7 @@ import { recomputeWeeklyCardsSnapshotsForUsers } from "@/lib/cluster4WeeklyCards
 import { recalcUserGrowthStatsForUsers } from "@/lib/userGrowthStatsData";
 import { resyncGradeStatsBatch } from "@/lib/cluster3ClubRankData";
 import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
+import { mapWithConcurrency, GROWTH_CARD_CONCURRENCY } from "@/lib/concurrency";
 
 // ─────────────────────────────────────────────────────────────────────
 // 액트 보완/취소 후 "그 크루·그 주차"의 성장 결과(uws.status)를 기존 판정 SoT 로 다시 판정한다.
@@ -297,4 +298,86 @@ export async function recomputeDerivedAfterActMutation(params: {
   }
 
   return rejudge;
+}
+
+// ── 배치판 — 여러 사용자의 파생 재계산을 "코호트 1회"로 수행(라인 개설 등 다수 사용자 동시 변경) ──
+//   단일 사용자판(recomputeDerivedAfterActMutation)을 N회 직렬 호출하면:
+//     (a) resyncGradeStatsBatch(주차 참여자 전원 P)가 N회 = O(N·P) 재계산,
+//     (b) uws 재판정·스냅샷·성장통계가 유저별 직렬로 반복된다.
+//   이 함수는 **동일한 파생 결과**를 유지하면서 rejudge=동시성 / 스냅샷·성장통계=배치 / 품계 재동기=1회
+//   로 묶어 O(N·P) → O(N+P) 로 낮춘다. ⚠ 새 계산식 없음 — 기존 함수(rejudgeWeekStatusForUser·
+//   recomputeWeeklyCardsSnapshotsForUsers·recalcUserGrowthStatsForUsers·resyncGradeStatsBatch)의
+//   스코프만 코호트로 바꿔 조립한다(단일판을 N회 호출한 것과 결과 동일·멱등).
+export async function recomputeDerivedAfterActMutationForUsers(params: {
+  userIds: Array<string | null | undefined>;
+  weekId: string;
+}): Promise<void> {
+  const { weekId } = params;
+  const uniq = Array.from(new Set(params.userIds.filter((u): u is string => Boolean(u))));
+  if (uniq.length === 0) return;
+
+  // org 배치 해석(단일판은 user_profiles 를 유저별 1회 조회) — recognition N 기준값 조회에 필요.
+  //   여기선 코호트 전체를 1회 조회해 맵으로 전달한다(유저별 반복 조회 제거, 동일 값).
+  const orgByUser = new Map<string, OrganizationSlug | null>();
+  {
+    const { data } = await supabaseAdmin
+      .from("user_profiles")
+      .select("user_id,organization_slug")
+      .in("user_id", uniq);
+    for (const r of (data ?? []) as Array<{ user_id: string; organization_slug: string | null }>) {
+      const slug = r.organization_slug;
+      orgByUser.set(r.user_id, slug && isOrganizationSlug(slug) ? slug : null);
+    }
+  }
+
+  // 1) uws 재판정 — 유저별(동시성). 단일판과 동일 엔진·org 해석, 스코프만 코호트.
+  await mapWithConcurrency(uniq, GROWTH_CARD_CONCURRENCY, async (userId) => {
+    try {
+      await rejudgeWeekStatusForUser({
+        userId,
+        weekId,
+        organizationSlug: orgByUser.get(userId) ?? null,
+      });
+    } catch (e) {
+      console.warn("[crew-week-rejudge][batch] uws 재판정 실패(격리)", {
+        userId,
+        weekId,
+        message: e instanceof Error ? e.message : String(e),
+      });
+    }
+  });
+
+  // 2) 카드 snapshot 배치 재생성(유저별 직렬 → 배치·동시성 8).
+  try {
+    await recomputeWeeklyCardsSnapshotsForUsers(uniq, { concurrency: GROWTH_CARD_CONCURRENCY });
+  } catch (e) {
+    console.warn("[crew-week-rejudge][batch] snapshot 재생성 실패(best-effort)", {
+      count: uniq.length,
+      message: e instanceof Error ? e.message : String(e),
+    });
+  }
+
+  // 3) 성장 통계 배치(1회).
+  try {
+    await recalcUserGrowthStatsForUsers(uniq);
+  } catch (e) {
+    console.warn("[crew-week-rejudge][batch] 성장 통계 재계산 실패(best-effort)", {
+      count: uniq.length,
+      message: e instanceof Error ? e.message : String(e),
+    });
+  }
+
+  // 4) 품계 재동기 — 주차 참여자 전원 스코프로 "1회"(기존: 유저별 N회 → N×P 중복 제거).
+  try {
+    const week = await loadWeekRow(weekId);
+    if (week?.iso_year != null && week.iso_week != null) {
+      const participants = await fetchWeekParticipantUserIds(week.iso_year, week.iso_week);
+      if (participants.length > 0) await resyncGradeStatsBatch(participants);
+    }
+  } catch (e) {
+    console.warn("[crew-week-rejudge][batch] 품계 재동기 실패(best-effort)", {
+      weekId,
+      message: e instanceof Error ? e.message : String(e),
+    });
+  }
 }

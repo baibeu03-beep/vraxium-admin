@@ -515,6 +515,11 @@ export default function ExperienceTeamOverallBoard({
       toast("warning", openBlockedReason ?? "선택한 주차는 실무 경험 라인의 개설 기간이 아닙니다.");
       return;
     }
+    // ⑪ 개설 검수 완료 전에는 개설 완료 불가(팀장 포함) — 서버 openTeamOverall 409 게이트와 동일 판정.
+    if (!reviewCompleted) {
+      toast("warning", "모든 필수 개설 검수가 완료되어야 개설 완료할 수 있습니다.");
+      return;
+    }
     if (
       !(await adminDialog.confirm({
         title: "개설 완료",
@@ -553,7 +558,7 @@ export default function ExperienceTeamOverallBoard({
       dismissToast(progressToastId);
       setSaving(false);
     }
-  }, [canOpen, openBlockedReason, post, fetchBoard, onActivity, toast, showLoadingToast, dismissToast]);
+  }, [canOpen, openBlockedReason, reviewCompleted, post, fetchBoard, onActivity, toast, showLoadingToast, dismissToast]);
 
   const onCancel = useCallback(async () => {
     if (
@@ -788,16 +793,13 @@ export default function ExperienceTeamOverallBoard({
                           </TableCell>
                         );
                       }
-                      // 도출/분석/견문 — 체크/점수는 파트신청 라이브(읽기 전용), 라인명은 검수에서 편집.
+                      // 도출/분석/견문 — 체크/점수는 파트신청 라이브(읽기 전용).
                       const cell = crew.cells[c.key];
                       const fail = isOverallCellFail(cell);
-                      // 라인명은 체크&1점 이상에서만 편집(0점/미체크=강화 실패 → '-'). 미개설/개설완료도 잠금.
-                      const lineDisabled =
-                        opened ||
-                        saving ||
-                        partInactive ||
-                        !cell.checked ||
-                        cell.score < 1;
+                      // ⑩ 검수 단계 수정 권한: 파트장을 제외한 모든 크루의 라인명/평점은 [개설 신청]에서
+                      //   확정된 값으로 고정(읽기전용) — 파트장만 검수에서 직접 수정 가능(위 분기).
+                      //   (점수는 원래 읽기전용 배지였고, 라인명도 읽기전용으로 통일한다.)
+                      const lineDisabled = true;
                       return (
                         <TableCell key={c.key} className="text-center align-top">
                           <div className="flex flex-col items-center">
@@ -858,8 +860,13 @@ export default function ExperienceTeamOverallBoard({
                     const fail = isOverallCellFail(cell);
                     const disabled =
                       opened || saving || (c.key === "extension" && !extensionActive);
-                    // 라인명은 체크&1점 이상에서만 편집(0점/미체크=강화 실패 → '-'). 점수 disabled 조건도 상속.
-                    const lineDisabled = disabled || !cell.checked || cell.score < 1;
+                    // ⑨ 관리(management) 류 라인명은 클래스(파트장/에이전트)에 따라 서버가 고정한다 —
+                    //   사용자가 변경할 수 없다(읽기전용). 확장(extension)은 기존대로 팀장이 편집한다.
+                    //   ⚠ 점수/체크는 관리도 그대로 편집 가능(⑨는 라인명 고정만) — lineDisabled 만 분기.
+                    const lineDisabled =
+                      c.key === "management"
+                        ? true
+                        : disabled || !cell.checked || cell.score < 1;
                     return (
                       <TableCell key={c.key} className="text-center align-top">
                         <div className="flex flex-col items-center">
@@ -1100,22 +1107,21 @@ export default function ExperienceTeamOverallBoard({
           {(!actorMemberRole || actorMemberRole === "team_leader") && (
             <span className="flex w-full items-center gap-1">
               <Button
-                // 팀장(최고 권한)은 status 와 무관하게 개설 완료 가능 — 검수 전(none)이라도 활성.
-                //   status 로 막지 않는다(이미 완료된 opened 만 제외). "권장 순서"는 variant 강조로만 안내.
+                // ⑪ 개설 검수 완료(status=reviewed) 후에만 개설 완료 가능 — 팀장도 동일하게 적용한다.
+                //   서버 openTeamOverall 이 status!=reviewed 를 409 로 차단(UI 우회 대비 — 동일 판정).
                 variant={recommendedNext === "open" ? "default" : "outline"}
                 className="min-w-0 flex-1 justify-center"
                 onClick={onOpen}
                 loading={saving}
-                // 개설 기간 아님(!canOpen)이면 팀장이라도 비활성 — 서버 409 게이트와 동일 판정(개설되지 않은
-                //   상태와 개설 불가 기간을 구분). opened(이미 완료)도 비활성.
-                disabled={saving || opened || !canOpen}
+                // 개설 기간 아님(!canOpen)·이미 완료(opened)·검수 미완료(!reviewCompleted) 중 하나라도면 비활성.
+                disabled={saving || opened || !canOpen || !reviewCompleted}
                 title={
                   !canOpen
                     ? openBlockedReason ?? "선택한 주차는 실무 경험 라인의 개설 기간이 아닙니다."
                     : opened
                       ? "이미 개설 완료됨 — 수정하려면 [개설 취소] 후 진행하세요."
-                      : board.status !== "reviewed"
-                        ? "권장 순서는 에이전트 [개설 검수] 후이지만, 팀장은 바로 개설 완료할 수 있습니다."
+                      : !reviewCompleted
+                        ? "모든 필수 개설 검수가 완료되어야 개설 완료할 수 있습니다."
                         : undefined
                 }
               >

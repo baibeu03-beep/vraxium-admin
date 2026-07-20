@@ -93,12 +93,16 @@ const COMPLETED_ITEM_CLS = "bg-emerald-50 dark:bg-emerald-950/30";
 
 // 파트 드롭다운 옵션 라벨 — 완료 시 라벨 좌측에 체크(현재 선택 체크와 위치 분리).
 //   체크는 aria-hidden(색상 무의존) — 접근성 문구는 SelectItem aria-label 로 전달한다.
+//   ⑦ 체크 아이콘만이 아니라 현재 단계 문구(개설 신청 필요/완료 등)를 함께 노출해 상태를 즉시 이해.
 function PartOptionLabel({
   label,
   completed,
+  status,
 }: {
   label: string;
   completed: boolean;
+  // 현재 단계 문구(예: "개설 신청 필요"/"개설 신청 완료"/"개설 검수 완료"/"개설 완료").
+  status?: string;
 }) {
   return (
     <span className="inline-flex min-w-0 items-center gap-1.5">
@@ -109,6 +113,11 @@ function PartOptionLabel({
         />
       )}
       <span className="min-w-0 break-words">{label}</span>
+      {status && (
+        <span className="ml-1 shrink-0 text-[11px] font-medium text-muted-foreground">
+          · {status}
+        </span>
+      )}
     </span>
   );
 }
@@ -681,6 +690,17 @@ export default function ExperiencePartLeadInput({
 
   const submit = useCallback(async () => {
     if (!selectedTeam || !selectedWeekId || part === TEAM_OVERALL) return;
+    // ④ 라인 미선택 신청 금지 — 체크(강화 성공/실패, 점수≥1)된 셀은 라인명이 반드시 선택돼야 한다.
+    //   하나라도 라인 미선택이면 저장하지 않고 안내한다(프론트 게이트 — 서버 저장 로직/SoT 무변경).
+    for (const crew of data?.crews ?? []) {
+      for (const line of EXPERIENCE_PART_LINE_TYPES) {
+        const c = getCell(crew.userId, line.key);
+        if (c.checked && c.score >= 1 && !c.selectedLineId) {
+          toast("error", "라인명을 선택해주세요.");
+          return;
+        }
+      }
+    }
     setSaving(true);
     try {
       const cells: PartInputCellDto[] = [];
@@ -767,6 +787,23 @@ export default function ExperiencePartLeadInput({
     (partName: string) => openingStatus?.partSubmitted[partName] ?? false,
     [openingStatus],
   );
+  // ⑦ 개별 파트 개설 상태 문구(체크 아이콘과 함께 노출). 신청 여부만 파트 스코프로 판정.
+  const partStatusText = useCallback(
+    (partName: string): string =>
+      isPartCompleted(partName) ? "개설 신청 완료" : "개설 신청 필요",
+    [isPartCompleted],
+  );
+  // ⑦ 팀 총괄 개설 상태 문구 — 팀 총괄은 4단계(신청 필요→신청 완료→검수 완료→개설 완료)를 밟는다.
+  const overallStatusText = useMemo((): string => {
+    switch (openingStatus?.boardStatus) {
+      case "opened":
+        return "개설 완료";
+      case "reviewed":
+        return "개설 검수 완료";
+      default:
+        return openingStatus?.allPartsApplied ? "개설 신청 완료" : "개설 신청 필요";
+    }
+  }, [openingStatus]);
   // 현재 선택(팀 총괄/파트)의 완료 여부 → 상단 상태 UI state.
   const currentProgress: ExperienceOpeningProgress = resolveExperienceOpeningProgress({
     // Team progress belongs to the team-overall tab only. A part remains at its
@@ -951,6 +988,10 @@ export default function ExperiencePartLeadInput({
                           <span className="line-clamp-1">
                             {isOverall ? "팀 총괄" : part}
                           </span>
+                          {/* ⑦ 현재 단계 문구를 트리거에도 병기 — 체크 아이콘만으로는 상태를 알기 어려움. */}
+                          <span className="ml-1 shrink-0 text-[11px] font-medium text-muted-foreground">
+                            · {isOverall ? overallStatusText : partStatusText(part)}
+                          </span>
                         </span>
                       ) : undefined}
                     </SelectValue>
@@ -963,7 +1004,11 @@ export default function ExperiencePartLeadInput({
                         aria-label={overallCompleted ? "팀 총괄, 완료" : "팀 총괄"}
                         className={overallCompleted ? COMPLETED_ITEM_CLS : undefined}
                       >
-                        <PartOptionLabel label="팀 총괄" completed={overallCompleted} />
+                        <PartOptionLabel
+                          label="팀 총괄"
+                          completed={overallCompleted}
+                          status={overallStatusText}
+                        />
                       </SelectItem>
                     )}
                     {(lockedPartName
@@ -978,7 +1023,7 @@ export default function ExperiencePartLeadInput({
                           aria-label={done ? `${p}, 완료` : p}
                           className={done ? COMPLETED_ITEM_CLS : undefined}
                         >
-                          <PartOptionLabel label={p} completed={done} />
+                          <PartOptionLabel label={p} completed={done} status={partStatusText(p)} />
                         </SelectItem>
                       );
                     })}
@@ -1282,20 +1327,14 @@ function PartGrid({
             className="w-full justify-center"
             onClick={onSubmit}
             loading={saving}
-            // 개설 기간 아님(openPeriodBlocked)·이미 신청(submitted)·대상 0명이면 비활성.
+            // ⑧ 재신청 허용 — 개설 신청 완료(submitted) 후에도 라인명/평점을 수정해 다시 신청할 수 있다.
+            //   (서버 POST 는 upsert=멱등이라 중복 행을 만들지 않음.) 개설 기간 아님·대상 0명일 때만 비활성.
             //   ⚠ openPeriodBlocked 는 서버 assertExperienceLineOpenable(409)와 동일 판정(UI 우회 대비).
-            //   재신청 방지: 서버는 upsert(멱등)라 중복 행을 만들지 않지만 UI 에서도 재신청을 막는다.
-            disabled={saving || crews.length === 0 || submitted || openPeriodBlocked}
-            title={
-              openPeriodBlocked
-                ? openBlockedReason
-                : submitted
-                  ? "이미 개설 신청이 완료된 파트입니다. 수정하려면 [신청 취소] 후 다시 신청하세요."
-                  : undefined
-            }
+            disabled={saving || crews.length === 0 || openPeriodBlocked}
+            title={openPeriodBlocked ? openBlockedReason : undefined}
           >
             <Send className="mr-1.5 h-4 w-4" />
-            개설 신청
+            {submitted ? "재신청" : "개설 신청"}
           </Button>
           <div className="flex items-center justify-between gap-1">
             <span className="text-xs font-medium text-muted-foreground">신청 취소</span>

@@ -379,6 +379,25 @@ function defaultCells(): Record<ExperienceOverallCategory, OverallCell> {
   return out;
 }
 
+// ⑨ 관리(management) 류 라인명은 클래스(파트장/에이전트)에 따라 고정한다 — 사용자가 변경할 수 없다.
+//   파트장 → _파트장 라인(line_code …EL0001 / line_name '파트장'), 에이전트 → _에이전트 라인(…EL0002 / '에이전트').
+//   일반(비관리직)은 관리 대상이 아니므로 null(관리 셀은 UI 에서도 비활성). 매칭 규칙은 개설 완료 라우팅
+//   (isPartLeaderLine/isAgentLine)과 동일하게 line_code 앵커 + 이름 토큰을 쓴다(라인명 변경에 의존하지 않음).
+//   반환 = 옵션 id(bridged_master_id) — getTeamOverallBoard 가 관리 셀 selected_line_id 로 강제해
+//   화면 표시와 개설 완료(라인 그룹핑)가 동일 라인을 쓰게 한다(사용자 선택 무시).
+function resolveFixedManagementLineId(
+  options: ReadonlyArray<{ id: string; lineName: string; lineCode: string | null }>,
+  crew: { isPartLeader: boolean; statusLabel: string },
+): string | null {
+  const matchLeader = (o: { lineName: string; lineCode: string | null }) =>
+    o.lineName.includes("파트장") || (o.lineCode?.endsWith("EL0001") ?? false);
+  const matchAgent = (o: { lineName: string; lineCode: string | null }) =>
+    o.lineName.includes("에이전트") || (o.lineCode?.endsWith("EL0002") ?? false);
+  if (crew.isPartLeader) return options.find(matchLeader)?.id ?? null;
+  if (crew.statusLabel === "에이전트") return options.find(matchAgent)?.id ?? null;
+  return null;
+}
+
 // ── 팀 총괄 보드 조립(merged crew cells 포함) ──
 export async function getTeamOverallBoard(
   organization: string,
@@ -440,6 +459,18 @@ export async function getTeamOverallBoard(
       const saved = stored.leaderCells.get(`${m.userId}::${cat}`);
       if (saved) cells[cat] = saved;
       cells[cat] = withAssignedFallback(m.userId, cat, cells[cat]);
+    }
+    // ⑨ 관리 라인명 클래스 고정 — 저장/선택/배정값과 무관하게 클래스(파트장/에이전트) 라인으로 강제한다.
+    //   화면(읽기전용 표시)과 개설 완료(selected_line_id 기준 라인 그룹핑)가 동일 라인을 쓰게 하는 단일 지점.
+    //   일반(비관리직·null)은 그대로 두며(관리 셀은 UI 비활성) 점수/체크는 팀장 입력값을 보존한다.
+    {
+      const fixedMgmtLineId = resolveFixedManagementLineId(lineOptions.management, {
+        isPartLeader: m.isPartLeader,
+        statusLabel: m.statusLabel,
+      });
+      if (fixedMgmtLineId) {
+        cells.management = { ...cells.management, selectedLineId: fixedMgmtLineId };
+      }
     }
     const crew: OverallBoardCrew = {
       userId: m.userId,
@@ -1206,6 +1237,20 @@ export async function openTeamOverall(input: {
   mode?: ScopeMode;
 }): Promise<OpenOverallResult> {
   const mode: ScopeMode = input.mode ?? "operating";
+
+  // 구간별 계측(기본 OFF) — LINE_OPEN_PROFILE=1 일 때만 각 세그먼트 소요(ms)를 수집·로그한다.
+  //   운영에선 미동작(오버헤드 0)이며, 비운영 DB/스테이징에서 실제 HTTP 개설 완료의 구간별 ms 를
+  //   캡처하기 위한 임시 계측이다. 로직/DTO/SoT 무영향(순수 관찰).
+  const profileOn = process.env.LINE_OPEN_PROFILE === "1";
+  const marks: Array<{ label: string; ms: number }> = [];
+  let profileLast = process.hrtime.bigint();
+  const mark = (label: string) => {
+    if (!profileOn) return;
+    const now = process.hrtime.bigint();
+    marks.push({ label, ms: Number(now - profileLast) / 1e6 });
+    profileLast = now;
+  };
+
   // 공식 휴식 주차 차단(UI canOpen 과 동일 판정) — operating/test 무관, 모든 write 전 422.
   //   예외(line_opening_windows)는 org+hub 스코프로 판정(Encre+실무경험 등록 시 그 org·경험만 통과).
   await assertWeekOpenable(input.weekId, input.organization, "experience");
@@ -1222,10 +1267,17 @@ export async function openTeamOverall(input: {
       { status: 409 },
     );
   }
-  // ⚠ 권한(Role)과 업무 흐름(Process) 분리: 팀장은 최고 권한 — status 가 reviewed 가 아니어도(검수 전)
-  //   개설 완료할 수 있어야 한다. 순서 강제(status 하드 블록)를 두지 않는다. 역할 제한(파트장=신청만·
-  //   에이전트=검수만·개설은 팀장/owner)은 라우트의 assertImpersonationCapability 가 이미 담당한다.
-  //   "권장 다음 액션" 안내는 프론트에서 시각적 강조로만 처리(하드 블록 아님).
+  // ⑪ 개설 검수 완료 전에는 개설 완료 불가 — 반드시 [개설 검수](status=reviewed)를 거쳐야 한다(팀장 포함).
+  //   프론트 [개설 완료] 버튼 disabled 와 동일 기준. UI 우회(직접 API 호출)도 여기서 fail-closed(409).
+  //   역할 제한(파트장=신청만·에이전트=검수만·개설은 팀장/owner)은 라우트 assertImpersonationCapability 가 담당.
+  if (existing.status !== "reviewed") {
+    throw Object.assign(
+      new Error(
+        "모든 필수 개설 검수가 완료되어야 개설 완료할 수 있습니다. [개설 검수]를 먼저 진행해주세요.",
+      ),
+      { status: 409 },
+    );
+  }
 
   // 관리 류 자격 가드(일반 크루 차단) — 검수 경로(saveTeamOverallReview)와 동일 기준을 개설 완료에도
   //   적용한다. UI 우회/변조로 일반 크루의 관리 셀(checked/score/selected_line_id)이 섞여 들어와도
@@ -1236,6 +1288,7 @@ export async function openTeamOverall(input: {
     mode,
     input.leaderCells,
   );
+  mark("guards+loadExisting");
 
   // 0) 도출/분석/견문 라인명 편집 → 파트 신청 셀 write-back(유형 불일치 422 → 여기서 중단).
   if (input.lineSelections && input.lineSelections.length > 0) {
@@ -1256,12 +1309,14 @@ export async function openTeamOverall(input: {
       selections: input.lineSelections,
     });
   }
+  mark("lineSelWriteback");
 
   // 1) 입력값 저장(status 는 일단 reviewed 로 보존 — 반영 성공 후 opened 로 승격).
   const overallId = await persistReviewState({
     ...input,
     status: "reviewed",
   });
+  mark("persistReview");
 
   // 2) 머지된 보드(part-derived 라이브 + 방금 저장한 leader 셀) 재조립. (모집단 = 동일 mode 스코프)
   const board = await getTeamOverallBoard(
@@ -1285,6 +1340,7 @@ export async function openTeamOverall(input: {
   // 크루별 누적주차 로드(견문 라우팅용) — board.crews 전체 userId 1회 배치 조회.
   const allCrewUserIds = board.parts.flatMap((p) => p.crews.map((c) => c.userId));
   const cumulativeWeeksMap = await loadCumulativeWeeks(allCrewUserIds);
+  mark("reassemble+regLoad");
 
   // 카테고리별 대상 크루(해당 카테고리 checked=true) 수집(라우팅 속성 포함).
   const crewsByCat = new Map<ExperienceOverallCategory, RoutingTarget[]>();
@@ -1386,43 +1442,61 @@ export async function openTeamOverall(input: {
         createdLineIds.push(lineId);
         openedLineRows.push({ category: cat.key, lineId });
 
-        for (const tgt of groupTargets) {
-          affectedUserIds.add(tgt.userId);
-          const { data: targetRow, error: targetError } = await supabaseAdmin
-            .from("cluster4_line_targets")
-            .insert({
-              line_id: lineId,
-              week_id: input.weekId,
-              target_mode: "user",
-              target_user_id: tgt.userId,
-              target_rule: {},
-              created_by: input.adminId,
-              updated_by: input.adminId,
-            })
-            .select("id")
-            .single();
-          if (targetError || !targetRow) {
-            throw new Error(targetError?.message ?? "라인 대상 생성 실패");
-          }
-          const targetId = (targetRow as { id: string }).id;
-          createdTargetIds.push(targetId);
+        // ⑥ 성능 — 대상/평가를 크루 1명씩 직렬(await 2회/명) insert 하던 것을 그룹 단위 배치 insert 로
+        //   전환한다. 생성되는 행(스키마·내용·개수)은 이전과 동일하며 DB 왕복만 2N → 2 로 줄여 직렬 병목을
+        //   제거한다(대상 인원이 많은 팀에서 개설 완료 소요 시간 대폭 단축). SoT/판정 로직 무변경.
+        const evaluatedAt = new Date().toISOString();
+        const targetInsertRows = groupTargets.map((tgt) => ({
+          line_id: lineId,
+          week_id: input.weekId,
+          target_mode: "user" as const,
+          target_user_id: tgt.userId,
+          target_rule: {},
+          created_by: input.adminId,
+          updated_by: input.adminId,
+        }));
+        const { data: insertedTargets, error: targetError } = await supabaseAdmin
+          .from("cluster4_line_targets")
+          .insert(targetInsertRows)
+          .select("id,target_user_id");
+        if (targetError || !insertedTargets) {
+          throw new Error(targetError?.message ?? "라인 대상 생성 실패");
+        }
+        // user → target_id 맵(그룹 내 한 유저는 라인당 1행이라 유일) — 평가 행 연결 + 롤백 추적용.
+        const targetIdByUser = new Map<string, string>();
+        for (const r of insertedTargets as Array<{ id: string; target_user_id: string | null }>) {
+          if (r.target_user_id) targetIdByUser.set(r.target_user_id, r.id);
+          createdTargetIds.push(r.id);
           targetsCreated++;
+        }
+        for (const tgt of groupTargets) affectedUserIds.add(tgt.userId);
 
+        // 평가 배치 insert — target_id 가 확보된 대상만(정상 경로에선 전원). 실패 시 그룹 단위 경고
+        //   (라인/대상은 생성됨) — 개별 행 경고 granularity 만 그룹 단위로 바뀔 뿐 성공 경로는 동일.
+        const evalInsertRows = groupTargets
+          .map((tgt) => {
+            const targetId = targetIdByUser.get(tgt.userId);
+            return targetId
+              ? {
+                  line_target_id: targetId,
+                  user_id: tgt.userId,
+                  rating: tgt.score,
+                  evaluated_by: input.adminId,
+                  evaluated_at: evaluatedAt,
+                }
+              : null;
+          })
+          .filter((r): r is NonNullable<typeof r> => r !== null);
+        if (evalInsertRows.length > 0) {
           const { error: evalError } = await supabaseAdmin
             .from("cluster4_experience_line_evaluations")
-            .insert({
-              line_target_id: targetId,
-              user_id: tgt.userId,
-              rating: tgt.score,
-              evaluated_by: input.adminId,
-              evaluated_at: new Date().toISOString(),
-            });
+            .insert(evalInsertRows);
           if (evalError) {
             warnings.push(
-              `'${cat.label}' ${tgt.userId} 평가 생성 실패 — ${evalError.message}. 라인/대상은 생성됨.`,
+              `'${cat.label}' 평가 생성 실패 — ${evalError.message}. 라인/대상은 생성됨.`,
             );
           } else {
-            evaluationsCreated++;
+            evaluationsCreated += evalInsertRows.length;
           }
         }
       }
@@ -1435,6 +1509,7 @@ export async function openTeamOverall(input: {
       { status: 500 },
     );
   }
+  mark("insertTargetsEvals");
 
   // 생성한 라인 추적 기록(개설 취소 원복용).
   if (openedLineRows.length > 0) {
@@ -1460,6 +1535,7 @@ export async function openTeamOverall(input: {
   if (statusErr) {
     warnings.push(`상태 갱신 실패 — ${statusErr.message}`);
   }
+  mark("trackAndStatus");
 
   // weekly-cards snapshot 무효화 = 3허브 통일 헬퍼(info/experience-lines/competency 와 동일 기준):
   //   배정 크루 즉시 재계산(개설 크루 바로 반영) + org audience 분모 A stale(비배정 크루 lazy 수렴).
@@ -1471,6 +1547,7 @@ export async function openTeamOverall(input: {
       await invalidateWeeklyCardsForUsers(Array.from(affectedUserIds));
     }
   }
+  mark("invalidate");
 
   // 라인 개설 대상자 등록 → Point A·B 즉시 지급(source='line', pay-once). 공통 SoT. best-effort.
   for (const lineId of createdLineIds) {
@@ -1492,6 +1569,7 @@ export async function openTeamOverall(input: {
       actor: input.actorId ?? input.adminId ?? null,
     });
   }
+  mark("converge");
 
   await insertExperienceOpeningLog({
     action: "open",
@@ -1502,6 +1580,23 @@ export async function openTeamOverall(input: {
     teamName: input.teamName,
     isTeamLevel: true,
   });
+  mark("openLog");
+
+  if (profileOn) {
+    const total = marks.reduce((n, m) => n + m.ms, 0);
+    console.log(
+      "[openTeamOverall profile]",
+      JSON.stringify({
+        weekId: input.weekId,
+        teamId: input.teamId,
+        affectedUsers: affectedUserIds.size,
+        linesCreated: createdLineIds.length,
+        targetsCreated,
+        totalMs: Math.round(total),
+        segments: marks.map((m) => ({ label: m.label, ms: Math.round(m.ms) })),
+      }),
+    );
+  }
 
   return {
     status: "opened",

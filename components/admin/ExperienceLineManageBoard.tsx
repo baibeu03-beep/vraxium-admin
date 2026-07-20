@@ -53,25 +53,57 @@ function CountBadge({
   );
 }
 
-// 개설 완료(초록) / 개설 필요(주황) / 개설 기간 아님(중립 회색 — 액션 요구 없음).
-//   "개설 기간 아님"은 개설되지 않은 상태(개설 필요)와 구분한다(개설 불가 기간이므로 개설 필요 안내 금지).
+// 개설 상태 이중 배지 — [개설 필요]·[개설 완료] 두 상태를 항상 동시에 노출하고, 현재 상태만
+//   완전히 대비되는 색(활성)으로, 나머지는 회색(비활성)으로 표시한다(한눈에 현재 단계 인지).
+//   "개설 기간 아님"은 개설되지 않은 상태(개설 필요)와 구분해 두 배지 모두 비활성 + 별도 중립 배지.
+const STATUS_BADGE_BASE =
+  "inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border";
+const STATUS_BADGE_INACTIVE =
+  "border-transparent bg-muted text-muted-foreground/70";
 function TeamStatusBadge({
   statusLabel,
 }: {
   statusLabel: "개설 완료" | "개설 필요" | "개설 기간 아님";
 }) {
+  const needed = statusLabel === "개설 필요";
+  const opened = statusLabel === "개설 완료";
+  const notOpen = statusLabel === "개설 기간 아님";
   return (
     <span
-      className={cn(
-        "inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-xs font-semibold",
-        statusLabel === "개설 완료"
-          ? "bg-emerald-100 text-emerald-800"
-          : statusLabel === "개설 필요"
-            ? "bg-amber-100 text-amber-800"
-            : "bg-muted text-muted-foreground",
-      )}
+      className="inline-flex shrink-0 items-center gap-1"
+      role="status"
+      aria-label={`개설 상태: ${statusLabel}`}
     >
-      {statusLabel}
+      {/* 활성 = 완전 대비색(솔리드), 비활성 = 회색. 색상 무의존 위해 현재 상태에 aria-label 병기. */}
+      <span
+        className={cn(
+          STATUS_BADGE_BASE,
+          needed
+            ? "border-amber-500 bg-amber-500 text-white"
+            : STATUS_BADGE_INACTIVE,
+        )}
+        aria-current={needed ? "true" : undefined}
+      >
+        개설 필요
+      </span>
+      <span
+        className={cn(
+          STATUS_BADGE_BASE,
+          opened
+            ? "border-emerald-600 bg-emerald-600 text-white"
+            : STATUS_BADGE_INACTIVE,
+        )}
+        aria-current={opened ? "true" : undefined}
+      >
+        개설 완료
+      </span>
+      {notOpen && (
+        <span
+          className={cn(STATUS_BADGE_BASE, "border-dashed border-border bg-muted/40 text-muted-foreground")}
+        >
+          개설 기간 아님
+        </span>
+      )}
     </span>
   );
 }
@@ -149,7 +181,8 @@ function TeamCard({ team }: { team: LineManageTeam }) {
         {/* 첫 줄: 팀명 + 개설 상태 + 파트 칸(이어서). 공간 부족 시 파트 칸만 wrap. */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <div className="flex shrink-0 items-center gap-2">
-            <CardTitle className="text-base">{team.teamName}</CardTitle>
+            {/* ① 팀명 뒤 '팀' 접미 — 이 항목이 '팀'임을 즉시 인지(예: "비주얼랩(T) 팀"). */}
+            <CardTitle className="text-base">{team.teamName} 팀</CardTitle>
             <TeamStatusBadge statusLabel={team.statusLabel} />
             <AdminHelpIconButton
               helpKey="admin.experience.lineBoard.badge.openStatus"

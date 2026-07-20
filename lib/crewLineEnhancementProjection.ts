@@ -65,7 +65,11 @@ import type {
 //     shape 불변·값 변경 — 같은 행이 not_applicable → failure 로 바뀔 수 있다. weekly-cards snapshot 에
 //     실리지 않는 lazy endpoint 전용 DTO 라 저장된 캐시가 없어 **백필/재계산 불필요**(요청마다 live 계산).
 //     프론트 캐시는 (userId, weekId) 메모리 캐시뿐이라 새로고침이면 즉시 수렴한다.
-export const CREW_LINE_ENHANCEMENT_DTO_VERSION = 3;
+//   v4 (2026-07-20): 평점 0점 강화 실패(experience·result=failure·rating=0) 행의 세부 데이터
+//     (lineName/rating/kind/estimatedDurationMinutes)를 서버 DTO 단계에서 마스킹. shape 불변·값 변경
+//     (해당 행의 세부 필드가 빈값/null). 결과 상태(강화 실패)·요약 합계·행 개수는 불변. lazy endpoint
+//     (저장 캐시 없음) 이라 백필 불필요 — 새 요청부터 즉시 적용.
+export const CREW_LINE_ENHANCEMENT_DTO_VERSION = 4;
 
 export type CrewLineEnhancementResult =
   | "success"
@@ -200,22 +204,33 @@ export function projectCrewLineEnhancement(args: {
   const openRows = summary.lineDetails.filter((row) => row.clubOpen);
 
   const rows: CrewWeekLineEnhancementRowDto[] = openRows.map((row, idx) => {
+    const result = resolveCrewRowResult(row);
+    // ⑤ 평점 0점 강화 실패 마스킹 — 실제 평가가 완료되어(admin enhancementStatus="fail" → result="failure")
+    //   최종 평점이 0점인 실무 경험 행은 "결과(강화 실패)"만 노출하고, 라인명/평점/유형(종류)/소요 시간 등
+    //   실무 경험 세부 데이터는 **서버 DTO 단계에서 제거**한다(클라이언트 화면 숨김이 아님).
+    //   ⚠ 판정은 하지 않는다 — result 는 admin SoT 값 그대로다. 마스킹은 표시 필드 제거뿐이며
+    //     미평가(result="pending")·검수 미완료는 status≠fail 이라 여기 해당 없음(기존 상태 정책 유지).
+    //     평점 1점 이상 실패는 실제 평점이 있으므로 마스킹하지 않는다(요구: 최종 평점 0점만).
+    const maskExperienceFail =
+      row.partType === "experience" && result === "failure" && row.rating === 0;
     return {
       // partType + 표시 순번 = 응답 내 안정·결정적. 내부 mutation 키 미노출.
       stableKey: `${row.partType}:${idx}`,
-      result: resolveCrewRowResult(row),
+      result,
       // 라벨/톤 = admin 표(CrewWeekLineHistory)가 렌더하는 값 **그 자체**.
       //   enhancementLabel 은 이미 formatEnhancementStatusLabel(enhancementStatus) 결과라 재포맷하면
       //   presenter 가 이중화된다 — admin 이 만든 문자열을 그대로 옮겨 byte 동일을 보장한다.
+      //   ⑤ 결과 라벨/톤은 유지("강화 실패")하고 세부 데이터만 마스킹한다.
       resultLabel: row.enhancementLabel,
       resultTone: enhancementStatusTone(row.enhancementStatus),
-      lineName: row.lineName,
+      lineName: maskExperienceFail ? "" : row.lineName,
       hub: HUB_BY_PART_TYPE[row.partType],
       hubLabel: row.hubLabel,
-      kind: row.type,
-      estimatedDurationMinutes: row.estimatedDurationMinutes,
-      rating: resolveCrewRowRating(row),
+      kind: maskExperienceFail ? null : row.type,
+      estimatedDurationMinutes: maskExperienceFail ? null : row.estimatedDurationMinutes,
+      rating: maskExperienceFail ? null : resolveCrewRowRating(row),
       // 획득/가능 — admin SoT 값 그대로. 비배정(해당 없음) 행도 클럽 오픈이면 가능치가 있어 "0 / N".
+      //   (요약 합계 불변식 보존을 위해 포인트는 마스킹 대상 아님 — 강화 실패는 이미 earned=0.)
       pointA: { earned: row.earnedA, available: row.possibleA },
       pointB: { earned: row.earnedB, available: row.possibleB },
       pointC: { earned: row.earnedC, available: row.possibleC },

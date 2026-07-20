@@ -21,7 +21,7 @@ import {
   reconcileLineResultAwardForUser,
   recomputeWeeklyPointsForUsers,
 } from "@/lib/processPointAccrual";
-import { recomputeDerivedAfterActMutation } from "@/lib/crewWeekGrowthRejudge";
+import { recomputeDerivedAfterActMutationForUsers } from "@/lib/crewWeekGrowthRejudge";
 
 async function hasUserTargetOnLine(lineId: string, userId: string): Promise<boolean> {
   const { data } = await supabaseAdmin
@@ -58,41 +58,52 @@ export async function convergeLineChangeForUsers(params: {
   if (uniq.length === 0) return;
   const weekStartDate = await loadWeekStartDate(weekId);
 
-  for (const userId of uniq) {
-    // 1) 라인 A/B 원장 정합 + uwp 재집계 (배정 라인만 카드 SoT 로 재도출).
-    try {
-      if (weekStartDate) {
-        await reconcileLineAwardsForWeek({
-          weekId,
-          weekStartDate,
-          actor,
-          cohortUserIds: [userId],
-        });
-      }
-      // 배정 해제(대상자 삭제/이동)로 카드에서 사라진 라인은 위에서 처리되지 않는다 →
-      //   그 (user,line) 지급을 직접 회수(reconcileLineResultAwardForUser 는 내부에서
-      //   target 없음 → 회수). 지급 유지 라인이면 이 분기 자체를 건너뛴다.
-      if (params.orphanLineId && !(await hasUserTargetOnLine(params.orphanLineId, userId))) {
-        await reconcileLineResultAwardForUser(userId, params.orphanLineId, weekId, false, actor);
-        await recomputeWeeklyPointsForUsers([userId], weekId);
-      }
-    } catch (e) {
-      console.warn("[lineChangeDerivation] 라인 지급 정합 실패(격리)", {
-        userId,
-        weekId,
-        message: e instanceof Error ? e.message : String(e),
-      });
-    }
+  // ⚡ 코호트 1회 처리로 전환(기존: 유저별 직렬 N회). 파생 결과는 유저별 N회 호출과 동일(멱등)하며,
+  //   중복을 제거해 O(N·P) → O(N+P) 로 낮춘다:
+  //     · reconcileLineAwardsForWeek: 유저별 [userId] N회 → 코호트 1회(내부 concurrency=8,
+  //       resolveTargetedUserIds·카드 로드가 유저별 반복되던 것을 1회 스캔 + 동시 카드 로드로 대체).
+  //     · recomputeDerivedAfterActMutation(유저별 N회, 내부 resyncGradeStatsBatch(참여자 P) N회 =
+  //       O(N·P)) → recomputeDerivedAfterActMutationForUsers(코호트 1회, 품계 재동기 1회).
+  //   순서 계약(포인트 재집계 → uws 판정)은 그대로: reconcile 가 uwp 를 먼저 재집계하고, 그 다음 파생 재계산.
 
-    // 2) uws 재판정 → snapshot → 성장 통계 → 품계 (정본과 동일 composite).
-    try {
-      await recomputeDerivedAfterActMutation({ userId, weekId });
-    } catch (e) {
-      console.warn("[lineChangeDerivation] 파생 재계산 실패(best-effort)", {
-        userId,
+  // 1) 라인 A/B 원장 정합 + uwp 재집계 — 코호트 1회(배정 라인만 카드 SoT 로 재도출).
+  try {
+    if (weekStartDate) {
+      await reconcileLineAwardsForWeek({
         weekId,
-        message: e instanceof Error ? e.message : String(e),
+        weekStartDate,
+        actor,
+        cohortUserIds: uniq,
       });
     }
+    // 배정 해제(대상자 삭제/이동)로 카드에서 사라진 라인은 위에서 처리되지 않는다 →
+    //   그 (user,line) 지급을 직접 회수(orphanLineId 지정 경로=target CRUD 만). 개설(additive)은 미지정.
+    if (params.orphanLineId) {
+      const orphaned: string[] = [];
+      for (const userId of uniq) {
+        if (!(await hasUserTargetOnLine(params.orphanLineId, userId))) {
+          await reconcileLineResultAwardForUser(userId, params.orphanLineId, weekId, false, actor);
+          orphaned.push(userId);
+        }
+      }
+      if (orphaned.length > 0) await recomputeWeeklyPointsForUsers(orphaned, weekId);
+    }
+  } catch (e) {
+    console.warn("[lineChangeDerivation] 라인 지급 정합 실패(격리)", {
+      weekId,
+      count: uniq.length,
+      message: e instanceof Error ? e.message : String(e),
+    });
+  }
+
+  // 2) uws 재판정 → snapshot → 성장 통계 → 품계 — 코호트 1회(정본과 동일 composite·결과).
+  try {
+    await recomputeDerivedAfterActMutationForUsers({ userIds: uniq, weekId });
+  } catch (e) {
+    console.warn("[lineChangeDerivation] 파생 재계산 실패(best-effort)", {
+      weekId,
+      count: uniq.length,
+      message: e instanceof Error ? e.message : String(e),
+    });
   }
 }
