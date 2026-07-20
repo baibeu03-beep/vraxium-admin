@@ -11,6 +11,9 @@
 
 export type SeasonType = "겨울" | "봄" | "여름" | "가을";
 
+// 전환 주차 사용자/관리자 공통 표시명. 숫자 주차(0주차/17주차 등) 대신 이 라벨을 쓴다.
+export const TRANSITION_WEEK_LABEL = "전환 주차";
+
 export type Season = {
   year: number;
   type: SeasonType;
@@ -205,8 +208,105 @@ export function getSeasonWeekStatusForDate(
 
 // 전환 주차(시즌 정규 주수 +1) 여부. 전환 주차는 공식 휴식이 아니며,
 // 성장/휴식/인정 집계의 분자·분모 모두에서 제외한다.
+//
+// ⚠ 이 함수는 순수 캘린더(날짜)만 본다 — 시즌 "귀속"(prev/next)과 무관하게 전환 주차의
+//   월요일이면 true. 내부 계산은 직전 시즌 기준 인덱싱(주 seasonWeeks+1)으로 전환을
+//   "판별"하지만, 전환 주차의 **DB/운영 귀속은 다음 시즌 0주차**이다([[isTransitionWeek]],
+//   getOperationalSeason). 즉 "언제가 전환인가"(날짜) 와 "어느 시즌 소속인가"(다음 시즌)는
+//   분리된 개념이며, 이 함수는 전자만 답한다.
 export function isTransitionWeekStart(weekStartIso: string): boolean {
   return getSeasonWeekStatusForDate(weekStartIso) === "transition";
+}
+
+// ── 전환 주차 공통 판정 (단일 SoT) ───────────────────────────────────────────
+// 전환 주차 = 시즌 사이 1주 브릿지. DB 저장 규칙: season_key/season_id = **다음 시즌**,
+//   week_number = **0**. season_definitions 의 공식 시즌 경계(1주차 시작)는 유지되고,
+//   전환 주차는 그 사이 gap 에 위치한다.
+//
+// 판정 우선순위(하나라도 참이면 전환):
+//   1) 날짜 기준 — week_start_date 가 전환 주차 월요일(isTransitionWeekStart). 순수 캘린더 SoT.
+//   2) DB 귀속 기준 — week_number === 0. 재귀속된 weeks/uws 행의 표식.
+// week_number 값만 단독으로(예: > seasonWeeks) 쓰거나 비고 문자열로 판정하지 말고 이 함수를
+//   snapshot·line-opening·process-check·누적 주차·표시 로직 전부에서 공용으로 쓴다.
+export function isTransitionWeek(week: {
+  week_number?: number | null;
+  start_date?: string | null;
+  week_start_date?: string | null;
+}): boolean {
+  const start = week.start_date ?? week.week_start_date ?? null;
+  if (start && isTransitionWeekStart(start)) return true;
+  if (week.week_number === 0) return true;
+  return false;
+}
+
+// 이전 시즌(시즌 체인 역방향). 겨울 → 직전 해 가을. (DB 무관·순수 캘린더)
+//   전환 주차의 season_key(=다음 시즌)로부터 "출발 시즌"(from)을 복원할 때 쓴다 —
+//   예: 재귀속된 2026-summer W0(전환)의 from = 2026-spring. 코드 문자열에서 역추론하지 말 것.
+export function getPrevSeason(season: Season): Season {
+  const cal = getSeasonCalendar(season.year);
+  const idx = cal.findIndex((s) => s.type === season.type);
+  if (idx > 0) return cal[idx - 1];
+  return getSeasonCalendar(season.year - 1)[CHAIN.length - 1];
+}
+
+// ── 주차 표시 라벨 (어드민 vs 크루 formatter 분리, 공통 DTO) ─────────────────
+// 데이터(seasonKey/seasonId/weekNumber=0)와 전환 판정(isTransitionWeek)은 어드민·크루 **동일**.
+//   표시 문자열만 화면 컨텍스트에 따라 다르게: 어드민 = 실제 값 그대로(0주차 노출),
+//   크루/사용자 = 전환 주차면 "전환 주차"(0주차 등 숫자 노출 금지). DTO 를 분기하지 않는다.
+const SEASON_KEY_KO_LABEL: Record<string, string> = {
+  spring: "봄",
+  summer: "여름",
+  autumn: "가을",
+  fall: "가을",
+  winter: "겨울",
+};
+
+export type WeekLabelInput = {
+  seasonKey?: string | null;
+  isoYear?: number | null;
+  weekNumber?: number | null;
+  startDate?: string | null;
+  weekStartDate?: string | null;
+};
+
+function koSeasonFromKey(seasonKey?: string | null): string | null {
+  if (!seasonKey) return null;
+  for (const part of seasonKey.toLowerCase().split("-")) {
+    const ko = SEASON_KEY_KO_LABEL[part];
+    if (ko) return ko;
+  }
+  return null;
+}
+
+function yearFromWeekLabelInput(w: WeekLabelInput): number | null {
+  if (typeof w.isoYear === "number") return w.isoYear;
+  const m = w.seasonKey?.match(/(20\d{2})/);
+  if (m) return Number(m[1]);
+  const start = w.startDate ?? w.weekStartDate;
+  return start ? Number(start.slice(0, 4)) : null;
+}
+
+// 어드민 표시: 실제 DB 값 그대로 — "2026년 여름 시즌 0주차". 전환 주차도 숫자(0)를 노출한다.
+//   전환 여부는 활동/상태(isTransitionWeek 기반 "전환 주차" 배지 등)로 구분해 오해를 막는다.
+export function formatAdminWeekLabel(w: WeekLabelInput): string {
+  const ko = koSeasonFromKey(w.seasonKey);
+  const year = yearFromWeekLabelInput(w);
+  if (year == null || !ko || w.weekNumber == null) return "-";
+  return `${year}년 ${ko} 시즌 ${w.weekNumber}주차`;
+}
+
+// 크루/사용자 표시: 전환 주차면 "전환 주차"(0주차·"여름 시즌 0주차" 등 숫자 표기 금지),
+//   그 외는 일반 라벨. 어드민과 **동일한** isTransitionWeek() 로 판정한다(데이터/판정 동일·표시만 상이).
+export function formatCrewWeekLabel(w: WeekLabelInput): string {
+  if (
+    isTransitionWeek({
+      week_number: w.weekNumber,
+      start_date: w.startDate ?? w.weekStartDate,
+    })
+  ) {
+    return TRANSITION_WEEK_LABEL;
+  }
+  return formatAdminWeekLabel(w);
 }
 
 // 시즌 체인상 다음 시즌. 가을(연중 마지막) → 다음 해 겨울. (DB 무관·순수 캘린더)

@@ -83,11 +83,22 @@ const SEASON_CODE: Record<SeasonToken, string> = {
   winter: "WI",
 };
 
+// 전환 주차의 season_key = **다음 시즌**(도착 시즌, week_number=0)으로 저장된다. 따라서 "출발
+//   시즌"(from)은 그 이전 시즌 — 코드 문자열에서 역추론하지 말고 PREV 로 복원한다.
+//   (예: 저장된 2026-summer W0 → from=봄, to=여름 → 코드 26-SP-SU.)
+//   ⚠ 재귀속 마이그레이션 적용 전(과도기: season_key=출발, week_number=17/9)에도 표기가 어긋나지
+//     않도록 week_number===0(재귀속 후) 여부로 방향을 분기한다(NEXT/PREV 양쪽 보유).
 const NEXT_SEASON: Record<SeasonToken, SeasonToken> = {
   spring: "summer",
   summer: "autumn",
   autumn: "winter",
   winter: "spring",
+};
+const PREV_SEASON: Record<SeasonToken, SeasonToken> = {
+  spring: "winter",
+  summer: "spring",
+  autumn: "summer",
+  winter: "autumn",
 };
 
 // ── 표시 헬퍼 ────────────────────────────────────────────────────────────────
@@ -121,9 +132,9 @@ function rowSeasonToken(row: SeasonWeekRow): SeasonToken | null {
   return null;
 }
 
-// 시즌 컬럼 표기: 전환 주차는 "전환", 그 외는 봄/여름/가을/겨울.
+// 시즌 컬럼 표기: 어드민은 실제 귀속 시즌(봄/여름/가을/겨울)을 그대로 보여준다.
+//   전환 주차 여부는 "활동" 컬럼(전환 주차 배지)으로 구분 — 여기서 "전환"으로 덮지 않는다.
 function rowSeasonLabel(row: SeasonWeekRow): string {
-  if (row.is_transition) return "전환";
   const token = rowSeasonToken(row);
   return token ? SEASON_LABEL[token] : "-";
 }
@@ -141,6 +152,14 @@ function rowWeekCode(row: SeasonWeekRow): string {
   if (!token || !year) return "-";
   const yy = year.slice(2);
   if (row.is_transition) {
+    // 코드는 항상 "출발-도착"(예: 26-SP-SU). season_key 가 출발/도착 어느 쪽인지 week_number 로 분기.
+    if (row.week_number === 0) {
+      // 재귀속 후: token = 도착 시즌. 출발 = PREV[token]. 겨울(1월)로 전환 시 출발은 직전 해(−1).
+      const from = PREV_SEASON[token];
+      const fromYear = token === "winter" ? String(Number(year) - 1) : year;
+      return `${fromYear.slice(2)}-${SEASON_CODE[from]}-${SEASON_CODE[token]}`;
+    }
+    // 과도기(재귀속 전): token = 출발 시즌. 도착 = NEXT[token].
     return `${yy}-${SEASON_CODE[token]}-${SEASON_CODE[NEXT_SEASON[token]]}`;
   }
   if (row.week_number == null) return "-";
@@ -160,10 +179,17 @@ function rowRemark(row: SeasonWeekRow): string {
 
   if (row.is_transition) {
     if (!token || !year) return "";
+    // "출발 → 도착 시즌 전환"(전환은 휴식 아님). season_key 방향을 week_number 로 분기.
+    if (row.week_number === 0) {
+      // 재귀속 후: token = 도착. 출발 = PREV[token], 겨울이면 직전 해.
+      const from = PREV_SEASON[token];
+      const fromYear = token === "winter" ? String(Number(year) - 1) : year;
+      return `${fromYear.slice(2)}년 ${SEASON_LABEL[from]} 시즌 → ${year.slice(2)}년 ${SEASON_LABEL[token]} 시즌으로의 시즌 전환`;
+    }
+    // 과도기: token = 출발. 도착 = NEXT[token], 겨울로 전환이면 다음 해.
     const next = NEXT_SEASON[token];
-    // 겨울 → 봄 전환은 해가 바뀐다.
-    const nextYear = token === "winter" ? String(Number(year) + 1) : year;
-    return `${year.slice(2)}년 ${SEASON_LABEL[token]} 시즌 → ${nextYear.slice(2)}년 ${SEASON_LABEL[next]} 시즌으로의 시즌 전환 휴식`;
+    const nextYear = token === "autumn" ? String(Number(year) + 1) : year;
+    return `${year.slice(2)}년 ${SEASON_LABEL[token]} 시즌 → ${nextYear.slice(2)}년 ${SEASON_LABEL[next]} 시즌으로의 시즌 전환`;
   }
 
   if (!row.is_official_rest) return "";
@@ -299,11 +325,11 @@ const COLUMNS: ColumnDef[] = [
     key: "season",
     label: "시즌",
     helpKey: "admin.seasonWeeks.column.season",
-    // 시즌 순서(봄→여름→가을→겨울). 전환 주차는 귀속 시즌 바로 뒤(+0.5).
+    // 시즌 순서(봄→여름→가을→겨울). 전환 주차는 도착 시즌 바로 앞(−0.5) — 그 시즌의 0주차(브릿지).
     sortValue: (row) => {
       const token = rowSeasonToken(row);
       if (!token) return null;
-      return SEASON_SORT_ORDER[token] + (row.is_transition ? 0.5 : 0);
+      return SEASON_SORT_ORDER[token] - (row.is_transition ? 0.5 : 0);
     },
   },
   {
@@ -748,6 +774,7 @@ export default function SeasonWeeksList({
                     <TableCell>{year ? `${year}년` : "-"}</TableCell>
                     <TableCell>{rowSeasonLabel(row)}</TableCell>
                     <TableCell className="tabular-nums">
+                      {/* 어드민은 실제 주차 번호(전환 주차=0)를 그대로 표시. 활동 컬럼이 전환 주차 배지. */}
                       {row.week_number ?? "-"}
                     </TableCell>
                     <TableCell>

@@ -54,6 +54,8 @@ Supabase SQL Editor에서 **파일명 알파벳 순서대로** 실행한다.
 | 43 | `2026-06-10_experience_part_submissions.sql` | 실무 경험 파트장 입력 신청 데이터 신규 2테이블 — 헤더 `cluster4_experience_part_submissions`(org+week+team+part UNIQUE, submitted_by, updated_at trigger) + 셀 `cluster4_experience_part_submission_cells`(crew×line_type derivation/analysis/evaluation, checked+score 0..10, submission FK CASCADE, UNIQUE(submission,crew,line)). [라인 개설] 탭 파트장 그리드 신청/취소(취소=헤더 삭제). **기존 experience_drafts/검수/개설/snapshot 완전 분리·무연동, additive** |
 | 44 | `2026-07-04_process_check_logs_rollback_action.sql` | 프로세스 체크 로그창 ↩ 실행 취소 로그용 — `process_check_logs.action` CHECK 제약에 `'check_rolled_back'` 값 추가(기존 3값 → 4값, DROP+ADD 멱등). **미적용 시에도 코드가 `check_cancelled` 로 폴백 기록**(실행 취소 로그 유실 없음)하고, 적용 후에야 정식 action=`check_rolled_back`·라벨 "실행 취소" 로 남는다. `apply-process-check-rollback-action.ts`(exec_sql 없으면 수동 안내). **process_check v2(#) 의존, 제약 확장만·데이터 무접촉** |
 
+| 45 | `2026-07-20_transition_week_next_season_reattribution.sql` | 시즌 전환 주차(시즌 사이 1주 브릿지)를 "이전 시즌 마지막 주차"→**다음 시즌 0주차**로 재귀속. `weeks`(4행: season_key/season_id=다음시즌·week_number=0·is_official_rest=false) + `user_week_statuses`(86행 season_key 이동) + `resolve_season_key(date)` 재정의(전환주차=weeks.week_number=0 우선판정→다음시즌 반환). `season_definitions`/`seasons` 공식 경계(1주차 시작)는 불변. **비멱등 1회성 — §2-0 가드가 대상수 4·다음시즌 존재·W0 충돌 사전차단, `_backup_transition_{weeks,uws}_20260720` 백업 후 UPDATE, §2-6 검증→COMMIT/ROLLBACK. weeks/uws 의존.** |
+
 ## 주의사항
 
 - **Deprecated (2026-05-11 이후 admin app 사용 안 함)**: `admin_crew_list_view` 와 `set_crew_organization(text, text)` RPC. admin `/admin/crews/[slug]` 경로가 `user_profiles.organization_slug` 를 source of truth 로 직접 조회하면서 더는 참조하지 않는다. 사용자 앱이 아직 `crew_list_view` 를 읽을 수 있으므로 그쪽은 유지한다. 후속 cleanup migration 으로 drop 예정.

@@ -5,7 +5,10 @@
 // (snapshot·demoUserId·일반 사용자 경로와 무관 — 순수 시즌/주차 메타 데이터.)
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
+import {
+  getCurrentActivityDateIso,
+  isTransitionWeek,
+} from "@/lib/seasonCalendar";
 import { fetchActiveRestPeriods } from "@/lib/officialRestPeriodsData";
 import {
   matchOfficialRestPeriods,
@@ -323,13 +326,13 @@ export async function loadSeasonWeeks(today?: string): Promise<SeasonWeeksData> 
       });
     }
 
-    const transitionSeasonWeeks =
-      season.season_type != null ? SEASON_WEEKS[season.season_type] : null;
-    const isTransition = Boolean(
-      transitionSeasonWeeks != null &&
-        week.week_number != null &&
-        week.week_number > transitionSeasonWeeks,
-    );
+    // 전환 주차 판정 = 공통 SoT(isTransitionWeek). 재귀속 후 저장 규칙은 "다음 시즌 W0"이므로
+    //   week_number===0 또는 날짜(전환 주차 월요일)로 판정한다. 구 "week_number > 정규주수"(17/9)
+    //   비교는 W0 에서 절대 참이 되지 않으므로 쓰지 않는다.
+    const isTransition = isTransitionWeek({
+      week_number: week.week_number,
+      start_date: week.start_date,
+    });
 
     rows.push({
       season_key: season.season_key,
@@ -339,6 +342,8 @@ export async function loadSeasonWeeks(today?: string): Promise<SeasonWeeksData> 
       season_end_date: season.end_date,
       week_id: week.id,
       week_number: week.week_number,
+      // 어드민 표시: 실제 DB 값 그대로(전환 주차도 "0주차"). 전환 여부는 is_transition(활동 표기)로
+      //   구분되므로 일반 0주차로 오해되지 않는다. 크루/사용자 노출은 front 의 크루 formatter 담당.
       week_label:
         week.week_number == null ? "주차 미지정" : `${week.week_number}주차`,
       week_start_date: week.start_date,

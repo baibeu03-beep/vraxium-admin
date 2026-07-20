@@ -57,6 +57,20 @@ const SEASON_WEEKS: Record<SeasonToken, number> = {
   autumn: 16,
 };
 
+// 전환 주차 저장 규칙 = 다음 시즌 + 0주차. 관리자는 "끝나는 시즌"(예: 봄)을 고르지만 저장/중복검증
+//   대상은 다음 시즌(여름) 0주차다. 가을만 다음 해 겨울로 넘어간다(백엔드 nextSeasonKeyOf 미러).
+const NEXT_SEASON: Record<SeasonToken, SeasonToken> = {
+  winter: "spring",
+  spring: "summer",
+  summer: "autumn",
+  autumn: "winter",
+};
+function nextSeasonKeyOf(year: string, type: SeasonToken): string {
+  const nextType = NEXT_SEASON[type];
+  const nextYear = type === "autumn" ? Number(year) + 1 : Number(year);
+  return `${nextYear}-${nextType}`;
+}
+
 // base-ui Select 는 items 매핑이 있어야 닫힌 트리거에 라벨을 표시한다.
 // 옵션 목록 렌더와 트리거 라벨 해석이 동일 배열(items SoT)을 쓰도록 한다.
 const YEAR_ITEMS = [{ value: NONE, label: "-" }, ...YEAR_OPTIONS];
@@ -257,9 +271,16 @@ export default function PeriodRegisterForm({ rows, onRegistered }: Props) {
     }
 
     // 프론트 중복 검증 — 기간 정보와 동일한 rows(season_key+week_number) 기준.
+    //   전환 주차는 다음 시즌 0주차로 저장되므로 중복 검증 대상도 (다음 시즌, 0주차)로 맞춘다.
     // (백엔드 POST 에서도 동일 규칙으로 재검증한다 — 409)
+    const targetSeasonKey = isTransition
+      ? nextSeasonKeyOf(regYear, regSeason as SeasonToken)
+      : seasonKey;
+    const targetWeekNumber = isTransition ? 0 : weekNumber;
     const duplicated = rows.some(
-      (row) => row.season_key === seasonKey && row.week_number === weekNumber,
+      (row) =>
+        row.season_key === targetSeasonKey &&
+        row.week_number === targetWeekNumber,
     );
     if (duplicated) {
       void adminDialog.alert({ variant: "warning", title: "중복 확인", description: "동일한 주차 정보를 가진 기간이 있습니다." });
@@ -290,10 +311,14 @@ export default function PeriodRegisterForm({ rows, onRegistered }: Props) {
         return;
       }
 
+      const regSeasonLabel =
+        SEASON_OPTIONS.find((o) => o.key === regSeason)?.label ?? regSeason;
+      const nextSeasonLabel =
+        SEASON_LABEL[NEXT_SEASON[regSeason as SeasonToken]] ?? "";
       setSuccessMessage(
-        `${regYear}년 ${
-          SEASON_OPTIONS.find((o) => o.key === regSeason)?.label ?? regSeason
-        } ${weekNumber}주차(${selectedCandidate.label})가 등록되었습니다.`,
+        isTransition
+          ? `${regSeasonLabel} → ${nextSeasonLabel} 시즌 전환 주차(${selectedCandidate.label})가 등록되었습니다.`
+          : `${regYear}년 ${regSeasonLabel} ${weekNumber}주차(${selectedCandidate.label})가 등록되었습니다.`,
       );
       resetForm();
       // 상위 공유 데이터 재조회 — 하단 "기간 정보" 목록 즉시 갱신 + 다음 중복 검증에 신규 등록분 반영.

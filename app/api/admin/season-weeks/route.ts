@@ -88,6 +88,22 @@ const REGISTER_YEARS = [2022, 2023, 2024, 2025, 2026] as const;
 const SEASON_TYPES = ["winter", "spring", "summer", "autumn"] as const;
 type RegisterSeasonType = (typeof SEASON_TYPES)[number];
 
+// 공식 시즌 순서 SoT(캘린더 체인) — 전환 주차의 "다음 시즌"을 날짜 추측이 아니라 이 순서로 결정.
+//   가을 → 다음 해 겨울(연도 넘김). 전환 주차는 이 다음 시즌의 0주차로 저장한다.
+const NEXT_SEASON: Record<RegisterSeasonType, RegisterSeasonType> = {
+  winter: "spring",
+  spring: "summer",
+  summer: "autumn",
+  autumn: "winter",
+};
+
+// (연도, 시작 시즌) → 다음 시즌 season_key. 가을만 다음 해로 넘어간다.
+function nextSeasonKeyOf(year: number, type: RegisterSeasonType): string {
+  const nextType = NEXT_SEASON[type];
+  const nextYear = type === "autumn" ? year + 1 : year;
+  return `${nextYear}-${nextType}`;
+}
+
 const NOTE_MAX_LENGTH = 30;
 const WEEK_NUMBER_MIN = 0;
 const WEEK_NUMBER_MAX = 18;
@@ -235,7 +251,15 @@ export async function POST(request: Request) {
     return badRequest("주차 종료일은 시작일로부터 6일 뒤 일요일이어야 합니다.");
   }
 
-  const seasonKey = `${year}-${seasonType}`;
+  // 전환 주차 저장 규칙(정책): 다음 시즌 + week_number = 0.
+  //   · 관리자는 "끝나는 시즌"(예: 봄) + 전환 주차(정규주수+1)를 선택하지만, 저장은 다음 시즌
+  //     (예: 여름)의 0주차로 재귀속한다("이전 시즌 + 마지막 주차 번호" 저장 금지).
+  //   · season_definitions/seasons 의 공식 시즌 경계(1주차 시작)는 그대로 두고, 전환 주차는 그
+  //     사이 gap 에 위치한 다음 시즌의 0주차로 들어간다.
+  const seasonKey = isTransition
+    ? nextSeasonKeyOf(year, seasonType as RegisterSeasonType)
+    : `${year}-${seasonType}`;
+  const storedWeekNumber = isTransition ? 0 : weekNumber;
 
   try {
     // ── 시즌 정의 확인 (기간 정보 GET 이 season_definitions 기준으로 조회하므로 필수) ──
@@ -262,7 +286,7 @@ export async function POST(request: Request) {
       .from("weeks")
       .select("id")
       .eq("season_key", seasonKey)
-      .eq("week_number", weekNumber)
+      .eq("week_number", storedWeekNumber)
       .limit(1);
 
     if (dupError) {
@@ -350,7 +374,7 @@ export async function POST(request: Request) {
       id: weekId,
       season_id: seasonId,
       season_key: seasonKey,
-      week_number: weekNumber,
+      week_number: storedWeekNumber,
       week_index: isoWeek,
       start_date: startDate,
       end_date: endDate,
@@ -410,11 +434,11 @@ export async function POST(request: Request) {
       data: {
         week_id: weekId,
         season_key: seasonKey,
-        week_number: weekNumber,
+        week_number: storedWeekNumber,
         week_start_date: startDate,
         week_end_date: endDate,
         is_official_rest: isOfficialRest,
-        // 파생 표시값 — GET 의 is_transition 과 동일 기준(week_number > 정규 주수).
+        // 전환 주차는 다음 시즌 season_key + week_number=0 으로 저장된다(GET 의 is_transition 과 동일 기준).
         is_transition: isTransition,
         holiday_name: note,
         rest_period_id: restPeriodId,

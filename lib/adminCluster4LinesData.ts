@@ -2329,6 +2329,7 @@ export async function listCluster4OpenedLines(
       ? seasonNameByKey.get(seasonKey) ?? seasonKey
       : null;
     const weekNumber = repWeek?.weekNumber ?? null;
+    // 어드민 표시: 실제 주차 번호 그대로(전환 주차=0 → "… 0주차"). 전환 여부는 상태/활동 표기로 구분.
     const weekLabel =
       seasonName != null && weekNumber != null
         ? `${seasonName} ${weekNumber}주차`
