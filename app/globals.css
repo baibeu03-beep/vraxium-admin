@@ -183,6 +183,11 @@
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
   --radius: 0.625rem;
+  /* 어드민 하단 토스트 전용 영역 높이(단일 SoT).
+     콘텐츠 스크롤 영역(main)은 뷰포트에서 이 높이만큼 줄어들고, 그 자리(화면 하단)에
+     고정 토스트(ToastViewport, bottom-6)가 떠오른다. 단일 토스트(min-h-52 + text-base 32px
+     라인 + bottom 24px) 기준으로 96px — 스크롤 위치와 무관하게 콘텐츠가 이 영역에 들어가지 않는다. */
+  --admin-toast-safe-area: 96px;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -357,22 +362,24 @@
      - 카드 내부의 제목/버튼/폼 필드/표 행/라벨 간격, CardHeader padding·height 는 불변.
      - display:flex + column 은 space-y 와 동일한 세로 흐름을 만들되 gap 을 SoT 로 노출한다.
    반응형: 모바일은 좁게 유지(과확장 방지), 데스크톱(md≥768px)에서 한 단계 넓힌다.
-     기본  = 16px → 20px(md)  ← 일반 주요 섹션 스택
-     lg    = 20px → 24px(md)  ← 페이지 전체를 이루는 큰 섹션 묶음(허브/탭/전체 카드) */
+     기본  = 32px → 40px(md)  ← 일반 주요 섹션 스택
+     lg    = 40px → 48px(md)  ← 페이지 전체를 이루는 큰 섹션 묶음(허브/탭/전체 카드)
+   ※ 섹션 간 세로 리듬을 전역으로 약 2배 확대(기본 16/20→32/40, lg 20/24→40/48).
+     섹션 "사이" gap만 담당하므로 카드 내부 밀도·정렬·가로 레이아웃에는 영향 없음. */
 @utility admin-section-stack {
   display: flex;
   flex-direction: column;
-  gap: 1rem; /* 16px */
+  gap: 2rem; /* 32px */
   @media (min-width: 768px) {
-    gap: 1.25rem; /* 20px */
+    gap: 2.5rem; /* 40px */
   }
 }
 @utility admin-section-stack-lg {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem; /* 20px */
+  gap: 2.5rem; /* 40px */
   @media (min-width: 768px) {
-    gap: 1.5rem; /* 24px */
+    gap: 3rem; /* 48px */
   }
 }
 
