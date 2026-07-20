@@ -4,7 +4,8 @@ import { createServerClient } from "@supabase/ssr";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 // 모든 /admin/* 페이지에 페이지 단위 [? 도움말](AdminHelp) 버튼이 "정확히 1개" 있는지 브라우저로 전수 검증.
-//   · 버튼 접근명 = "도움말"(exact). 요소 돋보기("이 항목 도움말")와 구분.
+//   · 버튼 로케이터 = [data-admin-help-trigger="page"](안정 속성). 접근명은 "안내 있음" 등으로 바뀔 수 있어
+//     이름 기반 대신 이 속성으로 특정한다. 요소 돋보기(AdminHelpIconButton)엔 이 속성이 없다.
 //   · notFound(feature-off) 2곳은 0개 기대. redirect 3곳은 목적지 버튼을 이어받아 1개.
 //   · 대표 신규 페이지 1곳에서 저장→새로고침 유지→org/mode 파라미터 무 까지 확인.
 
@@ -89,7 +90,7 @@ async function main() {
   await context.addCookies(await makeAdminCookies());
   const page = await context.newPage();
 
-  const helpBtn = () => page.getByRole("button", { name: "도움말", exact: true });
+  const helpBtn = () => page.locator('[data-admin-help-trigger="page"]');
   const results: Array<{ route: string; count: number; ok: boolean; note?: string }> = [];
 
   const listUser = anyUser;

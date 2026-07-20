@@ -392,6 +392,33 @@
   }
 }
 
+/* ── 어드민 폼 2열 레이아웃 SoT ────────────────────────────────────────────────
+   넓은 데스크톱 콘텐츠 영역에서 짧은 입력(선택/한 줄 입력/날짜/짧은 textarea)이 한 행
+   전체를 독차지해 불필요한 세로 스크롤을 만드는 것을 막기 위한 단일 출처(정적 @utility
+   → purge 안전). 페이지마다 `grid grid-cols-1 gap-x-6 gap-y-8 xl:grid-cols-2` 를 손으로
+   반복하지 않고, 폼 "최상위 필드 컨테이너"에만 `admin-form-grid` 한 클래스를 붙인다.
+     · 전체 폭이 필요한 항목(긴 목록·표·크루 선택·이미지 갤러리·최종 액션 버튼·긴 textarea)
+       에는 그 자식에 `admin-form-span-full` 을 붙여 한 행을 통째로 쓰게 한다.
+     · 열 트랙을 minmax(0,1fr) 로 잡아 각 칸이 콘텐츠 때문에 넓어지지 않게 한다(긴 select
+       option·날짜 범위가 칸을 밀어내 가로 오버플로를 만들지 않음). 감싸는 section 에는 필요 시
+       `min-w-0` 을 함께 두고, 내부 input 은 기존처럼 `w-full` 을 유지한다(폭은 grid 칸이 제한).
+     · 모바일/태블릿(<1280px)=1열, 넓은 데스크톱(xl≥1280px)=2열. "1280px 이상 2열" 기준.
+     · gap-x=24px(열 사이), gap-y=32px(행 사이 — 필드 아래 validation/help 문구 여유).
+   org/mode/test 무관(레이아웃 전용). 이미 `xl:grid-cols-2` 를 손으로 쓰던 폼도 점진적으로
+   이 유틸로 이관해 하나의 기준값으로 수렴시킨다. */
+@utility admin-form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: 1.5rem; /* 24px */
+  row-gap: 2rem; /* 32px */
+  @media (min-width: 1280px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@utility admin-form-span-full {
+  grid-column: 1 / -1;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -676,6 +703,63 @@ button[data-loading="true"][aria-disabled="true"] {
 /* 모션 최소화 선호 시: 스켈레톤 펄스는 정지(스피너 회전은 로딩 신호이므로 유지). */
 @media (prefers-reduced-motion: reduce) {
   [data-slot="skeleton"] {
+    animation: none;
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   도움말(AdminHelp) 버튼 최초 진입 강조 — 어드민 전역 단일 SoT.
+   "안내 있음(내용 존재) + 아직 열람 안 함"일 때만 컴포넌트가 아래 클래스를 붙인다.
+     · 유한 반복(무한 금지) · 전체 지속 ≤ 2.5s · 과한 상하 이동 금지(translateY ≤ 2px, scale ≤ 1.04).
+     · reduced-motion 에서는 애니메이션을 끈다 — 알림 점/aria 라벨로 존재는 그대로 인지 가능(요구 4·8).
+     · 정적 클래스명(유틸 생성 아님) → purge 안전. org/mode/test 무관(표시 전용).
+   ─────────────────────────────────────────────────────────────────────────── */
+@keyframes admin-help-nudge {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    box-shadow:
+      0 0 0 0 rgb(251 191 36 / 0),
+      0 0 0 0 rgb(251 191 36 / 0);
+  }
+  25% {
+    /* 위로 통통 튀며(≤3px) 살짝 커지고(1.04), 외곽에 amber glow(진한 링 10px + 번짐 20px)가 퍼진다. */
+    transform: translateY(-3px) scale(1.04);
+    box-shadow:
+      0 0 0 10px rgb(251 191 36 / 0.4),
+      0 0 20px 12px rgb(251 191 36 / 0.35);
+  }
+  55% {
+    transform: translateY(0) scale(1);
+    box-shadow:
+      0 0 0 0 rgb(251 191 36 / 0),
+      0 0 0 0 rgb(251 191 36 / 0);
+  }
+}
+.admin-help-nudge {
+  /* 0.6s × 3회 = 1.8s(≤2s). ease-in-out, 종료 후 기본 상태(shadow-sm)로 복귀. */
+  animation: admin-help-nudge 0.6s ease-in-out 3;
+}
+
+/* 알림 점 주변 짧은 ring(ping) — 최초 진입에만. 유한 반복(3회) 후 사라진다.
+   Tailwind animate-ping(무한)과 달리 유한. 현재보다 크게·진하게(opacity 0.7→0, scale 2.4). */
+@keyframes admin-help-ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+.admin-help-ping {
+  animation: admin-help-ping 0.7s cubic-bezier(0, 0, 0.2, 1) 3;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-help-nudge,
+  .admin-help-ping {
     animation: none;
   }
 }

@@ -115,8 +115,8 @@ async function verifyOne(
   // 상세 로드 완료 대기(인적사항 섹션 타이틀).
   await page.getByText("인적사항", { exact: true }).first().waitFor({ timeout: 15000 });
 
-  // 1) 페이지 단위 도움말 버튼(파란 [도움말]) 존재.
-  const pageHelp = await page.getByRole("button", { name: "도움말" }).count();
+  // 1) 페이지 단위 도움말 버튼(파란 [도움말]) 존재. 접근명이 "안내 있음" 등으로 바뀔 수 있어 안정 속성으로 특정.
+  const pageHelp = await page.locator('[data-admin-help-trigger="page"]').count();
   assert(pageHelp >= 1, `[${org}/${mode}] page-level 도움말 button missing`);
 
   // 2) 요소별 도움말 아이콘(돋보기, aria-label="이 항목 도움말") 다수 렌더.
