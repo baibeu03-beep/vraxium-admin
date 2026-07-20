@@ -8,6 +8,7 @@ import { AdminRouteTitleProvider } from "@/components/admin/AdminRouteTitleProvi
 import { ConfirmProvider } from "@/components/ui/confirm-dialog";
 import { AdminDialogViewport } from "@/components/ui/admin-dialog";
 import { ToastViewport } from "@/components/ui/toast";
+import OrgEnvironmentBanner from "@/components/admin/OrgEnvironmentBanner";
 import AdminSessionProvider from "@/components/admin/AdminSessionProvider";
 import { requireAdminPage } from "@/lib/adminAuth";
 import { loadAdminDisplayName } from "@/lib/adminMe";
@@ -61,9 +62,14 @@ export default async function PortalLayout({
               adminDisplayName={adminDisplayName}
               adminEmail={admin.email}
             />
-            {/* 공통 로딩 배너 — 헤더 바로 아래·콘텐츠 최상단 고정 위치(전역 단일 출처). */}
+            {/* 조직 환경 배너 — 콘텐츠 영역 전체폭 상단 띠. main(스크롤 컨테이너) "바깥"의 전용 슬롯에
+                두어 main 의 p-6 padding 밖에서 좌우 끝까지 꽉 차고, main 이 아래에서 스크롤돼도 항상
+                콘텐츠 최상단에 남는다(카드 아님·둥근모서리/테두리/그림자 없음). 통합 모드/미상 org 면
+                스스로 null 렌더. 공통 레이아웃 한 곳에서만 마운트 → 개별 페이지 수정 없음. mode/org 무관. */}
+            <OrgEnvironmentBanner />
+            {/* 공통 로딩 배너 — 헤더/배너 바로 아래·콘텐츠 최상단 고정 위치(전역 단일 출처). */}
             <GlobalLoadingBanner />
-            {/* 실제 페이지 콘텐츠 스크롤 영역 — 높이 = 뷰포트 − 헤더 − 하단 토스트 영역.
+            {/* 실제 페이지 콘텐츠 스크롤 영역 — 높이 = 뷰포트 − 헤더 − 배너 − 하단 토스트 영역.
                 overflow-y-auto: 여기(main)가 유일한 세로 스크롤 컨테이너가 된다(window 대신).
                 min-h-0: flex 자식의 기본 min-height:auto 를 풀어 콘텐츠가 넘칠 때 늘어나지 않고
                   실제로 내부 스크롤되게 한다(이게 없으면 overflow 가 무력화된다).

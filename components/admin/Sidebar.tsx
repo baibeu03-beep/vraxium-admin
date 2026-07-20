@@ -13,7 +13,6 @@ import {
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/components/theme/ThemeProvider";
 import { orgHref, resolveAdminOrgFocus } from "@/lib/adminOrgContext";
-import OrganizationBadge from "@/components/admin/OrganizationBadge";
 import { useSidebar } from "@/components/admin/sidebarContext";
 import { useAdminMode } from "@/components/admin/AdminModeProvider";
 import {
@@ -241,9 +240,8 @@ export default function Sidebar() {
                 >
                   {orgFocus ? "개별" : "통합"}
                 </span>
-                {/* 조직명 배지 — 순서: HOME → 개별/통합 → 조직명. orgFocus(어드민 org 컨텍스트 SoT)
-                    가 유효 조직일 때만 노출(통합/미상이면 미표시). 라벨/색은 lib/organizations SoT 재사용. */}
-                <OrganizationBadge orgSlug={orgFocus} />
+                {/* 조직명 배지는 제거 — 동일 정보를 조직 환경 배너(OrgEnvironmentBanner, 모든 페이지
+                    상단)에서 크게 표시하므로 여기서 중복 표시하지 않는다. 개별/통합 배지는 모드 표시로 유지. */}
               </>
             )}
           </div>

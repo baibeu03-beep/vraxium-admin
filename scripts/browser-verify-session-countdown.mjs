@@ -1,5 +1,5 @@
 // 브라우저(인증 세션) 검증 — 헤더 자동 로그아웃 카운트다운.
-//   · 헤더에 "자동 로그아웃까지 mm:ss" 표시 · data-level 색상 규칙 일치
+//   · 헤더에 "활동이 없으면 mm:ss 후 자동 로그아웃" 표시 · data-level 색상 규칙 일치
 //   · 매초 감소(틱) · 활동(클릭) 시 즉시 리셋(증가)
 //   · (WAIT_LOGOUT_MS 설정 시) 미사용 지속 → /login?reason=idle 자동 이동
 // env: SMOKE_BASE_URL, EXPECT_FULL_WINDOW=1(기본 20분 서버), WAIT_LOGOUT_MS=16000(짧은 서버)
@@ -73,7 +73,7 @@ try {
 
   // 1) 표시 & 포맷
   const c0 = await readCountdown(page);
-  check("헤더에 카운트다운 표시", /자동 로그아웃까지 \d{2}:\d{2}/.test(c0.text), c0.text);
+  check("헤더에 카운트다운 표시", /활동이 없으면 \d{2}:\d{2} 후 자동 로그아웃/.test(c0.text), c0.text);
   check("mm:ss 파싱 가능", Number.isFinite(c0.seconds), `${c0.seconds}s`);
 
   // 2) 기본 20:00(가득) — 기본 서버에서만
