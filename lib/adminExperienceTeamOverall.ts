@@ -42,6 +42,8 @@ import {
   OVERALL_PART_CATEGORIES,
   canEditOverallManagement,
   resolveOverallApplicationReadiness,
+  validateOverallOutputRequirements,
+  validatePartLeaderLineRequirements,
   type ExperienceOverallCategory,
   type ExperienceTeamOverallBoard,
   type OverallApplicationReadiness,
@@ -311,6 +313,44 @@ async function resolveExtension(
     );
   }
   return { active: false, kind: null };
+}
+
+/** 개설 검수/완료 공통 서버 가드. 어떤 mode/org 요청도 동일한 정책으로 DB write 전에 차단한다. */
+async function assertOverallOutputsRequired(input: {
+  organization: string;
+  weekId: string;
+  outputs: OverallOutput[];
+}): Promise<void> {
+  const weekDates = await loadWeekDates(input.weekId);
+  if (!weekDates) {
+    throw Object.assign(new Error("주차 정보를 찾을 수 없습니다"), { status: 404 });
+  }
+  const extension = await resolveExtension(
+    input.organization,
+    weekDates.startDate,
+    weekDates.endDate,
+  );
+  const issue = validateOverallOutputRequirements(input.outputs, extension.active);
+  if (issue) throw Object.assign(new Error(issue.message), { status: 422 });
+}
+
+/** 파트장 라인명 필수 서버 가드. mode 별 사용자 스코프는 기존 멤버 조회 SoT를 그대로 사용한다. */
+async function assertPartLeaderLinesRequired(input: {
+  organization: string;
+  teamName: string;
+  mode?: ScopeMode;
+  lineSelections?: OverallLineSelectionDto[];
+}): Promise<void> {
+  const members = await loadTeamMembersWithLeaders(
+    input.organization,
+    input.teamName,
+    input.mode ?? "operating",
+  );
+  const issue = validatePartLeaderLineRequirements(
+    input.lineSelections ?? [],
+    members.filter((member) => member.isPartLeader).map((member) => member.userId),
+  );
+  if (issue) throw Object.assign(new Error(issue.message), { status: 422 });
 }
 
 async function loadWeekDates(
@@ -842,6 +882,9 @@ export async function saveTeamOverallReview(input: {
   actorId?: string | null;
   mode?: ScopeMode;
 }): Promise<{ status: "reviewed" }> {
+  await assertPartLeaderLinesRequired(input);
+  await assertOverallOutputsRequired(input);
+
   // 이미 개설 완료된 팀은 [개설 취소] 후에만 재검수/수정 가능(고객 라인과 불일치 방지).
   const existing = await loadOverallStored(
     input.organization,
@@ -1237,6 +1280,9 @@ export async function openTeamOverall(input: {
   mode?: ScopeMode;
 }): Promise<OpenOverallResult> {
   const mode: ScopeMode = input.mode ?? "operating";
+
+  await assertPartLeaderLinesRequired(input);
+  await assertOverallOutputsRequired(input);
 
   // 구간별 계측(기본 OFF) — LINE_OPEN_PROFILE=1 일 때만 각 세그먼트 소요(ms)를 수집·로그한다.
   //   운영에선 미동작(오버헤드 0)이며, 비운영 DB/스테이징에서 실제 HTTP 개설 완료의 구간별 ms 를

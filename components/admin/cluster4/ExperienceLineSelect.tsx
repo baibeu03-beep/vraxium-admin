@@ -50,6 +50,7 @@ export default function ExperienceLineSelect({
   disabled,
   ariaLabel,
   triggerClassName,
+  triggerRef,
 }: {
   value: string | null;
   options: PartInputLineOption[];
@@ -57,6 +58,7 @@ export default function ExperienceLineSelect({
   disabled?: boolean;
   ariaLabel?: string;
   triggerClassName?: string;
+  triggerRef?: (element: HTMLButtonElement | null) => void;
 }) {
   // null(미선택) → VOID sentinel. 트리거는 placeholder 대신 "라인명" 을 노출한다.
   const current = value ?? VOID;
@@ -69,6 +71,7 @@ export default function ExperienceLineSelect({
       disabled={disabled}
     >
       <SelectTrigger
+        ref={triggerRef}
         size="sm"
         aria-label={ariaLabel}
         className={cn(

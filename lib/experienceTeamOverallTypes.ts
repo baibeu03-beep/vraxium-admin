@@ -163,6 +163,48 @@ export type OverallOutput = {
   imageDescription: string;
 };
 
+export type OverallOutputRequirementIssue = {
+  missingLink: boolean;
+  missingImage: boolean;
+  firstMissingCategory: ExperienceOverallCategory;
+  firstMissingField: "link" | "image";
+  message: string;
+};
+
+export const OVERALL_OUTPUT_REQUIRED_MESSAGES = {
+  both: "아웃풋 링크와 아웃풋 이미지를 모두 입력해야 합니다.",
+  link: "아웃풋 링크를 1개 이상 입력해주세요.",
+  image: "아웃풋 이미지를 1개 이상 등록해주세요.",
+} as const;
+
+/** 프론트와 서버가 함께 쓰는 카테고리별 아웃풋 필수값 판정. 설명 필드는 기존 선택 정책을 유지한다. */
+export function validateOverallOutputRequirements(
+  outputs: ReadonlyArray<OverallOutput>,
+  extensionActive: boolean,
+): OverallOutputRequirementIssue | null {
+  const byCategory = new Map(outputs.map((output) => [output.category, output]));
+  let firstMissingLinkCategory: ExperienceOverallCategory | null = null;
+  let firstMissingImageCategory: ExperienceOverallCategory | null = null;
+  for (const category of EXPERIENCE_OVERALL_CATEGORIES) {
+    if (category.key === "extension" && !extensionActive) continue;
+    const output = byCategory.get(category.key);
+    if (!output?.link.trim() && !firstMissingLinkCategory) firstMissingLinkCategory = category.key;
+    if (!output?.imageUrl.trim() && !firstMissingImageCategory) firstMissingImageCategory = category.key;
+  }
+  if (!firstMissingLinkCategory && !firstMissingImageCategory) return null;
+  // 입력 흐름 우선순위: 모든 활성 류의 링크를 먼저 채운 뒤 이미지를 안내한다.
+  const firstMissingField = firstMissingLinkCategory ? "link" : "image";
+  return {
+    missingLink: Boolean(firstMissingLinkCategory),
+    missingImage: Boolean(firstMissingImageCategory),
+    firstMissingCategory: firstMissingLinkCategory ?? firstMissingImageCategory!,
+    firstMissingField,
+    message: firstMissingField === "link"
+      ? OVERALL_OUTPUT_REQUIRED_MESSAGES.link
+      : OVERALL_OUTPUT_REQUIRED_MESSAGES.image,
+  };
+}
+
 export type OverallBoardStatus = "none" | "reviewed" | "opened";
 
 export type ExperienceTeamOverallBoard = {
@@ -201,6 +243,43 @@ export type OverallLineSelectionDto = {
   checked?: boolean;
   score?: number;
 };
+
+export const PART_LEADER_LINE_REQUIRED_MESSAGE =
+  "파트장 라인명을 선택해야 개설 검수를 진행할 수 있습니다.";
+
+export type PartLeaderLineRequirementIssue = {
+  crewUserId: string;
+  category: ExperiencePartLineType;
+  message: string;
+};
+
+/** 체크되고 1점 이상인 파트장 도출/분석/견문 셀은 라인명이 반드시 있어야 한다. */
+export function validatePartLeaderLineRequirements(
+  selections: ReadonlyArray<OverallLineSelectionDto>,
+  partLeaderUserIds: ReadonlyArray<string>,
+): PartLeaderLineRequirementIssue | null {
+  const byCell = new Map(
+    selections.map((selection) => [
+      `${selection.crewUserId}::${selection.lineType}`,
+      selection,
+    ]),
+  );
+  for (const crewUserId of partLeaderUserIds) {
+    for (const category of OVERALL_PART_CATEGORIES) {
+      const selection = byCell.get(`${crewUserId}::${category}`);
+      const checked = selection?.checked ?? true;
+      const score = selection?.score ?? OVERALL_CELL_DEFAULT.score;
+      if (checked && score >= 1 && !selection?.selectedLineId) {
+        return {
+          crewUserId,
+          category: category as ExperiencePartLineType,
+          message: PART_LEADER_LINE_REQUIRED_MESSAGE,
+        };
+      }
+    }
+  }
+  return null;
+}
 
 // ── 저장 payload (POST) ──
 

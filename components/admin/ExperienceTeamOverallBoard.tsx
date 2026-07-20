@@ -35,6 +35,8 @@ import {
   canEditOverallManagement,
   isOverallCellFail,
   resolveOverallApplicationReadiness,
+  validateOverallOutputRequirements,
+  validatePartLeaderLineRequirements,
   type ExperienceOverallCategory,
   type ExperienceTeamOverallBoard as BoardDto,
   type OverallBoardCrew,
@@ -141,6 +143,10 @@ export default function ExperienceTeamOverallBoard({
   // 검수 차단(미신청 파트 등) 안내는 화면 하단 고정 Toast(<ToastViewport /> · Layout)로 표시.
   const { toast, loading: showLoadingToast, dismiss: dismissToast } = useToast();
   const t = useActionToast();
+  const outputSectionRef = useRef<HTMLDivElement>(null);
+  const outputFieldRefs = useRef(new Map<string, HTMLElement>());
+  const lineSelectionSectionRef = useRef<HTMLDivElement>(null);
+  const lineSelectionRefs = useRef(new Map<string, HTMLButtonElement>());
 
   // 팀장 직접 입력(관리/확장) 로컬 편집값.
   const [leaderCells, setLeaderCells] = useState<Map<string, OverallCell>>(new Map());
@@ -418,6 +424,47 @@ export default function ExperienceTeamOverallBoard({
     [buildPayload, organization, weekId, teamId, teamName, mode, actAsTestUserId],
   );
 
+  const validateOutputsAndGuide = useCallback(async (): Promise<boolean> => {
+    const { outs } = buildPayload();
+    const issue = validateOverallOutputRequirements(outs, extensionActive);
+    if (!issue) return true;
+    await adminDialog.alert({
+      variant: "warning",
+      title: "필수 입력 안내",
+      description: issue.message,
+      confirmLabel: "확인",
+    });
+    outputSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    window.setTimeout(() => {
+      outputFieldRefs.current
+        .get(`${issue.firstMissingCategory}:${issue.firstMissingField}`)
+        ?.focus({ preventScroll: true });
+    }, 350);
+    return false;
+  }, [buildPayload, extensionActive]);
+
+  const validatePartLeaderLinesAndGuide = useCallback(async (): Promise<boolean> => {
+    const { lineSels } = buildPayload();
+    const issue = validatePartLeaderLineRequirements(
+      lineSels,
+      allCrews.filter((crew) => crew.isPartLeader).map((crew) => crew.userId),
+    );
+    if (!issue) return true;
+    await adminDialog.alert({
+      variant: "warning",
+      title: "필수 입력 안내",
+      description: issue.message,
+      confirmLabel: "확인",
+    });
+    lineSelectionSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    window.setTimeout(() => {
+      lineSelectionRefs.current
+        .get(`${issue.crewUserId}:${issue.category}`)
+        ?.focus({ preventScroll: true });
+    }, 350);
+    return false;
+  }, [allCrews, buildPayload]);
+
   // ── 버튼 핸들러 ──
   const onReview = useCallback(async () => {
     setSaving(true);
@@ -452,7 +499,7 @@ export default function ExperienceTeamOverallBoard({
   // [개설 검수] 버튼 클릭 라우터 — 버튼이 disabled(시각)여도 wrapper 클릭으로 여기 진입한다.
   //   비활성 사유별 하단 Toast 안내(실행 차단), 진행 가능 상태에서만 실제 검수(onReview) 실행.
   //   키보드/직접 이벤트 호출도 이 라우터를 통과해야 하며, 최종 방어선은 서버 가드(409/422/403).
-  const handleReviewClick = useCallback(() => {
+  const handleReviewClick = useCallback(async () => {
     if (saving) return;
     if (!canOpen) {
       toast("warning", openBlockedReason ?? "선택한 주차는 실무 경험 라인의 개설 기간이 아닙니다.");
@@ -480,8 +527,10 @@ export default function ExperienceTeamOverallBoard({
       );
       return;
     }
+    if (!(await validatePartLeaderLinesAndGuide())) return;
+    if (!(await validateOutputsAndGuide())) return;
     void onReview();
-  }, [saving, canOpen, openBlockedReason, opened, reviewCompleted, application, allPartsApplied, onReview, toast]);
+  }, [saving, canOpen, openBlockedReason, opened, reviewCompleted, application, allPartsApplied, validatePartLeaderLinesAndGuide, validateOutputsAndGuide, onReview, toast]);
 
   const onReset = useCallback(() => {
     // DB 통신 없음 — 프론트 화면 입력값만 기본값으로 복원.
@@ -520,6 +569,8 @@ export default function ExperienceTeamOverallBoard({
       toast("warning", "모든 필수 개설 검수가 완료되어야 개설 완료할 수 있습니다.");
       return;
     }
+    if (!(await validatePartLeaderLinesAndGuide())) return;
+    if (!(await validateOutputsAndGuide())) return;
     if (
       !(await adminDialog.confirm({
         title: "개설 완료",
@@ -558,7 +609,7 @@ export default function ExperienceTeamOverallBoard({
       dismissToast(progressToastId);
       setSaving(false);
     }
-  }, [canOpen, openBlockedReason, reviewCompleted, post, fetchBoard, onActivity, toast, showLoadingToast, dismissToast]);
+  }, [canOpen, openBlockedReason, reviewCompleted, validatePartLeaderLinesAndGuide, validateOutputsAndGuide, post, fetchBoard, onActivity, toast, showLoadingToast, dismissToast]);
 
   const onCancel = useCallback(async () => {
     if (
@@ -638,7 +689,7 @@ export default function ExperienceTeamOverallBoard({
           이 팀에 평가 대상 크루가 없습니다.
         </p>
       ) : (
-        <div className="overflow-x-auto">
+        <div ref={lineSelectionSectionRef} className="overflow-x-auto">
           <Table className="min-w-[1340px] table-fixed">
             <BoardColgroup />
             <TableHeader>
@@ -787,6 +838,11 @@ export default function ExperienceTeamOverallBoard({
                                   onChange={(id) => setLineSel(crew.userId, c.key, id)}
                                   disabled={lineDisabled}
                                   ariaLabel={`${crew.displayName} ${c.label} 라인명`}
+                                  triggerRef={(element) => {
+                                    const key = `${crew.userId}:${c.key}`;
+                                    if (element) lineSelectionRefs.current.set(key, element);
+                                    else lineSelectionRefs.current.delete(key);
+                                  }}
                                 />
                               </div>
                             </div>
@@ -938,14 +994,18 @@ export default function ExperienceTeamOverallBoard({
       )}
 
       {/* 아웃풋 링크 & 이미지 — 카테고리별 [○○ 류] 라인명 + (링크 6 : 설명 4) 한 줄 입력 */}
-      <div className="space-y-4 rounded-md border p-3">
+      <div ref={outputSectionRef} className="space-y-4 rounded-md border p-3">
         <p className="inline-flex items-center gap-1 text-sm font-semibold">
           아웃풋 링크 &amp; 이미지
+          <span className="text-destructive" aria-hidden="true">*</span>
           <AdminHelpIconButton
             size="sm"
             helpKey="admin.lineOpening.experience.section.outputLinks"
             title="아웃풋 링크 & 이미지"
           />
+        </p>
+        <p className="text-xs text-muted-foreground">
+          <span className="text-destructive">*</span> 활성 류별 링크 1개와 이미지 1개는 필수 입력입니다.
         </p>
         {EXPERIENCE_OVERALL_CATEGORIES.map((c) => {
           const o = getOutput(c.key);
@@ -969,6 +1029,9 @@ export default function ExperienceTeamOverallBoard({
                 <div className="space-y-1.5">
                   <Label className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-medium text-muted-foreground">
                     링크1
+                    {!(c.key === "extension" && !extensionActive) && (
+                      <span className="text-destructive" aria-hidden="true">*</span>
+                    )}
                     <AdminHelpIconButton
                       size="xs"
                       helpKey="admin.lineOpening.field.outputLink"
@@ -976,6 +1039,11 @@ export default function ExperienceTeamOverallBoard({
                     />
                   </Label>
                   <Input
+                    ref={(element) => {
+                      const key = `${c.key}:link`;
+                      if (element) outputFieldRefs.current.set(key, element);
+                      else outputFieldRefs.current.delete(key);
+                    }}
                     className="w-full"
                     value={o.link}
                     disabled={disabled}
@@ -1006,6 +1074,12 @@ export default function ExperienceTeamOverallBoard({
                   value={o.imageUrl}
                   disabled={disabled}
                   onChange={(imageUrl) => setOutput(c.key, { imageUrl })}
+                  focusRef={(element) => {
+                    const key = `${c.key}:image`;
+                    if (element) outputFieldRefs.current.set(key, element);
+                    else outputFieldRefs.current.delete(key);
+                  }}
+                  required={!(c.key === "extension" && !extensionActive)}
                 />
                 {/* 이미지 설명 */}
                 <div className="space-y-1.5">
@@ -1161,7 +1235,7 @@ export default function ExperienceTeamOverallBoard({
   );
 }
 
-function OutputImageInput({ value, disabled, onChange }: { value: string; disabled: boolean; onChange: (url: string) => void }) {
+function OutputImageInput({ value, disabled, onChange, focusRef, required }: { value: string; disabled: boolean; onChange: (url: string) => void; focusRef?: (element: HTMLButtonElement | null) => void; required?: boolean }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
@@ -1188,7 +1262,10 @@ function OutputImageInput({ value, disabled, onChange }: { value: string; disabl
 
   return (
     <div className="space-y-1.5">
-      <Label>아웃풋 이미지 1</Label>
+      <Label className="inline-flex items-center gap-1">
+        아웃풋 이미지 1
+        {required && <span className="text-destructive" aria-hidden="true">*</span>}
+      </Label>
       <input ref={fileRef} className="hidden" type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={disabled || uploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file); }} />
       {/* 미리보기 박스(좌) + 업로드/제거 버튼 스택(우, 2행 1열 그리드) — 한 행 가로 배치.
           박스: 항상 정사각형(aspect-square w-40). 클릭=업로드/교체(기존 hidden input 로직 재사용).
@@ -1197,6 +1274,7 @@ function OutputImageInput({ value, disabled, onChange }: { value: string; disabl
           업로드 API·저장·disabled·확장 잠금 로직은 무변경 — 이미지 입력 UI만 변경. */}
       <div className="flex items-start gap-2">
         <button
+          ref={focusRef}
           type="button"
           disabled={disabled || uploading}
           onClick={() => fileRef.current?.click()}
