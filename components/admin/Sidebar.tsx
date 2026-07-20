@@ -191,8 +191,14 @@ export default function Sidebar() {
         // sticky+h-screen: 페이지 콘텐츠가 길어 문서 전체가 스크롤돼도 사이드바는
         // 뷰포트에 고정 (메뉴는 nav 내부 스크롤).
         "sticky top-0 h-screen flex shrink-0 flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200",
-        sidebarOpen ? "w-60" : "w-14",
       )}
+      // 폭은 공용 CSS 변수(단일 SoT)에서 가져온다 — 하단 ToastViewport 도 같은 변수로
+      // 콘텐츠 영역 좌측 시작점을 계산한다(사이드바 폭 하드코딩 중복 제거).
+      style={{
+        width: sidebarOpen
+          ? "var(--admin-sidebar-width-open)"
+          : "var(--admin-sidebar-width-collapsed)",
+      }}
     >
       <div
         className={cn(

@@ -200,7 +200,8 @@ function Toast({ item, onClose }: { item: ToastItem; onClose: () => void }) {
         // pointer-events-auto: 컨테이너는 클릭 통과(none)지만 토스트 자체는 클릭 가능.
         // 넉넉한 내부 여백(px-4 py-3.5) + min-h-[52px] + text-base(프로젝트 @theme=23.5px,
         // line-height 32px 내장 — leading 별도 지정 금지) 로 한 줄/여러 줄 모두 답답하지 않게.
-        // 폭은 컨테이너(max 520)가 잡는다(w-full 로 채움).
+        // 폭은 컨테이너(콘텐츠 영역 전체 폭)가 잡는다 → w-full 로 그 폭을 그대로 채운다
+        //   (max-w-* / w-auto 없음). 메시지=좌측·닫기 버튼=우측 끝(justify-between).
         "pointer-events-auto flex w-full min-h-[52px] items-start justify-between gap-3 rounded-lg border px-4 py-3.5 text-base shadow-lg",
         item.loading ? LOADING_STYLE : KIND_STYLES[item.kind],
       )}
@@ -245,24 +246,31 @@ const isServerSnapshot = () => false;
 export function ToastViewport() {
   const list = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const isClient = useSyncExternalStore(noopSubscribe, isClientSnapshot, isServerSnapshot);
-  // 좌측 하단 고정 — 사이드바(open=w-60=240px / collapsed=w-14=56px) 오른쪽에서 24px 띄운다.
-  //   포털은 viewport 기준이라 사이드바 폭을 직접 오프셋해야 함. 토글 시 --toast-left 가 바뀌며
-  //   transition-[left] 로 사이드바 애니메이션과 함께 부드럽게 이동.
+  // 하단 토스트 영역을 어드민 "콘텐츠 영역 전체 폭"에 정렬한다(짧은 카드 X). 포털은 viewport
+  //   기준이라 콘텐츠 좌우 경계를 직접 계산해야 한다. 사이드바 폭은 하드코딩하지 않고 Sidebar 와
+  //   공유하는 CSS 변수(--admin-sidebar-width-*)를 사용한다:
+  //     · 좌측 시작점 = 사이드바 폭 + 콘텐츠 좌측 padding(--admin-content-padding, main p-6)
+  //     · 우측 끝점  = 콘텐츠 우측 padding(--admin-content-padding)
+  //   사이드바 토글 시 --toast-left 가 바뀌며 transition 으로 함께 움직인다.
   const { open } = useSidebar();
-  const leftPx = (open ? 240 : 56) + 24;
+  const sidebarWidthVar = open
+    ? "var(--admin-sidebar-width-open)"
+    : "var(--admin-sidebar-width-collapsed)";
 
   if (!isClient) return null;
 
   return createPortal(
     <div
-      // fixed + bottom 고정 → 스크롤 위치와 무관하게 항상 화면 좌측 하단(사이드바 오른쪽).
-      // 모바일: 좌우 16px 여백 전체 폭. 데스크톱(sm+): 왼쪽=사이드바+24, 오른쪽=24, 최대폭 520
-      //   (양쪽 고정 + max-w → 뷰포트를 넘지 않고 좌측 정렬 유지).
+      // fixed + bottom 고정 → 스크롤 위치와 무관하게 항상 화면 하단(콘텐츠 영역 폭).
+      // 모바일: 좌우 16px 여백(사이드바 오프셋 없음). 데스크톱(sm+): 왼쪽=사이드바+콘텐츠 padding,
+      //   오른쪽=콘텐츠 padding → 어드민 콘텐츠 영역의 좌우 경계와 정확히 정렬(별도 max-w 없음).
       // pointer-events-none: 컨테이너가 뒤쪽 UI(테이블·버튼·pagination) 클릭을 막지 않음.
       //   개별 토스트만 pointer-events-auto.
       // flex-col + bottom 고정: 새 토스트는 아래(앵커 근처)에, 오래된 것은 위로 밀려 쌓인다.
-      style={{ ["--toast-left"]: `${leftPx}px` } as CSSProperties}
-      className="pointer-events-none fixed bottom-6 left-4 right-4 z-[100] flex flex-col gap-3 transition-[left] duration-200 sm:right-6 sm:left-[var(--toast-left)] sm:max-w-[520px]"
+      style={{
+        ["--toast-left"]: `calc(${sidebarWidthVar} + var(--admin-content-padding))`,
+      } as CSSProperties}
+      className="pointer-events-none fixed bottom-6 left-4 right-4 z-[100] flex flex-col gap-3 transition-[left,right] duration-200 sm:left-[var(--toast-left)] sm:right-[var(--admin-content-padding)]"
       aria-live="polite"
     >
       {list.map((item) => (

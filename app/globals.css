@@ -188,6 +188,15 @@
      고정 토스트(ToastViewport, bottom-6)가 떠오른다. 단일 토스트(min-h-52 + text-base 32px
      라인 + bottom 24px) 기준으로 96px — 스크롤 위치와 무관하게 콘텐츠가 이 영역에 들어가지 않는다. */
   --admin-toast-safe-area: 96px;
+  /* 어드민 셸 레이아웃 공용 변수(단일 SoT) — 사이드바 폭·콘텐츠 좌우 padding.
+     Sidebar(aside 폭)와 ToastViewport(하단 토스트 left/right 계산)가 동일한 값을
+     공유한다. 사이드바 폭을 두 곳에 하드코딩(240/56)하지 않고 여기서만 관리한다.
+       · --admin-sidebar-width-open      = Tailwind w-60 (15rem/240px)
+       · --admin-sidebar-width-collapsed = Tailwind w-14 (3.5rem/56px)
+       · --admin-content-padding         = Tailwind p-6  (1.5rem/24px, main 좌우 여백) */
+  --admin-sidebar-width-open: 15rem;
+  --admin-sidebar-width-collapsed: 3.5rem;
+  --admin-content-padding: 1.5rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
