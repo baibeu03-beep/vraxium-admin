@@ -10,7 +10,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { ChevronDown, X } from "lucide-react";
+import { X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
@@ -578,23 +578,21 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2">
-                      <div className="relative">
-                        <select
-                          aria-label="팀 & 파트 범위"
-                          value={effectiveScopeValue}
-                          onChange={(e) => setScopeValue(e.target.value)}
-                          className="h-9 w-full appearance-none rounded-md border border-input bg-background px-3 pr-8 text-sm"
-                        >
-                          <option value="all">팀 전체 (읽기 전용)</option>
-                          <option value="overall">팀 총괄</option>
-                          {teamParts.map((p) => (
-                            <option key={p} value={p}>
-                              {p}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      </div>
+                      {/* 펼침 화살표는 어드민 전역 공통 <select> 스타일(globals.css)이 그린다. */}
+                      <select
+                        aria-label="팀 & 파트 범위"
+                        value={effectiveScopeValue}
+                        onChange={(e) => setScopeValue(e.target.value)}
+                        className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      >
+                        <option value="all">팀 전체 (읽기 전용)</option>
+                        <option value="overall">팀 총괄</option>
+                        {teamParts.map((p) => (
+                          <option key={p} value={p}>
+                            {p}
+                          </option>
+                        ))}
+                      </select>
                       {teamParts.length === 0 && (
                         <p className="text-xs text-amber-600">
                           이 팀(현재 모드)에 등록된 파트가 없습니다. (팀 총괄만 사용)

@@ -458,6 +458,33 @@ input[type="radio"]:disabled,
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
+   Native <select> 펼침 화살표 — 어드민 전역 단일 SoT.
+   브라우저 기본 화살표는 너무 작고 흐려 눈에 띄지 않는다. mode/org·페이지 무관하게
+   모든 네이티브 <select> 에서 기본 화살표를 제거(appearance:none)하고, 크고 굵은
+   커스텀 chevron 을 배경 이미지로 직접 그린다. 페이지별 개별 CSS 없이 여기 한 곳에서만.
+     · 아이콘 = lucide chevron-down, stroke-width 2.75(기본 2보다 한 단계 굵게) → 배경과 명확히 구분.
+     · 크기 20px · 우측 0.75rem(right-3) 위치 · padding-right 2.5rem(pr-10)로 선택 텍스트와 미겹침.
+     · 색상 theme-aware — 라이트=foreground 근사(#171717) / 다크=foreground 근사(#fafafa)로 대비 확보.
+     · disabled: 위 disabled baseline(opacity .6)로 함께 흐려지되 화살표 위치/크기는 유지(요구 7).
+     · [multiple](리스트박스)은 펼침 화살표 개념이 없어 제외.
+   background 은 longhand 로만 지정 → disabled baseline 의 background-color(muted)·요소별 bg-*
+   유틸(배경색)과 공존한다(배경 이미지만 얹음). Unlayered — appearance/padding 유틸보다 우선.
+   ─────────────────────────────────────────────────────────────────────────── */
+select:not([multiple]) {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23171717' stroke-width='2.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1.25rem 1.25rem;
+  padding-right: 2.5rem;
+}
+.dark select:not([multiple]) {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23fafafa' stroke-width='2.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
    Checkbox — 어드민 전역 단일 SoT (components/ui/checkbox.tsx 의 `.admin-checkbox`).
    네이티브 <input type="checkbox"> 를 appearance:none 으로 커스텀 렌더해 체크/미체크가
    즉시 구분되도록 한다. 강조색 = --checkbox-accent(파랑 계열, theme-aware).
