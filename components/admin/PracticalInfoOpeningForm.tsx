@@ -93,6 +93,39 @@ function weekRange(w: OpeningFormWeek): string {
   return `${formatClubDate(w.startDate)} ~ ${formatClubDate(w.endDate)}`;
 }
 
+// 필수 입력 오류 강조 대상 필드 키(폼 위→아래 순서). [개설] 클릭 시 첫 누락 항목으로 이동/강조한다.
+type OpeningFieldKey =
+  | "week"
+  | "lineName"
+  | "mainTitle"
+  | "linkUrl"
+  | "linkDesc"
+  | "image"
+  | "imageDesc";
+
+// 누락 필드 wrapper 임시 강조 — ring(레이아웃 시프트 없는 빨간 테두리)+연한 배경. 약 1.6s 후 해제.
+//   prefers-reduced-motion 이면 motion-reduce:animate-none 으로 깜빡임 없이 테두리 강조만 남긴다.
+const OPENING_INVALID_HIGHLIGHT =
+  "rounded-md bg-red-50 ring-2 ring-red-400 animate-pulse motion-reduce:animate-none dark:bg-red-950/30";
+
+// 강조된 필드 바로 아래 오류 설명(aria-describedby 로 연결). 강조 중이 아닐 땐 렌더하지 않는다.
+function OpeningFieldError({
+  show,
+  id,
+  message,
+}: {
+  show: boolean;
+  id: string;
+  message: string;
+}) {
+  if (!show) return null;
+  return (
+    <p id={id} role="alert" className="text-xs font-medium text-red-600">
+      {message}
+    </p>
+  );
+}
+
 // ── 이미지 업로드 슬롯 (사각형 미리보기 + 클릭 확대 모달) ──
 function OpeningImageSlot({
   image,
@@ -462,46 +495,131 @@ export default function PracticalInfoOpeningForm({
     return () => clearTimeout(timer);
   }, [openedLine, resetForm]);
 
-  // [개설] 활성 판정 — 필수값 누락 사유 목록(복수). 비어 있으면 개설 가능.
-  //   ⚠ 개설 크루는 0명도 유효 → 사유에 포함하지 않는다. (candidates 는 항상 배열 — null/undefined/로딩실패 아님)
-  const missingReasons = useMemo<string[]>(() => {
-    const r: string[] = [];
-    if (!effectiveWeek) {
-      r.push("개설 주차 정보가 필요합니다.");
-      return r;
-    }
-    if (!effectiveWeek.canOpen)
-      r.push("선택한 주차는 공식 휴식 주차로 개설할 수 없습니다.");
-    else if (!effectiveWeek.submissionOpensAt || !effectiveWeek.submissionClosesAt)
-      r.push("선택한 주차의 기입 기간을 확인할 수 없습니다.");
-    if (!lineId) r.push("라인명을 선택해주세요.");
-    // 미오픈 라인(오픈 설정 미포함) — 개설 차단(서버 강제와 동일 사유). null(미상)은 서버가 최종 판정.
-    if (openThisWeek === false)
-      r.push("이번 주에 오픈되지 않은 라인입니다.");
-    if (lineNotAllowedForException)
-      r.push("이 예외 허용 주차는 선택한 라인의 개설을 허용하지 않습니다.");
-    if (!mainTitle.trim()) r.push("메인 타이틀이 필요합니다.");
-    if (!linkUrl.trim()) r.push("아웃풋 링크 주소가 필요합니다.");
-    if (!linkDesc.trim()) r.push("아웃풋 링크 설명이 필요합니다.");
-    if (!image) r.push("아웃풋 이미지가 필요합니다.");
-    if (!imageDesc.trim()) r.push("아웃풋 이미지 설명이 필요합니다.");
-    // 이미 개설된 라인이 있으면 재개설 불가(409 방지) — 개설 취소 후 가능.
-    if (openedLine) r.push("이미 개설된 라인이 있습니다. (개설 취소 후 재개설)");
-    return r;
-  }, [
-    effectiveWeek,
-    lineId,
-    lineNotAllowedForException,
-    mainTitle,
-    linkUrl,
-    linkDesc,
-    image,
-    imageDesc,
-    openedLine,
-    openThisWeek,
-  ]);
+  // ── 필수 입력 오류 UX — [개설] 클릭 시 팝업 + 첫 누락 항목으로 스크롤/강조/포커스 ──
+  //   상시 누락 목록 대신, 클릭 시 첫 번째 누락 필드로 이동해 짧게 강조한다.
+  const weekSectionRef = useRef<HTMLDivElement>(null);
+  const weekSelectRef = useRef<HTMLSelectElement>(null);
+  const lineSectionRef = useRef<HTMLDivElement>(null);
+  const lineSelectRef = useRef<HTMLSelectElement>(null);
+  const mainTitleSectionRef = useRef<HTMLDivElement>(null);
+  const mainTitleRef = useRef<HTMLTextAreaElement>(null);
+  const linkBoxRef = useRef<HTMLDivElement>(null);
+  const imageBoxRef = useRef<HTMLDivElement>(null);
+  // 현재 강조 중인 필드(짧은 빨간 강조). null = 강조 없음.
+  const [invalidKey, setInvalidKey] = useState<OpeningFieldKey | null>(null);
+  const [invalidMsg, setInvalidMsg] = useState("");
+  const invalidTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const canOpen = missingReasons.length === 0;
+  // 강조/포커스 대상 필드의 wrapper(스크롤용)와 focus 대상 element 를 key 로 해석.
+  const resolveInvalidTargets = useCallback(
+    (key: OpeningFieldKey): { wrap: HTMLElement | null; target: HTMLElement | null } => {
+      switch (key) {
+        case "week":
+          return { wrap: weekSectionRef.current, target: weekSelectRef.current };
+        case "lineName":
+          return { wrap: lineSectionRef.current, target: lineSelectRef.current };
+        case "mainTitle":
+          return { wrap: mainTitleSectionRef.current, target: mainTitleRef.current };
+        case "linkUrl":
+          return {
+            wrap: linkBoxRef.current,
+            target: linkBoxRef.current?.querySelector<HTMLElement>('input[aria-label="아웃풋 링크 주소"]') ?? null,
+          };
+        case "linkDesc":
+          return {
+            wrap: linkBoxRef.current,
+            target: linkBoxRef.current?.querySelector<HTMLElement>('input[aria-label="아웃풋 링크 설명"]') ?? null,
+          };
+        case "image":
+          return {
+            wrap: imageBoxRef.current,
+            target: imageBoxRef.current?.querySelector<HTMLElement>('button[aria-label="이미지 업로드"]') ?? null,
+          };
+        case "imageDesc":
+          return {
+            wrap: imageBoxRef.current,
+            target: imageBoxRef.current?.querySelector<HTMLElement>('input[aria-label="아웃풋 이미지 설명"]') ?? null,
+          };
+      }
+    },
+    [],
+  );
+
+  // 대상 필드로 스크롤 + 포커스(preventScroll). main 이 유일 스크롤 컨테이너라 scrollIntoView 가 그걸 스크롤한다.
+  const scrollFocusInvalid = useCallback(
+    (key: OpeningFieldKey) => {
+      const reduce =
+        typeof window !== "undefined" &&
+        window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
+      const { wrap, target } = resolveInvalidTargets(key);
+      target?.focus({ preventScroll: true });
+      (wrap ?? target)?.scrollIntoView({
+        behavior: reduce ? "auto" : "smooth",
+        block: "center",
+      });
+    },
+    [resolveInvalidTargets],
+  );
+
+  // 입력을 시작하면 즉시 강조 해제.
+  const clearInvalidHighlight = useCallback(() => {
+    if (invalidTimerRef.current) {
+      clearTimeout(invalidTimerRef.current);
+      invalidTimerRef.current = null;
+    }
+    setInvalidKey((k) => (k === null ? k : null));
+  }, []);
+
+  // 언마운트 시 타이머 정리.
+  useEffect(
+    () => () => {
+      if (invalidTimerRef.current) clearTimeout(invalidTimerRef.current);
+    },
+    [],
+  );
+
+  // [개설] 필수값 검증 — 폼 위→아래 순서(주차 → 라인명 → 메인 타이틀 → 링크 → 설명 → 이미지 → 이미지 설명).
+  //   ⚠ 개설 크루는 0명도 유효 → 검증에 포함하지 않는다(0명 개설 허용 정책).
+  const requiredChecks = useMemo<
+    { key: OpeningFieldKey; missing: boolean; message: string }[]
+  >(
+    () => [
+      { key: "week", missing: !effectiveWeek, message: "개설 대상 주차 정보를 확인할 수 없습니다." },
+      {
+        key: "week",
+        missing: !!effectiveWeek && !effectiveWeek.canOpen,
+        message: "선택한 주차는 공식 휴식 주차라 개설할 수 없습니다.",
+      },
+      {
+        key: "week",
+        missing:
+          !!effectiveWeek &&
+          effectiveWeek.canOpen &&
+          (!effectiveWeek.submissionOpensAt || !effectiveWeek.submissionClosesAt),
+        message: "선택한 주차의 기입 기간을 확인할 수 없습니다.",
+      },
+      { key: "lineName", missing: !lineId, message: "라인명을 선택해야 개설할 수 있습니다." },
+      {
+        key: "lineName",
+        missing: lineNotAllowedForException,
+        message: "이 예외 허용 주차는 선택한 라인의 개설을 허용하지 않습니다.",
+      },
+      { key: "mainTitle", missing: !mainTitle.trim(), message: "메인 타이틀을 입력해야 개설할 수 있습니다." },
+      { key: "linkUrl", missing: !linkUrl.trim(), message: "아웃풋 링크 주소를 입력해야 개설할 수 있습니다." },
+      { key: "linkDesc", missing: !linkDesc.trim(), message: "아웃풋 링크 설명을 입력해야 개설할 수 있습니다." },
+      { key: "image", missing: !image, message: "아웃풋 이미지를 업로드해야 개설할 수 있습니다." },
+      { key: "imageDesc", missing: !imageDesc.trim(), message: "아웃풋 이미지 설명을 입력해야 개설할 수 있습니다." },
+    ],
+    [effectiveWeek, lineId, lineNotAllowedForException, mainTitle, linkUrl, linkDesc, image, imageDesc],
+  );
+
+  const firstMissing = useMemo(
+    () => requiredChecks.find((c) => c.missing) ?? null,
+    [requiredChecks],
+  );
+
+  // 개설 가능 = 모든 필수 충족 + 미오픈 아님 + 이미 개설 아님(재개설 방지, executeOpen 가드에서도 사용).
+  const canOpen = !firstMissing && openThisWeek !== false && !openedLine;
 
   // 개설 확인 모달용 요약값.
   const lineName = useMemo(
@@ -509,11 +627,43 @@ export default function PracticalInfoOpeningForm({
     [activityTypes, lineId],
   );
 
-  // [개설] 클릭 → 즉시 저장하지 않고 확인 모달을 띄운다. (버튼이 disabled 라 사실상 canOpen 일 때만)
-  const handleOpenClick = useCallback(() => {
-    if (!canOpen) return;
+  // [개설] 클릭 → 필수 누락이 있으면 팝업 + 첫 누락 항목으로 이동/강조(개설 중단). 모두 충족 시 확인 모달.
+  //   버튼은 (saving·locked 외에는) 항상 클릭 가능 — 눌러야 검증이 돌고 왜 안 되는지 안내된다.
+  const handleOpenClick = useCallback(async () => {
+    if (saving || locked) return;
+    if (firstMissing) {
+      const { key, message } = firstMissing;
+      // ⚠ 다이얼로그를 열기 전에 먼저 강조 + 대상 필드로 포커스/스크롤한다. 이렇게 하면 다이얼로그가 닫힐 때
+      //    포커스 복원 대상이 [개설] 버튼(폼 하단)이 아니라 이 필드가 되어, 스크롤이 버튼 쪽으로 되돌려지지 않는다.
+      if (invalidTimerRef.current) {
+        clearTimeout(invalidTimerRef.current);
+        invalidTimerRef.current = null;
+      }
+      setInvalidKey(key);
+      setInvalidMsg(message);
+      scrollFocusInvalid(key);
+      await adminDialog.alert({
+        variant: "warning",
+        title: "필수 입력 항목",
+        description: `${message}\n첫 번째 누락 항목으로 이동합니다.`,
+      });
+      // 닫힌 뒤 한 번 더 확정(혹시 모를 복원 대비) + 1.6s 후 강조 해제(무한 깜빡임 금지).
+      requestAnimationFrame(() => scrollFocusInvalid(key));
+      invalidTimerRef.current = setTimeout(() => setInvalidKey(null), 1600);
+      return;
+    }
+    // 필드 아닌 하드 게이트(미오픈) — 스크롤 대상 없음. 안내만.
+    if (openThisWeek === false) {
+      await adminDialog.alert({
+        variant: "warning",
+        title: "개설 불가",
+        description: "이번 주에 오픈되지 않은 라인입니다. 활동 관리에서 오픈 설정된 라인만 개설할 수 있습니다.",
+      });
+      return;
+    }
+    if (openedLine) return;
     setConfirmOpen(true);
-  }, [canOpen]);
+  }, [saving, locked, firstMissing, openThisWeek, openedLine, scrollFocusInvalid]);
 
   // [개설 취소] 클릭 → 취소 확인 모달. (openedLine 있을 때만 활성)
   const handleCancelClick = useCallback(() => {
@@ -646,7 +796,10 @@ export default function PracticalInfoOpeningForm({
       <CardContent className="space-y-6">
         {/* 대상 주차 — 항상 최상단·게이트 바깥에 둔다. 선택 주차가 미오픈이어도 여기서 다른(오픈된) 주차로
             이동할 수 있어야 하므로 아래 openThisWeek 차단 패널 바깥에 배치한다. 단일 SoT=selectedWeekId(상위 소유). */}
-        <section className="space-y-2">
+        <section
+          ref={weekSectionRef}
+          className={cn("space-y-2", invalidKey === "week" && OPENING_INVALID_HIGHLIGHT)}
+        >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1">
               <Label className="text-sm font-semibold">
@@ -680,11 +833,17 @@ export default function PracticalInfoOpeningForm({
               주차를 바꾸면 상위 selectedWeekId 가 갱신되어 상태창/개설 판정/POST week_id/재조회가 함께 이동한다.
               드롭다운 자체는 목록이 없을 때만 비활성 — 개설 가능 여부(휴식/미오픈/중복 등)는 아래 [개설] 버튼에만 적용. */}
           <select
+            ref={weekSelectRef}
             aria-label="대상 주차"
+            aria-invalid={invalidKey === "week"}
+            aria-describedby={invalidKey === "week" ? "opening-err-week" : undefined}
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:bg-muted/50"
             disabled={weekChoices.length === 0}
             value={effectiveWeek?.id ?? ""}
-            onChange={(e) => onSelectWeek(e.target.value)}
+            onChange={(e) => {
+              clearInvalidHighlight();
+              onSelectWeek(e.target.value);
+            }}
           >
             {weekChoices.length === 0 && (
               <option value="">개설 대상 주차를 계산할 수 없습니다</option>
@@ -698,6 +857,11 @@ export default function PracticalInfoOpeningForm({
               </option>
             ))}
           </select>
+          <OpeningFieldError
+            show={invalidKey === "week"}
+            id="opening-err-week"
+            message={invalidMsg}
+          />
 
           {effectiveWeek ? (
             <div
@@ -762,7 +926,10 @@ export default function PracticalInfoOpeningForm({
             대상 주차는 게이트 바깥(최상단)에 남아 이 그리드에 포함하지 않는다. */}
         <div className="grid grid-cols-1 gap-x-6 gap-y-6 xl:grid-cols-2">
         {/* 2. 라인명 — 상단 활동유형 탭에서 선택된 유형의 라인만 후보로 노출(Manager 가 필터). */}
-        <section className="space-y-2">
+        <section
+          ref={lineSectionRef}
+          className={cn("space-y-2", invalidKey === "lineName" && OPENING_INVALID_HIGHLIGHT)}
+        >
           <div className="flex items-center gap-1">
             <Label className="text-sm font-semibold">
               라인명 <span className="text-red-500">*</span>
@@ -774,10 +941,16 @@ export default function PracticalInfoOpeningForm({
             />
           </div>
           <select
+            ref={lineSelectRef}
             aria-label="라인명"
+            aria-invalid={invalidKey === "lineName"}
+            aria-describedby={invalidKey === "lineName" ? "opening-err-lineName" : undefined}
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:bg-muted/50"
             value={lineId}
-            onChange={(e) => setLineId(e.target.value)}
+            onChange={(e) => {
+              clearInvalidHighlight();
+              setLineId(e.target.value);
+            }}
             disabled={saving || locked}
           >
             <option value="">라인을 선택해주세요</option>
@@ -787,10 +960,18 @@ export default function PracticalInfoOpeningForm({
               </option>
             ))}
           </select>
+          <OpeningFieldError
+            show={invalidKey === "lineName"}
+            id="opening-err-lineName"
+            message={invalidMsg}
+          />
         </section>
 
         {/* 3. 메인 타이틀 + "일반" */}
-        <section className="space-y-2">
+        <section
+          ref={mainTitleSectionRef}
+          className={cn("space-y-2", invalidKey === "mainTitle" && OPENING_INVALID_HIGHLIGHT)}
+        >
           <div className="flex items-center justify-between">
             <Label htmlFor="opening-main-title" className="inline-flex items-center gap-1 text-sm font-semibold">
               메인 타이틀 <span className="text-red-500">*</span><AdminHelpIconButton size="xs" helpKey="admin.lineOpening.field.mainTitle" title="메인 타이틀" />
@@ -800,7 +981,10 @@ export default function PracticalInfoOpeningForm({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setMainTitle(GENERAL_MAIN_TITLE)}
+                onClick={() => {
+                  clearInvalidHighlight();
+                  setMainTitle(GENERAL_MAIN_TITLE);
+                }}
                 title="고정 문구를 입력란에 불러옵니다"
                 disabled={saving || locked}
               >
@@ -811,12 +995,23 @@ export default function PracticalInfoOpeningForm({
           </div>
           <textarea
             id="opening-main-title"
+            ref={mainTitleRef}
+            aria-invalid={invalidKey === "mainTitle"}
+            aria-describedby={invalidKey === "mainTitle" ? "opening-err-mainTitle" : undefined}
             value={mainTitle}
-            onChange={(e) => setMainTitle(e.target.value)}
+            onChange={(e) => {
+              clearInvalidHighlight();
+              setMainTitle(e.target.value);
+            }}
             rows={3}
             placeholder="메인 타이틀을 입력하거나 우측 상단 '일반' 버튼으로 고정 문구를 불러오세요"
             disabled={saving || locked}
             className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:bg-muted/50"
+          />
+          <OpeningFieldError
+            show={invalidKey === "mainTitle"}
+            id="opening-err-mainTitle"
+            message={invalidMsg}
           />
         </section>
         </div>
@@ -828,7 +1023,14 @@ export default function PracticalInfoOpeningForm({
           </Label>
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             {/* 아웃풋 링크 — "링크 1" / "설명 1" 각각 한 줄 */}
-            <div className="space-y-2 rounded-md border p-3">
+            <div
+              ref={linkBoxRef}
+              className={cn(
+                "space-y-2 rounded-md border p-3",
+                (invalidKey === "linkUrl" || invalidKey === "linkDesc") &&
+                  OPENING_INVALID_HIGHLIGHT,
+              )}
+            >
               <p className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">아웃풋 링크<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.info.field.outputLink" title="아웃풋 링크" /></p>
               <div className="flex items-center gap-2">
                 <Label className="inline-flex w-20 shrink-0 items-center gap-1 whitespace-nowrap text-xs text-muted-foreground">
@@ -836,9 +1038,14 @@ export default function PracticalInfoOpeningForm({
                 </Label>
                 <Input
                   value={linkUrl}
-                  onChange={(e) => setLinkUrl(e.target.value)}
+                  onChange={(e) => {
+                    clearInvalidHighlight();
+                    setLinkUrl(e.target.value);
+                  }}
                   placeholder="아웃풋 링크 주소 (https://...)"
                   aria-label="아웃풋 링크 주소"
+                  aria-invalid={invalidKey === "linkUrl"}
+                  aria-describedby={invalidKey === "linkUrl" ? "opening-err-linkUrl" : undefined}
                   disabled={saving || locked}
                 />
               </div>
@@ -848,27 +1055,65 @@ export default function PracticalInfoOpeningForm({
                 </Label>
                 <Input
                   value={linkDesc}
-                  onChange={(e) => setLinkDesc(e.target.value)}
+                  onChange={(e) => {
+                    clearInvalidHighlight();
+                    setLinkDesc(e.target.value);
+                  }}
                   placeholder="아웃풋 링크 설명"
                   aria-label="아웃풋 링크 설명"
+                  aria-invalid={invalidKey === "linkDesc"}
+                  aria-describedby={invalidKey === "linkDesc" ? "opening-err-linkDesc" : undefined}
                   disabled={saving || locked}
                 />
               </div>
+              <OpeningFieldError
+                show={invalidKey === "linkUrl"}
+                id="opening-err-linkUrl"
+                message={invalidMsg}
+              />
+              <OpeningFieldError
+                show={invalidKey === "linkDesc"}
+                id="opening-err-linkDesc"
+                message={invalidMsg}
+              />
             </div>
             {/* 아웃풋 이미지 — "이미지 1"(미리보기+업로드/삭제) / "설명 1" 각각 한 줄 */}
-            <div className="space-y-2 rounded-md border p-3">
+            <div
+              ref={imageBoxRef}
+              className={cn(
+                "space-y-2 rounded-md border p-3",
+                (invalidKey === "image" || invalidKey === "imageDesc") &&
+                  OPENING_INVALID_HIGHLIGHT,
+              )}
+            >
               <p className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">아웃풋 이미지<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.info.field.outputImage" title="아웃풋 이미지" /></p>
               <OpeningImageSlot
                 image={image}
                 caption={imageDesc}
-                onUpload={setImage}
+                onUpload={(img) => {
+                  clearInvalidHighlight();
+                  setImage(img);
+                }}
                 onRemove={() => {
                   setImage(null);
                   setImageDesc("");
                 }}
-                onCaptionChange={setImageDesc}
+                onCaptionChange={(v) => {
+                  clearInvalidHighlight();
+                  setImageDesc(v);
+                }}
                 onExpand={() => setImageModalOpen(true)}
                 disabled={saving || locked}
+              />
+              <OpeningFieldError
+                show={invalidKey === "image"}
+                id="opening-err-image"
+                message={invalidMsg}
+              />
+              <OpeningFieldError
+                show={invalidKey === "imageDesc"}
+                id="opening-err-imageDesc"
+                message={invalidMsg}
               />
             </div>
           </div>
@@ -893,7 +1138,7 @@ export default function PracticalInfoOpeningForm({
               <Button
                 type="button"
                 onClick={handleOpenClick}
-                disabled={saving || locked || !canOpen}
+                disabled={saving || locked}
                 loading={saving}
                 className="h-11 px-6 text-base"
               >
@@ -944,14 +1189,7 @@ export default function PracticalInfoOpeningForm({
               />
             </div>
           </div>
-          {/* 개설 비활성 사유(복수) — 미개설 상태에서만. 개설 완료(locked)면 사유 대신 위 배지로 표시. */}
-          {!locked && !canOpen && (
-            <ul className="space-y-0.5 text-xs text-amber-700">
-              {missingReasons.map((r) => (
-                <li key={r}>· {r}</li>
-              ))}
-            </ul>
-          )}
+          {/* 상시 누락 목록은 제거 — 누락 안내는 [개설] 클릭 시 팝업 + 첫 누락 항목 스크롤/강조로 통일. */}
         </div>
         </>
         )}

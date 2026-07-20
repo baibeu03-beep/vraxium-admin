@@ -324,64 +324,8 @@ export default function CompetencyOpeningDashboard() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* 버튼 — 글자 길이에 맞춘 content width(좌우 padding만), 한 줄에 [개설] [초기화] [개설 취소]. */}
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              onClick={() => runAction("open")}
-              loading={acting}
-              // 개설은 그 주차 실무 역량이 "정상 진행" 으로 설정된 경우에만 가능(프로세스 체크와 동일 SoT).
-              //   미오픈이면 버튼 라벨 자체를 "미오픈" 으로 바꿔 왜 개설이 안 되는지 즉시 드러낸다.
-              disabled={acting || loadingStatus || !org || !canOpen}
-            >
-              {org && !loadingStatus && !canOpen ? "미오픈" : "개설"}
-            </Button>
-            <AdminHelpIconButton
-              helpKey="admin.lineOpening.competency.action.open"
-              title="개설"
-              size="sm"
-            />
-            <Button variant="outline" onClick={handleReset} disabled={acting}>
-              초기화
-            </Button>
-            <AdminHelpIconButton
-              helpKey="admin.lineOpening.competency.action.reset"
-              title="초기화"
-              size="sm"
-            />
-            <Button
-              variant="outline"
-              className="border-red-300 text-red-700 hover:bg-red-50"
-              onClick={() => runAction("cancel")}
-              loading={acting}
-              // 기본적으로 개설 완료(opened) 상태일 때만 enabled.
-              disabled={acting || loadingStatus || !org || opened !== true}
-            >
-              개설 취소
-            </Button>
-            <AdminHelpIconButton
-              helpKey="admin.lineOpening.competency.action.cancel"
-              title="개설 취소"
-              size="sm"
-            />
-          </div>
-          {!org && (
-            <p className="text-sm text-muted-foreground">
-              클럽(?org)이 지정되어야 개설/취소할 수 있습니다.
-            </p>
-          )}
-          {/* 개설 차단 표시 — "미오픈" 한 단어로 이유를 즉시 드러낸다(내부 개념 노출 없음).
-              드롭다운으로 다른(정상 진행) 주차를 선택하면 canOpen 재계산되어 개설 가능해진다. */}
-          {org && !loadingStatus && !canOpen && (
-            <div className="space-y-0.5">
-              <p className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-                <span aria-hidden>⚪</span> 미오픈
-              </p>
-              <p className="text-xs text-muted-foreground">
-                활동 관리에서 해당 라인을 ‘정상 진행’으로 설정하면 개설할 수 있습니다.
-              </p>
-            </div>
-          )}
-
+          {/* 액션 버튼([개설]/[초기화]/[개설 취소])은 '해당 크루' 아래 최종 액션 영역으로 이동.
+              이 카드에는 기본 정보(개설 주차·아웃풋 링크/설명) 입력만 남긴다. */}
           {/* [개설 주차] | [아웃풋 링크 1] | [설명 1] — 한 행 */}
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-1">
@@ -494,6 +438,73 @@ export default function CompetencyOpeningDashboard() {
         refreshKey={refreshKey}
         selectedWeekId={openTargetWeek?.id ?? null}
       />
+
+      {/* 최종 액션 (기본 정보·해당 크루 다음 최하단) — [개설] [초기화] [개설 취소].
+          모든 정보를 확인한 뒤 마지막에 실행하는 최종 액션 영역. 기능/조건/API 는 기존과 동일. */}
+      <div className="space-y-2 border-t pt-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            onClick={() => runAction("open")}
+            loading={acting}
+            // 개설은 그 주차 실무 역량이 "정상 진행" 으로 설정된 경우에만 가능(프로세스 체크와 동일 SoT).
+            //   미오픈이면 버튼 라벨 자체를 "미오픈" 으로 바꿔 왜 개설이 안 되는지 즉시 드러낸다.
+            disabled={acting || loadingStatus || !org || !canOpen}
+            className="h-11 px-6 text-base"
+          >
+            {org && !loadingStatus && !canOpen ? "미오픈" : "개설"}
+          </Button>
+          <AdminHelpIconButton
+            helpKey="admin.lineOpening.competency.action.open"
+            title="개설"
+            size="sm"
+          />
+          <Button
+            variant="outline"
+            onClick={handleReset}
+            disabled={acting}
+            className="h-11 px-6 text-base"
+          >
+            초기화
+          </Button>
+          <AdminHelpIconButton
+            helpKey="admin.lineOpening.competency.action.reset"
+            title="초기화"
+            size="sm"
+          />
+          <Button
+            variant="outline"
+            className="h-11 border-red-300 px-6 text-base text-red-700 hover:bg-red-50"
+            onClick={() => runAction("cancel")}
+            loading={acting}
+            // 기본적으로 개설 완료(opened) 상태일 때만 enabled.
+            disabled={acting || loadingStatus || !org || opened !== true}
+          >
+            개설 취소
+          </Button>
+          <AdminHelpIconButton
+            helpKey="admin.lineOpening.competency.action.cancel"
+            title="개설 취소"
+            size="sm"
+          />
+        </div>
+        {!org && (
+          <p className="text-sm text-muted-foreground">
+            클럽(?org)이 지정되어야 개설/취소할 수 있습니다.
+          </p>
+        )}
+        {/* 개설 차단 표시 — "미오픈" 한 단어로 이유를 즉시 드러낸다(내부 개념 노출 없음).
+            드롭다운으로 다른(정상 진행) 주차를 선택하면 canOpen 재계산되어 개설 가능해진다. */}
+        {org && !loadingStatus && !canOpen && (
+          <div className="space-y-0.5">
+            <p className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+              <span aria-hidden>⚪</span> 미오픈
+            </p>
+            <p className="text-xs text-muted-foreground">
+              활동 관리에서 해당 라인을 ‘정상 진행’으로 설정하면 개설할 수 있습니다.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
