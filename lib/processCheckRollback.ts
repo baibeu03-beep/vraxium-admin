@@ -20,7 +20,11 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { revokeForAct } from "@/lib/processPointAccrual";
 import { recomputeWeeklyCardsSnapshotsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
-import { logProcessCheckRolledBackForRegular } from "@/lib/adminProcessCheckData";
+import {
+  commentCollectionColumnsAvailable,
+  logProcessCheckRolledBackForRegular,
+} from "@/lib/adminProcessCheckData";
+import { uncompleteResetStamp } from "@/lib/processCheckCollectionReset";
 
 export type ProcessCheckRollbackResult = {
   ok: boolean;
@@ -69,6 +73,9 @@ export async function rollbackProcessCheckCompletion(opts: {
   // 3) status completed → needed('실행 전' 완전 복원). 검수링크·검수시점 등 pending 정의값을
   //   모두 비워 '체크 필요' 로 내린다(= 체크 신청 취소와 동일 stamp) → 관리자가 재입력 가능.
   //   멱등 가드(.eq status completed).
+  //   ⚠ 이전 검수 시도의 수집 진단값(last_error·수집 상태·원본 댓글 수·오류 코드)도 함께 초기화한다 —
+  //     recipients·checked_crew_count 를 이미 지우므로, 남은 수집값이 재검수 최신 결과처럼 노출되면 안 된다.
+  const collectionAvail = await commentCollectionColumnsAvailable();
   await supabaseAdmin
     .from("process_check_statuses")
     .update({
@@ -79,6 +86,7 @@ export async function rollbackProcessCheckCompletion(opts: {
       requested_by: null,
       completed_at: null,
       checked_crew_count: null,
+      ...uncompleteResetStamp(collectionAvail),
     })
     .eq("id", statusId)
     .eq("status", "completed");

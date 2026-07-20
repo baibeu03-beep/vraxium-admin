@@ -41,6 +41,7 @@ import { loadWeekOpeningConfig } from "@/lib/adminTeamPartsInfoWeekDetailData";
 import { isActOpenForWeek } from "@/lib/weekOpenGate";
 import { filterTeamsByScope, isTestTeam } from "@/lib/cluster4ExperienceTestScope";
 import { listTeamParts, listPartCrews, listTeamCrews } from "@/lib/adminExperiencePartInput";
+import { uncompleteResetStamp } from "@/lib/processCheckCollectionReset";
 import type { ScopeMode } from "@/lib/userScopeShared";
 import {
   processCheckLogPeriodLabel,
@@ -159,7 +160,7 @@ const MANUAL_GRANT_MIGRATION_HINT =
 // 댓글 수집 상태 컬럼(raw_comment_count/comment_collection_status/…) 적용 여부 — true 만 캐시(적용 후 영구).
 //   미적용이면 SELECT 에서 제외(조회는 collectionStatus=null → collectionKind=unknown/not_collected 로 안전 처리).
 let _collectionColAvailable = false;
-async function commentCollectionColumnsAvailable(): Promise<boolean> {
+export async function commentCollectionColumnsAvailable(): Promise<boolean> {
   if (_collectionColAvailable) return true;
   const { error } = await supabaseAdmin
     .from("process_check_statuses")
@@ -1370,6 +1371,8 @@ export async function applyProcessCheckAction(input: {
 
   const nowMs = Date.now();
   const nowIso = new Date(nowMs).toISOString();
+  // 수집 진단 컬럼 적용 여부(un-complete 초기화 가드) — 미적용이면 last_error 만 초기화(degrade).
+  const collectionAvail = await commentCollectionColumnsAvailable();
   let logAction: ProcessCheckLogAction;
   let stamp: Record<string, unknown>;
 
@@ -1401,6 +1404,9 @@ export async function applyProcessCheckAction(input: {
       requested_by: adminId,
       completed_at: null,
       checked_crew_count: null,
+      // 재신청 = 새 검수 주기 시작 → 이전 시도의 수집 진단값(수집 상태·원본 댓글 수·오류)을 초기화한다.
+      //   (이전 완료→되돌림 후 재신청 경로에서 stale 이 남아 "상태 확인 불가"로 보이는 것을 막는다.)
+      ...uncompleteResetStamp(collectionAvail),
     };
   } else {
     // cancel
@@ -1423,6 +1429,8 @@ export async function applyProcessCheckAction(input: {
       requested_by: null,
       completed_at: null,
       checked_crew_count: null,
+      // 신청 취소 = 검수 주기 폐기 → 이전 시도의 수집 진단값을 초기화(취소된 결과가 노출되지 않게).
+      ...uncompleteResetStamp(collectionAvail),
     };
   }
 

@@ -64,6 +64,8 @@
     "verify:crossscope-single-ledger": "tsx --env-file=.env.local scripts/verify-crossscope-single-ledger-e2e.ts",
     "verify:comment-collection-unit": "tsx scripts/verify-comment-collection-status-unit.ts",
     "verify:comment-collection-sweep": "tsx --env-file=.env.local scripts/verify-comment-collection-sweep.ts",
+    "verify:uncomplete-reset-unit": "tsx scripts/verify-uncomplete-collection-reset-unit.ts",
+    "verify:uncomplete-reset": "tsx --env-file=.env.local scripts/verify-uncomplete-collection-reset.ts",
     "verify:cafe-crawl-outcome-unit": "tsx scripts/verify-cafe-crawl-outcome-unit.ts",
     "verify:cafe-crawl-fixtures": "tsx scripts/verify-cafe-crawl-fixtures.ts",
     "diag:cafe-dom": "tsx scripts/diag-cafe-dom.ts"

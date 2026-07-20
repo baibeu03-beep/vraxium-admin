@@ -18,6 +18,7 @@ import {
   deriveCommentCollectionStatus,
   isCommentCollectionStoredStatus,
 } from "@/lib/adminProcessCheckTypes";
+import { uncompleteResetStamp } from "@/lib/processCheckCollectionReset";
 import {
   getActiveProcessCheckExceptionWeekIds,
   hasActiveProcessCheckException,
@@ -976,9 +977,17 @@ export async function rollbackIrregularAct(
     status = "deleted";
   } else {
     // 링크 신청 → 체크 대기 복원. scheduled_check_at 을 비워 재검수(즉시 검수) 가능 상태로.
+    //   ⚠ 정규 rollback 과 동일 정책 — 이전 검수 시도의 수집 진단값(last_error·수집 상태·원본 댓글 수·오류)도
+    //     초기화한다(recipients 는 위에서 이미 삭제). 취소된 결과가 재검수 최신 결과처럼 노출되지 않게.
+    const collectionAvail = await collectionColumnsAvailable();
     const { error } = await supabaseAdmin
       .from("process_irregular_acts")
-      .update({ status: "pending", completed_at: null, scheduled_check_at: null })
+      .update({
+        status: "pending",
+        completed_at: null,
+        scheduled_check_at: null,
+        ...uncompleteResetStamp(collectionAvail),
+      })
       .eq("id", id);
     if (error) throw migrationHint(error) ?? new ProcessMasterError(500, error.message);
     status = "pending";
