@@ -84,6 +84,11 @@ export type LineManageWeek = {
 };
 
 export type ExperienceLineManageSummary = {
+  currentSituation: {
+    serverToday: string;
+    openingRequiredWeek: LineManageWeek | null;
+    openingFulfilmentWeek: LineManageWeek | null;
+  };
   // 개설 대상 주차(금요일 경계 = openable). 상태창/팀 총괄과 동일 SoT.
   targetWeek: LineManageWeek | null;
   extensionActive: boolean;

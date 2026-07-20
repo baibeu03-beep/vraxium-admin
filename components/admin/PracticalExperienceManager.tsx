@@ -1378,33 +1378,6 @@ export default function PracticalExperienceManager() {
         }
       />
 
-      {/* ⑫ 상단 탭 설명 — 두 탭(라인 관리/라인 개설)의 차이를 즉시 이해할 수 있도록 안내.
-          현재 탭을 강조하되 두 설명을 함께 노출한다. 조직 분기 모드(?org)에서 탭이 있을 때만. */}
-      {orgScoped && (
-        <div className="grid gap-2 sm:grid-cols-2">
-          <div
-            className={cn(
-              "rounded-md border px-3 py-2 text-xs",
-              mainTab === "manage"
-                ? "border-primary/40 bg-primary/5 text-foreground"
-                : "border-border bg-muted/30 text-muted-foreground",
-            )}
-          >
-            <span className="font-semibold">라인 관리</span> · 각 라인의 주차별 개설 상황을 관리(조회)할 수 있습니다.
-          </div>
-          <div
-            className={cn(
-              "rounded-md border px-3 py-2 text-xs",
-              mainTab === "open"
-                ? "border-primary/40 bg-primary/5 text-foreground"
-                : "border-border bg-muted/30 text-muted-foreground",
-            )}
-          >
-            <span className="font-semibold">라인 개설</span> · 특정 라인을 개설할 수 있는 기능입니다.
-          </div>
-        </div>
-      )}
-
       {/* 헤더 2탭(라인 관리/라인 개설)은 상단 Header title 영역으로 이동 — 본문에는 두지 않는다.
           [라인 관리] = 기존 실무 경험 워크플로우 화면(아래 내부 탭 4종) 그대로. */}
       {mainTab === "manage" && (

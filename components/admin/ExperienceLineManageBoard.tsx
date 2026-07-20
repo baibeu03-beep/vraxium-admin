@@ -15,6 +15,11 @@ import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { readScopeMode } from "@/lib/userScopeShared";
 import { formatBannerPeriod, formatSeasonWeekLabel } from "@/lib/practicalInfoSection0Format";
+import { formatClubDate, formatClubDateRange } from "@/lib/clubDate";
+import LineOpeningCurrentSituationCard, {
+  CurrentSituationWeekValue,
+  type CurrentSituationItem,
+} from "@/components/admin/LineOpeningCurrentSituationCard";
 import { useLineManageWeekOptions } from "@/lib/lineManageWeekOptions";
 import {
   formatTeamLeader,
@@ -22,6 +27,73 @@ import {
   type LineManageCategoryStat,
   type LineManageTeam,
 } from "@/lib/experienceLineManageTypes";
+
+function weekPeriod(week: ExperienceLineManageSummary["targetWeek"]) {
+  if (!week) return "-";
+  return (
+    <CurrentSituationWeekValue
+      label={formatBannerPeriod(week)}
+      range={formatClubDateRange(week.startDate, week.endDate, {
+          separator: " ~ ",
+      })}
+    />
+  );
+}
+
+function CurrentSituationCard({ data }: { data: ExperienceLineManageSummary }) {
+  const items: CurrentSituationItem[] = [
+    {
+      label: "오늘 날짜",
+      helpKey: "admin.lineOpening.currentSituation.info.today",
+      value: formatClubDate(data.currentSituation.serverToday),
+    },
+    {
+      label: "개설 필요 기간",
+      helpKey: "admin.lineOpening.currentSituation.info.needPeriod",
+      value: weekPeriod(data.currentSituation.openingRequiredWeek),
+    },
+    {
+      label: "개설 이행 기간",
+      helpKey: "admin.lineOpening.currentSituation.info.fulfilPeriod",
+      value: weekPeriod(data.currentSituation.openingFulfilmentWeek),
+    },
+  ];
+
+  return <LineOpeningCurrentSituationCard items={items} />;
+}
+
+const TEAM_ACCENTS = [
+  {
+    border: "border-l-red-500 dark:border-l-red-400",
+    header: "bg-red-50/70 dark:bg-red-950/25",
+    dot: "bg-red-500 dark:bg-red-400",
+  },
+  {
+    border: "border-l-amber-500 dark:border-l-amber-400",
+    header: "bg-amber-50/70 dark:bg-amber-950/25",
+    dot: "bg-amber-500 dark:bg-amber-400",
+  },
+  {
+    border: "border-l-emerald-500 dark:border-l-emerald-400",
+    header: "bg-emerald-50/70 dark:bg-emerald-950/25",
+    dot: "bg-emerald-500 dark:bg-emerald-400",
+  },
+  {
+    border: "border-l-blue-500 dark:border-l-blue-400",
+    header: "bg-blue-50/70 dark:bg-blue-950/25",
+    dot: "bg-blue-500 dark:bg-blue-400",
+  },
+  {
+    border: "border-l-orange-500 dark:border-l-orange-400",
+    header: "bg-orange-50/70 dark:bg-orange-950/25",
+    dot: "bg-orange-500 dark:bg-orange-400",
+  },
+  {
+    border: "border-l-purple-500 dark:border-l-purple-400",
+    header: "bg-purple-50/70 dark:bg-purple-950/25",
+    dot: "bg-purple-500 dark:bg-purple-400",
+  },
+] as const;
 
 // 실무 경험 [라인 관리] 탭 — 카드형 팀 요약 보드(표시 전용).
 //   상단: 주차 드롭다운(weeks-options·practical-info 동일 SoT) + 팀 수/개설 완료/개설 필요 요약.
@@ -174,14 +246,25 @@ function HeadcountSummary({ team }: { team: LineManageTeam }) {
   );
 }
 
-function TeamCard({ team }: { team: LineManageTeam }) {
+function TeamCard({
+  team,
+  accentIndex,
+}: {
+  team: LineManageTeam;
+  accentIndex: number;
+}) {
+  const accent = TEAM_ACCENTS[accentIndex % TEAM_ACCENTS.length];
   return (
-    <Card>
-      <CardHeader className="pb-3">
+    <Card className={cn("overflow-hidden border-l-4", accent.border)}>
+      <CardHeader className={cn("pb-3", accent.header)}>
         {/* 첫 줄: 팀명 + 개설 상태 + 파트 칸(이어서). 공간 부족 시 파트 칸만 wrap. */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <div className="flex shrink-0 items-center gap-2">
             {/* ① 팀명 뒤 '팀' 접미 — 이 항목이 '팀'임을 즉시 인지(예: "비주얼랩(T) 팀"). */}
+            <span
+              className={cn("size-2.5 shrink-0 rounded-full", accent.dot)}
+              aria-hidden="true"
+            />
             <CardTitle className="text-base">{team.teamName} 팀</CardTitle>
             <TeamStatusBadge statusLabel={team.statusLabel} />
             <AdminHelpIconButton
@@ -253,16 +336,12 @@ export default function ExperienceLineManageBoard({
   const { options: weekOptions, defaultWeekId, ready: weeksReady } =
     useLineManageWeekOptions();
   const [selectedWeekId, setSelectedWeekId] = useState<string>("");
-
-  // 기본 선택 = openable(개설 대상) → 현재 → 최신(공용 hook 산출). 이미 선택된 값은 유지.
-  useEffect(() => {
-    if (defaultWeekId) setSelectedWeekId((prev) => prev || defaultWeekId);
-  }, [defaultWeekId]);
+  // 기본 선택은 별도 effect로 복사하지 않고 공용 hook 값을 직접 사용한다.
+  const effectiveWeekId = selectedWeekId || defaultWeekId || "";
 
   // 보드 조회 — org + (옵션 준비 완료) 일 때. 선택 주차가 있으면 week_id 로 해당 주차 집계.
   useEffect(() => {
     if (!org) {
-      setLoading(false);
       return;
     }
     if (!weeksReady) return;
@@ -275,7 +354,7 @@ export default function ExperienceLineManageBoard({
       }
       try {
         const qs = new URLSearchParams({ organization: org });
-        if (selectedWeekId) qs.set("week_id", selectedWeekId);
+        if (effectiveWeekId) qs.set("week_id", effectiveWeekId);
         if (mode === "test") qs.set("mode", "test");
         const res = await fetch(
           `/api/admin/cluster4/experience/line-manage?${qs.toString()}`,
@@ -293,7 +372,7 @@ export default function ExperienceLineManageBoard({
     return () => {
       cancelled = true;
     };
-  }, [org, mode, selectedWeekId, weeksReady, refreshKey]);
+  }, [org, mode, effectiveWeekId, weeksReady, refreshKey]);
 
   if (!org) {
     return (
@@ -314,7 +393,6 @@ export default function ExperienceLineManageBoard({
         weekNumber: data.targetWeek.weekNumber,
       })
     : null;
-
   return (
     <div className="space-y-4">
       {loading ? (
@@ -333,13 +411,18 @@ export default function ExperienceLineManageBoard({
         </Card>
       ) : !data ? null : (
         <>
+          {/* 상단 현재 상황과 아래 주차 선택/요약 사이만 기존보다 한 단계 더 띄운다. */}
+          <div className="pb-4">
+            <CurrentSituationCard data={data} />
+          </div>
+
           {/* 주차/요약 행 — 왼쪽: 선택 주차 드롭다운 / 오른쪽: 팀 수·개설 완료·개설 필요. */}
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/30 px-4 py-3">
             <div className="flex items-center gap-2">
               {weekOptions.length > 0 ? (
                 <select
                   className="rounded-md border border-input bg-background px-3 py-2 text-base font-semibold"
-                  value={selectedWeekId}
+                  value={effectiveWeekId}
                   onChange={(e) => setSelectedWeekId(e.target.value)}
                   aria-label="주차 선택"
                 >
@@ -398,8 +481,12 @@ export default function ExperienceLineManageBoard({
             </p>
           ) : (
             <div className="grid gap-4 xl:grid-cols-2">
-              {data.teams.map((team) => (
-                <TeamCard key={team.teamId} team={team} />
+              {data.teams.map((team, index) => (
+                <TeamCard
+                  key={team.teamId}
+                  team={team}
+                  accentIndex={index}
+                />
               ))}
             </div>
           )}

@@ -215,6 +215,7 @@ export async function getExperienceLineManageSummary(
   weekIdParam?: string | null,
   mode: ScopeMode = "operating",
 ): Promise<ExperienceLineManageSummary> {
+  const serverToday = getCurrentActivityDateIso();
   let weekId: string | null = null;
   let targetWeek: ExperienceLineManageSummary["targetWeek"] = null;
 
@@ -241,8 +242,7 @@ export async function getExperienceLineManageSummary(
     }
   } else {
     // 개설 대상 주차(금요일 경계, openable).
-    const todayIso = getCurrentActivityDateIso();
-    const openableStartMs = getOpenableWeekStartMs(todayIso);
+    const openableStartMs = getOpenableWeekStartMs(serverToday);
     const targetInfo =
       openableStartMs != null ? describeWeekByStartMs(openableStartMs) : null;
     if (targetInfo) {
@@ -264,8 +264,37 @@ export async function getExperienceLineManageSummary(
     }
   }
 
+  // 월~목에는 선택한 개설 대상 주차의 다음 주가 이행 주차이고, 금~일에
+  // 현재 주차 자체가 개설 대상이면 같은 주차에 바로 이행된다(공통 금요일 경계 정책).
+  const targetIsCurrentWeek = Boolean(
+    targetWeek &&
+      targetWeek.startDate <= serverToday &&
+      serverToday <= targetWeek.endDate,
+  );
+  const fulfilmentInfo = targetWeek
+    ? describeWeekByStartMs(
+        startDateToMs(targetWeek.startDate) +
+          (targetIsCurrentWeek ? 0 : 7 * 24 * 60 * 60 * 1000),
+      )
+    : null;
+  const openingFulfilmentWeek = fulfilmentInfo
+    ? {
+        year: fulfilmentInfo.year,
+        seasonName: fulfilmentInfo.seasonName,
+        weekNumber: fulfilmentInfo.weekNumber,
+        startDate: fulfilmentInfo.weekStart,
+        endDate: fulfilmentInfo.weekEnd,
+      }
+    : null;
+  const currentSituation = {
+    serverToday,
+    openingRequiredWeek: targetWeek,
+    openingFulfilmentWeek,
+  };
+
   if (!weekId) {
     return {
+      currentSituation,
       targetWeek,
       extensionActive: false,
       extensionKind: null,
@@ -361,6 +390,7 @@ export async function getExperienceLineManageSummary(
   const neededCount = teams.filter((t) => t.canOpen && !t.opened).length;
   const notOpenCount = teams.filter((t) => !t.canOpen).length;
   return {
+    currentSituation,
     targetWeek,
     extensionActive,
     extensionKind,

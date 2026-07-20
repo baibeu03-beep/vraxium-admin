@@ -2,18 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { LoadingState } from "@/components/ui/loading-state";
-import {
   computeOpenNeed,
-  weekFull,
+  weekName,
+  weekRange,
   type SeasonWeekRow,
 } from "@/lib/practicalInfoSeasonWeeks";
-import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import LineOpeningCurrentSituationCard, {
+  CurrentSituationWeekValue,
+  type CurrentSituationItem,
+} from "@/components/admin/LineOpeningCurrentSituationCard";
 
 // 실무 정보 라인 개설 — 상단 "현재 상황" 안내(표시 전용).
 //   오늘 날짜/요일 + 개설 필요 기간 + 개설 이행 기간 (금요일 경계, lib/practicalInfoSeasonWeeks).
@@ -46,45 +43,52 @@ export default function PracticalInfoCurrentSituation() {
     [rows],
   );
 
+  const items: CurrentSituationItem[] = computed
+    ? [
+        {
+          label: "오늘 날짜",
+          helpKey: "admin.lineOpening.currentSituation.info.today",
+          value: computed.todayLabel,
+        },
+        {
+          label: "개설 필요 기간",
+          helpKey: "admin.lineOpening.currentSituation.info.needPeriod",
+          value: computed.need ? (
+            <CurrentSituationWeekValue
+              label={weekName(computed.need)}
+              range={weekRange(computed.need)}
+            />
+          ) : (
+            "-"
+          ),
+        },
+        {
+          label: "개설 이행 기간",
+          helpKey: "admin.lineOpening.currentSituation.info.fulfilPeriod",
+          value: computed.fulfil ? (
+            <CurrentSituationWeekValue
+              label={weekName(computed.fulfil)}
+              range={weekRange(computed.fulfil)}
+            />
+          ) : (
+            "-"
+          ),
+        },
+      ]
+    : [];
+
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="inline-flex items-center gap-1.5 text-lg">
-          현재 상황
-          <AdminHelpIconButton
-            size="sm"
-            helpKey="admin.lineOpening.currentSituation.title.card"
-            title="현재 상황"
-          />
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2 text-base">
-        {error ? (
-          <p className="text-red-600">{error}</p>
-        ) : !computed ? (
-          <LoadingState active />
-        ) : (
-          <>
-            <div className="flex gap-3">
-              <span className="inline-flex w-40 shrink-0 items-center gap-1 whitespace-nowrap text-muted-foreground">오늘 날짜<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.currentSituation.info.today" title="오늘 날짜" /></span>
-              <span className="font-semibold">{computed.todayLabel}</span>
-            </div>
-            <div className="flex gap-3">
-              <span className="inline-flex w-40 shrink-0 items-center gap-1 whitespace-nowrap text-muted-foreground">개설 필요 기간<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.currentSituation.info.needPeriod" title="개설 필요 기간" /></span>
-              <span className="font-semibold">{weekFull(computed.need)}</span>
-            </div>
-            <div className="flex gap-3">
-              <span className="inline-flex w-40 shrink-0 items-center gap-1 whitespace-nowrap text-muted-foreground">개설 이행 기간<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.currentSituation.info.fulfilPeriod" title="개설 이행 기간" /></span>
-              <span className="font-semibold">{weekFull(computed.fulfil)}</span>
-            </div>
-            {!computed.current && (
-              <p className="text-sm text-amber-600">
-                오늘 날짜가 등록된 주차 범위에 속하지 않습니다. (/admin/season-weeks 확인)
-              </p>
-            )}
-          </>
-        )}
-      </CardContent>
-    </Card>
+    <LineOpeningCurrentSituationCard
+      items={items}
+      error={error}
+      loading={!computed && !error}
+      footer={
+        computed && !computed.current ? (
+          <p className="mt-3 text-sm text-amber-600">
+            오늘 날짜가 등록된 주차 범위에 속하지 않습니다. (/admin/season-weeks 확인)
+          </p>
+        ) : null
+      }
+    />
   );
 }
