@@ -1,6 +1,5 @@
 // 어드민 "도움말" 버튼(AdminHelp)의 강조("안내 있음") 공통 로직 — 순수/클라이언트 헬퍼.
-//   · 도움말 "내용 존재 여부"와 "열람 여부"만 다룬다. 본문/권한/API 응답 의미는 건드리지 않는다
-//     (요구: 내용/응답 의미 불변 — 존재·열람만으로 UI 강조).
+//   · 도움말 "내용 존재 여부"만 다룬다. 본문/권한/API 응답 의미는 건드리지 않는다.
 //   · org/mode/actAsTestUserId/demoUserId 로 갈라지지 않는다 — /api/admin/help 는 path(키)만 읽고
 //     mode/org 를 무시하므로(=본문 동일), 여기서도 키만으로 판단한다. 일반/테스트 동일 로직.
 //   · 조회는 도움말 모달과 "같은" GET /api/admin/help(같은 DTO: data.content / data.canEdit).
@@ -10,49 +9,6 @@ import { normalizeHelpToPlainText } from "@/lib/helpTooltip";
 /** 표시할 실제 내용이 있는가(공백·HTML 태그만 있는 값 = 없음). */
 export function hasHelpContent(content: string | null | undefined): boolean {
   return normalizeHelpToPlainText(content).length > 0;
-}
-
-/**
- * 도움말 내용 식별자(버전). 내용이 바뀌면 값이 바뀌어 "신규 안내"로 다시 강조된다.
- *   · djb2 해시 → base36(짧고 결정적). 빈 내용은 "" (버전 없음 = 강조 대상 아님).
- *   · 저장소 키에만 쓰는 표시용 식별자 — 보안/충돌 민감도 없음.
- */
-export function helpContentVersion(content: string | null | undefined): string {
-  if (!hasHelpContent(content)) return "";
-  const s = (content as string).trim();
-  let h = 5381;
-  for (let i = 0; i < s.length; i++) {
-    h = ((h << 5) + h + s.charCodeAt(i)) | 0;
-  }
-  return (h >>> 0).toString(36);
-}
-
-const SEEN_PREFIX = "admin-help-seen";
-
-/** 열람 여부 저장 키 — 페이지키 + 내용버전. 내용이 바뀌면 키가 바뀌어 다시 신규로 인식. */
-export function helpSeenStorageKey(pageKey: string, version: string): string {
-  return `${SEEN_PREFIX}:${pageKey}:${version}`;
-}
-
-/** 이 페이지의 이 버전 도움말을 이미 열람했는가. 내용 없음(version="")은 강조 대상 아님 → true 취급. */
-export function readHelpSeen(pageKey: string, version: string): boolean {
-  if (!version) return true;
-  try {
-    return window.localStorage.getItem(helpSeenStorageKey(pageKey, version)) === "1";
-  } catch {
-    // localStorage 접근 불가(프라이빗 모드 등) — "안 봤음"으로 두되 기록만 실패(기능 무영향).
-    return false;
-  }
-}
-
-/** 열람 표시(같은 페이지·같은 내용 버전에선 다시 강조하지 않도록). */
-export function markHelpSeen(pageKey: string, version: string): void {
-  if (!version) return;
-  try {
-    window.localStorage.setItem(helpSeenStorageKey(pageKey, version), "1");
-  } catch {
-    /* 저장 실패는 무시 — 강조가 계속돼도 기능엔 영향 없음. */
-  }
 }
 
 export type HelpMeta = {

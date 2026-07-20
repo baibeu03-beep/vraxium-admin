@@ -9,10 +9,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 import {
   fetchHelpMeta,
   hasHelpContent,
-  helpContentVersion,
-  markHelpSeen,
   peekHelpMeta,
-  readHelpSeen,
   subscribeHelpMeta,
 } from "@/lib/adminHelpEmphasis";
 import { resolveAdminOrgFocus } from "@/lib/adminOrgContext";
@@ -92,10 +89,9 @@ export default function AdminHelp({ className }: Props) {
     organizationAccent(resolveAdminOrgFocus(pathname, searchParams))?.button ?? HELP_BUTTON_NEUTRAL;
   const [open, setOpen] = useState(false);
 
-  // 도움말 "존재/열람" 상태(강조 판단 전용). 본문/권한 판단은 모달이 담당 — 여기선 강조에만 쓴다.
+  // 도움말 내용 존재 상태(강조 판단 전용). 본문/권한 판단은 모달이 담당 — 여기선 강조에만 쓴다.
   //   · key 를 함께 담아 페이지 전환 시 stale 여부를 렌더에서 파생한다(effect 내 동기 setState 회피).
-  //   · isNew = 최초 진입 강조(펄스 + 밝은 점). 열람 후/이미 본 버전이면 false.
-  type HelpState = { key: string; hasContent: boolean; canEdit: boolean; version: string; isNew: boolean };
+  type HelpState = { key: string; hasContent: boolean; canEdit: boolean };
   const [state, setState] = useState<HelpState | null>(null);
 
   // 페이지(storageKey) 진입/전환마다 존재 여부 재판단(캐시 hit 이면 즉시). setState 는 async 콜백에서만.
@@ -103,14 +99,11 @@ export default function AdminHelp({ className }: Props) {
     let alive = true;
     const applyMeta = ({ content, canEdit }: { content: string; canEdit: boolean }) => {
       if (!alive) return;
-      const version = helpContentVersion(content);
       const has = hasHelpContent(content);
       setState({
         key: storageKey,
         hasContent: has,
         canEdit,
-        version,
-        isNew: has && !readHelpSeen(storageKey, version),
       });
     };
     const cached = peekHelpMeta(storageKey);
@@ -127,17 +120,12 @@ export default function AdminHelp({ className }: Props) {
   const resolved = state?.key === storageKey;
   const hasContent = resolved ? state!.hasContent : false;
   const canEdit = resolved ? state!.canEdit : false;
-  const version = resolved ? state!.version : "";
-  const isNew = resolved ? state!.isNew : false;
   // 내용 없음 + 편집 불가 = 열어도 빈 모달뿐 → 비활성화(빈 모달이 열리지 않게).
   //   편집 가능(owner/admin)은 도움말을 "작성"해야 하므로 활성 유지(정적 버튼, 강조 없음).
   const disabled = resolved && !hasContent && !canEdit;
 
   const openModal = () => {
     if (disabled) return;
-    if (version) markHelpSeen(storageKey, version);
-    // 열면 같은 페이지에서 다시 튀지 않음(펄스/밝은 점 해제).
-    setState((prev) => (prev && prev.key === storageKey ? { ...prev, isNew: false } : prev));
     setOpen(true);
   };
 
@@ -149,9 +137,7 @@ export default function AdminHelp({ className }: Props) {
     ? disabled
       ? "이 페이지의 도움말 (등록된 안내 없음)"
       : "이 페이지의 도움말 작성"
-    : isNew
-      ? "이 페이지의 도움말 열기, 새로운 안내 있음"
-      : "이 페이지의 도움말 열기, 안내 있음";
+    : "이 페이지의 도움말 열기, 안내 있음";
 
   return (
     <>
@@ -175,7 +161,7 @@ export default function AdminHelp({ className }: Props) {
             // 조직 대표색(또는 통합 중립 하늘색). 도움말 강조 로직/열람 상태와 무관하게 색만 조직화.
             orgButtonAccent,
             hasContent && "admin-help-has-content",
-            isNew && "admin-help-nudge",
+            hasContent && "admin-help-nudge",
           )}
         >
           <CircleHelp className="size-4" />
@@ -183,14 +169,14 @@ export default function AdminHelp({ className }: Props) {
           </Button>
         </Tooltip>
 
-        {/* 알림 점 — 내용이 있을 때만. 애니메이션이 없어도 존재를 알리는 신호(요구 4). aria 는 라벨이 담당.
+        {/* 내용 존재 점 — 내용이 있을 때 항상 유지. 애니메이션이 없어도 존재를 알리는 신호. aria 는 라벨이 담당.
             버튼 테두리에 묻히지 않도록 우상단 바깥쪽에 걸치게(-top-1 -right-1) 배치. */}
-        {isNew &&
+        {hasContent &&
           (
-            // 최초 진입=큼직한 amber 점 + 유한 ping(2~3회). 점 크기 확대(size-3.5)로 눈에 잘 띄게.
-            <span aria-hidden className="pointer-events-none absolute -top-1 -right-1 flex size-3.5">
-              <span className="admin-help-ping absolute inline-flex size-full rounded-full bg-tone-warn opacity-60" />
-              <span className="relative inline-flex size-3.5 rounded-full bg-tone-warn ring-2 ring-background" />
+            // primary 점은 정적으로 유지하고, 바깥 링만 페이지 진입 시 유한하게 강조한다.
+            <span aria-hidden data-admin-help-indicator="content" className="pointer-events-none absolute -top-1 -right-1 flex size-3.5">
+              <span className="admin-help-ping absolute inline-flex size-full rounded-full bg-primary opacity-30" />
+              <span className="relative inline-flex size-3.5 rounded-full bg-primary ring-2 ring-background" />
             </span>
           )}
       </span>

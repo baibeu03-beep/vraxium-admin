@@ -708,10 +708,10 @@ button[data-loading="true"][aria-disabled="true"] {
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
-   도움말(AdminHelp) 버튼 최초 진입 강조 — 어드민 전역 단일 SoT.
-   "안내 있음(내용 존재) + 아직 열람 안 함"일 때만 컴포넌트가 아래 클래스를 붙인다.
+   도움말(AdminHelp) 내용 존재 강조 — 어드민 전역 단일 SoT.
+   내용이 있으면 정적 점/glow를 유지하고, 진입 시 아래 유한 애니메이션만 실행한다.
      · 유한 반복(무한 금지) · 전체 지속 ≤ 2.5s · 과한 상하 이동 금지(translateY ≤ 2px, scale ≤ 1.04).
-     · reduced-motion 에서는 애니메이션을 끈다 — 알림 점/aria 라벨로 존재는 그대로 인지 가능(요구 4·8).
+     · reduced-motion 에서는 애니메이션을 끈다 — 정적 상태 점/aria 라벨로 존재는 그대로 인지 가능.
      · 정적 클래스명(유틸 생성 아님) → purge 안전. org/mode/test 무관(표시 전용).
    ─────────────────────────────────────────────────────────────────────────── */
 @keyframes admin-help-nudge {
@@ -719,35 +719,34 @@ button[data-loading="true"][aria-disabled="true"] {
   100% {
     transform: translateY(0);
     box-shadow:
-      0 0 0 1px color-mix(in oklch, var(--tone-warn) 32%, transparent),
-      0 0 9px color-mix(in oklch, var(--tone-warn) 20%, transparent);
+      0 0 0 1px color-mix(in oklch, var(--primary) 24%, transparent),
+      0 0 8px color-mix(in oklch, var(--primary) 16%, transparent);
   }
   25% {
-    /* 위로 통통 튀며(≤3px) 살짝 커지고(1.04), 외곽에 amber glow(진한 링 10px + 번짐 20px)가 퍼진다. */
+    /* 1px 이동과 primary 계열의 은은한 glow만 사용한다. */
     transform: translateY(-1px);
     box-shadow:
-      0 0 0 2px color-mix(in oklch, var(--tone-warn) 42%, transparent),
-      0 0 13px color-mix(in oklch, var(--tone-warn) 34%, transparent);
+      0 0 0 2px color-mix(in oklch, var(--primary) 32%, transparent),
+      0 0 11px color-mix(in oklch, var(--primary) 24%, transparent);
   }
   55% {
     transform: translateY(0);
     box-shadow:
-      0 0 0 1px color-mix(in oklch, var(--tone-warn) 32%, transparent),
-      0 0 9px color-mix(in oklch, var(--tone-warn) 20%, transparent);
+      0 0 0 1px color-mix(in oklch, var(--primary) 24%, transparent),
+      0 0 8px color-mix(in oklch, var(--primary) 16%, transparent);
   }
 }
 .admin-help-has-content {
   box-shadow:
-    0 0 0 1px color-mix(in oklch, var(--tone-warn) 32%, transparent),
-    0 0 9px color-mix(in oklch, var(--tone-warn) 20%, transparent);
+    0 0 0 1px color-mix(in oklch, var(--primary) 24%, transparent),
+    0 0 8px color-mix(in oklch, var(--primary) 16%, transparent);
 }
 .admin-help-nudge {
   /* 0.6s × 3회 = 1.8s(유한). shadow + 1px 이동만 사용해 레이아웃은 고정한다. */
   animation: admin-help-nudge 0.6s ease-in-out 3;
 }
 
-/* 알림 점 주변 짧은 ring(ping) — 최초 진입에만. 유한 반복(3회) 후 사라진다.
-   Tailwind animate-ping(무한)과 달리 유한. 현재보다 크게·진하게(opacity 0.7→0, scale 2.4). */
+/* 내용 존재 점 주변의 짧은 ring — 진입 시 유한 반복(3회) 후 정적 점만 남는다. */
 @keyframes admin-help-ping {
   0% {
     transform: scale(1);

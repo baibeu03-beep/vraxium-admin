@@ -7,10 +7,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 import {
   fetchHelpMeta,
   hasHelpContent,
-  helpContentVersion,
-  markHelpSeen,
   peekHelpMeta,
-  readHelpSeen,
   subscribeHelpMeta,
   type HelpMeta,
 } from "@/lib/adminHelpEmphasis";
@@ -75,15 +72,12 @@ export default function AdminHelpIconButton({
 }: AdminHelpIconButtonProps) {
   const [open, setOpen] = React.useState(false);
   const [meta, setMeta] = React.useState<HelpMeta | undefined>(() => peekHelpMeta(helpKey));
-  const [seenVersion, setSeenVersion] = React.useState("");
 
   React.useEffect(() => {
     let alive = true;
     const applyMeta = (next: HelpMeta) => {
       if (!alive) return;
-      const nextVersion = helpContentVersion(next.content);
       setMeta(next);
-      setSeenVersion(readHelpSeen(helpKey, nextVersion) ? nextVersion : "");
     };
     const unsubscribe = subscribeHelpMeta(helpKey, applyMeta);
     void fetchHelpMeta(helpKey).then(applyMeta);
@@ -94,8 +88,6 @@ export default function AdminHelpIconButton({
   }, [helpKey]);
 
   const hasContent = hasHelpContent(meta?.content);
-  const version = helpContentVersion(meta?.content);
-  const isUnread = hasContent && seenVersion !== version;
   const tooltip = hasContent ? "도움말이 등록되어 있습니다" : label;
   const ariaLabel = hasContent ? `${label}, 도움말이 등록되어 있습니다` : label;
 
@@ -107,11 +99,11 @@ export default function AdminHelpIconButton({
           // 행 클릭(확장 등)과 겹치지 않도록 이벤트 전파 차단.
           onClick={(e) => {
             e.stopPropagation();
-            if (version) markHelpSeen(helpKey, version);
-            setSeenVersion(version);
             setOpen(true);
           }}
           aria-haspopup="dialog"
+          data-admin-help-trigger="key"
+          data-help-key={helpKey}
           // 접근성 라벨은 "기능"을 설명(고정). 미리보기는 시각 Tooltip 이 담당.
           aria-label={ariaLabel}
           className={cn(
@@ -132,15 +124,16 @@ export default function AdminHelpIconButton({
                 ],
             TRIGGER_SIZE[size],
             hasContent && "admin-help-has-content",
-            isUnread && "admin-help-nudge",
+            hasContent && "admin-help-nudge",
             className,
           )}
         >
           <Search />
-          {isUnread && (
+          {hasContent && (
             <span
               aria-hidden
-              className="pointer-events-none absolute -top-0.5 -right-0.5 inline-flex size-2 rounded-full bg-tone-warn ring-1 ring-background"
+              data-admin-help-indicator="content"
+              className="pointer-events-none absolute -top-0.5 -right-0.5 inline-flex size-2 rounded-full bg-primary ring-1 ring-background"
             />
           )}
         </button>
