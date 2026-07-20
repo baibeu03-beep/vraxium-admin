@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CalendarPlus, RefreshCw, RotateCcw } from "lucide-react";
+import { CalendarPlus, RotateCcw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { adminDialog } from "@/components/ui/admin-dialog";
 import { Button } from "@/components/ui/button";
@@ -163,20 +163,6 @@ export default function PeriodRegisterForm({ rows, onRegistered }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // 크루 페이지 업데이트 — 등록한 주차 기간을 크루 페이지에 반영(등록 직후 노출).
-  // 내부적으로 영향 대상 카드 재계산 API 를 재사용하되, 화면에는 개발 용어를 쓰지 않는다.
-  const [lastRegistered, setLastRegistered] = useState<{
-    start: string;
-    end: string;
-  } | null>(null);
-  const [updateBusy, setUpdateBusy] = useState(false);
-  const [updateError, setUpdateError] = useState<string | null>(null);
-  const [updateDone, setUpdateDone] = useState<string | null>(null);
-  // dry_run 으로 확인한 반영 대상 수(확인 전 = null). 값이 있으면 '업데이트 실행' 단계.
-  const [reflectTargetCount, setReflectTargetCount] = useState<number | null>(
-    null,
-  );
-
   // 기간 선택.2 후보: 기간 선택.1 연도의 "수요일 귀속" 주차 목록.
   const candidates = useMemo(() => {
     if (candidateYear === NONE) return [];
@@ -309,87 +295,16 @@ export default function PeriodRegisterForm({ rows, onRegistered }: Props) {
           SEASON_OPTIONS.find((o) => o.key === regSeason)?.label ?? regSeason
         } ${weekNumber}주차(${selectedCandidate.label})가 등록되었습니다.`,
       );
-      // 크루 페이지 업데이트 대상 = 방금 등록한 주차 기간(resetForm 전에 캡처).
-      setLastRegistered({
-        start: selectedCandidate.start,
-        end: selectedCandidate.end,
-      });
-      setReflectTargetCount(null);
-      setUpdateError(null);
-      setUpdateDone(null);
       resetForm();
       // 상위 공유 데이터 재조회 — 하단 "기간 정보" 목록 즉시 갱신 + 다음 중복 검증에 신규 등록분 반영.
       //   (전체 페이지 새로고침 아님 — 등록 폼과 목록이 같은 조회를 공유하므로 한 번의 refetch 로 동시 최신화.)
+      // 크루 페이지(cluster4 카드) 반영은 별도 조작이 필요 없다: 휴식/기간 변경은 영향 snapshot 을
+      //   자동 stale 처리하고, 사용자가 크루 페이지를 조회할 때 loadWeeklyCards() 가 lazy 재계산한다.
       onRegistered();
     } catch {
       void adminDialog.alert({ variant: "danger", title: "등록 오류", description: "등록 중 오류가 발생했습니다." });
     } finally {
       setSubmitting(false);
-    }
-  };
-
-  // ── 크루 페이지 업데이트 ────────────────────────────────────────────────────
-  // 1단계: 반영 대상 수 확인 → 2단계: 실제 반영. 기존 영향-대상 재계산 API 재사용.
-  const REFLECT_API = "/api/admin/cluster4/recompute-official-rest-snapshots";
-
-  const handleReflectCheck = async () => {
-    if (!lastRegistered) return;
-    setUpdateError(null);
-    setUpdateDone(null);
-    setUpdateBusy(true);
-    try {
-      const res = await fetch(REFLECT_API, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          start_date: lastRegistered.start,
-          end_date: lastRegistered.end,
-          dry_run: true,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        setUpdateError(json?.error ?? "대상 확인에 실패했습니다.");
-        return;
-      }
-      setReflectTargetCount(Number(json.data?.target_count ?? 0));
-    } catch {
-      setUpdateError("대상 확인 중 오류가 발생했습니다.");
-    } finally {
-      setUpdateBusy(false);
-    }
-  };
-
-  const handleReflectRun = async () => {
-    if (!lastRegistered) return;
-    setUpdateError(null);
-    setUpdateBusy(true);
-    try {
-      const res = await fetch(REFLECT_API, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          start_date: lastRegistered.start,
-          end_date: lastRegistered.end,
-          dry_run: false,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        setUpdateError(json?.error ?? "크루 페이지 업데이트에 실패했습니다.");
-        return;
-      }
-      const requested = Number(json.data?.requested ?? 0);
-      const failed = Number(json.data?.failed ?? 0);
-      setUpdateDone(
-        `크루 페이지 업데이트가 완료되었습니다. 대상: ${requested}명` +
-          (failed > 0 ? ` (반영 실패 ${failed}명)` : ""),
-      );
-      setReflectTargetCount(null);
-    } catch {
-      setUpdateError("크루 페이지 업데이트 중 오류가 발생했습니다.");
-    } finally {
-      setUpdateBusy(false);
     }
   };
 
@@ -617,76 +532,6 @@ export default function PeriodRegisterForm({ rows, onRegistered }: Props) {
           </div>
         </CardContent>
       </Card>
-
-      {/* 크루 페이지 업데이트 — 등록 직후 노출. 등록한 기간을 크루 페이지에 반영. */}
-      {lastRegistered && (
-        <Card className="border-sky-200 bg-sky-50/40">
-          <CardContent className="flex flex-col gap-3 py-5">
-            <div>
-              <h2 className="text-base font-semibold text-foreground">
-                크루 페이지 업데이트
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                등록한 기간 정보를 크루 페이지에 반영합니다.
-              </p>
-            </div>
-
-            {updateError && (
-              <div className="rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {updateError}
-              </div>
-            )}
-
-            {updateDone ? (
-              <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-                {updateDone}
-              </div>
-            ) : reflectTargetCount == null ? (
-              <div>
-                <Button
-                  type="button"
-                  onClick={handleReflectCheck}
-                  loading={updateBusy}
-                >
-                  <RefreshCw className="h-4 w-4" />
-                  크루 페이지 업데이트
-                </Button>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-2">
-                <p className="text-sm text-foreground">
-                  {reflectTargetCount > 0 ? (
-                    <>
-                      반영 대상: <strong>{reflectTargetCount}명</strong>. 확인 후
-                      ‘업데이트 실행’을 누르세요.
-                    </>
-                  ) : (
-                    <>반영할 크루가 없습니다. 그대로 실행해도 됩니다.</>
-                  )}
-                </p>
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    onClick={handleReflectRun}
-                    loading={updateBusy}
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                    업데이트 실행
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setReflectTargetCount(null)}
-                    disabled={updateBusy}
-                  >
-                    취소
-                  </Button>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
