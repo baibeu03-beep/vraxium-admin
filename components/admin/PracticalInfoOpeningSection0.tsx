@@ -7,7 +7,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import PracticalInfoOpeningLogPanel from "@/components/admin/PracticalInfoOpeningLogPanel";
@@ -273,15 +272,6 @@ export default function PracticalInfoOpeningSection0({
     ? formatBannerPeriod(selectedWeek)
     : null;
 
-  // ① 대상 주차 호칭 — 개설 대상 주차가 현재 주차와 같으면(금~일) "이번 주", 다르면(월~목) "지난 주"(=N-1).
-  const targetIsCurrent =
-    !!currentWeek &&
-    !!statusWeek &&
-    currentWeek.year === statusWeek.year &&
-    currentWeek.seasonName === statusWeek.seasonName &&
-    currentWeek.weekNumber === statusWeek.weekNumber;
-  const operatingPrefix = targetIsCurrent ? "이번 주" : "지난 주";
-
   return (
     <div className="space-y-4">
       {/* 2분할 배치: 좌(상태창) | 우(로그창). 모바일=단일 컬럼 stack(반응형). */}
@@ -310,16 +300,11 @@ export default function PracticalInfoOpeningSection0({
               </StatusListItem>
             </StatusList>
 
-            <Separator />
-
-            {/* ① 현재 운영 상태 — 오늘 기준 개설 대상 주차(N-1) */}
-            <section className="space-y-2">
-              <p className="text-xs font-semibold text-muted-foreground">
-                현재 운영 상태
-              </p>
+            {/* ① 운영 상태 — 제목 없이 "지난 주 …" 문장 자체로 구분. */}
+            <section>
               <StatusList>
                 <InfoOpenStatusItem
-                  prefix={operatingPrefix}
+                  prefix="지난 주"
                   weekLabel={operatingWeekLabel}
                   activityName={activityName}
                   loading={opLoading}
@@ -330,27 +315,21 @@ export default function PracticalInfoOpeningSection0({
               </StatusList>
             </section>
 
-            {/* ② 선택한 주차 — 드롭다운 선택 주차(현재 대상과 다를 때만). 얇은 구분선으로만 분리. */}
+            {/* ② 선택 상태 — 제목·구분선 없이 "선택한 주차 …" 문장 자체로 구분. */}
             {showSelected && (
-              <>
-                <Separator />
-                <section className="space-y-2">
-                  <p className="text-xs font-semibold text-muted-foreground">
-                    선택한 주차
-                  </p>
-                  <StatusList>
-                    <InfoOpenStatusItem
-                      prefix="선택한 주차"
-                      weekLabel={selectedWeekLabel}
-                      activityName={activityName}
-                      loading={selLoading}
-                      opened={selStatus.opened}
-                      isOfficialRest={!!selectedWeek?.isOfficialRest}
-                      notOpen={selStatus.notOpen}
-                    />
-                  </StatusList>
-                </section>
-              </>
+              <section>
+                <StatusList>
+                  <InfoOpenStatusItem
+                    prefix="선택한 주차"
+                    weekLabel={selectedWeekLabel}
+                    activityName={activityName}
+                    loading={selLoading}
+                    opened={selStatus.opened}
+                    isOfficialRest={!!selectedWeek?.isOfficialRest}
+                    notOpen={selStatus.notOpen}
+                  />
+                </StatusList>
+              </section>
             )}
           </CardContent>
         </Card>

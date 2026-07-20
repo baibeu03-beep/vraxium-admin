@@ -99,20 +99,14 @@ const r = (text: string): StatusToken => ({ text, red: true });
 //   ⚠ 두 종류는 데이터(전달되는 주차)만 다르고 문장 구조·강조·톤은 완전히 동일하다.
 export type StatusTargetKind = "operating" | "selected";
 
-// 대상 주차 호칭 — 개설 대상 주차(금요일 경계 SoT = getOpenableWeekStartMs)와 현재 주차 N 의
-// 관계로 결정한다. 같은 주차(금~일: 대상=N)면 "이번 주", 다른 주차면 "지난 주".
-//   ⚠ 금요일 경계에서 대상 주차는 항상 N(같음) 또는 N-1(직전) 둘 중 하나뿐이다. 따라서 "다른 주차"
-//     = 반드시 N-1 = 실제 지난 주이며, "지난 주"는 단순 라벨 치환이 아니라 서버가 getOpenableWeekStartMs
-//     로 실제 조회해 넘긴 N-1 주차(block1 의 이번 주 N 과 다른 값)를 가리킨다. 동일 주차 판정은
-//     startDate(YYYY-MM-DD). (금~일은 대상=N=이번 주라 "지난 주"로 부르지 않는다 — 오표기 방지.)
-//   kind="selected" 이면 현재 주차 관계와 무관하게 항상 "선택한 주차"로 고정한다.
+// 상태창 제목을 제거했으므로 문장 접두어가 그룹 구분의 SoT다.
+//   operating은 항상 "지난 주", selected는 항상 "선택한 주차"로 표시한다.
 function targetWeekPrefix(
-  current: StatusWeek | null,
-  target: StatusWeek,
+  _current: StatusWeek | null,
+  _target: StatusWeek,
   kind: StatusTargetKind = "operating",
 ): string {
   if (kind === "selected") return "선택한 주차";
-  if (current && current.startDate === target.startDate) return "이번 주";
   return "지난 주";
 }
 

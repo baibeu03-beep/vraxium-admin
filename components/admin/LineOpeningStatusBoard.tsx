@@ -9,7 +9,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { LoadingState } from "@/components/ui/loading-state";
-import { Separator } from "@/components/ui/separator";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import {
@@ -294,13 +293,8 @@ export default function LineOpeningStatusBoard({
               </StatusListItem>
             </StatusList>
 
-            <Separator />
-
-            {/* ① 현재 운영 상태 — 오늘 기준 개설 대상 주차(N-1). 소제목 1개, 문장 연속. */}
-            <section className="space-y-2">
-              <p className="text-xs font-semibold text-muted-foreground">
-                현재 운영 상태
-              </p>
+            {/* ① 운영 상태 — 제목 없이 "지난 주 …" 문장 자체로 구분. */}
+            <section>
               <TargetOpenStatusBody
                 variant={variant}
                 status={operatingStatus}
@@ -310,23 +304,17 @@ export default function LineOpeningStatusBoard({
               />
             </section>
 
-            {/* ② 선택한 주차 — 드롭다운 선택 주차(현재 대상과 다를 때만). 얇은 구분선으로만 분리. */}
+            {/* ② 선택 상태 — 제목·구분선 없이 "선택한 주차 …" 문장 자체로 구분. */}
             {showSelected && selectedStatus && (
-              <>
-                <Separator />
-                <section className="space-y-2">
-                  <p className="text-xs font-semibold text-muted-foreground">
-                    선택한 주차
-                  </p>
-                  <TargetOpenStatusBody
-                    variant={variant}
-                    status={selectedStatus}
-                    hubLine={selectedHubLine}
-                    org={org}
-                    keyPrefix="sel"
-                  />
-                </section>
-              </>
+              <section>
+                <TargetOpenStatusBody
+                  variant={variant}
+                  status={selectedStatus}
+                  hubLine={selectedHubLine}
+                  org={org}
+                  keyPrefix="sel"
+                />
+              </section>
             )}
           </>
         )}
