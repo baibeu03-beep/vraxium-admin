@@ -93,16 +93,25 @@ function periodLabel(w: StatusWeek): string {
 const t = (text: string): StatusToken => ({ text, red: false });
 const r = (text: string): StatusToken => ({ text, red: true });
 
+// 대상 주차 종류 — 같은 문장 빌더를 두 데이터 기준으로 재사용하기 위한 스위치.
+//   "operating" = 현재 운영 상태(오늘 기준 개설 대상 주차, 금요일 경계 N 또는 N-1).
+//   "selected"  = 드롭다운에서 고른 주차. 호칭을 항상 "선택한 주차"로 고정한다(현재 주차 관계 무관).
+//   ⚠ 두 종류는 데이터(전달되는 주차)만 다르고 문장 구조·강조·톤은 완전히 동일하다.
+export type StatusTargetKind = "operating" | "selected";
+
 // 대상 주차 호칭 — 개설 대상 주차(금요일 경계 SoT = getOpenableWeekStartMs)와 현재 주차 N 의
 // 관계로 결정한다. 같은 주차(금~일: 대상=N)면 "이번 주", 다른 주차면 "지난 주".
 //   ⚠ 금요일 경계에서 대상 주차는 항상 N(같음) 또는 N-1(직전) 둘 중 하나뿐이다. 따라서 "다른 주차"
 //     = 반드시 N-1 = 실제 지난 주이며, "지난 주"는 단순 라벨 치환이 아니라 서버가 getOpenableWeekStartMs
 //     로 실제 조회해 넘긴 N-1 주차(block1 의 이번 주 N 과 다른 값)를 가리킨다. 동일 주차 판정은
 //     startDate(YYYY-MM-DD). (금~일은 대상=N=이번 주라 "지난 주"로 부르지 않는다 — 오표기 방지.)
+//   kind="selected" 이면 현재 주차 관계와 무관하게 항상 "선택한 주차"로 고정한다.
 function targetWeekPrefix(
   current: StatusWeek | null,
   target: StatusWeek,
+  kind: StatusTargetKind = "operating",
 ): string {
+  if (kind === "selected") return "선택한 주차";
   if (current && current.startDate === target.startDate) return "이번 주";
   return "지난 주";
 }
@@ -164,7 +173,10 @@ function buildBlock1(input: LineOpeningStatusInput): StatusLine {
 }
 
 // 블록2 — 확장 라인(대상 주차 기준). 빨강: 시즌·주차·온라인/오프라인.
-function buildBlock2(input: LineOpeningStatusInput): StatusLine {
+function buildBlock2(
+  input: LineOpeningStatusInput,
+  kind: StatusTargetKind = "operating",
+): StatusLine {
   const { targetWeek, extension, hubLabel } = input;
   if (!targetWeek) {
     return {
@@ -174,7 +186,7 @@ function buildBlock2(input: LineOpeningStatusInput): StatusLine {
     };
   }
   const period = periodLabel(targetWeek);
-  const prefix = targetWeekPrefix(input.currentWeek, targetWeek);
+  const prefix = targetWeekPrefix(input.currentWeek, targetWeek, kind);
   const head: StatusToken[] = [
     t(`${prefix} [`),
     r(period),
@@ -198,11 +210,14 @@ function buildBlock2(input: LineOpeningStatusInput): StatusLine {
 }
 
 // 블록3 — 팀별 개설 현황. 팀마다 1줄. 빨강: 시즌·주차·팀명·개설/개설 완료.
-function buildBlock3(input: LineOpeningStatusInput): StatusLine[] {
+function buildBlock3(
+  input: LineOpeningStatusInput,
+  kind: StatusTargetKind = "operating",
+): StatusLine[] {
   const { targetWeek, teams } = input;
   if (!targetWeek) return [];
   const period = periodLabel(targetWeek);
-  const prefix = targetWeekPrefix(input.currentWeek, targetWeek);
+  const prefix = targetWeekPrefix(input.currentWeek, targetWeek, kind);
 
   return teams.map((team) => {
     // "지난 주 [26년, 여름 시즌, 3주차] 의 위즈덤 라인이 …" — 팀명이 곧 라인 주체(허브명 생략,
@@ -238,8 +253,10 @@ export function buildHubOpenStatusLine(input: {
   currentWeek: StatusWeek | null;
   targetWeek: StatusWeek | null;
   opened: boolean;
+  // "operating"(기본)=현재 운영 상태 호칭("이번 주"/"지난 주"), "selected"=선택한 주차 상태("선택한 주차").
+  kind?: StatusTargetKind;
 }): StatusLine {
-  const { hubLabel, currentWeek, targetWeek, opened } = input;
+  const { hubLabel, currentWeek, targetWeek, opened, kind = "operating" } = input;
   if (!targetWeek) {
     return {
       id: "hub-open",
@@ -248,7 +265,7 @@ export function buildHubOpenStatusLine(input: {
     };
   }
   const period = periodLabel(targetWeek);
-  const prefix = targetWeekPrefix(currentWeek, targetWeek);
+  const prefix = targetWeekPrefix(currentWeek, targetWeek, kind);
   const head: StatusToken[] = [
     t(`${prefix} [`),
     r(period),
@@ -264,10 +281,13 @@ export function buildHubOpenStatusLine(input: {
 
 export function buildLineOpeningStatus(
   input: LineOpeningStatusInput,
+  // "operating"(기본)=현재 운영 상태(오늘 기준 개설 대상 주차), "selected"=선택한 주차 상태(드롭다운).
+  //   block1(오늘/이번 주)은 두 종류 모두 동일 — 소비 컴포넌트는 operating build 의 block1 만 렌더한다.
+  kind: StatusTargetKind = "operating",
 ): LineOpeningStatus {
   return {
     block1: buildBlock1(input),
-    block2: buildBlock2(input),
-    block3: buildBlock3(input),
+    block2: buildBlock2(input, kind),
+    block3: buildBlock3(input, kind),
   };
 }

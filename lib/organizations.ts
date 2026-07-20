@@ -33,8 +33,8 @@ export function organizationLabelKo(slug: string | null | undefined): string | n
 // ── 조직 메타데이터(통합 SoT) ───────────────────────────────────────────────
 // 조직 환경 배너(OrgEnvironmentBanner) 등 "조직 정체성"을 크게 드러내는 UI 의 단일 참조소.
 //   · ko/en 은 위 원자 상수(ORGANIZATION_LABEL_KO / ORGANIZATION_LABEL)를 그대로 참조 → 값 중복 없음.
-//   · icon: 조직 성격과 어울리는 이모지(즉시 구분용). encre=🌸(엔터/문화), oranke=🏴(마케팅/개척),
-//     phalanx=🏛(기획/고전 밀집대형). 하드코딩 금지 규칙에 따라 조직별 의미를 여기 한 곳에만 둔다.
+//   · icon: 조직 성격과 어울리는 이모지(즉시 구분용). encre=🦌(엔터/문화), oranke=🐯(마케팅/개척),
+//     phalanx=🦔(기획/고전 밀집대형). 하드코딩 금지 규칙에 따라 조직별 의미를 여기 한 곳에만 둔다.
 //   · bannerClass: 조직 대표색(배경/텍스트/테두리). 라이트·다크 동시 정의(정적 문자열 → Tailwind JIT 인식).
 //     팔레트는 기존 ORGANIZATION_TEXT_CLASS(pink/amber/emerald)와 동일 계열로 일관.
 //     ★ 배경은 라이트/다크 모두 **불투명(opaque)** — 배너가 sticky 로 콘텐츠 위에 겹칠 때 뒤가 비치면
@@ -52,7 +52,7 @@ export const ORGANIZATION_META: Record<OrganizationSlug, OrganizationMeta> = {
   encre: {
     ko: ORGANIZATION_LABEL_KO.encre,
     en: ORGANIZATION_LABEL.encre,
-    icon: "🌸",
+    icon: "🦌",
     bannerClass:
       "bg-pink-100 text-pink-900 border-pink-300 dark:bg-pink-950 dark:text-pink-100 dark:border-pink-800",
     cardHoverClass:
@@ -61,7 +61,7 @@ export const ORGANIZATION_META: Record<OrganizationSlug, OrganizationMeta> = {
   oranke: {
     ko: ORGANIZATION_LABEL_KO.oranke,
     en: ORGANIZATION_LABEL.oranke,
-    icon: "🏴",
+    icon: "🐯",
     bannerClass:
       "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950 dark:text-amber-100 dark:border-amber-800",
     cardHoverClass:
@@ -70,7 +70,7 @@ export const ORGANIZATION_META: Record<OrganizationSlug, OrganizationMeta> = {
   phalanx: {
     ko: ORGANIZATION_LABEL_KO.phalanx,
     en: ORGANIZATION_LABEL.phalanx,
-    icon: "🏛",
+    icon: "🦔",
     bannerClass:
       "bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-100 dark:border-emerald-800",
     cardHoverClass:
