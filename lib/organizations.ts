@@ -85,6 +85,22 @@ export function organizationMeta(
   return isOrganizationSlug(slug) ? ORGANIZATION_META[slug] : null;
 }
 
+// ── 통합 검수 시스템(개별 조직 아님) 환경 배너 메타 ─────────────────────────
+// 개별 조직 배너(ORGANIZATION_META)와 **동일한 컴포넌트/높이/정렬/고정 방식**으로, org-neutral
+//   통합 검수 시스템 하위 페이지(/admin/members 등) 상단에 "지금 통합 검수 시스템 안"임을 표시한다.
+//   · 명칭은 홈 런처의 "통합 검수 시스템" 카드와 동일(ko="통합 검수 시스템", icon="🗂️"). en 은
+//     배너 표기 규칙상 "Club"(홈 카드의 설명 en 과는 별개 — "🦔 Club"·"Club / All" 식 표기 금지).
+//   · 특정 조직색(분홍/황금/초록)이 아닌 중립(슬레이트) **불투명** 배경 — 라이트/다크 동시 정의.
+//   · Admin Home 런처(/admin)에는 표시하지 않는다(조직 선택 전) — OrgEnvironmentBanner 에서 제외.
+export const INTEGRATED_ENVIRONMENT_META: OrganizationMeta = {
+  ko: "통합 검수 시스템",
+  en: "Club",
+  icon: "🗂️",
+  bannerClass:
+    "bg-slate-100 text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700",
+  cardHoverClass: "",
+};
+
 // ── 조직 대표색 "채움(solid)" 강조 — 단일 SoT ──────────────────────────────
 // 조직색으로 배경을 "채우는" 곳(선택된 캡슐 탭, 조직 스코프 강조 버튼)의 팔레트.
 //   · ORGANIZATION_TEXT_CLASS(pink/amber/emerald)와 동일 계열. encre=분홍 · oranke=황금(amber) · phalanx=초록.

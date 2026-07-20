@@ -7,6 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import PracticalInfoOpeningLogPanel from "@/components/admin/PracticalInfoOpeningLogPanel";
@@ -309,6 +310,8 @@ export default function PracticalInfoOpeningSection0({
               </StatusListItem>
             </StatusList>
 
+            <Separator />
+
             {/* ① 현재 운영 상태 — 오늘 기준 개설 대상 주차(N-1) */}
             <section className="space-y-2">
               <p className="text-xs font-semibold text-muted-foreground">
@@ -327,24 +330,27 @@ export default function PracticalInfoOpeningSection0({
               </StatusList>
             </section>
 
-            {/* ② 선택한 주차 상태 — 드롭다운 선택 주차(현재 대상과 다를 때만) */}
+            {/* ② 선택한 주차 — 드롭다운 선택 주차(현재 대상과 다를 때만). 얇은 구분선으로만 분리. */}
             {showSelected && (
-              <section className="space-y-2">
-                <p className="text-xs font-semibold text-muted-foreground">
-                  선택한 주차 상태
-                </p>
-                <StatusList>
-                  <InfoOpenStatusItem
-                    prefix="선택한 주차"
-                    weekLabel={selectedWeekLabel}
-                    activityName={activityName}
-                    loading={selLoading}
-                    opened={selStatus.opened}
-                    isOfficialRest={!!selectedWeek?.isOfficialRest}
-                    notOpen={selStatus.notOpen}
-                  />
-                </StatusList>
-              </section>
+              <>
+                <Separator />
+                <section className="space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground">
+                    선택한 주차
+                  </p>
+                  <StatusList>
+                    <InfoOpenStatusItem
+                      prefix="선택한 주차"
+                      weekLabel={selectedWeekLabel}
+                      activityName={activityName}
+                      loading={selLoading}
+                      opened={selStatus.opened}
+                      isOfficialRest={!!selectedWeek?.isOfficialRest}
+                      notOpen={selStatus.notOpen}
+                    />
+                  </StatusList>
+                </section>
+              </>
             )}
           </CardContent>
         </Card>

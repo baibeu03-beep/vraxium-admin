@@ -2,7 +2,7 @@
 
 import { usePathname, useSearchParams } from "next/navigation";
 import { resolveAdminOrgFocus } from "@/lib/adminOrgContext";
-import { organizationMeta } from "@/lib/organizations";
+import { organizationMeta, INTEGRATED_ENVIRONMENT_META } from "@/lib/organizations";
 import { cn } from "@/lib/utils";
 
 // 조직 환경 배너 — 개별 조직 사이트에서 "지금 어떤 조직에서 작업 중인지"를 콘텐츠 영역 최상단에
@@ -22,15 +22,19 @@ export default function OrgEnvironmentBanner() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const org = resolveAdminOrgFocus(pathname, searchParams);
-  const meta = organizationMeta(org);
+  const orgMeta = organizationMeta(org);
 
-  // 통합 모드(org 미상)에서는 배너를 두지 않는다 — 개별 조직 사이트 전용.
+  // org(개별 조직) 배너 우선. org 미상(통합 검수 시스템)이면 통합 배너를 표시하되,
+  //   조직 선택 런처(/admin)에는 표시하지 않는다(아직 어떤 시스템에도 진입하지 않은 상태).
+  const isHomeLauncher = pathname === "/admin";
+  const meta = orgMeta ?? (isHomeLauncher ? null : INTEGRATED_ENVIRONMENT_META);
   if (!meta) return null;
 
   return (
     <div
       data-testid="org-environment-banner"
       data-org={org ?? undefined}
+      data-integrated={orgMeta ? undefined : true}
       // 전체폭 평평한 bar. min-h-12(48px)·items-center 로 수직 중앙 · px-6 로 콘텐츠(main p-6)와 좌측 정렬.
       // shrink-0: flex 컬럼에서 높이 고정(위아래 빈틈/layout shift 없음). 좌측 정렬 · text-lg font-bold.
       // bg 는 bannerClass(opaque)만 — 카드 잔재(rounded/border/shadow) 없음.

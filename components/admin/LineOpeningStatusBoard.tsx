@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { LoadingState } from "@/components/ui/loading-state";
+import { Separator } from "@/components/ui/separator";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import {
@@ -77,8 +78,8 @@ function renderTokens(tokens: StatusToken[]) {
 }
 
 // 한 주차 기준(현재 운영 / 선택한 주차)의 개설 상태 본문 — 문장 구조·톤·강조를 두 영역이 100% 공유한다.
-//   team: 확장 라인(block2) + 팀별 개설 현황(block3). hub: 허브 전체 1문장(hubLine).
-//   keyPrefix 로 두 영역의 block3 React key 충돌(같은 team_id)을 회피한다.
+//   team: 확장 라인(block2) + 팀별 라인 문장(block3)을 하나의 연속 bullet 목록으로(별도 소제목 없음).
+//   hub: 허브 전체 1문장(hubLine). keyPrefix 로 두 영역의 block3 React key 충돌(같은 team_id)을 회피한다.
 function TargetOpenStatusBody({
   variant,
   status,
@@ -104,39 +105,27 @@ function TargetOpenStatusBody({
     );
   }
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
+      {/* 확장(block2) + 팀별 라인(block3)을 한 목록으로 이어서 — '팀별 개설 현황' 소제목 제거. */}
       <StatusList>
         {status.block2 && (
           <StatusListItem tone={status.block2.tone}>
             {renderTokens(status.block2.tokens)}
           </StatusListItem>
         )}
+        {status.block3.map((line) => (
+          <StatusListItem key={`${keyPrefix}-${line.id}`} tone={line.tone}>
+            {renderTokens(line.tokens)}
+          </StatusListItem>
+        ))}
       </StatusList>
-      <div className="space-y-2">
-        <p className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground">
-          팀별 개설 현황
-          <AdminHelpIconButton
-            size="xs"
-            helpKey="admin.lineOpening.statusBoard.section.teamOpenStatus"
-            title="팀별 개설 현황"
-          />
+      {status.block3.length === 0 && (
+        <p className="text-muted-foreground">
+          {org
+            ? "이 클럽에 등록된 팀이 없습니다."
+            : "클럽(?org)이 지정되지 않았습니다."}
         </p>
-        {status.block3.length === 0 ? (
-          <p className="text-muted-foreground">
-            {org
-              ? "이 클럽에 등록된 팀이 없습니다."
-              : "클럽(?org)이 지정되지 않았습니다."}
-          </p>
-        ) : (
-          <StatusList>
-            {status.block3.map((line) => (
-              <StatusListItem key={`${keyPrefix}-${line.id}`} tone={line.tone}>
-                {renderTokens(line.tokens)}
-              </StatusListItem>
-            ))}
-          </StatusList>
-        )}
-      </div>
+      )}
     </div>
   );
 }
@@ -305,7 +294,9 @@ export default function LineOpeningStatusBoard({
               </StatusListItem>
             </StatusList>
 
-            {/* ① 현재 운영 상태 — 오늘 기준 개설 대상 주차(N-1) */}
+            <Separator />
+
+            {/* ① 현재 운영 상태 — 오늘 기준 개설 대상 주차(N-1). 소제목 1개, 문장 연속. */}
             <section className="space-y-2">
               <p className="text-xs font-semibold text-muted-foreground">
                 현재 운영 상태
@@ -319,20 +310,23 @@ export default function LineOpeningStatusBoard({
               />
             </section>
 
-            {/* ② 선택한 주차 상태 — 드롭다운 선택 주차(현재 대상과 다를 때만) */}
+            {/* ② 선택한 주차 — 드롭다운 선택 주차(현재 대상과 다를 때만). 얇은 구분선으로만 분리. */}
             {showSelected && selectedStatus && (
-              <section className="space-y-2">
-                <p className="text-xs font-semibold text-muted-foreground">
-                  선택한 주차 상태
-                </p>
-                <TargetOpenStatusBody
-                  variant={variant}
-                  status={selectedStatus}
-                  hubLine={selectedHubLine}
-                  org={org}
-                  keyPrefix="sel"
-                />
-              </section>
+              <>
+                <Separator />
+                <section className="space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground">
+                    선택한 주차
+                  </p>
+                  <TargetOpenStatusBody
+                    variant={variant}
+                    status={selectedStatus}
+                    hubLine={selectedHubLine}
+                    org={org}
+                    keyPrefix="sel"
+                  />
+                </section>
+              </>
             )}
           </>
         )}
