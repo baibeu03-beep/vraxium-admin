@@ -1711,10 +1711,9 @@ export default function PracticalCareerManager() {
                     <span className="font-medium">{formatBannerPeriod({ year: selectedWeek.year, seasonName: selectedWeek.seasonName, weekNumber: selectedWeek.weekNumber })}</span>{" "}
                     ({fmtDateWithDay(selectedWeek.startDate)} ~ {fmtDateWithDay(selectedWeek.endDate)})
                   </p>
-                  {/* 기입 기간 = 귀속 주차의 "다음 주"(주차정책 공통 helper). selectedWeek 가 이미 다음 주 기간을 담는다. */}
-                  {selectedWeek.canOpen && selectedWeek.submissionOpensAt && selectedWeek.submissionClosesAt && (
+                  {selectedWeek.canOpen && (
                     <p className="text-muted-foreground">
-                      기입 기간: {fmtDateTimeWithDay(selectedWeek.submissionOpensAt)} ~ {fmtDateTimeWithDay(selectedWeek.submissionClosesAt)}
+                      기입 기간: 실제 개설 시점 ~ 개설 시점 + 48시간
                     </p>
                   )}
                   {!selectedWeek.canOpen && (
@@ -1765,7 +1764,7 @@ export default function PracticalCareerManager() {
                   />
                 </CardTitle>
                 <CardDescription className="inline-flex flex-wrap items-center gap-1">
-                  기입 마감: {fmtDateTimeWithDay(selectedWeek!.submissionClosesAt)}
+                  기입 마감: 실제 개설 시점 + 48시간
                   <AdminHelpIconButton
                     helpKey="admin.lineOpening.career.desc.openForm"
                     title="새 실무 경력 라인 기입 마감 안내"

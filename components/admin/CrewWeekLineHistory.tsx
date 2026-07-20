@@ -32,11 +32,14 @@ import type {
 import type { Cluster4LinePartType } from "@/shared/cluster4.contracts";
 
 // ─────────────────────────────────────────────────────────────────────
-// "라인 강화 내역" 탭 — 상단 요약 + 하단 라인 상세 표 + 2차 기입 허용/불가.
+// "라인 강화 내역" 탭 — 상단 요약 + 하단 라인 상세 표 + 2차 기입 제어(마감 / 허용·회수).
 //   · 숫자는 전부 크루 카드(/cluster-4-card) 라인 DTO·snapshot SoT 를 표현(재추정 없음).
-//   · 2차 기입 허용/불가 = 관리자 수동 override(클럽오픈 && 강화성공 라인만 허용 가능·불가는 언제든).
-//     허용 시 크루가 자동 기간 종료 후에도 그 라인 2차 기입을 수정/저장할 수 있다(force-open).
-//   · 이 화면은 라인 오픈 여부/강화 결과/평점/포인트/2차 기입 내용을 수정하지 않는다.
+//   · 2차 기입 마감(force-close) = 개설+48h 창이 열려 있는 동안 라인별로 실행하는 조기 마감. 그 라인의
+//     submission_closes_at 를 현재 시각으로 단축 → 모든 대상자 즉시 강화 최종 판정 + 성공자 지급.
+//   · 2차 기입 허용/회수(force-open override) = 창이 닫힌(확정) 뒤 관리자 수동 override(클럽오픈 &&
+//     강화성공 라인만 허용, 회수는 언제든). 허용 시 크루가 자동 기간 종료 후에도 수정/저장 가능.
+//     마감(force-close)과 회수(allowed=false)는 **별개 action** 이다(시점·의미 분리).
+//   · 이 화면은 라인 오픈 여부/강화 결과/평점/포인트/2차 기입 내용을 수정하지 않는다(마감은 창만 단축).
 // ─────────────────────────────────────────────────────────────────────
 
 const ENHANCEMENT_TONE: Record<"success" | "danger" | "neutral", BadgeTone> = {
@@ -252,7 +255,7 @@ export default function CrewWeekLineHistory({
           t.error("update", { status: res.status, message: json?.error });
           return;
         }
-        t.success("update", nextAllowed ? "2차 기입을 허용했습니다." : "2차 기입을 닫았습니다.");
+        t.success("update", nextAllowed ? "2차 기입을 허용했습니다." : "2차 기입 허용을 회수했습니다.");
         await load(); // 서버 상태 재조회(optimistic 금지)
       } catch {
         t.error("update", "network");
@@ -311,16 +314,16 @@ export default function CrewWeekLineHistory({
     if (allowedCount === 0) {
       await adminDialog.alert({
         variant: "info",
-        title: "2차 기입 불가",
+        title: "2차 기입 허용 회수",
         description: "현재 수동으로 허용된 라인이 없습니다.",
       });
       return;
     }
     const ok = await adminDialog.confirm({
       variant: "danger",
-      title: "전체 2차 기입 불가",
-      description: `현재 수동으로 허용된 ${allowedCount}개 라인의 2차 기입을 모두 닫으시겠습니까?`,
-      confirmLabel: "전체 불가",
+      title: "전체 2차 기입 허용 회수",
+      description: `현재 수동으로 허용된 ${allowedCount}개 라인의 2차 기입 허용을 모두 회수하시겠습니까?`,
+      confirmLabel: "전체 회수",
     });
     if (!ok) return;
     setBulkBusy(true);
@@ -338,7 +341,7 @@ export default function CrewWeekLineHistory({
         t.error("update", { status: res.status, message: json?.error });
         return;
       }
-      t.success("update", `${json.data.changedCount}개 라인의 2차 기입을 닫았습니다.`);
+      t.success("update", `${json.data.changedCount}개 라인의 2차 기입 허용을 회수했습니다.`);
       await load();
     } catch {
       t.error("update", "network");
@@ -346,6 +349,49 @@ export default function CrewWeekLineHistory({
       setBulkBusy(false);
     }
   }, [userId, weekId, mode, canManage, anyBusy, allowedCount, t, load]);
+
+  // 개별 라인 "2차 기입 마감"(force-close) — 그 라인의 submission_closes_at 을 현재 시각으로 단축한다.
+  //   라인 단위 동작(그 라인의 모든 대상자 즉시 마감)이며, allowed=false(허용 회수)와 별개 action 이다.
+  //   마감 즉시 강화 최종 판정(info/competency=성공, experience/career=평점 게이트)으로 전환되고
+  //   성공 대상자만 포인트가 지급된다. 되돌릴 수 없어 확인창을 거친다.
+  const closeLine = useCallback(
+    async (row: CrewWeekLineDetailRow) => {
+      if (!row.lineId || anyBusy) return;
+      const ok = await adminDialog.confirm({
+        variant: "danger",
+        title: "2차 기입 마감",
+        description:
+          `"${row.lineName}" 라인의 2차 기입을 지금 마감하시겠습니까?\n` +
+          "마감하면 이 라인의 모든 대상자가 즉시 강화 최종 판정으로 전환되고,\n" +
+          "성공 조건을 충족한 대상자에게 포인트가 지급됩니다. 이 동작은 되돌릴 수 없습니다.",
+        confirmLabel: "지금 마감",
+      });
+      if (!ok) return;
+      setLineBusy(row.lineId, true);
+      try {
+        const res = await fetch(
+          `/api/admin/members/${userId}/weeks/${weekId}/lines/${row.lineId}/close`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ mode }),
+          },
+        );
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          t.error("update", { status: res.status, message: json?.error });
+          return;
+        }
+        t.success("update", "2차 기입을 마감했습니다.");
+        await load();
+      } catch {
+        t.error("update", "network");
+      } finally {
+        setLineBusy(row.lineId, false);
+      }
+    },
+    [userId, weekId, mode, anyBusy, setLineBusy, t, load],
+  );
 
   // 라인명 클릭 → 상세 팝업. 실제 라인 = 라인 상세·수정 팝업. 실무 역량 placeholder(라인명 -)
   //   = 라인 선택(강화 성공 전환) 팝업. 그 외 placeholder 는 상세 없음.
@@ -453,7 +499,7 @@ export default function CrewWeekLineHistory({
             className="gap-1.5 border-red-500/60 text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-500/10"
           >
             <SwitchTrack tone="red" on={false} />
-            전체 · 2차 기입 불가
+            전체 · 2차 기입 허용 회수
           </Button>
         </div>
 
@@ -478,6 +524,7 @@ export default function CrewWeekLineHistory({
                     busyLines={busyLines}
                     anyBusy={anyBusy}
                     onToggle={toggleLine}
+                    onClose={closeLine}
                     onOpenDetail={openLineDetail}
                     sort={sort}
                     dirOf={dirOf}
@@ -501,8 +548,8 @@ export default function CrewWeekLineHistory({
           <span className="flex items-center gap-2">
             <SwitchTrack tone="red" on={false} />
             <span>
-              <b className="text-red-600 dark:text-red-400">불가</b>: 크루 페이지에서 2차 기입을 수정할 수
-              없습니다.
+              <b className="text-red-600 dark:text-red-400">회수</b>: 수동 허용을 회수합니다(자동 기간
+              로직으로 복귀 — 2차 기입 마감과는 별개).
             </span>
           </span>
           <span className="flex items-center gap-2">
@@ -514,7 +561,8 @@ export default function CrewWeekLineHistory({
 
         {!canManage && (
           <p className="text-xs text-muted-foreground">
-            2차 기입 허용/불가는 성장 결과가 확정된 주차에서만 관리할 수 있습니다.
+            2차 기입 허용/회수는 성장 결과가 확정된 주차에서만 관리할 수 있습니다. (2차 기입 마감은 개설
+            후 48시간 이내 진행 중에 라인별로 실행합니다.)
           </p>
         )}
       </div>
@@ -635,6 +683,7 @@ function HubLineTable({
   busyLines,
   anyBusy,
   onToggle,
+  onClose,
   onOpenDetail,
   sort,
   dirOf,
@@ -646,6 +695,7 @@ function HubLineTable({
   busyLines: Set<string>;
   anyBusy: boolean;
   onToggle: (row: CrewWeekLineDetailRow) => void;
+  onClose: (row: CrewWeekLineDetailRow) => void;
   onOpenDetail: (row: CrewWeekLineDetailRow) => void;
   sort: LineSortState;
   dirOf: (key: LineSortKey) => "asc" | "desc" | null;
@@ -757,12 +807,13 @@ function HubLineTable({
               </td>
               <td className="px-3 py-2 text-center">
                 <div className="flex justify-center">
-                  <SecondEntrySwitch
+                  <LineSubmissionControl
                     row={row}
                     canManage={canManage}
                     busy={row.lineId ? busyLines.has(row.lineId) : false}
                     anyBusy={anyBusy}
                     onToggle={() => onToggle(row)}
+                    onClose={() => onClose(row)}
                   />
                 </div>
               </td>
@@ -803,8 +854,67 @@ function SwitchTrack({
   );
 }
 
-// 2차 기입 ON/OFF 스위치 — 허용(ON·초록)/불가(OFF·빨강). 허용 불가 라인은 회색 Disabled + 잠금.
+// 2차 기입 셀 컨트롤 — 라인의 제출 창 상태에 따라 문맥에 맞는 컨트롤을 보여준다.
+//   · 창이 아직 열림(개설+48h 이내) + 실제 오픈 라인 + 이 크루가 대상자 → "2차 기입 마감" 버튼(force-close).
+//   · 창이 닫힘(48h 경과/이미 마감) → 기존 허용/회수 스위치(SecondEntrySwitch).
+//   두 상태는 시점상 배타적이다(마감 전엔 회수 개념 없음, 마감 후엔 새로 마감할 것 없음). force-close 와
+//   allowed=false(허용 회수)는 별개 action 이라 라벨/버튼을 분리한다(혼동 금지).
+function LineSubmissionControl({
+  row,
+  canManage,
+  busy,
+  anyBusy,
+  onToggle,
+  onClose,
+}: {
+  row: CrewWeekLineDetailRow;
+  canManage: boolean;
+  busy: boolean;
+  anyBusy: boolean;
+  onToggle: () => void;
+  onClose: () => void;
+}) {
+  const closesMs = row.submissionClosesAt
+    ? new Date(row.submissionClosesAt).getTime()
+    : Number.NaN;
+  const windowOpen = Number.isFinite(closesMs) && Date.now() <= closesMs;
+  // 마감 가능 = 실제 오픈 라인 + 이 크루가 대상자 + 아직 창이 열려 있음.
+  const closeable =
+    row.lineId != null && row.lineTargetId != null && row.clubOpen && windowOpen;
+
+  if (closeable) {
+    return (
+      <button
+        type="button"
+        disabled={anyBusy}
+        onClick={onClose}
+        title="이 라인의 2차 기입을 지금 마감합니다(모든 대상자 즉시 강화 최종 판정)."
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+          "border-amber-500/60 text-amber-700 hover:bg-amber-50 hover:text-amber-800 dark:text-amber-400 dark:hover:bg-amber-500/10",
+          (anyBusy || busy) && "cursor-not-allowed opacity-70",
+        )}
+      >
+        <Lock className="h-3.5 w-3.5" aria-hidden />
+        2차 기입 마감
+      </button>
+    );
+  }
+
+  return (
+    <SecondEntrySwitch
+      row={row}
+      canManage={canManage}
+      busy={busy}
+      anyBusy={anyBusy}
+      onToggle={onToggle}
+    />
+  );
+}
+
+// 2차 기입 ON/OFF 스위치 — 허용(ON·초록)/회수(OFF·빨강). 허용 불가 라인은 회색 Disabled + 잠금.
 //   클릭 동작·자격 안내·서버 호출은 상위 onToggle(toggleLine) 그대로 — 표시만 스위치로 바꾼다.
+//   OFF(회수)=allowed=false override 회수(force-open 취소) — force-close(2차 기입 마감)와 별개.
 function SecondEntrySwitch({
   row,
   canManage,
@@ -823,7 +933,7 @@ function SecondEntrySwitch({
   }
   const allowed = row.overrideAllowed;
   const locked = !allowed && !row.eligible; // 허용 불가(미오픈/강화 실패/해당 없음)
-  const label = allowed ? "허용" : "불가";
+  const label = allowed ? "허용" : "회수";
   // !canManage(집계 전) → 완전 비활성. 그 외엔 클릭 가능(비자격 라인은 클릭 시 안내 팝업).
   const disabled = !canManage || anyBusy;
   const trackTone = !canManage ? "gray" : allowed ? "green" : row.eligible ? "red" : "gray";
@@ -844,7 +954,7 @@ function SecondEntrySwitch({
         !canManage
           ? "확정된 주차에서만 관리할 수 있습니다."
           : allowed
-            ? "클릭하면 2차 기입을 닫습니다(불가)."
+            ? "클릭하면 2차 기입 허용을 회수합니다(자동 기간 로직으로 복귀)."
             : row.eligible
               ? "클릭하면 2차 기입을 허용합니다."
               : row.lineTargetId == null

@@ -1563,7 +1563,7 @@ export default function PracticalInfoManager() {
               <CardTitle className="text-base">새 실무 정보 라인</CardTitle>
               <CardDescription>
                 {selectedWeek?.submissionClosesAt
-                  ? `크루원 2차 입력 마감: ${fmtDateTimeWithDay(selectedWeek.submissionClosesAt)}`
+                  ? "크루원 2차 입력 마감: 실제 개설 시점 + 48시간"
                   : "주차를 선택해주세요"}
               </CardDescription>
             </CardHeader>

@@ -10,6 +10,7 @@ import { invalidateWeeklyCardsForLineOpen } from "@/lib/adminCluster4LinesData";
 import { payLineOpenTargetsOnce } from "@/lib/processPointAccrual";
 import { getRegistrationByBridgedMasterId } from "@/lib/lineRegistrationLookup";
 import { assertExperienceLineOpenable } from "@/lib/experienceLineOpenGate";
+import { computeLineOpenWindow } from "@/lib/cluster4LineSubmissionWindow";
 import {
   type Cluster4OutputLink,
   outputLinksFromLegacy,
@@ -293,6 +294,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 2차 기입 창 = 개설 시점 + 48h (주차 레벨 창 대체). 클라이언트가 보낸 window 값은 무시하고
+    //   개설 시점 기준(now/now+48h)으로 stamp — 4허브 공용 정책(submission_closes_at 단일 SoT).
+    const openWindow = computeLineOpenWindow();
+
     const { data: lineRow, error: lineError } = await supabaseAdmin
       .from("cluster4_lines")
       .insert({
@@ -305,8 +310,8 @@ export async function POST(request: NextRequest) {
         output_link_2: input.output_link_2,
         output_links: input.output_links,
         output_images: input.output_images,
-        submission_opens_at: input.submission_opens_at,
-        submission_closes_at: input.submission_closes_at,
+        submission_opens_at: openWindow.submissionOpensAt,
+        submission_closes_at: openWindow.submissionClosesAt,
         is_active: true,
         // QA 기간(QA_HIDE_REAL_USERS=true) 생성분 표식 — 운영 조회 제외. 기본 false.
         is_qa_test: QA_HIDE_REAL_USERS,

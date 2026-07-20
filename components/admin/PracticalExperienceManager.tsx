@@ -2613,9 +2613,9 @@ export default function PracticalExperienceManager() {
               <p className="text-muted-foreground">
                 라인 개설 권장 마감: 월요일 오후 10:00
               </p>
-              {currentWeek?.canOpen && currentWeek.submissionClosesAt && (
+              {currentWeek?.canOpen && (
                 <p className="text-xs text-muted-foreground">
-                  실제 기입 마감: {fmtDateTimeWithDay(currentWeek.submissionClosesAt)}
+                  실제 기입 마감: 개설 시점 + 48시간
                 </p>
               )}
               {/* dev 모드 전용: 개설 대상 주차 override (과거 주차 개설 허용).

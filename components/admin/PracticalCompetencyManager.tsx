@@ -507,8 +507,8 @@ export default function PracticalCompetencyManager() {
               {selectedWeek ? (
                 <div className="space-y-1 text-sm">
                   <p><span className="font-medium">{formatBannerPeriod({ year: selectedWeek.year, seasonName: selectedWeek.seasonName, weekNumber: selectedWeek.weekNumber })}</span>{" "}({fmtDateWithDay(selectedWeek.startDate)} ~ {fmtDateWithDay(selectedWeek.endDate)})</p>
-                  {selectedWeek.canOpen && selectedWeek.submissionOpensAt && selectedWeek.submissionClosesAt && (
-                    <p className="text-muted-foreground">기입 기간: {fmtDateTimeWithDay(selectedWeek.submissionOpensAt)} ~ {fmtDateTimeWithDay(selectedWeek.submissionClosesAt)}</p>
+                  {selectedWeek.canOpen && (
+                    <p className="text-muted-foreground">기입 기간: 실제 개설 시점 ~ 개설 시점 + 48시간</p>
                   )}
                   {!selectedWeek.canOpen && <p className="font-medium text-orange-600">선택한 주차는 공식 휴식 주차입니다.</p>}
                 </div>
@@ -532,7 +532,7 @@ export default function PracticalCompetencyManager() {
 
           {lineFormOpen && canOpenSelected && selectedWeek?.submissionClosesAt && (
             <Card>
-              <CardHeader><CardTitle className="text-base">새 실무 역량 라인</CardTitle><CardDescription>기입 마감: {fmtDateTimeWithDay(selectedWeek!.submissionClosesAt)}</CardDescription></CardHeader>
+              <CardHeader><CardTitle className="text-base">새 실무 역량 라인</CardTitle><CardDescription>기입 마감: 실제 개설 시점 + 48시간</CardDescription></CardHeader>
               <CardContent className="space-y-5">
                 <div className="space-y-2">
                   <Label className="inline-flex items-center gap-1">라인 <span className="text-red-500">*</span>

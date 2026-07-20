@@ -19,6 +19,7 @@ import {
   reconcileLineResultAwardForUser,
   recomputeWeeklyPointsForUsers,
 } from "@/lib/processPointAccrual";
+import { recomputeWeeklyCardsSnapshotsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { mapWithConcurrency, GROWTH_CARD_CONCURRENCY } from "@/lib/concurrency";
 
 export type LineAwardReconcileSummary = {
@@ -134,4 +135,92 @@ export async function reconcileLineAwardsForWeek(params: {
     changedUserIds,
     failedUsers,
   };
+}
+
+export type LineFinalizeResult =
+  | { status: "no_targets"; lineId: string }
+  | { status: "no_week"; lineId: string }
+  | ({ status: "reconciled"; lineId: string } & LineAwardReconcileSummary);
+
+// 라인 1건의 강화 결과를 확정(성공→지급/비성공→회수)한다 — 수동 "2차 기입 마감"과 자동 48h 스윕 공용.
+//   전제: 호출부가 이미 submission_closes_at 을 마감(now)으로 단축한 뒤 호출한다.
+//   ① 그 라인의 대상자(target_mode='user') snapshot 을 **먼저 재계산**한다. 이유: resolveCrewWeekCard 는
+//      snapshot(hit/stale)을 그대로 읽으므로(부재일 때만 재계산), 방금 바뀐 마감 시각을 반영하려면
+//      원장 정합 전에 재-bake 해야 강화 상태가 pending→success/fail 로 확정된 카드를 읽는다.
+//   ② 재계산된 카드를 SoT 로 reconcileLineAwardsForWeek(대상자 코호트) 실행 — 공표 경로와 동일 규칙.
+//      성공 라인만 지급, 평점 허브(experience/career)는 카드의 평점 게이트가 그대로 반영된다.
+//   멱등: 원장 upsert(onConflict=source,ref_id,user_id) + 이미 마감 라인 재호출 무해 → 자동/수동 중복지급 0.
+export async function finalizeLineResultAwards(params: {
+  lineId: string;
+  actor: string | null;
+  dryRun?: boolean;
+}): Promise<LineFinalizeResult> {
+  const { lineId, actor, dryRun = false } = params;
+
+  const { data: tgtData } = await supabaseAdmin
+    .from("cluster4_line_targets")
+    .select("target_user_id, week_id")
+    .eq("line_id", lineId)
+    .eq("target_mode", "user")
+    .not("target_user_id", "is", null);
+  const targets = (tgtData ?? []) as Array<{ target_user_id: string; week_id: string }>;
+  const userIds = Array.from(new Set(targets.map((t) => t.target_user_id)));
+  const weekIds = Array.from(new Set(targets.map((t) => t.week_id)));
+  if (userIds.length === 0 || weekIds.length === 0) {
+    // 0명 개설(sentinel rule-target) 등 — 지급할 대상자 없음. 스윕이 재처리하지 않도록 확정 마킹.
+    if (!dryRun) await markLineResultFinalized(lineId);
+    return { status: "no_targets", lineId };
+  }
+  const weekId = weekIds[0];
+
+  const { data: weekRow } = await supabaseAdmin
+    .from("weeks")
+    .select("id,start_date")
+    .eq("id", weekId)
+    .maybeSingle();
+  const weekStartDate = (weekRow as { start_date: string | null } | null)?.start_date ?? null;
+  if (!weekStartDate) {
+    return { status: "no_week", lineId };
+  }
+
+  // ① 대상자 snapshot 재계산(마감 반영). dryRun 이면 건너뛴다(원장/스냅샷 무접촉 델타 계산).
+  if (!dryRun) {
+    await recomputeWeeklyCardsSnapshotsForUsers(userIds);
+  }
+
+  // ② 재계산된 카드 SoT 로 라인 지급 정합(대상자만 코호트로 전달 → 그 라인 결과 확정).
+  const summary = await reconcileLineAwardsForWeek({
+    weekId,
+    weekStartDate,
+    actor,
+    cohortUserIds: userIds,
+    dryRun,
+  });
+
+  // ③ 결과 확정 마킹(스윕 재처리 방지). 멱등 — 마커 없어도 이중지급은 upsert 로 방지되므로 best-effort.
+  if (!dryRun) await markLineResultFinalized(lineId);
+
+  return { status: "reconciled", lineId, ...summary };
+}
+
+// result_finalized_at 마커 기록(now). 마이그레이션(2026-07-20) 미적용/실패해도 정합은 유지되므로
+//   best-effort — 실패는 로그만 남기고 삼킨다(생성 타입에 아직 없는 컬럼이라 update 인자는 캐스팅).
+async function markLineResultFinalized(lineId: string): Promise<void> {
+  try {
+    const { error } = await supabaseAdmin
+      .from("cluster4_lines")
+      .update({ result_finalized_at: new Date().toISOString() } as never)
+      .eq("id", lineId);
+    if (error) {
+      console.warn("[lineResultAwardReconcile] mark finalized skipped", {
+        lineId,
+        message: error.message,
+      });
+    }
+  } catch (e) {
+    console.warn("[lineResultAwardReconcile] mark finalized failed (best-effort)", {
+      lineId,
+      message: e instanceof Error ? e.message : String(e),
+    });
+  }
 }

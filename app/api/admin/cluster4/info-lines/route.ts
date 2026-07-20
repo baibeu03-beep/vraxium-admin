@@ -58,6 +58,7 @@ import {
 } from "@/lib/userScope";
 import { loadWeekOpeningConfig } from "@/lib/adminTeamPartsInfoWeekDetailData";
 import { isInfoLineOpenForWeek } from "@/lib/weekOpenGate";
+import { computeLineOpenWindow } from "@/lib/cluster4LineSubmissionWindow";
 
 // GET /api/admin/cluster4/info-lines?week_id=&activity_type_id=
 // 실무 정보(part_type='info') 라인을 활동 유형 탭별/주차별로 운영하기 위한
@@ -524,6 +525,16 @@ export async function POST(request: NextRequest) {
         );
       }
     }
+  }
+
+  // ── 2차 기입 창 = 개설 시점 + 48h (주차 레벨 창 대체) ─────────────────────────
+  //   week_id(귀속 주차)는 위에서 확정한 effectiveWeekId 그대로 두고, submission window 만
+  //   개설 시점 기준(now / now+48h)으로 stamp 한다. 이 한 값이 크루 수정창 + 강화 deadlinePassed +
+  //   snapshot + payout 을 동시에 게이트하므로, 여기서 통일하면 하류 코드 변경 없이 48h 정책이 걸린다.
+  {
+    const openWindow = computeLineOpenWindow();
+    effectiveOpensAt = openWindow.submissionOpensAt;
+    effectiveClosesAt = openWindow.submissionClosesAt;
   }
 
   // ── 라인 개설 오픈 게이트 (강제) ─────────────────────────────────────────────

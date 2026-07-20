@@ -35,6 +35,8 @@ export async function insertOpeningLogForLine(input: {
   weekId: string | null;
   activityTypeId: string | null;
   changedBy: string | null;
+  // 감사 note(선택) — force-close 의 "기존 마감 → 변경 마감" 등. 컬럼 미적용 시 note 없이 재시도.
+  note?: string | null;
 }): Promise<void> {
   try {
     // 1. 활동유형 라벨(예: 위즈덤).
@@ -78,20 +80,43 @@ export async function insertOpeningLogForLine(input: {
       if (name && name.trim().length > 0) actorName = name.trim();
     }
 
+    const baseRow = {
+      action: input.action,
+      line_id: input.lineId,
+      week_id: input.weekId,
+      activity_type_id: input.activityTypeId,
+      activity_label: activityLabel,
+      period_label: periodLabel,
+      changed_by: input.changedBy,
+      actor_name: actorName,
+    };
+    const note = input.note?.trim() ? input.note.trim() : null;
+
+    // note 컬럼은 마이그레이션(2026-07-20)으로 추가 — 생성 타입에 아직 없어 excess-property 로 걸린다.
+    //   런타임엔 note 를 보내되 타입은 baseRow 로 좁혀 통과시킨다(미적용 시 아래 42703 재시도가 처리).
+    const insertRow =
+      note !== null ? ({ ...baseRow, note } as typeof baseRow) : baseRow;
+
     const { error } = await supabaseAdmin
       .from("cluster4_line_opening_logs")
-      .insert({
-        action: input.action,
-        line_id: input.lineId,
-        week_id: input.weekId,
-        activity_type_id: input.activityTypeId,
-        activity_label: activityLabel,
-        period_label: periodLabel,
-        changed_by: input.changedBy,
-        actor_name: actorName,
-      });
+      .insert(insertRow);
     if (error) {
-      console.warn("[opening-logs] insert skipped:", error.message);
+      // note 컬럼 미적용(42703/PGRST204) → note 없이 재시도(감사 레코드 자체는 보존).
+      const missingNoteCol =
+        note !== null &&
+        (error.code === "42703" ||
+          error.code === "PGRST204" ||
+          /note|schema cache/i.test(error.message ?? ""));
+      if (missingNoteCol) {
+        const retry = await supabaseAdmin
+          .from("cluster4_line_opening_logs")
+          .insert(baseRow);
+        if (retry.error) {
+          console.warn("[opening-logs] insert skipped:", retry.error.message);
+        }
+      } else {
+        console.warn("[opening-logs] insert skipped:", error.message);
+      }
     }
   } catch (e) {
     console.warn(

@@ -11,6 +11,7 @@ import {
   getCalendarWeekStatus,
 } from "@/lib/seasonCalendar";
 import { resolveWeekOfficialRest } from "@/lib/officialRestPeriodsData";
+import { computeLineOpenWindow } from "@/lib/cluster4LineSubmissionWindow";
 import {
   type Cluster4OutputLink,
   outputLinksFromLegacy,
@@ -318,6 +319,16 @@ export async function POST(request: NextRequest) {
     if (currentWeekWindow && !currentWeekWindow.isOfficialRest) {
       submissionOpensAt = currentWeekWindow.submissionOpensAt;
       submissionClosesAt = currentWeekWindow.submissionClosesAt;
+    }
+
+    // ── 2차 기입 창 = 개설 시점 + 48h (주차 레벨 창 대체) ─────────────────────────
+    //   위에서 정한 주차 귀속(weekRowId)은 유지하고 submission window 만 개설 시점 기준(now/now+48h)으로
+    //   통일한다. 4허브 공용 정책 — submission_closes_at 이 크루 수정창·강화 deadlinePassed·snapshot·
+    //   payout 을 동시에 게이트하므로 여기서 통일하면 하류 무변경으로 48h 정책이 걸린다.
+    {
+      const openWindow = computeLineOpenWindow();
+      submissionOpensAt = openWindow.submissionOpensAt;
+      submissionClosesAt = openWindow.submissionClosesAt;
     }
 
     const { data: project, error: projectError } = await supabaseAdmin
