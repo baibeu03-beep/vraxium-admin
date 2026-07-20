@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, Upload, Trash2, X, Lock, Unlock } from "lucide-react";
+import { Loader2, Upload, Trash2, X, Lock, Unlock, CheckCircle2 } from "lucide-react";
+import type { Cluster4InfoLineDetail } from "@/lib/adminCluster4LinesTypes";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import {
   Card,
@@ -65,6 +66,20 @@ export type ExceptionFormWeek = OpeningFormWeek & {
 type ActivityTypeOption = { id: string; name: string };
 
 type UploadedImage = { url: string; name: string };
+
+// 개설 완료 상태에서 표시할 저장값(서버 SoT). 편집 폼 로컬 state 를 그대로 두지 않고,
+//   info-lines GET 이 돌려준 활성 라인을 그대로 읽어 "개설 완료" 읽기 전용 뷰에 표시한다.
+//   → 개설 직후 / 새로고침 / 주차 재방문 어느 경우든 서버 재조회 결과로 동일하게 복원된다.
+type OpenedLineDetail = {
+  id: string;
+  mainTitle: string;
+  activityTypeName: string | null;
+  outputLinks: { url: string; label?: string | null }[];
+  outputLink1: string | null;
+  outputImages: string[];
+  outputImageCaptions: (string | null)[];
+  targets: { userId: string; displayName: string; organization: string | null }[];
+};
 
 // "26년, 여름 시즌, 3주차" — 시즌·주차 공통 포맷(formatBannerPeriod SoT).
 function weekTitle(w: OpeningFormWeek): string {
@@ -273,8 +288,8 @@ export default function PracticalInfoOpeningForm({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
-  // 현재 (선택 주차 + 선택 라인) 에 이미 개설된 활성 라인 — [개설 취소] 대상.
-  const [openedLine, setOpenedLine] = useState<{ id: string; mainTitle: string } | null>(null);
+  // 현재 (선택 주차 + 선택 라인) 에 이미 개설된 활성 라인 — [개설 취소] 대상 + "개설 완료" 뷰의 표시값(서버 SoT).
+  const [openedLine, setOpenedLine] = useState<OpenedLineDetail | null>(null);
   // 이번 주 (선택 주차+라인) 오픈(개설 대상) 여부 — info-lines GET(isOpenThisWeek). false=미오픈(개설 차단).
   //   null = 미상(통합/미조회) → 게이트 미적용(개설 서버 강제로 최종 차단).
   const [openThisWeek, setOpenThisWeek] = useState<boolean | null>(null);
@@ -345,10 +360,29 @@ export default function PracticalInfoOpeningForm({
         );
         const json = await res.json();
         if (cancelled) return;
-        const row = json?.success
-          ? (json.data?.rows ?? []).find((r: { isActive: boolean }) => r.isActive)
+        const row: Cluster4InfoLineDetail | null = json?.success
+          ? (json.data?.rows ?? []).find((r: Cluster4InfoLineDetail) => r.isActive) ?? null
           : null;
-        setOpenedLine(row ? { id: row.id, mainTitle: row.mainTitle } : null);
+        setOpenedLine(
+          row
+            ? {
+                id: row.id,
+                mainTitle: row.mainTitle,
+                activityTypeName: row.activityTypeName ?? null,
+                outputLinks: row.outputLinks ?? [],
+                outputLink1: row.outputLink1 ?? null,
+                outputImages: row.outputImages ?? [],
+                outputImageCaptions: row.outputImageCaptions ?? [],
+                targets: (row.targets ?? [])
+                  .filter((tt) => tt.targetUserId)
+                  .map((tt) => ({
+                    userId: tt.targetUserId as string,
+                    displayName: tt.displayName,
+                    organization: tt.organizationSlug ?? null,
+                  })),
+              }
+            : null,
+        );
         // 이번 주 오픈(개설 대상) 여부 — 서버(weekOpenGate) 판정. boolean 이 아니면 미상(null).
         setOpenThisWeek(
           json?.success && typeof json.data?.isOpenThisWeek === "boolean"
@@ -381,6 +415,52 @@ export default function PracticalInfoOpeningForm({
     setCandidates([]);
     setCrewResetSignal((s) => s + 1);
   }, [defaultActivityTypeId]);
+
+  // 개설 완료 여부 — 서버(openedLine)에 활성 라인이 있으면, 폼을 저장값으로 채운 채 잠근다(읽기 전용).
+  //   별도 결과 레이아웃으로 바꾸지 않고 '개설 전과 동일한 입력 폼'에 값만 주입 후 disabled 처리한다.
+  const locked = openedLine != null;
+
+  // 개설 완료 상태 진입 시 서버 저장값을 같은 입력 폼에 그대로 주입(hydrate)한다.
+  //   클라 빈 초기값이 서버 조회 결과를 덮지 않도록, id 가 (없음→있음)/(A→B) 로 바뀔 때만 채운다.
+  //   개설 취소 등으로 완료 상태를 벗어나면(id 있음→없음) 편집 가능한 빈 폼으로 복귀한다.
+  const prevOpenedIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const curr = openedLine?.id ?? null;
+    // id 가 실제로 바뀔 때만(없음↔있음, A↔B) 반영. 같은 라인 재조회(동일 id)는 폼을 건드리지 않는다.
+    if (curr === prevOpenedIdRef.current) return;
+    // effect 동기 setState 회피(형제 fetch effect 와 동일 패턴) — setTimeout(0) 로 분리.
+    const timer = setTimeout(() => {
+      if (openedLine) {
+        setMainTitle(openedLine.mainTitle);
+        setLinkUrl(openedLine.outputLinks[0]?.url ?? openedLine.outputLink1 ?? "");
+        setLinkDesc(openedLine.outputLinks[0]?.label ?? "");
+        setImage(
+          openedLine.outputImages[0]
+            ? { url: openedLine.outputImages[0], name: "저장된 이미지" }
+            : null,
+        );
+        setImageDesc(openedLine.outputImageCaptions[0] ?? "");
+        setCandidates(
+          openedLine.targets.map((tt) => ({
+            userId: tt.userId,
+            crewNo: null,
+            crewCode: null,
+            name: tt.displayName,
+            teamName: null,
+            partName: null,
+            schoolName: null,
+            majorName: null,
+            organization: tt.organization,
+          })),
+        );
+      } else {
+        // 완료 상태에서 벗어남(개설 취소) → 편집 가능한 빈 폼으로 복귀.
+        resetForm();
+      }
+      prevOpenedIdRef.current = curr;
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [openedLine, resetForm]);
 
   // [개설] 활성 판정 — 필수값 누락 사유 목록(복수). 비어 있으면 개설 가능.
   //   ⚠ 개설 크루는 0명도 유효 → 사유에 포함하지 않는다. (candidates 는 항상 배열 — null/undefined/로딩실패 아님)
@@ -524,7 +604,7 @@ export default function PracticalInfoOpeningForm({
         targetCount: json.data?.targetCount ?? candidates.length,
       });
       toast("success", lineOpenSuccessMessage(false));
-      resetForm();
+      // 폼을 비우지 않는다 — 재조회로 openedLine 이 채워지면 hydrate 가 저장값을 주입하고 잠근다.
       setRefreshTick((t) => t + 1);
       onOpened();
     } catch {
@@ -666,71 +746,21 @@ export default function PracticalInfoOpeningForm({
           </div>
         ) : (
         <>
-        {/* 개설 액션 (폼 최상단 · 왼쪽 정렬) — [개설] [초기화] [개설 취소] */}
-        <div className="space-y-2 border-b pb-4">
-          <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
-            <div className="flex items-center gap-1">
-              <Button
-                type="button"
-                onClick={handleOpenClick}
-                disabled={saving || !canOpen}
-                loading={saving}
-              >
-                개설
-              </Button>
-              <AdminHelpIconButton
-                helpKey="admin.lineOpening.info.action.open"
-                title="개설"
-                size="xs"
-              />
-            </div>
-            <div className="flex items-center gap-1">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setConfirmReset(true)}
-                disabled={saving}
-              >
-                초기화
-              </Button>
-              <AdminHelpIconButton
-                helpKey="admin.lineOpening.info.action.reset"
-                title="초기화"
-                size="xs"
-              />
-            </div>
-            <div className="flex items-center gap-1">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleCancelClick}
-                disabled={saving || !openedLine}
-                className="text-red-600 hover:text-red-700"
-                title={
-                  openedLine
-                    ? "개설된 라인을 취소(되돌리기)합니다"
-                    : "이 주차·라인에 개설된 라인이 없습니다"
-                }
-              >
-                개설 취소
-              </Button>
-              <AdminHelpIconButton
-                helpKey="admin.lineOpening.info.action.cancelOpen"
-                title="개설 취소"
-                size="xs"
-              />
+        {/* 개설 완료 배지 — 폼 구조/레이아웃은 개설 전과 동일하게 두고, 상태만 작은 배지로 표시한다. */}
+        {locked && (
+          <div className="flex items-start gap-2 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2.5 dark:border-emerald-800 dark:bg-emerald-950/40">
+            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">개설 완료</p>
+              <p className="text-xs text-emerald-700/90 dark:text-emerald-400/90">
+                아래는 이 주차·라인에 저장된 개설 정보입니다(읽기 전용). 수정하려면 하단 [개설 취소] 후 다시 개설하세요.
+              </p>
             </div>
           </div>
-          {/* 개설 비활성 사유(복수). 개설 크루 0명은 사유 아님. */}
-          {!canOpen && (
-            <ul className="space-y-0.5 text-xs text-amber-700">
-              {missingReasons.map((r) => (
-                <li key={r}>· {r}</li>
-              ))}
-            </ul>
-          )}
-        </div>
-
+        )}
+        {/* 상단 입력 — 데스크톱 2열(라인명 · 메인 타이틀). 좁은 화면은 1열로 쌓인다.
+            대상 주차는 게이트 바깥(최상단)에 남아 이 그리드에 포함하지 않는다. */}
+        <div className="grid grid-cols-1 gap-x-6 gap-y-6 xl:grid-cols-2">
         {/* 2. 라인명 — 상단 활동유형 탭에서 선택된 유형의 라인만 후보로 노출(Manager 가 필터). */}
         <section className="space-y-2">
           <div className="flex items-center gap-1">
@@ -745,9 +775,10 @@ export default function PracticalInfoOpeningForm({
           </div>
           <select
             aria-label="라인명"
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:bg-muted/50"
             value={lineId}
             onChange={(e) => setLineId(e.target.value)}
+            disabled={saving || locked}
           >
             <option value="">라인을 선택해주세요</option>
             {activityTypes.map((t) => (
@@ -771,6 +802,7 @@ export default function PracticalInfoOpeningForm({
                 size="sm"
                 onClick={() => setMainTitle(GENERAL_MAIN_TITLE)}
                 title="고정 문구를 입력란에 불러옵니다"
+                disabled={saving || locked}
               >
                 일반
               </Button>
@@ -783,16 +815,18 @@ export default function PracticalInfoOpeningForm({
             onChange={(e) => setMainTitle(e.target.value)}
             rows={3}
             placeholder="메인 타이틀을 입력하거나 우측 상단 '일반' 버튼으로 고정 문구를 불러오세요"
-            className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm"
+            disabled={saving || locked}
+            className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:bg-muted/50"
           />
         </section>
+        </div>
 
-        {/* 4. 아웃풋 — 2행 1열(링크 행 / 이미지 행) */}
+        {/* 4. 아웃풋 — 라벨 아래 데스크톱 2열(링크 · 이미지). 좁은 화면은 1열. */}
         <section className="space-y-4">
           <Label className="inline-flex items-center gap-1 text-sm font-semibold">
             아웃풋 <span className="text-red-500">*</span><AdminHelpIconButton size="xs" helpKey="admin.lineOpening.field.output" title="아웃풋" />
           </Label>
-          <div className="grid grid-cols-1 gap-4">
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             {/* 아웃풋 링크 — "링크 1" / "설명 1" 각각 한 줄 */}
             <div className="space-y-2 rounded-md border p-3">
               <p className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">아웃풋 링크<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.info.field.outputLink" title="아웃풋 링크" /></p>
@@ -805,6 +839,7 @@ export default function PracticalInfoOpeningForm({
                   onChange={(e) => setLinkUrl(e.target.value)}
                   placeholder="아웃풋 링크 주소 (https://...)"
                   aria-label="아웃풋 링크 주소"
+                  disabled={saving || locked}
                 />
               </div>
               <div className="flex items-center gap-2">
@@ -816,6 +851,7 @@ export default function PracticalInfoOpeningForm({
                   onChange={(e) => setLinkDesc(e.target.value)}
                   placeholder="아웃풋 링크 설명"
                   aria-label="아웃풋 링크 설명"
+                  disabled={saving || locked}
                 />
               </div>
             </div>
@@ -832,7 +868,7 @@ export default function PracticalInfoOpeningForm({
                 }}
                 onCaptionChange={setImageDesc}
                 onExpand={() => setImageModalOpen(true)}
-                disabled={saving}
+                disabled={saving || locked}
               />
             </div>
           </div>
@@ -845,8 +881,78 @@ export default function PracticalInfoOpeningForm({
           candidates={candidates}
           onCandidatesChange={setCandidates}
           onMetaChange={setCafeMeta}
-          disabled={saving}
+          disabled={saving || locked}
         />
+
+        {/* 개설 액션 (폼 최하단 — '라인 개설 크루' 다음 최종 액션 영역) — [개설] [초기화] [개설 취소].
+            상태 구분은 버튼 활성 상태만으로: 미개설=개설/초기화 활성·개설 취소 비활성,
+            개설 완료(locked)=개설/초기화 비활성·개설 취소 활성. 위치/구조는 개설 전과 동일. */}
+        <div className="space-y-2 border-t pt-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                onClick={handleOpenClick}
+                disabled={saving || locked || !canOpen}
+                loading={saving}
+                className="h-11 px-6 text-base"
+              >
+                개설
+              </Button>
+              <AdminHelpIconButton
+                helpKey="admin.lineOpening.info.action.open"
+                title="개설"
+                size="xs"
+              />
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setConfirmReset(true)}
+                disabled={saving || locked}
+                className="h-11 px-6 text-base"
+              >
+                초기화
+              </Button>
+              <AdminHelpIconButton
+                helpKey="admin.lineOpening.info.action.reset"
+                title="초기화"
+                size="xs"
+              />
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCancelClick}
+                disabled={saving || !openedLine}
+                loading={saving}
+                className="h-11 px-6 text-base text-red-600 hover:text-red-700"
+                title={
+                  openedLine
+                    ? "개설된 라인을 취소(되돌리기)합니다"
+                    : "이 주차·라인에 개설된 라인이 없습니다"
+                }
+              >
+                개설 취소
+              </Button>
+              <AdminHelpIconButton
+                helpKey="admin.lineOpening.info.action.cancelOpen"
+                title="개설 취소"
+                size="xs"
+              />
+            </div>
+          </div>
+          {/* 개설 비활성 사유(복수) — 미개설 상태에서만. 개설 완료(locked)면 사유 대신 위 배지로 표시. */}
+          {!locked && !canOpen && (
+            <ul className="space-y-0.5 text-xs text-amber-700">
+              {missingReasons.map((r) => (
+                <li key={r}>· {r}</li>
+              ))}
+            </ul>
+          )}
+        </div>
         </>
         )}
       </CardContent>

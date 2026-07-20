@@ -357,29 +357,16 @@ function CanEditBadge({
 // ──────────────────────────────────────────────────────────────
 // 라인 종류(활동 유형) 탭 — 시각 상태 클래스 SoT
 // ──────────────────────────────────────────────────────────────
-// 탭의 두 축(선택 · 오픈)을 색상만으로도 즉시 구분되도록 4색 팔레트로 분리한다.
-//   · 선택 + 오픈   → 파란색(blue)   : 진한 채움 + 흰 글자로 가장 강한 강조.
-//   · 미선택 + 오픈 → 초록/민트(emerald): 옅은 채움으로 "개설 가능·활성" 인상.
-//   · 선택 + 미오픈 → 주황(amber)    : 밝은 채움 + 진한 글자로 "선택했으나 미오픈" 경고 톤.
-//   · 미선택 + 미오픈→ 회색(zinc)    : 점선 테두리 + 낮은 대비로 비활성 인상.
-// 탭 이름 하드코딩 없이 (selected, open) 조합만으로 결정 → mode/org 무관 동일 로직.
-//   여기서 open 은 "미오픈이 아님"(open·created·loading 모두 open 축=true). 배지는 상태별로 별도 표기.
-function lineTypeTabClass(selected: boolean, open: boolean): string {
-  if (selected && open) {
-    // 선택 + 오픈 — 파란색 계열(최우선 강조). 진한 blue 채움 + 흰 글자.
-    return "border-blue-600 bg-blue-600 font-semibold text-white shadow-sm hover:bg-blue-700 dark:border-blue-500 dark:bg-blue-600 dark:hover:bg-blue-500";
+// 탭은 밑줄(underline) 스타일 — 박스/배경 없이 '선택'만 아래 파란 밑줄 + 파란 진한 글자로 강조한다.
+//   오픈/미오픈/개설 완료 여부는 탭 이름 옆의 작은 점(dot)으로만 표시(아래 렌더) → 색 사용을 최소화해 정돈.
+// 탭 이름 하드코딩 없이 selected 값만으로 본체 스타일 결정 → mode/org 무관 동일 로직.
+function lineTypeTabClass(selected: boolean): string {
+  if (selected) {
+    // 선택 — 파란 밑줄(border-b-2) + 파란 진한 글자.
+    return "border-blue-600 font-semibold text-blue-700 dark:border-blue-500 dark:text-blue-400";
   }
-  if (selected && !open) {
-    // 선택 + 미오픈 — 주황(amber) 계열. 밝은 amber 채움 + 진한 글자로 대비 확보(흰 글자는 대비 부족).
-    return "border-amber-500 bg-amber-400 font-semibold text-amber-950 shadow-sm ring-1 ring-inset ring-amber-500 hover:bg-amber-300 dark:border-amber-500 dark:bg-amber-500 dark:text-amber-950 dark:hover:bg-amber-400";
-  }
-  if (!selected && open) {
-    // 미선택 + 오픈 — 초록/민트(emerald) 계열. 옅은 배경 + emerald 글자, hover 시 살짝 진하게.
-    return "border-emerald-300 bg-emerald-50 font-medium text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/40";
-  }
-  // 미선택 + 미오픈 — 회색(zinc) 계열. 점선 테두리 + 낮은 대비로 비활성 인상.
-  //   hover 해도 오픈 탭처럼 밝아지지 않도록 zinc 안에서만 미세 변화.
-  return "border-dashed border-zinc-300 bg-zinc-100 font-medium text-zinc-500 hover:bg-zinc-200/80 hover:text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-400 dark:hover:bg-zinc-800";
+  // 미선택 — 투명 밑줄 + 흐린 글자. hover 시 글자·밑줄이 살짝 드러난다.
+  return "border-transparent font-medium text-muted-foreground hover:border-border hover:text-foreground";
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -1785,7 +1772,7 @@ export default function PracticalInfoManager() {
       {mainTab === "open" && (
         <div className="space-y-6">
           {/* 활동 유형 탭 (라인 개설 탭 — 섹션0 대상 활동유형 선택, activeTypeId 공유) */}
-          <div role="tablist" className="flex flex-wrap items-center gap-2 border-b pb-px">
+          <div role="tablist" className="flex flex-wrap items-center gap-1 border-b">
             {orderedTypes.map((t) => {
               // 탭 배지 상태 = 선택 주차(selectedWeekId, 화면 전체 단일 SoT) 기준. 상태창·개설 폼과 동일 주차.
               //   loading  : 선택 주차 상태 조회 중 — 이전(다른) 주차 배지를 유지하지 않고 로딩 처리.
@@ -1802,7 +1789,6 @@ export default function PracticalInfoManager() {
                   : openByActivityType[t.id] === false
                     ? "notOpen"
                     : "open";
-              const notOpen = status === "notOpen";
               const selected = activeTypeId === t.id;
               return (
                 <button
@@ -1819,35 +1805,36 @@ export default function PracticalInfoManager() {
                         : undefined
                   }
                   className={cn(
-                    "relative -mb-px inline-flex items-center gap-1.5 rounded-t-md border border-b-0 px-4 py-2 text-sm transition-colors",
-                    // 두 축(선택·오픈)을 분리해 클래스 결정 — 탭 이름 무관, mode/org 동일 SoT.
-                    //   open 축 = 미오픈이 아님(created/open/loading 모두 true). notOpen 만 false.
-                    lineTypeTabClass(selected, !notOpen),
+                    // 밑줄 탭 — 박스/배경 없이 하단 2px 밑줄만. -mb-px 로 tablist 의 baseline 위에 겹친다.
+                    "relative -mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm transition-colors",
+                    // 본체 스타일은 선택 여부만 반영(탭 이름 무관, mode/org 동일 SoT). 상태는 아래 점(dot).
+                    lineTypeTabClass(selected),
                   )}
                 >
                   {t.name}
+                  {/* 상태 점(dot) — 오픈=채운점 / 미오픈=빈점 / 개설 완료=체크 / 로딩=스피너. 정확한 뜻은 title 툴팁. */}
                   {status === "loading" && (
-                    <span
-                      className="inline-flex items-center rounded-full border border-border bg-muted px-1.5 py-0.5 text-2xs font-medium text-muted-foreground"
-                      aria-label="상태 확인 중"
-                    >
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    </span>
+                    <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" aria-label="상태 확인 중" />
                   )}
                   {status === "created" && (
-                    <span className="rounded-full border border-green-400 bg-green-100 px-1.5 py-0.5 text-2xs font-semibold text-green-700 dark:border-green-600 dark:bg-green-900/40 dark:text-green-200">
-                      개설 완료
+                    <span
+                      className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-500 text-white dark:bg-emerald-600"
+                      aria-label="개설 완료"
+                    >
+                      <Check className="h-2.5 w-2.5" strokeWidth={3} />
                     </span>
                   )}
                   {status === "open" && (
-                    <span className="rounded-full border border-sky-400 bg-sky-100 px-1.5 py-0.5 text-2xs font-semibold text-sky-700 dark:border-sky-600 dark:bg-sky-900/40 dark:text-sky-200">
-                      오픈
-                    </span>
+                    <span
+                      className="h-2 w-2 shrink-0 rounded-full bg-emerald-500 dark:bg-emerald-400"
+                      aria-label="오픈"
+                    />
                   )}
                   {status === "notOpen" && (
-                    <span className="rounded-full border border-zinc-400 bg-zinc-100 px-1.5 py-0.5 text-2xs font-semibold text-zinc-600 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-200">
-                      미오픈
-                    </span>
+                    <span
+                      className="h-2 w-2 shrink-0 rounded-full border-[1.5px] border-zinc-400 bg-transparent dark:border-zinc-500"
+                      aria-label="미오픈"
+                    />
                   )}
                 </button>
               );
