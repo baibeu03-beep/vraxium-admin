@@ -717,27 +717,32 @@ button[data-loading="true"][aria-disabled="true"] {
 @keyframes admin-help-nudge {
   0%,
   100% {
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
     box-shadow:
-      0 0 0 0 rgb(251 191 36 / 0),
-      0 0 0 0 rgb(251 191 36 / 0);
+      0 0 0 1px color-mix(in oklch, var(--tone-warn) 32%, transparent),
+      0 0 9px color-mix(in oklch, var(--tone-warn) 20%, transparent);
   }
   25% {
     /* 위로 통통 튀며(≤3px) 살짝 커지고(1.04), 외곽에 amber glow(진한 링 10px + 번짐 20px)가 퍼진다. */
-    transform: translateY(-3px) scale(1.04);
+    transform: translateY(-1px);
     box-shadow:
-      0 0 0 10px rgb(251 191 36 / 0.4),
-      0 0 20px 12px rgb(251 191 36 / 0.35);
+      0 0 0 2px color-mix(in oklch, var(--tone-warn) 42%, transparent),
+      0 0 13px color-mix(in oklch, var(--tone-warn) 34%, transparent);
   }
   55% {
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
     box-shadow:
-      0 0 0 0 rgb(251 191 36 / 0),
-      0 0 0 0 rgb(251 191 36 / 0);
+      0 0 0 1px color-mix(in oklch, var(--tone-warn) 32%, transparent),
+      0 0 9px color-mix(in oklch, var(--tone-warn) 20%, transparent);
   }
 }
+.admin-help-has-content {
+  box-shadow:
+    0 0 0 1px color-mix(in oklch, var(--tone-warn) 32%, transparent),
+    0 0 9px color-mix(in oklch, var(--tone-warn) 20%, transparent);
+}
 .admin-help-nudge {
-  /* 0.6s × 3회 = 1.8s(≤2s). ease-in-out, 종료 후 기본 상태(shadow-sm)로 복귀. */
+  /* 0.6s × 3회 = 1.8s(유한). shadow + 1px 이동만 사용해 레이아웃은 고정한다. */
   animation: admin-help-nudge 0.6s ease-in-out 3;
 }
 

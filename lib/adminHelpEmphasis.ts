@@ -5,9 +5,11 @@
 //     mode/org 를 무시하므로(=본문 동일), 여기서도 키만으로 판단한다. 일반/테스트 동일 로직.
 //   · 조회는 도움말 모달과 "같은" GET /api/admin/help(같은 DTO: data.content / data.canEdit).
 
-/** 표시할 실제 내용이 있는가(공백만 = 없음). */
+import { normalizeHelpToPlainText } from "@/lib/helpTooltip";
+
+/** 표시할 실제 내용이 있는가(공백·HTML 태그만 있는 값 = 없음). */
 export function hasHelpContent(content: string | null | undefined): boolean {
-  return typeof content === "string" && content.trim().length > 0;
+  return normalizeHelpToPlainText(content).length > 0;
 }
 
 /**
@@ -58,12 +60,60 @@ export type HelpMeta = {
   content: string;
   /** 편집/저장 권한(owner/admin). GET 응답의 canEdit. */
   canEdit: boolean;
+  /** 조회 실패 시에만 존재한다. 강조 UI는 이를 빈 도움말처럼 안전하게 처리한다. */
+  loadError?: string;
+};
+
+type AdminHelpResponse = {
+  success?: boolean;
+  data?: { pagePath?: unknown; content?: unknown; canEdit?: unknown };
+  error?: unknown;
 };
 
 // 페이지키 → 도움말 메타 캐시(모듈 스코프, 세션 지속). AdminHelp mount 마다 재조회하지 않도록.
 //   · 요소 돋보기(AdminHelpIconButton)의 캐시와 별개(그쪽은 helpKey·content 전용) — 여기선 canEdit 도 필요.
-const metaCache = new Map<string, HelpMeta>();
-const metaInflight = new Map<string, Promise<HelpMeta>>();
+type HelpClientStore = {
+  cache: Map<string, HelpMeta>;
+  inflight: Map<string, Promise<HelpMeta>>;
+  listeners: Map<string, Set<(meta: HelpMeta) => void>>;
+};
+
+// 개발 HMR·분리된 클라이언트 청크에서도 같은 window 전역 저장소를 사용해 동일 key 요청을 dedup한다.
+const helpGlobal = globalThis as typeof globalThis & { __vraxiumAdminHelpStore?: HelpClientStore };
+const helpStore = helpGlobal.__vraxiumAdminHelpStore ??= {
+  cache: new Map<string, HelpMeta>(),
+  inflight: new Map<string, Promise<HelpMeta>>(),
+  listeners: new Map<string, Set<(meta: HelpMeta) => void>>(),
+};
+const metaCache = helpStore.cache;
+const metaInflight = helpStore.inflight;
+const metaListeners = helpStore.listeners;
+
+function publishHelpMeta(pageKey: string, meta: HelpMeta): void {
+  metaCache.set(pageKey, meta);
+  for (const listener of metaListeners.get(pageKey) ?? []) listener(meta);
+}
+
+export function peekHelpMeta(pageKey: string): HelpMeta | undefined {
+  return metaCache.get(pageKey);
+}
+
+export function subscribeHelpMeta(pageKey: string, listener: (meta: HelpMeta) => void): () => void {
+  const listeners = metaListeners.get(pageKey) ?? new Set<(meta: HelpMeta) => void>();
+  listeners.add(listener);
+  metaListeners.set(pageKey, listeners);
+  return () => {
+    listeners.delete(listener);
+    if (listeners.size === 0) metaListeners.delete(pageKey);
+  };
+}
+
+/** PUT 성공 결과를 모든 동일 help key 트리거와 즉시 공유한다. */
+export function updateHelpMeta(pageKey: string, content: string, canEdit?: boolean): HelpMeta {
+  const meta = { content, canEdit: canEdit ?? metaCache.get(pageKey)?.canEdit ?? true };
+  publishHelpMeta(pageKey, meta);
+  return meta;
+}
 
 /** 도움말 메타(내용+권한) 1회 조회 + 캐시/dedup. 실패는 조용히 빈 값(강조가 기능을 막지 않음). */
 export async function fetchHelpMeta(pageKey: string): Promise<HelpMeta> {
@@ -77,15 +127,22 @@ export async function fetchHelpMeta(pageKey: string): Promise<HelpMeta> {
       const res = await fetch(`/api/admin/help?path=${encodeURIComponent(pageKey)}`, {
         cache: "no-store",
       });
-      const json = await res.json();
-      const content =
-        res.ok && json?.success && typeof json.data?.content === "string" ? json.data.content : "";
-      const canEdit = typeof json?.data?.canEdit === "boolean" ? json.data.canEdit : false;
+      const json = (await res.json()) as AdminHelpResponse;
+      if (!res.ok || !json.success) {
+        throw new Error(typeof json.error === "string" ? json.error : `조회 실패 (${res.status})`);
+      }
+      const content = typeof json.data?.content === "string" ? json.data.content : "";
+      const canEdit = typeof json.data?.canEdit === "boolean" ? json.data.canEdit : false;
       const meta: HelpMeta = { content, canEdit };
-      metaCache.set(pageKey, meta);
+      publishHelpMeta(pageKey, meta);
       return meta;
-    } catch {
-      return { content: "", canEdit: false };
+    } catch (error) {
+      // 강조 UI는 실패를 페이지 오류로 전파하지 않는다. 실패 응답은 캐시하지 않아 재시도할 수 있다.
+      return {
+        content: "",
+        canEdit: false,
+        loadError: error instanceof Error ? error.message : "도움말을 불러오지 못했습니다.",
+      };
     } finally {
       metaInflight.delete(pageKey);
     }

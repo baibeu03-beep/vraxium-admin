@@ -4,7 +4,16 @@ import * as React from "react";
 import { Search } from "lucide-react";
 import AdminHelpModal from "@/components/admin/AdminHelpModal";
 import { Tooltip } from "@/components/ui/tooltip";
-import { resolveHelpTooltip } from "@/lib/helpTooltip";
+import {
+  fetchHelpMeta,
+  hasHelpContent,
+  helpContentVersion,
+  markHelpSeen,
+  peekHelpMeta,
+  readHelpSeen,
+  subscribeHelpMeta,
+  type HelpMeta,
+} from "@/lib/adminHelpEmphasis";
 import { cn } from "@/lib/utils";
 
 // 어드민 UI 요소(표 헤더/필터/입력창/카드 지표/배지/로그 등) 옆에 붙이는 인라인 도움말 트리거.
@@ -56,47 +65,6 @@ const TRIGGER_SIZE: Record<HelpSize, string> = {
   sm: "size-[22px] [&_svg]:size-3.5",
 };
 
-// helpKey → 저장된 도움말 원문 캐시(모듈 스코프, 세션 지속).
-//   · 값이 undefined = 아직 미조회, string = 조회 완료(빈 문자열 포함).
-//   · in-flight Promise 를 함께 저장해 동시 hover/공유 키 중복 요청을 dedup 한다.
-const helpContentCache = new Map<string, string>();
-const helpContentInflight = new Map<string, Promise<string>>();
-
-async function fetchHelpContent(helpKey: string): Promise<string> {
-  const cached = helpContentCache.get(helpKey);
-  if (cached !== undefined) return cached;
-
-  const existing = helpContentInflight.get(helpKey);
-  if (existing) return existing;
-
-  const p = (async () => {
-    try {
-      const res = await fetch(`/api/admin/help?path=${encodeURIComponent(helpKey)}`, {
-        cache: "no-store",
-      });
-      const json = await res.json();
-      // DTO: { success, data: { pagePath, content, canEdit } } — 본문 필드는 data.content.
-      const content =
-        res.ok && json?.success && typeof json.data?.content === "string" ? json.data.content : "";
-      helpContentCache.set(helpKey, content);
-      return content;
-    } catch {
-      // 조회 실패는 조용히 fallback 라벨로 — 툴팁이 기능을 막지 않는다. (캐시엔 남기지 않아 재시도 허용)
-      return "";
-    } finally {
-      helpContentInflight.delete(helpKey);
-    }
-  })();
-  helpContentInflight.set(helpKey, p);
-  return p;
-}
-
-// 편집/저장 후 최신 내용을 다시 보이도록 캐시를 무효화(같은 키를 쓰는 모든 위치에 반영).
-export function invalidateHelpContentCache(helpKey: string) {
-  helpContentCache.delete(helpKey);
-  helpContentInflight.delete(helpKey);
-}
-
 export default function AdminHelpIconButton({
   helpKey,
   title,
@@ -106,54 +74,48 @@ export default function AdminHelpIconButton({
   className,
 }: AdminHelpIconButtonProps) {
   const [open, setOpen] = React.useState(false);
-  // 저장된 도움말 원문(미조회=undefined). 툴팁 미리보기 계산에만 쓰인다.
-  const [helpContent, setHelpContent] = React.useState<string | undefined>(() =>
-    helpContentCache.get(helpKey),
-  );
-  const aliveRef = React.useRef(true);
+  const [meta, setMeta] = React.useState<HelpMeta | undefined>(() => peekHelpMeta(helpKey));
+  const [seenVersion, setSeenVersion] = React.useState("");
+
   React.useEffect(() => {
-    aliveRef.current = true;
-    return () => {
-      aliveRef.current = false;
+    let alive = true;
+    const applyMeta = (next: HelpMeta) => {
+      if (!alive) return;
+      const nextVersion = helpContentVersion(next.content);
+      setMeta(next);
+      setSeenVersion(readHelpSeen(helpKey, nextVersion) ? nextVersion : "");
     };
-  }, []);
-
-  // hover/focus(Tooltip open) 시 lazy 조회 — 모듈 캐시 재사용, 언마운트 후 setState 방지.
-  const primeTooltip = React.useCallback(() => {
-    const cached = helpContentCache.get(helpKey);
-    if (cached !== undefined) {
-      setHelpContent(cached);
-      return;
-    }
-    void fetchHelpContent(helpKey).then((c) => {
-      if (aliveRef.current) setHelpContent(c);
-    });
+    const unsubscribe = subscribeHelpMeta(helpKey, applyMeta);
+    void fetchHelpMeta(helpKey).then(applyMeta);
+    return () => {
+      alive = false;
+      unsubscribe();
+    };
   }, [helpKey]);
 
-  // 저장(모달 편집) 후 닫히면 캐시가 stale 일 수 있으니, 닫힐 때 무효화하고 다음 hover 에 재조회.
-  const handleClose = React.useCallback(() => {
-    setOpen(false);
-    invalidateHelpContentCache(helpKey);
-    setHelpContent(undefined);
-  }, [helpKey]);
-
-  const tooltip = resolveHelpTooltip(helpContent, label);
+  const hasContent = hasHelpContent(meta?.content);
+  const version = helpContentVersion(meta?.content);
+  const isUnread = hasContent && seenVersion !== version;
+  const tooltip = hasContent ? "도움말이 등록되어 있습니다" : label;
+  const ariaLabel = hasContent ? `${label}, 도움말이 등록되어 있습니다` : label;
 
   return (
     <>
-      <Tooltip content={tooltip} onOpen={primeTooltip}>
+      <Tooltip content={tooltip}>
         <button
           type="button"
           // 행 클릭(확장 등)과 겹치지 않도록 이벤트 전파 차단.
           onClick={(e) => {
             e.stopPropagation();
+            if (version) markHelpSeen(helpKey, version);
+            setSeenVersion(version);
             setOpen(true);
           }}
           aria-haspopup="dialog"
           // 접근성 라벨은 "기능"을 설명(고정). 미리보기는 시각 Tooltip 이 담당.
-          aria-label={label}
+          aria-label={ariaLabel}
           className={cn(
-            "inline-flex shrink-0 cursor-help items-center justify-center rounded-full align-middle",
+            "relative inline-flex shrink-0 cursor-help items-center justify-center rounded-full align-middle",
             "outline-none transition-colors",
             onDark
               ? // 진한 배경: 흰색 아이콘 + 흰색 기준 hover/focus 대비(라이트/다크 무관 — 배경이 이미 진함).
@@ -169,16 +131,24 @@ export default function AdminHelpIconButton({
                   "focus-visible:ring-2 focus-visible:ring-sky-500/50",
                 ],
             TRIGGER_SIZE[size],
+            hasContent && "admin-help-has-content",
+            isUnread && "admin-help-nudge",
             className,
           )}
         >
           <Search />
+          {isUnread && (
+            <span
+              aria-hidden
+              className="pointer-events-none absolute -top-0.5 -right-0.5 inline-flex size-2 rounded-full bg-tone-warn ring-1 ring-background"
+            />
+          )}
         </button>
       </Tooltip>
 
       <AdminHelpModal
         open={open}
-        onClose={handleClose}
+        onClose={() => setOpen(false)}
         storageKey={helpKey}
         title={title ?? "항목 도움말"}
       />

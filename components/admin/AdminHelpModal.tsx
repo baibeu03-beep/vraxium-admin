@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Pencil, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { fetchHelpMeta, hasHelpContent, updateHelpMeta } from "@/lib/adminHelpEmphasis";
 import { cn } from "@/lib/utils";
 
 // 어드민 "관련 도움말" 편집/저장 모달(단일 SoT = /api/admin/help, 테이블 admin_page_help_contents).
@@ -38,19 +39,20 @@ export default function AdminHelpModal({ open, onClose, storageKey, title = "관
   // 쓰기 역할이면 편집/저장 노출. GET 응답으로 확정(로딩 중엔 낙관적 true).
   const [canEdit, setCanEdit] = useState(true);
 
+  const close = useCallback(() => {
+    setEditing(false);
+    setError(null);
+    onClose();
+  }, [onClose]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/help?path=${encodeURIComponent(storageKey)}`, {
-        cache: "no-store",
-      });
-      const json = await res.json();
-      if (!res.ok || !json?.success) {
-        throw new Error(json?.error ?? `조회 실패 (${res.status})`);
-      }
-      setContent(json.data?.content ?? "");
-      if (typeof json.data?.canEdit === "boolean") setCanEdit(json.data.canEdit);
+      const meta = await fetchHelpMeta(storageKey);
+      if (meta.loadError) throw new Error(meta.loadError);
+      setContent(meta.content);
+      setCanEdit(meta.canEdit);
     } catch (e) {
       setError(e instanceof Error ? e.message : "도움말을 불러오지 못했습니다.");
       setContent("");
@@ -62,8 +64,8 @@ export default function AdminHelpModal({ open, onClose, storageKey, title = "관
   // 열 때마다 최신 내용을 가져온다(편집 상태 초기화).
   useEffect(() => {
     if (!open) return;
-    setEditing(false);
-    void load();
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
   }, [open, load]);
 
   const startEdit = useCallback(() => {
@@ -85,14 +87,16 @@ export default function AdminHelpModal({ open, onClose, storageKey, title = "관
       if (!res.ok || !json?.success) {
         throw new Error(json?.error ?? `저장 실패 (${res.status})`);
       }
-      setContent(json.data?.content ?? draft);
+      const saved = typeof json.data?.content === "string" ? json.data.content : draft;
+      setContent(saved);
+      updateHelpMeta(storageKey, saved, canEdit);
       setEditing(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "저장하지 못했습니다.");
     } finally {
       setSaving(false);
     }
-  }, [draft, storageKey]);
+  }, [canEdit, draft, storageKey]);
 
   // Esc 닫기(편집 중에는 실수 방지를 위해 닫지 않음).
   useEffect(() => {
@@ -100,23 +104,23 @@ export default function AdminHelpModal({ open, onClose, storageKey, title = "관
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !editing && !saving) {
         e.preventDefault();
-        onClose();
+        close();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, editing, saving, onClose]);
+  }, [open, editing, saving, close]);
 
   if (!open) return null;
 
-  const isEmpty = content.trim().length === 0;
+  const isEmpty = !hasHelpContent(content);
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       onMouseDown={(e) => {
         // 바깥 클릭으로 닫기(편집/저장 중에는 유지).
-        if (e.target === e.currentTarget && !editing && !saving) onClose();
+        if (e.target === e.currentTarget && !editing && !saving) close();
       }}
     >
       <div
@@ -160,7 +164,7 @@ export default function AdminHelpModal({ open, onClose, storageKey, title = "관
               type="button"
               variant="ghost"
               size="icon"
-              onClick={onClose}
+              onClick={close}
               disabled={saving}
               aria-label="닫기"
               title="닫기"

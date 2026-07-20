@@ -5,13 +5,15 @@ import { usePathname, useParams, useSearchParams } from "next/navigation";
 import { CircleHelp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AdminHelpModal from "@/components/admin/AdminHelpModal";
+import { Tooltip } from "@/components/ui/tooltip";
 import {
   fetchHelpMeta,
   hasHelpContent,
   helpContentVersion,
-  invalidateHelpMeta,
   markHelpSeen,
+  peekHelpMeta,
   readHelpSeen,
+  subscribeHelpMeta,
 } from "@/lib/adminHelpEmphasis";
 import { resolveAdminOrgFocus } from "@/lib/adminOrgContext";
 import { organizationAccent } from "@/lib/organizations";
@@ -99,7 +101,7 @@ export default function AdminHelp({ className }: Props) {
   // 페이지(storageKey) 진입/전환마다 존재 여부 재판단(캐시 hit 이면 즉시). setState 는 async 콜백에서만.
   useEffect(() => {
     let alive = true;
-    void fetchHelpMeta(storageKey).then(({ content, canEdit }) => {
+    const applyMeta = ({ content, canEdit }: { content: string; canEdit: boolean }) => {
       if (!alive) return;
       const version = helpContentVersion(content);
       const has = hasHelpContent(content);
@@ -110,9 +112,14 @@ export default function AdminHelp({ className }: Props) {
         version,
         isNew: has && !readHelpSeen(storageKey, version),
       });
-    });
+    };
+    const cached = peekHelpMeta(storageKey);
+    if (cached) applyMeta(cached);
+    const unsubscribe = subscribeHelpMeta(storageKey, applyMeta);
+    void fetchHelpMeta(storageKey).then(applyMeta);
     return () => {
       alive = false;
+      unsubscribe();
     };
   }, [storageKey]);
 
@@ -136,14 +143,6 @@ export default function AdminHelp({ className }: Props) {
 
   const handleClose = () => {
     setOpen(false);
-    // 편집·저장으로 내용이 바뀌었을 수 있으니 캐시 무효화 후 재판단. 방금 연 사용자는 seen 처리.
-    invalidateHelpMeta(storageKey);
-    void fetchHelpMeta(storageKey).then(({ content, canEdit }) => {
-      const v = helpContentVersion(content);
-      const has = hasHelpContent(content);
-      if (v) markHelpSeen(storageKey, v);
-      setState({ key: storageKey, hasContent: has, canEdit, version: v, isNew: false });
-    });
   };
 
   const ariaLabel = !hasContent
@@ -159,7 +158,8 @@ export default function AdminHelp({ className }: Props) {
       {/* 알림 점을 버튼 모서리에 얹기 위한 relative 래퍼(레이아웃 영향 없음, ml-auto 등은 래퍼가 받음). */}
       <span className={cn("relative inline-flex shrink-0", className)}>
         {/* 트리거 버튼 — 조직 대표색(통합=하늘색). 최초 진입 시에만 가벼운 펄스(유한·reduced-motion 자동 정지). */}
-        <Button
+        <Tooltip content={hasContent ? "도움말이 등록되어 있습니다" : ""}>
+          <Button
           type="button"
           variant="outline"
           onClick={openModal}
@@ -169,34 +169,30 @@ export default function AdminHelp({ className }: Props) {
           // 안정적 로케이터 — 접근명(aria-label)이 "안내 있음" 등으로 바뀌어도 페이지 도움말 버튼을 특정.
           //   요소 돋보기(AdminHelpIconButton)와 구분(그쪽엔 이 속성 없음).
           data-admin-help-trigger="page"
-          title={disabled ? "이 페이지에 등록된 도움말이 없습니다" : "이 페이지의 관련 도움말"}
+          title={hasContent ? undefined : disabled ? "이 페이지에 등록된 도움말이 없습니다" : "이 페이지의 관련 도움말"}
           className={cn(
             "h-[34px] shrink-0 gap-1.5 px-3 text-sm font-semibold shadow-sm",
             // 조직 대표색(또는 통합 중립 하늘색). 도움말 강조 로직/열람 상태와 무관하게 색만 조직화.
             orgButtonAccent,
+            hasContent && "admin-help-has-content",
             isNew && "admin-help-nudge",
           )}
         >
           <CircleHelp className="size-4" />
           도움말
-        </Button>
+          </Button>
+        </Tooltip>
 
         {/* 알림 점 — 내용이 있을 때만. 애니메이션이 없어도 존재를 알리는 신호(요구 4). aria 는 라벨이 담당.
             버튼 테두리에 묻히지 않도록 우상단 바깥쪽에 걸치게(-top-1 -right-1) 배치. */}
-        {hasContent &&
-          (isNew ? (
+        {isNew &&
+          (
             // 최초 진입=큼직한 amber 점 + 유한 ping(2~3회). 점 크기 확대(size-3.5)로 눈에 잘 띄게.
             <span aria-hidden className="pointer-events-none absolute -top-1 -right-1 flex size-3.5">
-              <span className="admin-help-ping absolute inline-flex size-full rounded-full bg-amber-400 opacity-70" />
-              <span className="relative inline-flex size-3.5 rounded-full bg-amber-500 ring-2 ring-background" />
+              <span className="admin-help-ping absolute inline-flex size-full rounded-full bg-tone-warn opacity-60" />
+              <span className="relative inline-flex size-3.5 rounded-full bg-tone-warn ring-2 ring-background" />
             </span>
-          ) : (
-            // 열람 후=옅은 하늘 점(강조 낮춤·작게 유지). 라이트/다크 모두 대비 확보.
-            <span
-              aria-hidden
-              className="pointer-events-none absolute -top-1 -right-1 inline-flex size-2.5 rounded-full bg-sky-200 ring-2 ring-background dark:bg-sky-300"
-            />
-          ))}
+          )}
       </span>
 
       <AdminHelpModal open={open} onClose={handleClose} storageKey={storageKey} title="관련 도움말" />
