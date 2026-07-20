@@ -47,11 +47,17 @@ export function resolveAdminOrgFocus(
 }
 
 // 링크/라우팅 이동 시 "출발 화면 → 목적지"로 그대로 전달하는 어드민 컨텍스트 파라미터.
-//   통합/개별(org) · 모집단 모드(mode) · 테스트 대행/데모(actAsTestUserId/demoUserId)만 대상이다.
+//   통합/개별(org) · 통합 주차 목록의 조직 탭(club) · 모집단 모드(mode) ·
+//   테스트 대행/데모(actAsTestUserId/demoUserId)만 대상이다.
 //   page/sort/search/tab 등 "목록 전용 · 목적지에서 의미가 달라지는" 파라미터는 절대 복사하지 않는다.
+//   · club: 통합 관리자가 /admin/team-parts/info/weeks 에서 선택한 조직 탭(?org 과 달리 scoped 를
+//     유발하지 않는 "소프트 조직 컨텍스트"). 상세 → 브레드크럼/헤더 "주차 내역" 이동 시 유지되어
+//     브라우저 뒤로가기와 동일하게 조직 탭이 복원된다. 이 쿼리 키는 team-parts 주차 화면 전용이라
+//     다른 페이지 링크에 실려도 무시된다(충돌 의미 없음).
 export const ADMIN_CONTEXT_PARAMS = [
   "mode",
   "org",
+  "club",
   "actAsTestUserId",
   "demoUserId",
 ] as const;
