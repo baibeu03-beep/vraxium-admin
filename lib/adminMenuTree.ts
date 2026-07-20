@@ -75,17 +75,18 @@ export const MENU_INTEGRATED: MenuItem[] = [
     kind: "branch",
     label: "주차와 시즌",
     icon: CalendarDays,
-    basePath: "/admin/season-weeks",
+    // [통합 2026-07-20] "기간 등록"(폼)과 "기간 정보"(구 /admin/season-weeks 목록)를 하나의
+    //   "기간 관리" 페이지(/admin/periods/register)로 병합. 구 /admin/season-weeks 메뉴 항목 제거
+    //   (라우트는 redirect 로 유지). basePath/matchPaths 에서 season-weeks 제거.
+    basePath: "/admin/periods",
     matchPaths: [
       "/admin/periods",
-      "/admin/season-weeks",
       "/admin/week-recognitions",
       // [비활성화 2026-07-04] 주차 카드 집계 확정 페이지 비노출 — 재활성화 시 주석 해제.
       // "/admin/weekly-card-finalization",
     ],
     children: [
-      { label: "기간 등록", href: "/admin/periods/register" },
-      { label: "기간 정보", href: "/admin/season-weeks" },
+      { label: "기간 관리", href: "/admin/periods/register" },
       { label: "주차 인정 결과", href: "/admin/week-recognitions" },
       // [주차 카드 집계 확정] 메뉴 비노출(주석 처리) — /admin/weekly-card-finalization 라우트/컴포넌트는 유지.
       //   라우트도 page.tsx 에서 notFound() 처리됨. 재활성화하려면 아래 줄의 주석을 해제하세요.
@@ -274,16 +275,18 @@ export const MENU_ORG: MenuItem[] = [
     kind: "branch",
     label: "클럽 정보",
     icon: CalendarDays,
-    basePath: "/admin/season-weeks",
+    // [통합 2026-07-20] 구 /admin/season-weeks(주차와 시즌 목록)는 "기간 관리"(/admin/periods/register)
+    //   통합 페이지로 병합·redirect. 조직 모드 메뉴도 통합 페이지를 가리키도록 정정(라벨/href).
+    basePath: "/admin/periods",
     matchPaths: [
-      "/admin/season-weeks",
+      "/admin/periods",
       "/admin/lines/info",
       "/admin/processes/info",
       "/admin/team-parts",
     ],
     children: [
-      // 주차와 시즌은 클럽 전역 데이터(org 컬럼 없음 → 데이터는 전체). ?org 는 사이드바 컨텍스트 유지용.
-      { label: "주차와 시즌", href: "/admin/season-weeks" },
+      // 기간 관리는 클럽 전역 데이터(org 컬럼 없음 → 데이터는 전체). ?org 는 사이드바 컨텍스트 유지용.
+      { label: "기간 관리", href: "/admin/periods/register" },
       { label: "허브와 라인", href: "/admin/lines/info" },
       { label: "허브별 프로세스 목록", href: "/admin/processes/info" },
       { label: "팀 내역", href: "/admin/team-parts/info", exact: true },

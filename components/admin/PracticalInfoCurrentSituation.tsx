@@ -85,7 +85,7 @@ export default function PracticalInfoCurrentSituation() {
       footer={
         computed && !computed.current ? (
           <p className="mt-3 text-sm text-amber-600">
-            오늘 날짜가 등록된 주차 범위에 속하지 않습니다. (/admin/season-weeks 확인)
+            오늘 날짜가 등록된 주차 범위에 속하지 않습니다. (기간 관리에서 확인)
           </p>
         ) : null
       }

@@ -1,12 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { useMemo, useState } from "react";
 import { CalendarPlus, RefreshCw, RotateCcw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { adminDialog } from "@/components/ui/admin-dialog";
 import { Button } from "@/components/ui/button";
-import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { Input } from "@/components/ui/input";
 import {
@@ -24,21 +22,7 @@ import {
   SEASON_LABEL,
   type SeasonToken,
 } from "@/lib/seasonSelectOptions";
-
-// ── 데이터 타입: /api/admin/season-weeks 응답 DTO 그대로 (기간 정보와 동일 원천 —
-//    기간 등록 전용 데이터 구조를 만들지 않는다) ─────────────────────────────
-type SeasonWeekRow = {
-  season_key: string;
-  week_id: string;
-  week_number: number | null;
-  week_start_date: string | null;
-  week_end_date: string | null;
-  is_official_rest: boolean;
-};
-
-type ApiPayload = {
-  rows?: SeasonWeekRow[];
-};
+import type { SeasonWeekRow } from "@/components/admin/seasonWeeksData";
 
 // ── 선택지 상수 ──────────────────────────────────────────────────────────────
 const NONE = "__none__";
@@ -155,12 +139,15 @@ function FormField({
   );
 }
 
-export default function PeriodRegisterForm() {
-  // 중복 검증용 기존 데이터 — 기간 정보(GET /api/admin/season-weeks)와 동일 API/DTO.
-  const [rows, setRows] = useState<SeasonWeekRow[]>([]);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [refreshTick, setRefreshTick] = useState(0);
+type Props = {
+  // 중복 검증용 기존 데이터 — 상위 페이지가 하단 "기간 정보" 목록과 공유하는 단일 조회
+  //   (GET /api/admin/season-weeks) 결과. 폼이 별도로 다시 호출하지 않는다(중복 호출 제거).
+  rows: SeasonWeekRow[];
+  // 등록 성공 시 상위 공유 데이터를 재조회 → 하단 목록 즉시 갱신 + 다음 중복 검증에 신규분 반영.
+  onRegistered: () => void;
+};
 
+export default function PeriodRegisterForm({ rows, onRegistered }: Props) {
   // 기간 선택.1 — 주차 후보 필터 기준 연도 (등록 데이터의 표시 연도가 아님)
   const [candidateYear, setCandidateYear] = useState<string>(NONE);
   // 기간 선택.2 — 월~일 주차 (value=시작일 ISO)
@@ -189,32 +176,6 @@ export default function PeriodRegisterForm() {
   const [reflectTargetCount, setReflectTargetCount] = useState<number | null>(
     null,
   );
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setLoadError(null);
-      try {
-        const res = await fetch("/api/admin/season-weeks", {
-          cache: "no-store",
-        });
-        const json = await res.json();
-        if (!res.ok || !json.success) {
-          throw new Error(json?.error ?? "Failed to load season weeks.");
-        }
-        const data = (json.data ?? {}) as ApiPayload;
-        if (!cancelled) setRows(data.rows ?? []);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : "Failed to load.");
-        }
-      }
-    };
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [refreshTick]);
 
   // 기간 선택.2 후보: 기간 선택.1 연도의 "수요일 귀속" 주차 목록.
   const candidates = useMemo(() => {
@@ -357,8 +318,9 @@ export default function PeriodRegisterForm() {
       setUpdateError(null);
       setUpdateDone(null);
       resetForm();
-      // 기간 정보와 동일 원천 재조회 — 다음 중복 검증에 신규 등록분 즉시 반영.
-      setRefreshTick((v) => v + 1);
+      // 상위 공유 데이터 재조회 — 하단 "기간 정보" 목록 즉시 갱신 + 다음 중복 검증에 신규 등록분 반영.
+      //   (전체 페이지 새로고침 아님 — 등록 폼과 목록이 같은 조회를 공유하므로 한 번의 refetch 로 동시 최신화.)
+      onRegistered();
     } catch {
       void adminDialog.alert({ variant: "danger", title: "등록 오류", description: "등록 중 오류가 발생했습니다." });
     } finally {
@@ -433,22 +395,18 @@ export default function PeriodRegisterForm() {
 
   return (
     <div className="admin-section-stack">
-      {/* 상단: 페이지 제목 */}
+      {/* 섹션 제목(h2) — 페이지 제목(h1)/전역 도움말은 상위 통합 페이지(기간 관리)가 담당.
+          기존 "기간 정보로 이동" 버튼은 제거(같은 페이지 하단에 기간 정보 목록이 함께 표시됨). */}
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="mr-auto text-xl font-semibold tracking-normal text-foreground">
+        <h2 className="mr-auto inline-flex items-center gap-1 text-lg font-semibold tracking-normal text-foreground">
           기간 등록
-        </h1>
-        <AdminHelp />
-        <Button type="button" variant="outline" render={<Link href="/admin/season-weeks" />}>
-          기간 정보로 이동
-        </Button>
+          <AdminHelpIconButton
+            helpKey="admin.periods.register.section"
+            title="기간 등록"
+            size="sm"
+          />
+        </h2>
       </div>
-
-      {loadError && (
-        <div className="rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          기존 기간 정보를 불러오지 못했습니다: {loadError}
-        </div>
-      )}
 
       {successMessage && (
         <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">

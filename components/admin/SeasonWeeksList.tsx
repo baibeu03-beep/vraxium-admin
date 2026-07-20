@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { useSearchParams } from "next/navigation";
+import { useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown, RefreshCw, RotateCcw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,11 +21,8 @@ import {
 } from "@/components/ui/table";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { LoadingState } from "@/components/ui/loading-state";
-import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
-import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
-import { readOrgParam } from "@/lib/adminOrgContext";
 import { formatClubDate } from "@/lib/clubDate";
 import { formatAdminDateTime } from "@/lib/adminDateTime";
 import {
@@ -36,47 +32,7 @@ import {
   SEASON_LABEL,
   type SeasonToken,
 } from "@/lib/seasonSelectOptions";
-
-// ── 데이터 타입: /api/admin/season-weeks 응답 DTO 그대로 (수정 금지) ──────────
-type SeasonSummary = {
-  season_key: string;
-  season_label: string | null;
-  season_name: string | null;
-  season_start_date: string | null;
-  season_end_date: string | null;
-};
-
-type OfficialRestSource = "season_rule" | "date_period" | "legacy_iso_week";
-
-// 실무 경험 <확장> 류 라인 진행 방식. 서버 DTO(experienceExpansionLineMode)와 동일 union.
-//   표 컬럼은 2026-07-16 제거됐으나(확장 SoT 를 주차 상세 저장값으로 일원화), DTO 호환을 위해
-//   응답 필드 형상만 유지한다 — 렌더/정렬에는 사용하지 않는다.
-type ExperienceExpansionLineMode = "none" | "online" | "offline";
-
-type SeasonWeekRow = SeasonSummary & {
-  week_id: string;
-  week_number: number | null;
-  week_label: string;
-  week_start_date: string | null;
-  week_end_date: string | null;
-  is_official_rest: boolean;
-  official_rest_sources?: OfficialRestSource[];
-  is_current_week: boolean;
-  // 전환 주차: 시즌 사이 gap 주차. 직전 시즌에 귀속. 구형 캐시 응답 호환 optional.
-  is_transition?: boolean;
-  // 사용자 노출용 비고(휴식명/설명) — weeks.holiday_name. 구형 응답 호환 optional.
-  holiday_name?: string | null;
-  // 실무 경험 확장 류 라인 진행 방식. 구형 응답 호환 optional(누락 시 "none" 취급).
-  experienceExpansionLineMode?: ExperienceExpansionLineMode;
-};
-
-type ApiPayload = {
-  seasons?: SeasonSummary[];
-  rows?: SeasonWeekRow[];
-  // conflicts(공식 판정 vs legacy 불일치)는 진단 전용 필드로, 렌더에 사용하지 않는다.
-  // API 는 계속 반환하지만(원장·정합성 로직 불변) UI 는 공식 판정값만 표시한다.
-  generatedAt?: string;
-};
+import type { SeasonWeekRow } from "@/components/admin/seasonWeeksData";
 
 // ── 필터/정렬 상수 ───────────────────────────────────────────────────────────
 const ALL = "__all__";
@@ -267,7 +223,7 @@ function FilterField({
   label: string;
   // 지정 시 라벨 오른쪽에 돋보기 도움말 아이콘. 드롭다운 폭/정렬은 건드리지 않는다.
   helpKey?: string;
-  children: ReactNode;
+  children: React.ReactNode;
 }) {
   return (
     // shrink-0: 폭이 줄어도 라벨과 select 가 분리되지 않고 그룹 단위로 줄바꿈되도록.
@@ -369,11 +325,6 @@ const COLUMNS: ColumnDef[] = [
     helpKey: "admin.seasonWeeks.column.remark",
     sortValue: (row) => rowRemark(row) || null,
   },
-  // [제거됨 2026-07-16] `[실무 경험] > 확장 류 라인` 컬럼은 더 이상 사용하지 않는다.
-  //   이 컬럼은 cluster4_experience_extension_periods(확장 기간 원장)를 표시했으나, 확장 여부의
-  //   단일 SoT 를 /admin/team-parts/info/weeks/[주차 상세] 의 관리자 저장값으로 일원화하면서
-  //   혼동을 피하기 위해 표에서 내렸다. 서버 DTO(experienceExpansionLineMode)는 API 호환을 위해
-  //   유지되지만 여기서 렌더하지 않는다(주차 상세의 확장 판정과는 무관·독립).
 ];
 
 // null/빈값/"-" 은 정렬 방향과 무관하게 항상 뒤로. 숫자는 숫자, 문자열은 한글 locale.
@@ -448,17 +399,28 @@ function pageNumbers(current: number, total: number): number[] {
   return pages;
 }
 
-export default function SeasonWeeksTable() {
-  // 사이드바 메뉴명과 페이지 제목 정합: 통합 모드 = "기간 정보", 조직 모드(?org) = "주차와 시즌".
-  const org = readOrgParam(useSearchParams());
-  const [rows, setRows] = useState<SeasonWeekRow[]>([]);
-  const [generatedAt, setGeneratedAt] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  useReportLoading(loading); // 전역 로딩 배너 보고
-  const [error, setError] = useState<string | null>(null);
-  const [refreshTick, setRefreshTick] = useState(0);
+// ── 기간 정보 목록 섹션 ───────────────────────────────────────────────────────
+//   통합 페이지(/admin/periods/register)의 하단 "기간 정보" 조회 영역. 데이터(rows/생성시각/
+//   로딩/에러)는 상위(PeriodManagementView)에서 등록 폼과 공유하는 단일 조회를 props 로 받는다.
+//   · 필터/정렬/페이지네이션(초기화) 상태는 이 섹션 로컬 — 등록 폼의 취소와 서로 간섭하지 않는다.
+//   · 새로고침/초기화는 props(onRefresh)와 로컬 상태만 건드린다(전체 페이지 새로고침 아님).
+//   · 페이지 제목(h1)/전역 도움말 버튼은 상위 페이지에 한 번만 있고, 여기선 섹션 제목(h2)만 둔다.
+type Props = {
+  rows: SeasonWeekRow[];
+  generatedAt: string | null;
+  loading: boolean;
+  error: string | null;
+  onRefresh: () => void;
+};
 
-  // 필터/정렬 상태
+export default function SeasonWeeksList({
+  rows,
+  generatedAt,
+  loading,
+  error,
+  onRefresh,
+}: Props) {
+  // 필터/정렬 상태(섹션 로컬)
   const [sort, setSort] = useState<SortKey>("latest");
   const [yearFilter, setYearFilter] = useState<string>(ALL);
   const [seasonFilter, setSeasonFilter] = useState<string>(ALL);
@@ -471,57 +433,33 @@ export default function SeasonWeeksTable() {
     dir: "asc" | "desc";
   } | null>(null);
 
+  // 필터/정렬 변경 시 1페이지로 복귀 — effect(cascading render) 대신 각 핸들러에서 직접 리셋한다.
+  //   (React Compiler: set-state-in-effect 회피. 프로젝트 공통 패턴 = 핸들러 내 setPage(1).)
   const cycleSort = (key: ColKey) => {
     setColumnSort((prev) => {
       if (!prev || prev.key !== key) return { key, dir: "asc" };
       if (prev.dir === "asc") return { key, dir: "desc" };
       return null; // 내림차순 다음 클릭 → 기본 순서 복귀
     });
+    setPage(1);
   };
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const res = await fetch("/api/admin/season-weeks", {
-          cache: "no-store",
-        });
-        const json = await res.json();
-        if (!res.ok || !json.success) {
-          throw new Error(json?.error ?? "Failed to load season weeks.");
-        }
-
-        const data = (json.data ?? {}) as ApiPayload;
-        if (!cancelled) {
-          setRows(data.rows ?? []);
-          setGeneratedAt(data.generatedAt ?? null);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load.");
-          setRows([]);
-          setGeneratedAt(null);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    void load();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [refreshTick]);
-
-  // 필터/정렬 변경 시 1페이지로 복귀.
-  useEffect(() => {
+  const handleSortChange = (value: SortKey) => {
+    setSort(value);
     setPage(1);
-  }, [sort, yearFilter, seasonFilter, activityFilter, columnSort]);
+  };
+  const handleYearFilterChange = (value: string) => {
+    setYearFilter(value);
+    setPage(1);
+  };
+  const handleSeasonFilterChange = (value: string) => {
+    setSeasonFilter(value);
+    setPage(1);
+  };
+  const handleActivityFilterChange = (value: string) => {
+    setActivityFilter(value);
+    setPage(1);
+  };
 
   // 필터만 적용(정렬 분리). rows.filter 는 새 배열 → 원본 mutate 없음.
   const filtered = useMemo(() => {
@@ -587,20 +525,25 @@ export default function SeasonWeeksTable() {
   };
 
   return (
-    /* 섹션 간 세로 리듬 = 공용 SoT(admin-section-stack). flex flex-col gap-4(16px) 직접값
-       대신 단일 출처로 이관 → 전역 2배 확대에 자동 정합(display 는 동일 flex-column). */
+    /* 섹션 간 세로 리듬 = 공용 SoT(admin-section-stack). */
     <div className="admin-section-stack">
-      {/* 상단: 페이지 제목 */}
+      {/* 섹션 제목(h2) — 페이지 제목(h1)/전역 도움말은 상위 페이지가 담당.
+          "기간 정보" 옆 돋보기는 기존 /admin/season-weeks 페이지 도움말 내용을 그대로 노출한다
+          (같은 저장 키 재사용 → 저장된 안내 유실 없이 통합 페이지에서 함께 볼 수 있게). */}
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="mr-auto text-xl font-semibold tracking-normal text-foreground">
-          {org ? "주차와 시즌" : "기간 정보"}
-        </h1>
-        <AdminHelp />
+        <h2 className="mr-auto inline-flex items-center gap-1 text-lg font-semibold tracking-normal text-foreground">
+          기간 정보
+          <AdminHelpIconButton
+            helpKey="/admin/season-weeks"
+            title="기간 정보"
+            size="sm"
+          />
+        </h2>
         <div className="inline-flex items-center gap-1">
           <Button
             type="button"
             variant="outline"
-            onClick={() => setRefreshTick((value) => value + 1)}
+            onClick={onRefresh}
             disabled={loading}
           >
             <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
@@ -620,7 +563,6 @@ export default function SeasonWeeksTable() {
         </div>
       )}
 
-
       {/* 필터/정렬 영역
           · 좌측 필터 4그룹은 flex-1 컨테이너 안에서 justify-between 으로 남는 가로 공간을
             고르게 활용(좌측 쏠림 방지). 우측 결과/초기화는 shrink-0 로 우측 정렬 유지.
@@ -633,7 +575,7 @@ export default function SeasonWeeksTable() {
               <Select
                 items={SORT_ITEMS}
                 value={sort}
-                onValueChange={(v) => setSort((v as SortKey) ?? "latest")}
+                onValueChange={(v) => handleSortChange((v as SortKey) ?? "latest")}
               >
                 <SelectTrigger size="sm">
                   <SelectValue>
@@ -654,7 +596,7 @@ export default function SeasonWeeksTable() {
               <Select
                 items={YEAR_ITEMS}
                 value={yearFilter}
-                onValueChange={(v) => setYearFilter(v ?? ALL)}
+                onValueChange={(v) => handleYearFilterChange(v ?? ALL)}
               >
                 <SelectTrigger size="sm">
                   <SelectValue>
@@ -675,7 +617,7 @@ export default function SeasonWeeksTable() {
               <Select
                 items={SEASON_ITEMS}
                 value={seasonFilter}
-                onValueChange={(v) => setSeasonFilter(v ?? ALL)}
+                onValueChange={(v) => handleSeasonFilterChange(v ?? ALL)}
               >
                 <SelectTrigger size="sm">
                   <SelectValue>
@@ -696,7 +638,7 @@ export default function SeasonWeeksTable() {
               <Select
                 items={ACTIVITY_ITEMS}
                 value={activityFilter}
-                onValueChange={(v) => setActivityFilter(v ?? ALL)}
+                onValueChange={(v) => handleActivityFilterChange(v ?? ALL)}
               >
                 <SelectTrigger size="sm">
                   <SelectValue>
@@ -741,7 +683,7 @@ export default function SeasonWeeksTable() {
       </Card>
 
       {/* 테이블 — 최초 로딩(데이터 없음)에는 스켈레톤, 재요청(데이터 있음)에는
-          기존 표를 유지하고 상단에 미니 진행 표시(요구사항 3). */}
+          기존 표를 유지하고 상단에 미니 진행 표시. */}
       {loading && rows.length === 0 ? (
         <div className="overflow-hidden rounded-md border">
           <Table>
