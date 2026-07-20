@@ -7,7 +7,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { LoadingState } from "@/components/ui/loading-state";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import PracticalInfoOpeningLogPanel from "@/components/admin/PracticalInfoOpeningLogPanel";
@@ -20,6 +19,11 @@ import {
   formatToday,
 } from "@/lib/practicalInfoSection0Format";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import {
+  LineOpeningSectionDivider,
+  StatusList,
+  StatusListItem,
+} from "@/components/admin/lineOpeningStatusUi";
 
 // 실무 정보 라인 개설 [섹션 0] — 상황 통제 영역.
 //   상태창: 오늘/이번 주 + 지난 주(개설 대상 N-1) 라인 개설 필요/완료 안내.
@@ -61,9 +65,6 @@ type Props = {
   //   (이전에는 이 컴포넌트가 자체 selectedWeekId 를 가져 상단 탭 배지와 어긋났다 → 상위로 승격해 단일화.)
   selectedWeekId: string;
   onSelectWeek: (weekId: string) => void;
-  // 선택 주차 + 현재 활동유형이 '미오픈'인지 — 상단 탭 배지와 동일한 판정(openByActivityType, selectedWeekId 기준).
-  //   상위가 배지용 맵에서 그대로 파생해 내려준다(문구용 별도 판정 금지). 상태창 '미오픈' 문구 분기에만 쓰인다.
-  lineNotOpen: boolean;
   // 개설 성공 시 상위(메타/라인 목록) 재조회 트리거.
   onOpened: () => void;
 };
@@ -78,78 +79,96 @@ export default function PracticalInfoOpeningSection0({
   users,
   selectedWeekId,
   onSelectWeek,
-  lineNotOpen,
   onOpened,
 }: Props) {
-  // 지난 주 + 활동유형에 대한 활성 info 라인(개설됨 판정용).
+  // 개설 대상 주차 + 활동유형에 대한 활성 info 라인(개설됨 판정용).
   const [activeLineId, setActiveLineId] = useState<string | null>(null);
+  // 개설 대상 주차 + 활동유형이 '미오픈'(개설 대상 아님)인지 — 상태창 자체 조회값.
+  const [statusLineNotOpen, setStatusLineNotOpen] = useState(false);
   const [loadingLine, setLoadingLine] = useState(false);
   // 개설 직후 로그창 재조회 트리거.
   const [logRefreshTick, setLogRefreshTick] = useState(0);
 
-  // ── 대상 주차 단일 SoT (상위 Manager 소유) ──────────────────────────────────
-  //   상태창(개설 필요/완료) · 개설 폼(개설 판정 · POST week_id) · 상단 탭 배지 · 개설 후 재조회가 모두
-  //   상위가 내려준 selectedWeekId 를 공유한다. 기본값 초기화도 상위(fetchMeta)가 담당한다.
-  //   선택값이 weekOptions 밖(과거 주차 열람 등)이면 상태창 표기는 openableWeek 로 폴백한다.
-  const selectedWeek =
-    weekOptions.find((w) => w.id === selectedWeekId) ?? openableWeek;
-  const resolvedWeekId = selectedWeek?.id ?? null;
+  // ── 상태창 대상 주차 = 개설 대상 주차(openableWeek, 금요일 경계 SoT) ──────────────
+  //   ⚠ 하단 개설 폼의 주차 드롭다운(selectedWeekId)과 완전히 분리된다. 상태창은 항상 '오늘 기준
+  //   현재 개설 대상 주차(월~목: 실제 N-1, 금~일: N)'만 본다. 드롭다운을 과거·다른 주차로 바꿔도
+  //   상태창 문구·판정은 불변이며, 그 값에 selectedWeekId 는 일절 쓰지 않는다(전역 현재 상태).
+  const statusWeek = openableWeek;
+  const statusWeekId = statusWeek?.id ?? null;
   const activeTypeId = activeType?.id ?? null;
 
-  // 선택 주차 + 활동유형의 활성 라인 존재 여부를 조회한다(개설됨/필요 판정) — 대상 주차 SoT 기준.
-  const loadLine = useCallback(async () => {
-    if (!resolvedWeekId || !activeTypeId) {
+  // 개설 대상 주차 + 활동유형의 (a) 활성 라인 존재(개설됨) (b) 오픈(개설 대상) 여부를 조회한다.
+  //   드롭다운과 무관하게 statusWeekId(=현재 개설 대상 주차)만 조회 — 상태창 전용 자체 fetch.
+  const loadStatus = useCallback(async () => {
+    if (!statusWeekId || !activeTypeId) {
       setActiveLineId(null);
+      setStatusLineNotOpen(false);
       return;
     }
     setLoadingLine(true);
     try {
-      const qs = new URLSearchParams({
-        week_id: resolvedWeekId,
-        activity_type_id: activeTypeId,
-      });
-      // org 컨텍스트(?org) → organization 변환.
-      const org = readOrgParam(new URLSearchParams(window.location.search));
-      if (org) qs.set("organization", org);
-      const res = await fetch(
+      const search = new URLSearchParams(window.location.search);
+      const org = readOrgParam(search);
+      const mode = readScopeMode(search);
+      const baseQs = new URLSearchParams({ week_id: statusWeekId });
+      if (org) baseQs.set("organization", org);
+
+      // (a) 활성 라인 존재 여부 — 개설됨 판정.
+      const linesQs = new URLSearchParams(baseQs);
+      linesQs.set("activity_type_id", activeTypeId);
+      const linesRes = await fetch(
         appendModeQuery(
-          `/api/admin/cluster4/info-lines?${qs.toString()}`,
-          readScopeMode(new URLSearchParams(window.location.search)),
+          `/api/admin/cluster4/info-lines?${linesQs.toString()}`,
+          mode,
         ),
       );
-      const json = await res.json();
-      const rows: Array<{ id: string; isActive: boolean }> = json?.success
-        ? json.data?.rows ?? []
+      const linesJson = await linesRes.json();
+      const rows: Array<{ id: string; isActive: boolean }> = linesJson?.success
+        ? linesJson.data?.rows ?? []
         : [];
-      const active = rows.find((r) => r.isActive) ?? null;
-      setActiveLineId(active?.id ?? null);
+      setActiveLineId(rows.find((r) => r.isActive)?.id ?? null);
+
+      // (b) 활동유형별 오픈(개설 대상) 여부 — 미오픈 문구 판정. false=미오픈.
+      const openRes = await fetch(
+        appendModeQuery(
+          `/api/admin/cluster4/info-line-open-status?${baseQs.toString()}`,
+          mode,
+        ),
+      );
+      const openJson = await openRes.json();
+      const openMap: Record<string, boolean> = openJson?.success
+        ? openJson.data?.openByActivityType ?? {}
+        : {};
+      setStatusLineNotOpen(openMap[activeTypeId] === false);
     } catch {
       setActiveLineId(null);
+      setStatusLineNotOpen(false);
     } finally {
       setLoadingLine(false);
     }
-  }, [resolvedWeekId, activeTypeId]);
+  }, [statusWeekId, activeTypeId]);
 
   useEffect(() => {
-    loadLine();
-  }, [loadLine]);
+    loadStatus();
+  }, [loadStatus]);
 
   const opened = activeLineId != null;
 
   const activityName = activeType?.name ?? "해당";
-  // 상태창 문구 = 대상 주차(selectedWeek) 기준. 현재 주차 고정이 아니라 관리자가 고른 주차를 따라간다.
-  const lastWeekLabel = selectedWeek ? formatBannerPeriod(selectedWeek) : null;
+  // 상태창 문구 = 개설 대상 주차(statusWeek) 기준 — 드롭다운 선택과 무관한 현재 상태.
+  const lastWeekLabel = statusWeek ? formatBannerPeriod(statusWeek) : null;
   const thisWeekLabel = currentWeek ? formatBannerPeriod(currentWeek) : null;
 
-  // 대상 주차 호칭 — 선택 주차가 현재 주차와 같으면 "이번 주", 다르면 "선택 주차"(과거 주차 보정 등).
+  // 대상 주차 호칭 — 개설 대상 주차가 현재 주차와 같으면(금~일) "이번 주", 다르면(월~목) "지난 주"
+  //   (= 실제 N-1). 금요일 경계상 대상은 항상 N 또는 N-1 뿐이라 "지난 주"는 실제 N-1 을 가리킨다.
   //   비교 = 시즌/연도/주차번호.
   const targetIsCurrent =
     !!currentWeek &&
-    !!selectedWeek &&
-    currentWeek.year === selectedWeek.year &&
-    currentWeek.seasonName === selectedWeek.seasonName &&
-    currentWeek.weekNumber === selectedWeek.weekNumber;
-  const lastWeekPrefix = targetIsCurrent ? "이번 주" : "선택 주차";
+    !!statusWeek &&
+    currentWeek.year === statusWeek.year &&
+    currentWeek.seasonName === statusWeek.seasonName &&
+    currentWeek.weekNumber === statusWeek.weekNumber;
+  const lastWeekPrefix = targetIsCurrent ? "이번 주" : "지난 주";
 
   return (
     <div className="space-y-4">
@@ -167,54 +186,56 @@ export default function PracticalInfoOpeningSection0({
               />
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {/* 문구1: 오늘 + 이번 주 */}
-            <p className="text-foreground">
-              오늘은{" "}
-              <span className="font-semibold">{formatToday(new Date())}</span> 이며,
-              이번 주는{" "}
-              <span className="font-semibold">[{thisWeekLabel ?? "—"}]</span> 입니다.
-              (월 ~ 일)
-            </p>
+          <CardContent className="text-sm">
+            {/* 문장별 박스 제거 — 공용 bullet 목록(StatusList)으로 통일. 상태 구분은 색상 bullet 로만.
+                (문장 내부 볼드/빨강 강조는 기존 그대로 유지.) */}
+            <StatusList>
+              {/* 문구1: 오늘 + 이번 주 (정보성 → neutral bullet) */}
+              <StatusListItem tone="neutral">
+                오늘은{" "}
+                <span className="font-semibold">{formatToday(new Date())}</span> 이며,
+                이번 주는{" "}
+                <span className="font-semibold">[{thisWeekLabel ?? "—"}]</span> 입니다.
+                (월 ~ 일)
+              </StatusListItem>
 
-            {/* 문구2: 지난 주(개설 대상) 라인 개설 필요/완료 */}
-            {lastWeekLabel ? (
-              loadingLine ? (
-                <LoadingState
-                  active
-                  variant="inline"
-                  title={`${lastWeekPrefix} 라인 상태 확인 중…`}
-                />
+              {/* 문구2: 지난 주(개설 대상) 라인 개설 필요/완료 */}
+              {!lastWeekLabel ? (
+                <StatusListItem tone="neutral">
+                  개설 대상 주차 정보를 확인할 수 없습니다.
+                </StatusListItem>
+              ) : loadingLine ? (
+                <StatusListItem tone="neutral">
+                  <span className="text-muted-foreground">
+                    {lastWeekPrefix} 라인 상태 확인 중…
+                  </span>
+                </StatusListItem>
               ) : opened ? (
-                <p className="rounded-md border border-green-300 bg-green-50 px-3 py-2 text-green-800">
+                <StatusListItem tone="positive">
                   {lastWeekPrefix} <span className="font-semibold">[{lastWeekLabel}]</span>{" "}
                   의 {activityName} 라인이 ‘개설’ 되어, 크루 기입이 가능합니다.
-                </p>
-              ) : selectedWeek?.isOfficialRest ? (
+                </StatusListItem>
+              ) : statusWeek?.isOfficialRest ? (
                 /* 공식 휴식 주차 — 액션(개설 되어야) 요구하지 않는다(공용 엔진과 동일). */
-                <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-foreground">
+                <StatusListItem tone="neutral">
                   {lastWeekPrefix} <span className="font-semibold">[{lastWeekLabel}]</span>{" "}
                   의 {activityName} 라인은 개설 대상이 아닙니다 (
                   <span className="font-semibold text-red-600">공식 휴식 주차</span>).
-                </p>
-              ) : lineNotOpen ? (
-                /* 미오픈(선택 주차 개설 대상 아님) — 상단 탭 배지와 동일 판정(lineNotOpen).
+                </StatusListItem>
+              ) : statusLineNotOpen ? (
+                /* 미오픈(개설 대상 주차에 이 활동유형이 개설 대상 아님) — 상태창 자체 조회 판정.
                    개설 필요('개설 되어야') 문구 대신 미오픈 상태만 안내한다. */
-                <p className="rounded-md border border-zinc-300 bg-zinc-100 px-3 py-2 text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-200">
+                <StatusListItem tone="neutral">
                   {lastWeekPrefix} <span className="font-semibold">[{lastWeekLabel}]</span>{" "}
                   의 {activityName} 라인은 현재 ‘미오픈’ 상태입니다.
-                </p>
+                </StatusListItem>
               ) : (
-                <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-amber-800">
+                <StatusListItem tone="warning">
                   {lastWeekPrefix} <span className="font-semibold">[{lastWeekLabel}]</span>{" "}
                   의 {activityName} 라인이 ‘개설’ 되어야 합니다.
-                </p>
-              )
-            ) : (
-              <p className="text-muted-foreground">
-                개설 대상 주차 정보를 확인할 수 없습니다.
-              </p>
-            )}
+                </StatusListItem>
+              )}
+            </StatusList>
           </CardContent>
         </Card>
 
@@ -224,6 +245,9 @@ export default function PracticalInfoOpeningSection0({
           refreshKey={logRefreshTick}
         />
       </div>
+
+      {/* 상태창(상단)과 라인 개설 폼(하단)을 명확히 분리 — 공용 구분선 + 바깥 여백. */}
+      <LineOpeningSectionDivider />
 
       {/* ── 실제 라인 개설 폼 ── */}
       <PracticalInfoOpeningForm
@@ -237,7 +261,7 @@ export default function PracticalInfoOpeningSection0({
         users={users}
         onOpened={() => {
           // 개설 직후 상태창(개설됨 판정)·로그창을 즉시 재조회 + 상위 메타/라인 목록 갱신.
-          loadLine();
+          loadStatus();
           setLogRefreshTick((t) => t + 1);
           onOpened();
         }}

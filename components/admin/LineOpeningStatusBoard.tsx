@@ -11,7 +11,10 @@ import {
 import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
-import { cn } from "@/lib/utils";
+import {
+  StatusList,
+  StatusListItem,
+} from "@/components/admin/lineOpeningStatusUi";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import {
@@ -73,17 +76,6 @@ function renderTokens(tokens: StatusToken[]) {
   );
 }
 
-function toneClass(tone: StatusLine["tone"]): string {
-  switch (tone) {
-    case "positive":
-      return "border-green-300 bg-green-50 text-green-800";
-    case "warning":
-      return "border-amber-300 bg-amber-50 text-amber-800";
-    default:
-      return "border-border bg-muted/30 text-foreground";
-  }
-}
-
 export default function LineOpeningStatusBoard({
   hub,
   refreshKey,
@@ -97,12 +89,10 @@ export default function LineOpeningStatusBoard({
   const org = readOrgParam(searchParams);
   // 팀별 개설 현황(블록3) 팀 목록 스코프 — operating/test 토글 보존(appendModeQuery).
   const mode = readScopeMode(searchParams);
-  // 두 허브(경험/역량) 개설 탭 모두 드롭다운 선택 주차를 URL(?week)에 단일 SoT 로 보존한다 —
-  //   경험=파트장 그리드, 역량=개설 대시보드가 쓰고, 각 로그창이 읽는 값. 상태창도 같은 ?week 를
-  //   읽어 선택 주차 기준으로 판정·표기('선택한 주차')한다. 선택 주차가 바뀌면 상태창도 그 주차로
-  //   재조회된다(서버가 week_id 로 targetWeek·teams·opened 를 판정). ?week 미지정이면 서버가 오늘 기준
-  //   개설 대상 주차로 폴백 → 기존 동작(회귀 0).
-  const selectedWeekId = searchParams?.get("week")?.trim() || null;
+  // ⚠ 상태창은 하단 주차 드롭다운(?week)과 완전히 분리된다 — 항상 '서버 현재 시각 + 현재 개설 대상
+  //   주차'(금요일 경계 SoT)만 보여준다. 드롭다운 선택값·과거 조회 주차·탭별 임시 선택값은 상태창
+  //   판정에 일절 쓰지 않는다. 따라서 week_id 를 서버에 보내지 않으며, 서버가 오늘 기준 개설 대상
+  //   주차로 targetWeek·teams·extension·opened 를 판정한다(전역 현재 상태 단일 표시).
 
   const [data, setData] = useState<StatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -123,9 +113,7 @@ export default function LineOpeningStatusBoard({
       try {
         const params = new URLSearchParams();
         if (org) params.set("organization", org);
-        // 선택 주차(경험 탭)만 week_id 부착 → 서버가 그 주차 기준으로 targetWeek·teams·extension 판정.
-        //   미부착(역량/미선택)이면 서버는 오늘 기준 개설 대상 주차로 폴백(기존 동작).
-        if (selectedWeekId) params.set("week_id", selectedWeekId);
+        // week_id 를 부착하지 않는다 — 상태창은 드롭다운 선택과 분리된 '현재 개설 대상 주차'만 본다.
         const suffix = params.toString();
         const res = await fetch(
           appendModeQuery(`${endpoint}${suffix ? `?${suffix}` : ""}`, mode),
@@ -143,7 +131,7 @@ export default function LineOpeningStatusBoard({
     return () => {
       cancelled = true;
     };
-  }, [endpoint, org, mode, selectedWeekId, refreshKey]);
+  }, [endpoint, org, mode, refreshKey]);
 
   // team variant: 3블록 전부. hub variant: 블록1(엔진 재사용) + 허브 전체 1문장.
   const status: LineOpeningStatus | null = useMemo(() => {
@@ -155,10 +143,8 @@ export default function LineOpeningStatusBoard({
       targetWeek: data.targetWeek,
       extension: data.extension ?? { kind: "none", index: null, total: null },
       teams: data.teams ?? [],
-      // 선택 주차 모드 — targetWeek 가 사용자가 고른 선택 주차일 때 문구를 '선택한 주차'로 표기.
-      selectionMode: selectedWeekId != null,
     });
-  }, [data, hubLabel, selectedWeekId]);
+  }, [data, hubLabel]);
 
   const hubLine: StatusLine | null = useMemo(() => {
     if (!data || variant !== "hub") return null;
@@ -167,10 +153,8 @@ export default function LineOpeningStatusBoard({
       currentWeek: data.currentWeek,
       targetWeek: data.targetWeek,
       opened: data.opened ?? false,
-      // 선택 주차 모드 — 대시보드가 고른 주차(?week)일 때 '선택한 주차' 문구.
-      selectionMode: selectedWeekId != null,
     });
-  }, [data, hubLabel, variant, selectedWeekId]);
+  }, [data, hubLabel, variant]);
 
   return (
     <Card>
@@ -196,64 +180,55 @@ export default function LineOpeningStatusBoard({
           <p className="text-muted-foreground">표시할 데이터가 없습니다.</p>
         ) : (
           <>
-            {/* 블록1 — 오늘 / 이번 주 (공통) */}
-            <p className="text-foreground">{renderTokens(status.block1.tokens)}</p>
+            {/* 상태창 문장 — 문장별 박스 제거, 단순 bullet 목록으로 통일. 상태 구분은 색상 bullet 로만. */}
+            <StatusList>
+              {/* 블록1 — 오늘 / 이번 주 (공통, 정보성 → neutral bullet) */}
+              <StatusListItem tone="neutral">
+                {renderTokens(status.block1.tokens)}
+              </StatusListItem>
 
-            {variant === "hub" ? (
-              /* hub variant(실무 역량) — 허브 전체 개설 상태 1문장 */
-              hubLine && (
-                <p
-                  className={cn(
-                    "rounded-md border px-3 py-2",
-                    toneClass(hubLine.tone),
+              {variant === "hub"
+                ? /* hub variant(실무 역량) — 허브 전체 개설 상태 1문장 */
+                  hubLine && (
+                    <StatusListItem tone={hubLine.tone}>
+                      {renderTokens(hubLine.tokens)}
+                    </StatusListItem>
+                  )
+                : /* 블록2 — 확장 라인(대상 주차) */
+                  status.block2 && (
+                    <StatusListItem tone={status.block2.tone}>
+                      {renderTokens(status.block2.tokens)}
+                    </StatusListItem>
                   )}
-                >
-                  {renderTokens(hubLine.tokens)}
-                </p>
-              )
-            ) : (
-              <>
-                {/* 블록2 — 확장 라인(대상 주차) */}
-                <p
-                  className={cn(
-                    "rounded-md border px-3 py-2",
-                    toneClass(status.block2.tone),
-                  )}
-                >
-                  {renderTokens(status.block2.tokens)}
-                </p>
+            </StatusList>
 
-                {/* 블록3 — 팀별 개설 현황 */}
-                <div className="space-y-2">
-                  <p className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground">
-                    팀별 개설 현황
-                    <AdminHelpIconButton
-                      size="xs"
-                      helpKey="admin.lineOpening.statusBoard.section.teamOpenStatus"
-                      title="팀별 개설 현황"
-                    />
+            {variant !== "hub" && (
+              /* 블록3 — 팀별 개설 현황 (동일 bullet 구조) */
+              <div className="space-y-2">
+                <p className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground">
+                  팀별 개설 현황
+                  <AdminHelpIconButton
+                    size="xs"
+                    helpKey="admin.lineOpening.statusBoard.section.teamOpenStatus"
+                    title="팀별 개설 현황"
+                  />
+                </p>
+                {status.block3.length === 0 ? (
+                  <p className="text-muted-foreground">
+                    {org
+                      ? "이 클럽에 등록된 팀이 없습니다."
+                      : "클럽(?org)이 지정되지 않았습니다."}
                   </p>
-                  {status.block3.length === 0 ? (
-                    <p className="text-muted-foreground">
-                      {org
-                        ? "이 클럽에 등록된 팀이 없습니다."
-                        : "클럽(?org)이 지정되지 않았습니다."}
-                    </p>
-                  ) : (
-                    status.block3.map((line) => (
-                      <p
-                        key={line.id}
-                        className={cn(
-                          "rounded-md border px-3 py-2",
-                          toneClass(line.tone),
-                        )}
-                      >
+                ) : (
+                  <StatusList>
+                    {status.block3.map((line) => (
+                      <StatusListItem key={line.id} tone={line.tone}>
                         {renderTokens(line.tokens)}
-                      </p>
-                    ))
-                  )}
-                </div>
-              </>
+                      </StatusListItem>
+                    ))}
+                  </StatusList>
+                )}
+              </div>
             )}
           </>
         )}

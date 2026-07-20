@@ -1927,9 +1927,6 @@ export default function PracticalInfoManager() {
             // 대상 주차 단일 SoT — 상태창·개설 폼과 상단 탭 배지가 모두 이 값을 공유한다.
             selectedWeekId={selectedWeekId}
             onSelectWeek={setSelectedWeekId}
-            // 상태창 '미오픈' 문구 판정 = 상단 탭 배지와 동일한 selectedWeekId 기준 상태(openByActivityType).
-            //   별도 판정 로직 없이 배지가 쓰는 맵을 그대로 재사용한다. 조회 중(맵 비움)에는 undefined→false.
-            lineNotOpen={openByActivityType[activeType?.id ?? ""] === false}
             onOpened={() => {
               // 개설 직후 메타·라인 목록·탭 dot 데이터 재조회(manage 탭과 동기화).
               void fetchMeta();

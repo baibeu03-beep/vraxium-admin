@@ -48,13 +48,9 @@ export type LineOpeningStatusInput = {
   hubLabel: string; // "실무 경험"
   today: Date;
   currentWeek: StatusWeek | null; // 이번 주 N
-  targetWeek: StatusWeek | null; // 개설 대상(운영) 또는 선택 주차(selectionMode)
+  targetWeek: StatusWeek | null; // 개설 대상(운영) 주차 — 오늘 기준 금요일 경계 SoT
   extension: StatusExtension;
   teams: StatusTeam[];
-  // 선택 주차 모드 — targetWeek 가 '오늘 기준 개설 대상'이 아니라 사용자가 개설 탭에서 고른
-  //   '선택 주차'일 때 true. 블록1은 '이번 주' 대신 '선택한 주차'로, 블록2/3 접두는 '선택한 주차'로
-  //   표기한다. 기본(미지정/false)은 운영 문구 그대로 — 실무 역량(hub variant) 등 회귀 0.
-  selectionMode?: boolean;
 };
 
 // ──────────────────────────────────────────────────────────────
@@ -97,22 +93,22 @@ function periodLabel(w: StatusWeek): string {
 const t = (text: string): StatusToken => ({ text, red: false });
 const r = (text: string): StatusToken => ({ text, red: true });
 
-// 대상 주차 호칭 — 금요일 경계(금~일)나 테스트 W13 폴드로 대상 주차가 현재 주차와 같아지면
-// "이번 주", 다르면 "개설 대상 주차". (예전엔 항상 "지난 주" 고정 → 같은 주를 한 화면에서
-//  '이번 주'이자 '지난 주'로 부르는 오표기가 있었다.) 동일 주차 판정은 startDate(YYYY-MM-DD).
+// 대상 주차 호칭 — 개설 대상 주차(금요일 경계 SoT = getOpenableWeekStartMs)와 현재 주차 N 의
+// 관계로 결정한다. 같은 주차(금~일: 대상=N)면 "이번 주", 다른 주차면 "지난 주".
+//   ⚠ 금요일 경계에서 대상 주차는 항상 N(같음) 또는 N-1(직전) 둘 중 하나뿐이다. 따라서 "다른 주차"
+//     = 반드시 N-1 = 실제 지난 주이며, "지난 주"는 단순 라벨 치환이 아니라 서버가 getOpenableWeekStartMs
+//     로 실제 조회해 넘긴 N-1 주차(block1 의 이번 주 N 과 다른 값)를 가리킨다. 동일 주차 판정은
+//     startDate(YYYY-MM-DD). (금~일은 대상=N=이번 주라 "지난 주"로 부르지 않는다 — 오표기 방지.)
 function targetWeekPrefix(
   current: StatusWeek | null,
   target: StatusWeek,
-  selectionMode?: boolean,
 ): string {
-  // 선택 주차 모드에서는 오늘 기준 호칭('이번 주'/'개설 대상 주차') 대신 항상 '선택한 주차'.
-  if (selectionMode) return "선택한 주차";
   if (current && current.startDate === target.startDate) return "이번 주";
-  return "개설 대상 주차";
+  return "지난 주";
 }
 
 // 개설 상태 꼬리 문구 — 허브/팀 공용. head 가 "… 라인이 "/"… 라인들이 " 로 끝난 뒤 이어진다.
-//   opened               → "‘개설 완료’ 되었습니다."        (positive)
+//   opened               → "‘개설’ 되어, ‘크루 기입이 가능’합니다."  (positive)
 //   미개설·휴식 주차      → "개설 대상이 아닙니다 (공식 휴식 주차)."  (neutral — 액션 요구 안 함)
 //   미개설·개설 기간 아님 → "개설 대상이 아닙니다 (미오픈)."     (neutral — 개설 필요 안내 금지)
 //   미개설·정규 주차      → "‘개설’ 되어야 합니다."          (warning)
@@ -124,7 +120,11 @@ function openStateTail(
   isOpeningPeriod?: boolean,
 ): { tone: StatusLine["tone"]; tokens: StatusToken[] } {
   if (opened) {
-    return { tone: "positive", tokens: [t("‘"), r("개설 완료"), t("’ 되었습니다.")] };
+    // 개설 완료 → 크루 기입 단계. 핵심 상태('개설'·'크루 기입이 가능')만 red 강조(§6).
+    return {
+      tone: "positive",
+      tokens: [t("‘"), r("개설"), t("’ 되어, "), r("크루 기입이 가능"), t("합니다.")],
+    };
   }
   if (isOfficialRest) {
     return {
@@ -151,20 +151,6 @@ function buildBlock1(input: LineOpeningStatusInput): StatusLine {
     t("오늘은 "),
     r(fmtTodayCompact(input.today)),
   ];
-  if (input.selectionMode) {
-    // 선택 주차 모드 — '이번 주'(N) 대신 사용자가 고른 '선택한 주차'(targetWeek)를 표기.
-    //   '오늘' 날짜는 참조로 그대로 유지하고, 주차 판정 기준만 선택 주차로 통일한다.
-    if (input.targetWeek) {
-      tokens.push(
-        t(" 이며, 선택한 주차는 ["),
-        r(periodLabel(input.targetWeek)),
-        t("] 입니다. (월 ~ 일)"),
-      );
-    } else {
-      tokens.push(t(" 이며, 선택한 주차 정보를 확인할 수 없습니다."));
-    }
-    return { id: "block1", tone: "neutral", tokens };
-  }
   if (input.currentWeek) {
     tokens.push(
       t(" 이며, 이번 주는 ["),
@@ -188,7 +174,7 @@ function buildBlock2(input: LineOpeningStatusInput): StatusLine {
     };
   }
   const period = periodLabel(targetWeek);
-  const prefix = targetWeekPrefix(input.currentWeek, targetWeek, input.selectionMode);
+  const prefix = targetWeekPrefix(input.currentWeek, targetWeek);
   const head: StatusToken[] = [
     t(`${prefix} [`),
     r(period),
@@ -213,18 +199,20 @@ function buildBlock2(input: LineOpeningStatusInput): StatusLine {
 
 // 블록3 — 팀별 개설 현황. 팀마다 1줄. 빨강: 시즌·주차·팀명·개설/개설 완료.
 function buildBlock3(input: LineOpeningStatusInput): StatusLine[] {
-  const { targetWeek, teams, hubLabel } = input;
+  const { targetWeek, teams } = input;
   if (!targetWeek) return [];
   const period = periodLabel(targetWeek);
-  const prefix = targetWeekPrefix(input.currentWeek, targetWeek, input.selectionMode);
+  const prefix = targetWeekPrefix(input.currentWeek, targetWeek);
 
   return teams.map((team) => {
+    // "지난 주 [26년, 여름 시즌, 3주차] 의 위즈덤 라인이 …" — 팀명이 곧 라인 주체(허브명 생략,
+    //   화면이 이미 해당 허브 탭이라 문맥 중복). red: 주차·팀명.
     const head: StatusToken[] = [
       t(`${prefix} [`),
       r(period),
-      t("] 의 ‘"),
+      t("] 의 "),
       r(team.teamName),
-      t(`’ 의 [${hubLabel}] 허브 산하 라인이 `),
+      t(" 라인이 "),
     ];
     const tail = openStateTail(
       team.opened,
@@ -250,11 +238,8 @@ export function buildHubOpenStatusLine(input: {
   currentWeek: StatusWeek | null;
   targetWeek: StatusWeek | null;
   opened: boolean;
-  // 선택 주차 모드 — targetWeek 가 사용자가 개설 탭에서 고른 선택 주차일 때 접두를 '선택한 주차'로.
-  //   기본(미지정/false)은 오늘 기준 호칭('이번 주'/'개설 대상 주차') 그대로.
-  selectionMode?: boolean;
 }): StatusLine {
-  const { hubLabel, currentWeek, targetWeek, opened, selectionMode } = input;
+  const { hubLabel, currentWeek, targetWeek, opened } = input;
   if (!targetWeek) {
     return {
       id: "hub-open",
@@ -263,7 +248,7 @@ export function buildHubOpenStatusLine(input: {
     };
   }
   const period = periodLabel(targetWeek);
-  const prefix = targetWeekPrefix(currentWeek, targetWeek, selectionMode);
+  const prefix = targetWeekPrefix(currentWeek, targetWeek);
   const head: StatusToken[] = [
     t(`${prefix} [`),
     r(period),
