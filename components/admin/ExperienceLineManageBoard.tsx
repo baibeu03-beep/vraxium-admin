@@ -278,25 +278,31 @@ function TeamCard({
               평가 대상 파트 없음
             </span>
           ) : (
-            <div className="flex flex-wrap gap-1.5">
-              {team.parts.map((p) => (
-                <span
-                  key={p.partName}
-                  className={cn(
-                    "inline-flex items-center rounded-md border px-2.5 py-1 text-xs font-medium",
-                    p.submitted
-                      ? "border-sky-300 bg-sky-100 text-sky-800"
-                      : "border-input bg-background text-muted-foreground",
-                  )}
-                  title={p.submitted ? "개설 신청 완료" : "개설 신청 전"}
-                >
-                  {p.partName}
-                </span>
-              ))}
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+              {/* 배지 왼쪽 라벨 — 배지 색/간격/스타일은 불변, 라벨만 추가. */}
+              <span className="whitespace-nowrap text-xs font-medium text-muted-foreground">
+                파트별 개설 신청
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {team.parts.map((p) => (
+                  <span
+                    key={p.partName}
+                    className={cn(
+                      "inline-flex items-center rounded-md border px-2.5 py-1 text-xs font-medium",
+                      p.submitted
+                        ? "border-sky-300 bg-sky-100 text-sky-800"
+                        : "border-input bg-background text-muted-foreground",
+                    )}
+                    title={p.submitted ? "개설 신청 완료" : "개설 신청 전"}
+                  >
+                    {p.partName}
+                  </span>
+                ))}
+              </div>
             </div>
           )}
-          {/* 팀장 이름 + 학적 — 우측 정렬(ml-auto). 공간 부족 시 두 번째 줄로 wrap. */}
-          <span className="ml-auto text-right text-xs text-muted-foreground">
+          {/* 팀장 이름 + 학적 — 항상 두 번째 줄(basis-full 로 자기 줄 차지, 좌측 정렬). */}
+          <span className="basis-full text-xs text-muted-foreground">
             {formatTeamLeader(team.teamLeader)}
           </span>
         </div>
