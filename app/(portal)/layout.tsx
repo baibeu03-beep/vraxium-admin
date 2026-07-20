@@ -8,6 +8,7 @@ import { AdminRouteTitleProvider } from "@/components/admin/AdminRouteTitleProvi
 import { ConfirmProvider } from "@/components/ui/confirm-dialog";
 import { AdminDialogViewport } from "@/components/ui/admin-dialog";
 import { ToastViewport } from "@/components/ui/toast";
+import HoverTooltipProvider from "@/components/admin/HoverTooltipProvider";
 import OrgEnvironmentBanner from "@/components/admin/OrgEnvironmentBanner";
 import AdminSessionProvider from "@/components/admin/AdminSessionProvider";
 import { requireAdminPage } from "@/lib/adminAuth";
@@ -100,6 +101,9 @@ export default async function PortalLayout({
             (adminDialog store 싱글턴). 시스템 팝업(alert/confirm/prompt)과 페이지별 임시
             확인창을 대체한다. */}
         <AdminDialogViewport />
+        {/* 전역 Hover Tooltip — 어드민 전역의 네이티브 title 툴팁을 공통 말풍선 디자인으로 통일한다.
+            여기 한 곳에만 마운트(document 위임 리스너 · body 포털). mode/org 무관·개별 페이지 수정 없음. */}
+        <HoverTooltipProvider />
       </ConfirmProvider>
         </SidebarProvider>
         </AdminSessionProvider>
