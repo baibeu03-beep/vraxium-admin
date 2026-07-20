@@ -1557,9 +1557,12 @@ export default function PracticalCareerManager() {
                   </div>
                 </div>
 
-                {/* 감독자 사진 — 기업 로고와 동일한 업로드 패턴 재사용. 저장 필드: supervisor_profile_img */}
+                {/* 감독자 사진(선택) + 메인 타이틀(선택) — 짧은 선택 입력 2개를 한 행에 배치.
+                    기존 감독자 사진은 grid-cols-2 의 한 칸만 채워 옆이 빈 상태였다 → 그 빈 칸에
+                    메인 타이틀을 넣어 dangling half-cell 을 없애고 세로 스크롤을 줄인다.
+                    감독자 사진은 기업 로고와 동일한 업로드 패턴 재사용(저장 필드: supervisor_profile_img). */}
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
+                  <div className="min-w-0 space-y-2">
                     <LogoUploadField
                       value={rfSupervisorPhoto}
                       onChange={setRfSupervisorPhoto}
@@ -1572,12 +1575,10 @@ export default function PracticalCareerManager() {
                       helpKey="admin.lineOpening.career.registration.field.supervisorPhoto"
                     />
                   </div>
-                </div>
-
-                {/* 선택 입력 */}
-                <div className="space-y-2">
-                  <Label className="inline-flex items-center gap-1">메인 타이틀 (선택)<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.career.registration.field.defaultTitle" title="메인 타이틀 (선택)" /></Label>
-                  <Input value={rfDefaultTitle} onChange={(e) => setRfDefaultTitle(e.target.value)} placeholder="미입력 시 개설 때 라인명 사용" />
+                  <div className="min-w-0 space-y-2">
+                    <Label className="inline-flex items-center gap-1">메인 타이틀 (선택)<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.career.registration.field.defaultTitle" title="메인 타이틀 (선택)" /></Label>
+                    <Input value={rfDefaultTitle} onChange={(e) => setRfDefaultTitle(e.target.value)} placeholder="미입력 시 개설 때 라인명 사용" />
+                  </div>
                 </div>
 
                 {/* Output Assets */}
@@ -1589,13 +1590,16 @@ export default function PracticalCareerManager() {
                     </span>
                   </div>
                   <div className="grid gap-3">
-                    <div className="space-y-1">
-                      <Label htmlFor="rfLink1" className="inline-flex items-center gap-1 text-xs text-muted-foreground">Link 1<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.career.registration.field.outputLink1" title="Link 1" /></Label>
-                      <Input id="rfLink1" value={rfOutputLink1} onChange={(e) => setRfOutputLink1(e.target.value)} placeholder="https://..." disabled={!rfOutputLink1.trim() && rfAssetCount >= 2} />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="rfLink2" className="inline-flex items-center gap-1 text-xs text-muted-foreground">Link 2<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.career.registration.field.outputLink2" title="Link 2" /></Label>
-                      <Input id="rfLink2" value={rfOutputLink2} onChange={(e) => setRfOutputLink2(e.target.value)} placeholder="https://..." disabled={!rfOutputLink2.trim() && rfAssetCount >= 2} />
+                    {/* 짧은 URL 입력 2개는 한 행에 나란히(세로 스택 → 2열). 이미지는 아래 전체 폭. */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="min-w-0 space-y-1">
+                        <Label htmlFor="rfLink1" className="inline-flex items-center gap-1 text-xs text-muted-foreground">Link 1<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.career.registration.field.outputLink1" title="Link 1" /></Label>
+                        <Input id="rfLink1" value={rfOutputLink1} onChange={(e) => setRfOutputLink1(e.target.value)} placeholder="https://..." disabled={!rfOutputLink1.trim() && rfAssetCount >= 2} />
+                      </div>
+                      <div className="min-w-0 space-y-1">
+                        <Label htmlFor="rfLink2" className="inline-flex items-center gap-1 text-xs text-muted-foreground">Link 2<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.career.registration.field.outputLink2" title="Link 2" /></Label>
+                        <Input id="rfLink2" value={rfOutputLink2} onChange={(e) => setRfOutputLink2(e.target.value)} placeholder="https://..." disabled={!rfOutputLink2.trim() && rfAssetCount >= 2} />
+                      </div>
                     </div>
                     <ImageUploadSlot
                       label="Image"
@@ -1883,36 +1887,41 @@ export default function PracticalCareerManager() {
                     </span>
                   </div>
                   <div className="grid gap-3">
-                    <div className="space-y-1">
-                      <Label htmlFor="careerLink1" className="inline-flex items-center gap-1 text-xs text-muted-foreground">Link 1 URL<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.field.outputLink" title="Link 1 URL" /></Label>
-                      <Input id="careerLink1" value={lineLink1} onChange={(e) => setLineLink1(e.target.value)} placeholder={OUTPUT_LINK_URL_PLACEHOLDER} disabled={!lineLink1.trim() && lineAssetCount >= 2} />
-                      <Input id="careerLabel1" value={lineLabel1} onChange={(e) => setLineLabel1(e.target.value)} placeholder={OUTPUT_LINK_LABEL_PLACEHOLDER} aria-label="Link 1 설명" maxLength={OUTPUT_LINK_LABEL_MAX_LENGTH} />
+                    {/* 짧은 링크 입력 2개는 한 행에 나란히(세로 스택 → 2열). 이미지 2개도 한 행에. */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="min-w-0 space-y-1">
+                        <Label htmlFor="careerLink1" className="inline-flex items-center gap-1 text-xs text-muted-foreground">Link 1 URL<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.field.outputLink" title="Link 1 URL" /></Label>
+                        <Input id="careerLink1" value={lineLink1} onChange={(e) => setLineLink1(e.target.value)} placeholder={OUTPUT_LINK_URL_PLACEHOLDER} disabled={!lineLink1.trim() && lineAssetCount >= 2} />
+                        <Input id="careerLabel1" value={lineLabel1} onChange={(e) => setLineLabel1(e.target.value)} placeholder={OUTPUT_LINK_LABEL_PLACEHOLDER} aria-label="Link 1 설명" maxLength={OUTPUT_LINK_LABEL_MAX_LENGTH} />
+                      </div>
+                      <div className="min-w-0 space-y-1">
+                        <Label htmlFor="careerLink2" className="inline-flex items-center gap-1 text-xs text-muted-foreground">Link 2 URL<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.career.opening.field.outputLink2" title="Link 2 URL" /></Label>
+                        <Input id="careerLink2" value={lineLink2} onChange={(e) => setLineLink2(e.target.value)} placeholder={OUTPUT_LINK_URL_PLACEHOLDER} disabled={!lineLink2.trim() && lineAssetCount >= 2} />
+                        <Input id="careerLabel2" value={lineLabel2} onChange={(e) => setLineLabel2(e.target.value)} placeholder={OUTPUT_LINK_LABEL_PLACEHOLDER} aria-label="Link 2 설명" maxLength={OUTPUT_LINK_LABEL_MAX_LENGTH} />
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="careerLink2" className="inline-flex items-center gap-1 text-xs text-muted-foreground">Link 2 URL<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.career.opening.field.outputLink2" title="Link 2 URL" /></Label>
-                      <Input id="careerLink2" value={lineLink2} onChange={(e) => setLineLink2(e.target.value)} placeholder={OUTPUT_LINK_URL_PLACEHOLDER} disabled={!lineLink2.trim() && lineAssetCount >= 2} />
-                      <Input id="careerLabel2" value={lineLabel2} onChange={(e) => setLineLabel2(e.target.value)} placeholder={OUTPUT_LINK_LABEL_PLACEHOLDER} aria-label="Link 2 설명" maxLength={OUTPUT_LINK_LABEL_MAX_LENGTH} />
+                    <div className="grid grid-cols-2 gap-3">
+                      <ImageUploadSlot
+                        label="Image 1"
+                        image={lineImage1}
+                        caption={lineCaption1}
+                        onUpload={setLineImage1}
+                        onRemove={() => { setLineImage1(null); setLineCaption1(""); }}
+                        onCaptionChange={setLineCaption1}
+                        disabled={!lineImage1 && lineAssetCount >= 2}
+                        helpKey="admin.lineOpening.career.opening.field.outputImage1"
+                      />
+                      <ImageUploadSlot
+                        label="Image 2"
+                        image={lineImage2}
+                        caption={lineCaption2}
+                        onUpload={setLineImage2}
+                        onRemove={() => { setLineImage2(null); setLineCaption2(""); }}
+                        onCaptionChange={setLineCaption2}
+                        disabled={!lineImage2 && lineAssetCount >= 2}
+                        helpKey="admin.lineOpening.career.opening.field.outputImage2"
+                      />
                     </div>
-                    <ImageUploadSlot
-                      label="Image 1"
-                      image={lineImage1}
-                      caption={lineCaption1}
-                      onUpload={setLineImage1}
-                      onRemove={() => { setLineImage1(null); setLineCaption1(""); }}
-                      onCaptionChange={setLineCaption1}
-                      disabled={!lineImage1 && lineAssetCount >= 2}
-                      helpKey="admin.lineOpening.career.opening.field.outputImage1"
-                    />
-                    <ImageUploadSlot
-                      label="Image 2"
-                      image={lineImage2}
-                      caption={lineCaption2}
-                      onUpload={setLineImage2}
-                      onRemove={() => { setLineImage2(null); setLineCaption2(""); }}
-                      onCaptionChange={setLineCaption2}
-                      disabled={!lineImage2 && lineAssetCount >= 2}
-                      helpKey="admin.lineOpening.career.opening.field.outputImage2"
-                    />
                   </div>
                 </div>
 
@@ -1945,11 +1954,22 @@ export default function PracticalCareerManager() {
                   filteredCrews={lineFilteredCrews}
                 />
 
-                {/* Actions */}
-                <div className="flex justify-end gap-3 pt-2">
-                  <Button variant="outline" onClick={resetLineForm} disabled={saving}>취소</Button>
+                {/* Actions — '개설 대상 크루' 아래 최종 액션 영역(위치 기존 유지). 버튼 크기만 확대. */}
+                <div className="flex flex-wrap justify-end gap-3 border-t pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={resetLineForm}
+                    disabled={saving}
+                    className="h-11 px-6 text-base"
+                  >
+                    취소
+                  </Button>
                   <span className="inline-flex items-center gap-1">
-                    <Button onClick={handleSaveLine} loading={saving}>
+                    <Button
+                      onClick={handleSaveLine}
+                      loading={saving}
+                      className="h-11 px-6 text-base"
+                    >
                       개설
                     </Button>
                     <AdminHelpIconButton size="xs" helpKey="admin.lineOpening.career.opening.action.submitOpen" title="실무 경력 라인 개설" />
