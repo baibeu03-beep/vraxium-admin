@@ -523,15 +523,27 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
     };
   };
 
+  // 요일 컬럼 배치 = "필요 시점"(requiredCheckedAt)의 KST 요일 기준 — 카드에 표시되는 필요 시점 칩과
+  //   동일한 시각으로 배치한다(발생 요일 occur_dow 아님). 필요 시점이 없으면 occur_dow 로 폴백해
+  //   액트가 표에서 누락되지 않게 한다. 상태 판정(cardState)·색상·체크 로직은 불변(배치 기준만 변경).
+  const dayKeyForCard = (
+    card: { requiredCheckedAt: string | null },
+    occurDow: number | null,
+  ): DayKey | null => {
+    const dow = card.requiredCheckedAt != null ? kstDow(card.requiredCheckedAt) : null;
+    const d = dow ?? occurDow;
+    return d != null && d >= 0 && d <= 6 ? DOW_KEY[d] : null;
+  };
+
   // 8) 실무 정보 라인급별 목록 — process_line_groups(hub=info). 액트는 line_group_id 로 직접 매칭.
   const lines: ActCheckInfoLineDto[] = infoLineGroups.map((lg) => {
     const byDay = emptyByDay<ActCheckActDto>();
     for (const a of infoActs) {
       if (a.line_group_id !== lg.id) continue;
-      const d = a.occur_dow;
-      const key: DayKey | null = d != null && d >= 0 && d <= 6 ? DOW_KEY[d] : null;
+      const card = cardOf(a);
+      const key = dayKeyForCard(card, a.occur_dow);
       if (!key) continue;
-      byDay[key].push(cardOf(a));
+      byDay[key].push(card);
     }
     return { lineId: lg.id, lineName: lg.name, isOpenThisWeek: infoOpen(lg.id), regularActsByDay: byDay };
   });
@@ -565,10 +577,10 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
       const byDay = emptyByDay<ActCheckActDto>();
       for (const a of expActs) {
         if (a.line_group_id !== lg.id) continue;
-        const d = a.occur_dow;
-        const key: DayKey | null = d != null && d >= 0 && d <= 6 ? DOW_KEY[d] : null;
+        const card = expCardOf(a, t.id, lineOpen);
+        const key = dayKeyForCard(card, a.occur_dow);
         if (!key) continue;
-        byDay[key].push(expCardOf(a, t.id, lineOpen));
+        byDay[key].push(card);
       }
       return { lineId: lg.id, lineName: lg.name, isOpenThisWeek: lineOpen, regularActsByDay: byDay };
     });
@@ -595,10 +607,10 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
     const byDay = emptyByDay<ActCheckActDto>();
     for (const a of compActs) {
       if (a.line_group_id !== lg.id) continue;
-      const d = a.occur_dow;
-      const key: DayKey | null = d != null && d >= 0 && d <= 6 ? DOW_KEY[d] : null;
+      const card = cardOf(a);
+      const key = dayKeyForCard(card, a.occur_dow);
       if (!key) continue;
-      byDay[key].push(cardOf(a));
+      byDay[key].push(card);
     }
     return { lineId: lg.id, lineName: lg.name, isOpenThisWeek: compOpen(), regularActsByDay: byDay };
   });
@@ -609,10 +621,10 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
     const byDay = emptyByDay<ActCheckActDto>();
     for (const a of clubActs) {
       if (a.line_group_id !== lg.id) continue;
-      const d = a.occur_dow;
-      const key: DayKey | null = d != null && d >= 0 && d <= 6 ? DOW_KEY[d] : null;
+      const card = cardOf(a);
+      const key = dayKeyForCard(card, a.occur_dow);
       if (!key) continue;
-      byDay[key].push(cardOf(a));
+      byDay[key].push(card);
     }
     return { lineId: lg.id, lineName: lg.name, isOpenThisWeek: clubOpen(lg.id), regularActsByDay: byDay };
   });

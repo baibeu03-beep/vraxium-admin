@@ -625,12 +625,27 @@ const CHECK_ICON_CLASS: Record<"completed-on-time" | "completed-late", string> =
   "completed-on-time": "text-emerald-600",
   "completed-late": "text-sky-600",
 };
+// 상태 인덱스 라벨(액트명 앞) — cardState 별 텍스트/색. inactive(일반)는 라벨 없음.
+//   색상 판정(cardState)·체크 로직은 불변, 여기서 파생하는 건 표시용 라벨 텍스트/틴트뿐이다.
+//   노랑=[체크 대기]·빨강=[시간 초과]·초록=[체크 완료]·파랑=[시간 초과 완료].
+const CARD_STATE_LABEL: Partial<Record<ActCardState, string>> = {
+  pending: "체크 대기",
+  overdue: "시간 초과",
+  "completed-on-time": "체크 완료",
+  "completed-late": "시간 초과 완료",
+};
+const CARD_STATE_LABEL_CLASS: Partial<Record<ActCardState, string>> = {
+  pending: "bg-amber-200 text-amber-900",
+  overdue: "bg-red-200 text-red-900",
+  "completed-on-time": "bg-emerald-200 text-emerald-900",
+  "completed-late": "bg-sky-200 text-sky-900",
+};
 
 // 필요 시점 칩 — "[필요] (요일) HH:mm". 액트명과 시각적으로 구분(칩+시각).
 function RequiredChip({ label }: { label: string }) {
   return (
     <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap">
-      <span className="rounded bg-black/[0.06] px-1 py-px text-xs font-medium">체크 필요</span>
+      <span className="rounded bg-black/[0.06] px-1 py-px text-xs font-medium">필요 시점</span>
       <span className="tabular-nums">{label}</span>
     </span>
   );
@@ -651,6 +666,8 @@ function StateCard({
   // 액트명·신청시점·담당자 모두 셀 폭 안에서 줄바꿈(말줄임 없음·무공백 롱토큰도 강제 줄바꿈).
   const wrapCls = "min-w-0 break-keep [overflow-wrap:anywhere]";
   const completed = isCompletedCardState(state);
+  // 상태 인덱스 라벨(액트명 앞) — 색상 판정(cardState)은 불변, 라벨 텍스트만 파생. inactive=라벨 없음.
+  const stateLabelText = CARD_STATE_LABEL[state];
   // 1번째 줄: 액트명 │ [필요] (요일) HH:mm — 필요 시점은 항상(모든 상태) 표시.
   const line1: ReactNode[] = [<span key="n" className={"font-semibold " + wrapCls}>{actName}</span>];
   if (requiredLabel) line1.push(<RequiredChip key="req" label={requiredLabel} />);
@@ -662,6 +679,15 @@ function StateCard({
       className={"flex w-full min-w-0 max-w-full flex-col gap-y-0.5 rounded border px-2 py-1.5 text-sm " + CARD_STATE_CLASS[state]}
     >
       <div className="flex w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+        {stateLabelText ? (
+          <span
+            className={
+              "shrink-0 rounded px-1 py-px text-xs font-bold " + CARD_STATE_LABEL_CLASS[state]
+            }
+          >
+            [{stateLabelText}]
+          </span>
+        ) : null}
         <CardRow parts={line1} />
         {tag}
       </div>
