@@ -73,6 +73,7 @@ import {
 } from "@/components/admin/cluster4/enhancementBadges";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 import LineOpeningStatusBoard from "@/components/admin/LineOpeningStatusBoard";
+import { LineOpeningSectionDivider } from "@/components/admin/lineOpeningStatusUi";
 import ExperienceOpeningLogPanel from "@/components/admin/ExperienceOpeningLogPanel";
 import ExperiencePartLeadInput from "@/components/admin/ExperiencePartLeadInput";
 import ExperienceLineManageBoard from "@/components/admin/ExperienceLineManageBoard";
@@ -2968,6 +2969,8 @@ export default function PracticalExperienceManager() {
             <LineOpeningStatusBoard hub="experience" refreshKey={openRefresh} />
             <ExperienceOpeningLogPanel refreshKey={openRefresh} />
           </div>
+          {/* 상태창(위)과 라인 개설(아래)을 명확히 분리 — 공용 구분선 + 바깥 여백. */}
+          <LineOpeningSectionDivider />
           {/* 파트장 입력 그리드 + 팀 총괄 보드 (additive — 신규 전용 저장, 기존 워크플로우/snapshot 무관).
               검수/완료/취소·신청/취소 직후 상태창·로그창을 갱신한다. */}
           <ExperiencePartLeadInput onActivity={() => setOpenRefresh((k) => k + 1)} />

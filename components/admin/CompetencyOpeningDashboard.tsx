@@ -17,12 +17,17 @@ import {
   formatFullDateRangeKo,
 } from "@/lib/practicalInfoSection0Format";
 import LineOpeningStatusBoard from "@/components/admin/LineOpeningStatusBoard";
+import { LineOpeningSectionDivider } from "@/components/admin/lineOpeningStatusUi";
 import CompetencyOpeningLogPanel from "@/components/admin/CompetencyOpeningLogPanel";
 import CompetencyApplicantSection from "@/components/admin/CompetencyApplicantSection";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { useToast } from "@/components/ui/toast";
 import { useActionToast } from "@/lib/actionToast";
 import { LINE_OPENING_RESULT } from "@/lib/lineOpeningResultMessages";
+import {
+  validateCompetencyOutput,
+  COMPETENCY_OUTPUT_MESSAGE,
+} from "@/lib/competencyOutputValidation";
 
 // 실무 역량 [라인 개설] 탭 — 운영 대시보드.
 //   상태창(허브 전체 1문장) + 로그창 + [개설 주차 | 아웃풋 링크 1 | 설명 1] 입력행 + [개설 완료]/[개설 취소].
@@ -75,9 +80,12 @@ export default function CompetencyOpeningDashboard() {
 
   // 개설 주차 드롭다운(주차 목록 표시, 실제 선택 가능=개설 대상 주차만).
   const [weekOptions, setWeekOptions] = useState<WeekOption[]>([]);
-  // 아웃풋 링크 1 / 설명 1 — 해당 주차 모든 역량 라인칸 공통 적용.
+  // 아웃풋 링크 1 / 설명 1 — 해당 주차 모든 역량 라인칸 공통 적용(필수 입력).
   const [linkUrl, setLinkUrl] = useState("");
   const [linkDesc, setLinkDesc] = useState("");
+  // 필수 입력 누락 시 팝업 확인 후 첫 누락 항목으로 스크롤·포커스하기 위한 ref.
+  const linkInputRef = useRef<HTMLInputElement>(null);
+  const descInputRef = useRef<HTMLInputElement>(null);
   // 초기화 기준값(폼 로드 시점의 prefill). [초기화] = DB 통신 없이 이 값으로 복원.
   const [initialLink, setInitialLink] = useState("");
   const [initialDesc, setInitialDesc] = useState("");
@@ -231,6 +239,28 @@ export default function CompetencyOpeningDashboard() {
         toast("error", "미오픈 — 활동 관리에서 ‘정상 진행’으로 설정한 뒤 개설할 수 있습니다.");
         return;
       }
+      // 필수 입력 검증(개설 한정) — 선행 필수값(주차·오픈) 다음, 개설 확인 팝업 이전.
+      //   아웃풋 링크 1·설명 1 은 모두 필수(공백만=미입력). 하나라도 비면 개설 중단하고
+      //   팝업으로 첫 누락 항목 하나만 안내한 뒤, 확인을 누르면 그 칸으로 스크롤·포커스한다.
+      if (action === "open") {
+        const missing = validateCompetencyOutput(linkUrl, linkDesc);
+        if (missing) {
+          await adminDialog.alert({
+            variant: "warning",
+            title: "필수 입력 확인",
+            description: COMPETENCY_OUTPUT_MESSAGE[missing],
+          });
+          // "description" = 링크는 채워졌고 설명만 누락 → 설명 칸. 그 외(both/link)는 링크 칸.
+          const target =
+            missing === "description" ? descInputRef.current : linkInputRef.current;
+          if (target) {
+            target.scrollIntoView({ behavior: "smooth", block: "center" });
+            // 팝업 닫힘 시 포커스가 트리거(개설 버튼)로 복귀하므로 다음 프레임에 포커스를 옮긴다.
+            requestAnimationFrame(() => target.focus());
+          }
+          return;
+        }
+      }
       if (action === "open") {
         const ok = await adminDialog.confirm({
           title: "실무 역량 허브 개설 완료",
@@ -308,6 +338,9 @@ export default function CompetencyOpeningDashboard() {
         <LineOpeningStatusBoard hub="competency" refreshKey={refreshKey} />
         <CompetencyOpeningLogPanel refreshKey={refreshKey} />
       </div>
+
+      {/* 상태창(위)과 라인 개설(아래)을 명확히 분리 — 공용 구분선 + 바깥 여백. */}
+      <LineOpeningSectionDivider />
 
       {/* 라인 개설 — 개설 주차 + 주차 공통 아웃풋(링크/설명) 입력 + 개설 완료/취소.
           overflow-visible: 개설 주차 커스텀 드롭다운(absolute)이 Card 의 기본 overflow-hidden 에
@@ -397,13 +430,14 @@ export default function CompetencyOpeningDashboard() {
 
             <div className="space-y-1">
               <Label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                아웃풋 링크 1
+                아웃풋 링크 1 <span className="text-red-500">*</span>
                 <AdminHelpIconButton
                   helpKey="admin.competency.dashboard.input.outputLink1"
                   title="아웃풋 링크 1"
                 />
               </Label>
               <Input
+                ref={linkInputRef}
                 value={linkUrl}
                 onChange={(e) => setLinkUrl(e.target.value)}
                 placeholder="카페 공표 게시물 링크 (https://...)"
@@ -414,13 +448,14 @@ export default function CompetencyOpeningDashboard() {
 
             <div className="space-y-1">
               <Label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                설명 1
+                설명 1 <span className="text-red-500">*</span>
                 <AdminHelpIconButton
                   helpKey="admin.competency.dashboard.input.outputDesc1"
                   title="설명 1"
                 />
               </Label>
               <Input
+                ref={descInputRef}
                 value={linkDesc}
                 onChange={(e) => setLinkDesc(e.target.value)}
                 placeholder="아웃풋 링크 1 설명"
