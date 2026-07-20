@@ -13,7 +13,7 @@
 //   · "가동"(오픈) 판정  = open_confirmed && 라인급 체크(config.actCheck.{info,experience,club}·competency=practicalCompetency.checked)
 //     · config.actCheck 부재(과거 확정 주차) 시 라인급 기본 전체 체크(읽기전용 표시만 — 결과/포인트/snapshot 무영향)
 //
-// 신청 시점(scheduledLabel): 정규 = 상태행 scheduled_check_at ?? 액트 check 요일/시각(주차 기준 파생). 변동 = scheduled_check_at.
+// 필요 시점(scheduledLabel): 정규 = 액트 check 요일/시각(관리 주차 기준 파생). 변동 = scheduled_check_at.
 // 체크 상태(checkStatus): 신청됨일 때만 — 실제 신청(completed_at ?? requested_at) ≤ 신청 시점 → 'ontime'(🔴), 초과 → 'late'(🔵).
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
@@ -31,6 +31,7 @@ import {
 } from "@/lib/adminActCheckApplicationInputs";
 import { formatClubDate, formatClubDateTime, formatClubWeekdayTime } from "@/lib/clubDate";
 import { resolveActCardState, type ActCardState } from "@/lib/actCardState";
+import { resolveRegularActRequiredDate } from "@/lib/regularActRequiredAt";
 import { memberStatusLabel } from "@/lib/adminMembersTypes";
 import type { OrganizationSlug } from "@/lib/organizations";
 import type { ScopeMode } from "@/lib/userScopeShared";
@@ -168,12 +169,6 @@ function addDaysIso(iso: string, days: number): string {
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }
-// weekStart(월요일 ISO) + occur/check dow(0=일…6=토, N1=다음주) → 날짜 ISO.
-function dateForDow(weekStart: string | null, dow: number | null, weekRef: string | null): string | null {
-  if (!weekStart || dow == null) return null;
-  const offsetFromMonday = (dow + 6) % 7; // 월=0 … 일=6
-  return addDaysIso(weekStart, offsetFromMonday + (weekRef === "N1" ? 7 : 0));
-}
 function hhmm(t: string | null): string | null {
   return t && /^\d{2}:\d{2}/.test(t) ? t.slice(0, 5) : null;
 }
@@ -183,6 +178,7 @@ function deadlineMsKst(dateIso: string | null, timeStr: string | null): number |
   const ms = Date.parse(`${dateIso}T${t}:00+09:00`);
   return Number.isNaN(ms) ? null : ms;
 }
+
 // KST 기준 요일(0=일 … 6=토).
 function kstDow(iso: string | null): number | null {
   if (!iso) return null;
@@ -501,11 +497,15 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
       : false;
     const st = statusByAct.get(a.id) ?? null;
     const applied = st != null && (st.status === "pending" || st.status === "completed");
-    // 필요 시점: 상태행 scheduled_check_at 우선, 없으면 act check 요일/시각(주차 기준 파생).
-    const derivedDate = dateForDow(weekStart, a.check_dow, a.check_week);
+    // 정규 액트 필요 시점은 상태행의 검수 예약 시각이 아니라 관리 주차 + 액트 정의로만 산출한다.
+    const derivedDate = resolveRegularActRequiredDate({
+      weekStart,
+      checkWeek: a.check_week,
+      checkDow: a.check_dow,
+    });
     const fields = buildActCardFields({
       isActive,
-      scheduledCheckAt: st?.scheduled_check_at ?? null,
+      scheduledCheckAt: null,
       derivedDate,
       checkTime: a.check_time,
       applied,
@@ -554,10 +554,14 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
   const expCardOf = (a: ActRow, teamId: string, lineOpen: boolean): ActCheckActDto => {
     const st = expStatusByActTeam.get(`${a.id}::${teamId}`) ?? null;
     const applied = st != null && (st.status === "pending" || st.status === "completed");
-    const derivedDate = dateForDow(weekStart, a.check_dow, a.check_week);
+    const derivedDate = resolveRegularActRequiredDate({
+      weekStart,
+      checkWeek: a.check_week,
+      checkDow: a.check_dow,
+    });
     const fields = buildActCardFields({
       isActive: lineOpen,
-      scheduledCheckAt: st?.scheduled_check_at ?? null,
+      scheduledCheckAt: null,
       derivedDate,
       checkTime: a.check_time,
       applied,

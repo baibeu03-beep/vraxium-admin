@@ -1569,7 +1569,7 @@ export default function TeamPartsInfoWeekDetailManager({
             {/* [1] 관리 주차 카드 + 주차 검수 (현재 주차 배너보다 위) */}
             <section
               data-managed-week
-              className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg bg-sky-50/60 px-4 py-3 text-sm"
+              className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg bg-sky-50/60 px-4 py-3 text-base"
             >
               <span className="inline-flex items-center gap-1 font-semibold">
                 ▷ 관리 주차
@@ -1577,7 +1577,7 @@ export default function TeamPartsInfoWeekDetailManager({
               </span>
               <span
                 data-managed-week-name
-                className="rounded-md bg-fuchsia-100 px-3 py-1 font-bold text-fuchsia-900"
+                className="rounded-md bg-fuchsia-100 px-3 py-1 text-lg font-bold text-fuchsia-900"
               >
                 {managedWeek?.weekName}
               </span>
@@ -1592,7 +1592,8 @@ export default function TeamPartsInfoWeekDetailManager({
                     onClick={openReadiness}
                     disabled={readOnly || reviewing || reverting || reviewed}
                     title={isIndividual ? "주차 검수는 통합 관리자만 실행할 수 있습니다." : undefined}
-                    className="cursor-pointer bg-slate-800 text-white hover:bg-slate-700"
+                    size="lg"
+                    className="cursor-pointer text-base bg-slate-800 text-white hover:bg-slate-700"
                   >
                     {reviewed ? "검수 완료" : reviewing ? "검수 중…" : "주차 검수"}
                   </Button>
@@ -1719,6 +1720,8 @@ export default function TeamPartsInfoWeekDetailManager({
                         "이 작업은 주차 검수를 실행하기 전 상태로 되돌립니다.\n변경된 주차 결과와 크루 페이지 표시도 함께 이전 상태로 복원됩니다.\n정말 실행하시겠습니까?"
                       }
                       mode={mode === "test" ? "test" : "operating"}
+                      size="lg"
+                      className="[&_button]:text-base"
                     />
                     <AdminHelpIconButton helpKey={`${HELP}.action.reviewRevert`} title="검수 실행 취소" />
                   </div>
