@@ -3,8 +3,8 @@
  *   미래로 예약된(scheduled_check_at > now) 테스트 체크 대기 항목을 시드해:
  *     [A] 기존 자동 sweep(시각 게이트 유지)은 그 항목을 건드리지 않는다(운영 스케줄 불변).
  *     [B] ignoreSchedule 우회 + 주입 매칭 → 검수 예정 시각 전이라도 '체크 완료'(pending→completed).
- *     [C] 래퍼 runProcessCheckRowNow 검증: 이미 완료/실유저(운영)차단(422)/없음(404)/검수링크없음.
- *   테스트 스코프만 시드·처리·삭제(실데이터 무접촉). 무흔적 cleanup.
+ *     [C] 래퍼 runProcessCheckRowNow 검증: 이미 완료(멱등)/운영도 동일 파이프라인/없음(404)/검수링크없음.
+ *   테스트·운영 모두 "전용 시드"만 처리·삭제(실데이터 무접촉). 무흔적 cleanup.
  *
  *   npx tsx --env-file=.env.local scripts/verify-qa-run-now-row.ts
  */
@@ -58,7 +58,7 @@ async function main() {
   const { data: preLogs } = await sb.from(LOGS).select("id").eq("organization_slug", ORG);
   const preLogIds = new Set((preLogs ?? []).map((l) => l.id));
 
-  let F: string | null = null, H: string | null = null;
+  let F: string | null = null, H: string | null = null, OP: string | null = null;
   try {
     const ins = await sb.from(STATUS).insert([seed(weeks[0], "https://cafe.naver.com/qa-row-seed"), seed(weeks[1], null)]).select("id,week_id");
     if (ins.error) return console.log(`⚠ 시드 실패(${ins.error.message}) — skip`), process.exit(0);
@@ -99,21 +99,27 @@ async function main() {
     const { data: fAfter } = await sb.from(STATUS).select("status").eq("id", F!).maybeSingle();
     ck("[C2] 이미 완료 항목 재실행 → 멱등(완료 유지)", already.ok === true && fAfter?.status === "completed", `${already.code}/${fAfter?.status}`);
 
-    // [C3] 운영(scope_mode!=='test') 행 안전 — 강제 완료 대상 아님(상태 불변·완료 안 됨).
-    const { data: opRow } = await sb.from(STATUS).select("id,status").eq("scope_mode", "operating").eq("status", "pending").limit(1).maybeSingle();
-    if (opRow) {
-      const r = await runProcessCheckRowNow({ statusId: opRow.id, actor: "verify" });
-      const { data: opAfter } = await sb.from(STATUS).select("status").eq("id", opRow.id).maybeSingle();
-      ck("[C3] 운영 항목 → 처리 거부 + 상태 불변(완료 안 됨)", r.ok === false && r.code === "not_found" && opAfter?.status === "pending", `${r.code}/${opAfter?.status}`);
+    // [C3] 운영 행도 동일 파이프라인 — 그 행의 scope_mode(operating)로 처리되어 '체크 완료'된다.
+    //   정책: 즉시 검수는 운영·테스트 공통. mode 는 대상 사용자 집합만 결정한다. 링크 없음 → 크롤
+    //   미수집 → 즉시 검수 정책상 강제 완료(운영·테스트 동일 규칙). 실데이터 무접촉을 위해 전용 시드.
+    const opWeek = weeks[2] ?? null;
+    if (opWeek) {
+      const opIns = await sb.from(STATUS).insert([{ ...seed(opWeek, null), scope_mode: "operating" }]).select("id").maybeSingle();
+      OP = (opIns.data as { id: string } | null)?.id ?? null;
+    }
+    if (OP) {
+      const r = await runProcessCheckRowNow({ statusId: OP, actor: "verify" });
+      const { data: opAfter } = await sb.from(STATUS).select("status").eq("id", OP).maybeSingle();
+      ck("[C3] 운영 항목도 동일 파이프라인 → pending→completed(대상=운영 사용자)", r.ok === true && opAfter?.status === "completed", `${r.code}/${opAfter?.status}`);
     } else {
-      console.log("ℹ operating pending 행 없음 — 운영 안전 검증 skip");
+      console.log("ℹ 운영 전용 시드 불가(week 부족) — 운영 파이프라인 검증 skip");
     }
 
     // [C4] 없는 항목 → 처리 실패(not_found).
     const nf = await runProcessCheckRowNow({ statusId: "00000000-0000-0000-0000-000000000000", actor: "verify" });
     ck("[C4] 없는 항목 → not_found(실패)", nf.ok === false && nf.code === "not_found", nf.code);
   } finally {
-    const seeded = [F, H].filter((x): x is string => Boolean(x));
+    const seeded = [F, H, OP].filter((x): x is string => Boolean(x));
     if (seeded.length) {
       await sb.from(RECIP).delete().in("ref_id", seeded);
       await sb.from(STATUS).delete().in("id", seeded);

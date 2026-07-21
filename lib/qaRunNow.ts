@@ -357,14 +357,20 @@ async function summarizeProcessCheckReflection(
   };
 }
 
-// ── A1(행 단위): 한 '체크 대기' 행을 즉시 검수 ─────────────────────────
+// ── A1(행 단위): 한 '체크 대기' 행을 즉시 검수 — 운영·테스트 공통 ─────────
 //   보드 행 id 를 받아 그 한 건만 검수한다. scheduled_check_at·재시도 게이트를 우회해(즉시 실행)
-//   기존 runDueProcessCheckSweep 로 실제 크롤/식별/적립을 태운다. 테스트 항목만(scope='qa').
+//   기존 runDueProcessCheckSweep(자동 sweep 과 동일 함수·동일 로직)로 실제 크롤/식별/적립을 태운다.
+//
+//   ⚠ operating·test 동일 파이프라인: 대상 행의 scope_mode 로만 스코프하며, mode 는 "대상 사용자
+//     집합"만 결정한다(operating→운영 사용자 / test→테스트 사용자). 상태 전이·recipients·포인트·
+//     snapshot·완료 규칙은 모드와 무관하게 동일하다. 대상 사용자 집합의 무결성(매칭 유저가 그 행의
+//     mode+org 안에 있는지)은 sweep 내부의 쓰기 직전 스코프 가드가 두 모드 모두에 강제한다.
+//     (과거엔 scope='qa' 로 test 항목만 처리해 운영 행이 크롤/적립 없이 강제 완료되던 문제가 있었다 — 제거됨.)
 //
 //   ⚠ 즉시 검수 정책(요구): 크롤 결과와 무관하게 **항상 '체크 완료'** 로 만든다(검수 프로세스가
-//     끝났으므로). sweep 이 크롤 성공 시 이미 완료하고, 크롤 실패(못 읽음) 등으로 완료하지 못한
-//     경우엔 여기서 **강제 완료**한다. 자동 sweep 함수 자체는 무변경 — 이 wrapper 에서만 강제 완료
-//     하므로 기존 자동 검수 스케줄은 기존 정책(크롤 실패 시 대기 유지) 그대로다.
+//     끝났으므로). sweep 이 크롤 성공 시 이미 완료(recipients+적립)하고, 크롤 실패(못 읽음) 등으로
+//     완료하지 못한 경우엔 여기서 **강제 완료**한다(운영·테스트 동일). 자동 sweep 함수 자체는 무변경
+//     — 이 wrapper 에서만 강제 완료하므로 기존 자동 검수 스케줄은 기존 정책(크롤 실패 시 대기 유지) 그대로다.
 //
 //   결과 code(모두 체크 완료 — 메시지 구분용):
 //     confirmed → 매칭된 크루 발견(인증 내용을 확인했습니다).
@@ -406,18 +412,32 @@ export async function runProcessCheckRowNow(opts: {
 
   if (!statusId) return finish({ ok: false, code: "not_found", status: "not_found", source, statusId });
 
-  // 1) 실제 크롤/검수 — 기존 sweep 로직(scope='qa' test 한정) + 시각/재시도 게이트 우회.
-  //    크롤 성공 시 sweep 이 recipients 기록 + status='completed' 로 만든다(0명이어도 완료).
+  // 0) 대상 행 로드 — 그 행의 실제 scope_mode/org 로 검수한다(운영·테스트 공통 파이프라인).
+  //    mode/org 는 "대상 사용자 집합"만 좁힌다 — 상태 전이·recipients·적립·완료 규칙은 동일.
+  const { data: pre } = await supabaseAdmin
+    .from(table)
+    .select("organization_slug,scope_mode,status")
+    .eq("id", statusId)
+    .maybeSingle();
+  if (!pre) return finish({ ok: false, code: "not_found", status: "not_found", source, statusId });
+  const preRow = pre as { organization_slug: string | null; scope_mode: string | null };
+  const rowMode = preRow.scope_mode === "test" ? "test" : "operating";
+  const rowOrg = preRow.organization_slug;
+
+  // 1) 실제 크롤/검수 — 자동 sweep 과 동일 함수·동일 로직. 그 행의 mode 로만 스코프(대상 사용자만 다름).
+  //    시각/재시도 게이트만 우회(즉시 실행). 크롤 성공 시 sweep 이 recipients 기록 + 적립 + status='completed'
+  //    (0명이어도 완료). scope='qa'(test 강제)를 쓰지 않으므로 운영 행도 운영 사용자를 대상으로 동일 처리된다.
   const sweep = await runDueProcessCheckSweep({
-    scope: "qa",
+    orgs: rowOrg ? [rowOrg] : null,
+    modes: [rowMode],
     onlyIds: [statusId],
     ignoreSchedule: true,
     ignoreRetryGate: true,
     actor: opts.actor,
-    log: (m) => console.log(`[qa-run-now][row] ${m}`),
+    log: (m) => console.log(`[run-now][row] ${m}`),
   }).catch((e) => {
     // 크롤 예외(카페 못 읽음)여도 아래에서 강제 완료한다 — 결과는 not_found 메시지.
-    console.warn("[qa-run-now][row] sweep threw (will force-complete)", {
+    console.warn("[run-now][row] sweep threw (will force-complete)", {
       statusId,
       message: e instanceof Error ? e.message : String(e),
     });
@@ -428,11 +448,10 @@ export async function runProcessCheckRowNow(opts: {
   const review = item && item.outcome === "completed" ? item.review : 0;
 
   // 2) 항상 체크 완료 — sweep 이 완료하지 못한(크롤 실패 등) 경우 여기서 강제 완료(pending → completed).
-  //    운영 행 보호(fail-closed): scope='qa' sweep 과 동일하게 **테스트 행만** 강제 완료한다. 운영
-  //    (scope_mode!=='test') 행이 어떤 경로로 들어와도 상태를 바꾸지 않는다(UI 상 버튼도 테스트 행만 노출).
+  //    대상 행 id 로만 처리하므로 다른 행/모드에 영향 없다(운영·테스트 동일 규칙).
   const { data: after } = await supabaseAdmin
     .from(table)
-    .select("status,scope_mode,completed_at")
+    .select("status,completed_at")
     .eq("id", statusId)
     .maybeSingle();
   if (!after) {
