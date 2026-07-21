@@ -14,7 +14,7 @@ import {
 import { getUserIdByCrewCode } from "@/lib/adminCrewCodeData";
 import { getCrewDetailDto } from "@/lib/adminCrewDetailData";
 import { getClubRankGradeBatch } from "@/lib/cluster3ClubRankData";
-import { classLabel } from "@/lib/adminMembersTypes";
+import { classLabel, memberStatusLabel } from "@/lib/adminMembersTypes";
 import { isOrganizationSlug, ORGANIZATIONS, type OrganizationSlug } from "@/lib/organizations";
 import { loadSeasonWeeks } from "@/lib/adminSeasonWeeksData";
 import {
@@ -23,6 +23,7 @@ import {
 } from "@/lib/cluster4ExperienceTestScope";
 import type { ScopeMode } from "@/lib/userScopeShared";
 import { resolveUserScope } from "@/lib/userScope";
+import { SUPER_ADMIN_EXCLUDE_OR } from "@/lib/superAdmins";
 
 // 반기별 팀 SoT(cluster4_team_halves) 데이터 접근.
 //   · 조회: 반기 → 그 반기의 팀 목록(불변 스냅샷 team_name).
@@ -55,6 +56,15 @@ export type PartWeekMatrixDto = {
   present: boolean[][];
 };
 
+// 팀별 "현재 시점" 크루 수(클러빙/정규/심화). ⚠ selectedHalf 무관 — team_name 기준 is_current 멤버십.
+//   · 클러빙 = 정규 + 심화(팀장·앰배서더·관리자 제외 = 크루만). 개인 휴식(membership_state='rest') 포함.
+//   · userId 고유(한 사람 = is_current 멤버십 1개 → 1팀 → 1회). 클럽 요약(buildClubRoleCounts)과 동일 라벨 SoT.
+export type TeamCurrentCrewSummaryDto = {
+  clubbingCount: number;
+  regularCrewCount: number;
+  advancedCrewCount: number;
+};
+
 export type TeamHalfTeamDto = {
   teamHalfId: string; // cluster4_team_halves.id (수정/삭제·파트 카탈로그 키)
   teamName: string;
@@ -79,6 +89,8 @@ export type TeamHalfTeamDto = {
   partNames: string[];
   // 파트×주차 존재표(선택 반기 누적). loadTeamPartsInfo(GET) 에서만 채움 — POST 응답은 null.
   partWeekMatrix: PartWeekMatrixDto | null;
+  // 현재 시점 크루 수(팀명 기준·selectedHalf 무관). loadTeamPartsInfo(GET) 에서만 채움(POST 응답은 미포함).
+  currentCrew?: TeamCurrentCrewSummaryDto;
   // 스코프 SoT — true=테스트(QA) 팀, false=운영 팀(생성 시 effective mode 각인). 목록 필터 기준.
   isQaTest: boolean;
 };
@@ -554,6 +566,76 @@ async function currentMembershipPartsByTeam(
   return out;
 }
 
+// 팀별 "현재 시점" 크루 수(클러빙/정규/심화) — team_name 기준. 클럽 요약(buildClubRoleCounts)과 동일
+//   원천·스코프·라벨 SoT 를 팀 단위로 좁힌 것. 개인 휴식 포함, userId 고유.
+//   조인: user_profiles(org·super 제외)∩resolveUserScope(mode) → user_memberships(is_current)
+//        .team_name ∈ teamNames → memberStatusLabel(role, membership_level) 버킷팅.
+//   ⚠ 팀장/앰배서더/관리자는 크루가 아니므로 클러빙에서 제외한다(정규·심화만 = 크루).
+async function loadTeamCurrentCrewByName(
+  organization: OrganizationSlug,
+  teamNames: string[],
+  mode: ScopeMode,
+): Promise<Map<string, TeamCurrentCrewSummaryDto>> {
+  const out = new Map<string, TeamCurrentCrewSummaryDto>();
+  for (const tn of teamNames)
+    out.set(tn, { clubbingCount: 0, regularCrewCount: 0, advancedCrewCount: 0 });
+  if (teamNames.length === 0) return out;
+
+  // 1) org 로스터(super_admin 제외) ∩ 모집단 스코프. role 은 라벨링에 사용.
+  const { data: profs, error: pErr } = await supabaseAdmin
+    .from("user_profiles")
+    .select("user_id,role")
+    .eq("organization_slug", organization)
+    .or(SUPER_ADMIN_EXCLUDE_OR);
+  if (pErr) throw new Error(pErr.message);
+  const scope = await resolveUserScope(mode, null);
+  const roleByUser = new Map<string, string | null>();
+  for (const p of (profs ?? []) as Array<{ user_id: string; role: string | null }>) {
+    if (scope.includes(p.user_id)) roleByUser.set(p.user_id, p.role);
+  }
+  const uids = [...roleByUser.keys()];
+  if (uids.length === 0) return out;
+
+  // 2) is_current 멤버십(team_name + membership_level). 개인 휴식(membership_state) 무관 → 포함.
+  const teamNameSet = new Set(teamNames);
+  const seen = new Set<string>(); // userId 고유 가드(is_current 는 사용자당 1행이지만 방어적).
+  for (let i = 0; i < uids.length; i += 100) {
+    const chunk = uids.slice(i, i + 100);
+    const { data: mems, error: mErr } = await supabaseAdmin
+      .from("user_memberships")
+      .select("user_id,team_name,membership_level,is_current")
+      .in("user_id", chunk)
+      .eq("is_current", true);
+    if (mErr) throw new Error(mErr.message);
+    for (const m of (mems ?? []) as Array<{
+      user_id: string;
+      team_name: string | null;
+      membership_level: string | null;
+    }>) {
+      if (seen.has(m.user_id)) continue;
+      const tn = m.team_name?.trim();
+      if (!tn || !teamNameSet.has(tn)) continue;
+      const label = memberStatusLabel(
+        roleByUser.get(m.user_id) ?? null,
+        m.membership_level ?? null,
+      );
+      const bucket = out.get(tn);
+      if (!bucket) continue;
+      if (label === "일반" || label === "크루") {
+        bucket.regularCrewCount++;
+        bucket.clubbingCount++;
+        seen.add(m.user_id);
+      } else if (label === "심화(파트장)" || label === "심화(에이전트)") {
+        bucket.advancedCrewCount++;
+        bucket.clubbingCount++;
+        seen.add(m.user_id);
+      }
+      // 팀장/앰배서더/관리자 = 운영진/미집계(크루 아님) → 클러빙 제외.
+    }
+  }
+  return out;
+}
+
 async function computePartWeekData(
   organization: string,
   halfKey: string,
@@ -969,6 +1051,23 @@ export async function loadTeamPartsInfo(
   //   모든 org 응답이 동일 값을 담으므로 프론트는 base(첫 결과)만 읽어도 전 조직 현황을 얻는다.
   const summary = await loadTeamPartsCurrentSummary(mode, today);
 
+  // 팀별 현재 시점 크루 수(클러빙/정규/심화) — team_name 기준·selectedHalf 무관. 클럽 상세 카드 + 팀 상세 공용.
+  if (teams.length > 0 && isOrganizationSlug(organization)) {
+    const crewByName = await loadTeamCurrentCrewByName(
+      organization,
+      teams.map((t) => t.teamName),
+      mode,
+    );
+    for (const t of teams) {
+      t.currentCrew =
+        crewByName.get(t.teamName) ?? {
+          clubbingCount: 0,
+          regularCrewCount: 0,
+          advancedCrewCount: 0,
+        };
+    }
+  }
+
   return {
     organization,
     currentHalfKey,
@@ -978,6 +1077,86 @@ export async function loadTeamPartsInfo(
     teams,
     weekColumns,
     summary,
+  };
+}
+
+// ── 팀 상세(클럽 상세 → 팀 상세) ────────────────────────────────────────────
+//   anchorTeamHalfId(=클럽 상세 카드가 넘긴 cluster4_team_halves.id)로 팀(org+team_name)을 확정하고,
+//   선택 반기(selectedHalfKey, 기본 현재)의 해당 팀 상세를 반환한다. team_name 이 반기 간 안정 키이므로
+//   반기를 바꿔도 같은 팀을 재해소한다(팀이 그 반기에 없으면 team=null → 표/파트만 비고 크루는 유지).
+//   404(호출부에서 null 로 처리): 미존재 id / 타 org / 비활성(삭제 대기) / 스코프(QA) 불일치.
+export type TeamDetailDto = {
+  organization: string;
+  teamName: string;
+  currentHalfKey: string | null;
+  selectedHalfKey: string | null;
+  editable: boolean;
+  halves: HalfOptionDto[];
+  team: TeamHalfTeamDto | null; // 선택 반기에 이 팀이 없으면 null.
+  weekColumns: PartWeekColumnDto[];
+  // 현재 시점 크루 수(팀명 기준·반기 무관) — team 이 null 이어도 유효.
+  currentCrew: TeamCurrentCrewSummaryDto;
+};
+
+export async function loadTeamDetail(opts: {
+  organization: OrganizationSlug;
+  anchorTeamHalfId: string;
+  selectedHalfKey?: string | null;
+  mode?: ScopeMode;
+  today?: string;
+}): Promise<TeamDetailDto | null> {
+  const { organization, anchorTeamHalfId } = opts;
+  const mode = opts.mode ?? "operating";
+
+  // 1) 앵커 팀 확정 — id → team_name(org·활성·스코프 검증). 하나라도 어긋나면 null(=404).
+  const withScope = await hasScopeColumn();
+  const cols = withScope
+    ? `${TEAM_HALF_BASE_COLS},is_qa_test,organization_slug`
+    : `${TEAM_HALF_BASE_COLS},organization_slug`;
+  const { data: aData, error: aErr } = await supabaseAdmin
+    .from("cluster4_team_halves")
+    .select(cols)
+    .eq("id", anchorTeamHalfId)
+    .limit(1);
+  if (aErr) throw new Error(aErr.message);
+  const anchor = ((aData ?? []) as unknown as Array<
+    Row & { organization_slug: string; is_qa_test?: boolean }
+  >)[0];
+  if (!anchor) return null; // 존재하지 않는 teamHalfId
+  if (anchor.organization_slug !== organization) return null; // 해당 클럽 소속 아님(URL org 불일치)
+  if (!anchor.is_active) return null; // 삭제 대기/비활성
+  const isQa = withScope
+    ? Boolean(anchor.is_qa_test)
+    : isTestTeam(organization, anchor.team_name);
+  if (isQa !== (resolveEffectiveScopeMode(mode) === "test")) return null; // 스코프(QA) 불일치
+  const teamName = anchor.team_name;
+
+  // 2) 선택 반기 전체 정보 재사용 → 해당 팀만 추출(matrix·parts·leader·currentCrew 포함).
+  const info = await loadTeamPartsInfo(
+    organization,
+    opts.selectedHalfKey ?? null,
+    opts.today,
+    mode,
+  );
+  const team = info.teams.find((t) => t.teamName === teamName) ?? null;
+
+  // 3) 현재 시점 크루 — team 이 있으면 그 값(이미 계산됨), 없으면 team_name 으로 별도 계산.
+  const currentCrew =
+    team?.currentCrew ??
+    (await loadTeamCurrentCrewByName(organization, [teamName], mode)).get(
+      teamName,
+    ) ?? { clubbingCount: 0, regularCrewCount: 0, advancedCrewCount: 0 };
+
+  return {
+    organization,
+    teamName,
+    currentHalfKey: info.currentHalfKey,
+    selectedHalfKey: info.selectedHalfKey,
+    editable: info.editable,
+    halves: info.halves,
+    team,
+    weekColumns: info.weekColumns,
+    currentCrew,
   };
 }
 

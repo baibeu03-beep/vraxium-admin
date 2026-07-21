@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { ChevronRight, X } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,15 @@ import { type OrganizationSlug } from "@/lib/organizations";
 import type { ClubCurrentSummaryRow } from "@/lib/adminClubSummaryData";
 import { parseHalfKey } from "@/lib/teamHalf";
 import { useActionToast } from "@/lib/actionToast";
+import { buildAdminContextHref } from "@/lib/adminOrgContext";
+import {
+  dash,
+  formatBirth6,
+  TeamLeaderProfileRow,
+  TeamPartsRow,
+  TeamCurrentCrewStrip,
+  type TeamCrewLike,
+} from "@/components/admin/teamCardShared";
 
 // ── 클럽 상세 하위 페이지(`/admin/team-parts/info/[clubId]`) — 선택 클럽의 팀·파트 상세 ──
 //   상위 목록의 클럽명을 눌러 진입한다. 클럽은 URL(clubId=org slug)로 이미 결정되므로 조직 탭이 없다.
@@ -48,6 +57,7 @@ type TeamDto = {
   partCount: number;
   partNames: string[];
   partWeekMatrix: PartWeekMatrix | null;
+  currentCrew?: TeamCrewLike;
 };
 
 type PartWeekColumn = {
@@ -167,124 +177,35 @@ function ClubCurrentSummaryStrip({
   return (
     <div
       data-club-current-summary={orgSlug}
-      className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-md border bg-muted/20 px-4 py-3 text-sm"
+      className="rounded-md border bg-muted/20 px-5 py-4"
     >
-      <span className="shrink-0 text-xs font-semibold text-muted-foreground">
+      <div className="mb-4 text-sm font-semibold text-muted-foreground">
         현재 시점 현황
-      </span>
-      {SUMMARY_ITEMS.map((item) => (
-        <span
-          key={item.key}
-          data-club-current-cell={item.key}
-          className="inline-flex items-center gap-1 whitespace-nowrap"
-        >
-          <span className="text-muted-foreground">· {item.label}</span>
-          <strong className="tabular-nums text-foreground">
-            {summary ? summary[item.key] : "–"}
-          </strong>
-          <AdminHelpIconButton helpKey={item.helpKey} title={item.label} />
-        </span>
-      ))}
-    </div>
-  );
-}
-function dash(v: string | number | null | undefined): string {
-  return v === null || v === undefined || v === "" ? "-" : String(v);
-}
-function formatBirth6(b: string | null): string {
-  if (!b || b.length < 6) return "-";
-  return `${b.slice(0, 2)}. ${b.slice(2, 4)}. ${b.slice(4, 6)}`;
-}
-
-// 팀장 메타 정보 행 — 표시 가능한 항목만 배열로 모아 "항목 사이에만" | 구분자를 렌더한다(기존 로직 보존).
-function TeamLeaderMeta({ team }: { team: TeamDto }) {
-  const schoolMajor = team.leaderSchool
-    ? team.leaderMajor
-      ? `${team.leaderSchool}, ${team.leaderMajor}`
-      : team.leaderSchool
-    : null;
-  const birth =
-    team.leaderBirth6 && team.leaderBirth6.length >= 6
-      ? formatBirth6(team.leaderBirth6)
-      : null;
-
-  const items: { key: string; node: ReactNode }[] = [];
-  items.push({
-    key: "name",
-    node: (
-      <span
-        data-team-leader-name={team.teamName}
-        className="rounded-md border border-emerald-300 bg-emerald-50 px-2 py-0.5 font-medium"
-      >
-        {dash(team.leaderName)}
-      </span>
-    ),
-  });
-  const pushText = (
-    key: string,
-    value: string | null,
-    dataAttr?: Record<string, string>,
-  ) => {
-    if (!value) return;
-    items.push({
-      key,
-      node: (
-        <span className="text-muted-foreground" {...dataAttr}>
-          {value}
-        </span>
-      ),
-    });
-  };
-  pushText("birth", birth);
-  pushText("gender", team.leaderGender);
-  pushText("school", schoolMajor);
-  pushText("residence", team.leaderResidence);
-  pushText("class", team.leaderClassLabel, { "data-team-leader-class": team.teamName });
-  pushText("grade", team.leaderGradeLabel, { "data-team-leader-grade": team.teamName });
-  items.push({
-    key: "partcount",
-    node: (
-      <span className="text-muted-foreground">
-        파트 수{" "}
-        <strong data-team-partcount={team.teamName} className="text-foreground">
-          {team.partCount}
-        </strong>
-      </span>
-    ),
-  });
-  items.push({
-    key: "parts",
-    node: (
-      <span className="flex flex-wrap gap-1" data-team-parts={team.teamName}>
-        {team.partNames.map((p) => (
-          <span
-            key={p}
-            className="rounded-md border border-input bg-background px-2 py-0.5 text-xs font-medium"
+      </div>
+      {/* 반응형 4열 그리드 — 데스크톱 4열 / 태블릿 2열 / 모바일 1열. 9개 항목이라 큰 화면에서
+          4×2 + 마지막(에이전트 수) 1칸(3행 첫 열). 억지 정렬/전체폭 확장 없음. */}
+      <div className="grid grid-cols-1 gap-x-10 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+        {SUMMARY_ITEMS.map((item) => (
+          <div
+            key={item.key}
+            data-club-current-cell={item.key}
+            className="flex items-center gap-2 whitespace-nowrap"
           >
-            {p}
-          </span>
-        ))}
-      </span>
-    ),
-  });
-
-  return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-      {items.map((item, i) => (
-        <span key={item.key} className="inline-flex items-center gap-2">
-          {i > 0 ? (
-            <span aria-hidden className="select-none text-muted-foreground/50">
-              |
+            <span className="text-base font-medium text-muted-foreground">
+              · {item.label}
             </span>
-          ) : null}
-          {item.node}
-        </span>
-      ))}
+            <strong className="text-lg font-bold tabular-nums text-foreground">
+              {summary ? summary[item.key] : "–"}
+            </strong>
+            <AdminHelpIconButton helpKey={item.helpKey} title={item.label} />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
-
 export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug }) {
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   // QA 모드(?mode=test) — 팀 정보 조회에 전파(백엔드 filterTeamsByScope 와 정합).
   const mode = readScopeMode(searchParams);
@@ -295,7 +216,6 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
   const [currentHalfKey, setCurrentHalfKey] = useState<string | null>(null);
   const [editable, setEditable] = useState(false);
   const [teams, setTeams] = useState<TeamDto[]>([]);
-  const [weekColumns, setWeekColumns] = useState<PartWeekColumn[]>([]);
   const [loading, setLoading] = useState(true);
   useReportLoading(loading);
   const [banner, setBanner] = useState<Banner>(null);
@@ -340,10 +260,8 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
         setHalf(dto.selectedHalfKey);
         setEditable(dto.editable);
         setTeams(dto.teams);
-        setWeekColumns(dto.weekColumns ?? []);
       } catch (e) {
         setTeams([]);
-        setWeekColumns([]);
         setBanner({
           kind: "error",
           message: e instanceof Error ? e.message : "조회 실패",
@@ -393,6 +311,18 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
   };
   const isCurrentHalf = half != null && half === currentHalfKey;
   const atLimit = teams.length >= MAX_TEAMS_PER_CLUB;
+
+  // 팀 배지 → 팀 상세 링크. path 로 org+teamHalfId, ?half 로 선택 반기 전달(직접 진입=현재 반기).
+  //   org/mode/actAs/demo 컨텍스트는 buildAdminContextHref 로 보존(진입 컨텍스트 유실 방지).
+  const teamDetailHref = useMemo(
+    () => (teamHalfId: string) =>
+      buildAdminContextHref({
+        targetPath: `/admin/team-parts/info/${clubId}/${teamHalfId}${half ? `?half=${half}` : ""}`,
+        pathname,
+        searchParams,
+      }),
+    [clubId, half, pathname, searchParams],
+  );
 
   // ── 팝업 제어 ──
   const resetForm = () => {
@@ -679,16 +609,19 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
                 data-team-box={team.teamName}
                 className="space-y-3 rounded-lg border border-zinc-300 bg-white p-4"
               >
-                {/* Row 1: 팀명 · 개요 · 수정/삭제 */}
+                {/* Row 1: 팀명(→ 팀 상세 링크) · 개요 · 수정/삭제.
+                    ⚠ 카드 전체가 아니라 팀 배지만 링크다. 수정·삭제 버튼은 기존 동작 유지(상세 이동 X). */}
                 <div className="flex items-start gap-3">
-                  <span
+                  <Link
+                    href={teamDetailHref(team.teamHalfId)}
+                    data-team-detail-link={team.teamHalfId}
                     className={
-                      "shrink-0 rounded-md border px-3 py-1 text-sm font-bold " +
+                      "shrink-0 rounded-md border px-3 py-1 text-sm font-bold outline-none transition hover:brightness-95 focus-visible:ring-2 focus-visible:ring-ring " +
                       CHIP_CLS[activeOrg]
                     }
                   >
                     {team.teamName}
-                  </span>
+                  </Link>
                   <span className="flex-1 rounded-md border border-input bg-muted/30 px-3 py-1.5 text-sm">
                     {dash(team.description)}
                   </span>
@@ -728,77 +661,24 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
                   </div>
                 </div>
 
-                {/* Row 2: 팀장 기본정보 · 파트 수 · 파트 칩 */}
-                <TeamLeaderMeta team={team} />
+                {/* Row 2: 팀장 프로필(프로필 정보만) */}
+                <TeamLeaderProfileRow team={team} />
 
-                {/* Row 3: 파트 × 주차 존재표 — 가로 스크롤 */}
-                {team.partWeekMatrix && weekColumns.length > 0 ? (
-                  <div className="space-y-1">
-                    <div
-                      className="overflow-x-auto rounded-md border border-zinc-200"
-                      data-part-week-table={team.teamName}
-                    >
-                      <table className="border-collapse text-xs">
-                        <thead>
-                          <tr>
-                            <th className="sticky left-0 z-10 border-b border-r bg-zinc-50 px-2 py-1 text-left font-semibold whitespace-nowrap">
-                              <span className="inline-flex items-center gap-1">
-                                파트 \ 주차
-                                <AdminHelpIconButton
-                                  helpKey="admin.teamParts.info.column.partWeekMatrix"
-                                  title="파트 × 주차 존재표"
-                                />
-                              </span>
-                            </th>
-                            {weekColumns.map((c) => (
-                              <th
-                                key={c.weekStartDate}
-                                className={
-                                  "border-b border-r px-1.5 py-1 text-center font-medium whitespace-nowrap " +
-                                  (c.isRest
-                                    ? "bg-zinc-100 text-zinc-400"
-                                    : "bg-zinc-50")
-                                }
-                              >
-                                {c.label}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {team.partWeekMatrix.partNames.map((p, pi) => (
-                            <tr key={p} data-pw-row={p}>
-                              <td className="sticky left-0 z-10 border-b border-r bg-white px-2 py-1 font-medium whitespace-nowrap">
-                                {p}
-                              </td>
-                              {weekColumns.map((c, wi) => {
-                                const on = Boolean(
-                                  team.partWeekMatrix?.present[pi]?.[wi],
-                                );
-                                return (
-                                  <td
-                                    key={c.weekStartDate}
-                                    data-pw-cell={on ? "1" : "0"}
-                                    className={
-                                      "border-b border-r px-1.5 py-1 text-center " +
-                                      (c.isRest ? "bg-zinc-50/60" : "")
-                                    }
-                                  >
-                                    {on ? (
-                                      <span className="text-emerald-600">●</span>
-                                    ) : (
-                                      ""
-                                    )}
-                                  </td>
-                                );
-                              })}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                ) : null}
+                {/* Row 3: 파트 목록 */}
+                <TeamPartsRow
+                  teamHalfId={team.teamHalfId}
+                  teamName={team.teamName}
+                  partCount={team.partCount}
+                  partNames={team.partNames}
+                />
+
+                {/* Row 4: 현재 시점 크루 수(클러빙/정규/심화) — selectedHalf 무관. */}
+                <TeamCurrentCrewStrip
+                  teamHalfId={team.teamHalfId}
+                  crew={team.currentCrew}
+                />
+
+                {/* 파트×주차 존재표는 클럽 상세에서 제거 — 팀 상세 페이지로 이동(데이터·API 무변경). */}
               </div>
             ))}
 

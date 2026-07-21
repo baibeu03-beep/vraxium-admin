@@ -1,0 +1,274 @@
+"use client";
+
+import { type ReactNode } from "react";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+
+// ── 팀 카드 공용 조각 — 클럽 상세(다중 팀 카드)와 팀 상세(단일 팀) 양쪽이 재사용한다 ──────────
+//   정보 밀도 분리(사용자 정의):
+//     클럽 상세 = 팀별 핵심 요약(팀장 프로필 · 파트 목록 · 현재 크루 수). 파트×주차 표는 미표시.
+//     팀 상세   = 위 전부 + 파트×주차 존재표(TeamPartWeekMatrix).
+//   진입 위치별 복제 없음 — 같은 컴포넌트를 두 화면이 공유한다.
+
+// DB 표시명("비주얼랩(T)") → breadcrumb 라벨("비주얼랩 팀"). (T) 테스트 마커 제거 + " 팀" 접미.
+export function toTeamBreadcrumbLabel(teamName: string): string {
+  return `${teamName.replace(/\(T\)\s*$/, "").trim()} 팀`;
+}
+
+export function dash(v: string | number | null | undefined): string {
+  return v === null || v === undefined || v === "" ? "-" : String(v);
+}
+export function formatBirth6(b: string | null): string {
+  if (!b || b.length < 6) return "-";
+  return `${b.slice(0, 2)}. ${b.slice(2, 4)}. ${b.slice(4, 6)}`;
+}
+
+// 팀장 프로필(1행) — 팀장 개인 프로필만. ⚠ 파트 수·파트 배지·크루 수는 여기서 제외(별도 행).
+export type TeamLeaderProfileLike = {
+  teamHalfId: string;
+  teamName: string;
+  leaderName: string | null;
+  leaderBirth6: string | null;
+  leaderGender: string | null;
+  leaderSchool: string | null;
+  leaderMajor: string | null;
+  leaderResidence: string | null;
+  leaderClassLabel: string | null;
+  leaderGradeLabel: string | null;
+};
+
+export function TeamLeaderProfileRow({ team }: { team: TeamLeaderProfileLike }) {
+  const schoolMajor = team.leaderSchool
+    ? team.leaderMajor
+      ? `${team.leaderSchool}, ${team.leaderMajor}`
+      : team.leaderSchool
+    : null;
+  const birth =
+    team.leaderBirth6 && team.leaderBirth6.length >= 6
+      ? formatBirth6(team.leaderBirth6)
+      : null;
+
+  const items: { key: string; node: ReactNode }[] = [
+    {
+      key: "name",
+      node: (
+        <span
+          data-team-leader-name={team.teamName}
+          className="rounded-md border border-emerald-300 bg-emerald-50 px-2 py-0.5 font-medium"
+        >
+          {dash(team.leaderName)}
+        </span>
+      ),
+    },
+  ];
+  const pushText = (
+    key: string,
+    value: string | null,
+    dataAttr?: Record<string, string>,
+  ) => {
+    if (!value) return;
+    items.push({
+      key,
+      node: (
+        <span className="text-muted-foreground" {...dataAttr}>
+          {value}
+        </span>
+      ),
+    });
+  };
+  pushText("birth", birth);
+  pushText("gender", team.leaderGender);
+  pushText("school", schoolMajor);
+  pushText("residence", team.leaderResidence);
+  pushText("class", team.leaderClassLabel, { "data-team-leader-class": team.teamName });
+  pushText("grade", team.leaderGradeLabel, { "data-team-leader-grade": team.teamName });
+
+  return (
+    <div
+      data-team-leader-profile={team.teamHalfId}
+      className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm"
+    >
+      {items.map((item, i) => (
+        <span key={item.key} className="inline-flex items-center gap-2">
+          {i > 0 ? (
+            <span aria-hidden className="select-none text-muted-foreground/50">
+              |
+            </span>
+          ) : null}
+          {item.node}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// 파트 목록(2행) — 팀장 프로필 아래 별도 행. 기존 data-team-parts 선택자(값=teamName) 유지.
+export function TeamPartsRow({
+  teamHalfId,
+  teamName,
+  partCount,
+  partNames,
+}: {
+  teamHalfId: string;
+  teamName: string;
+  partCount: number;
+  partNames: string[];
+}) {
+  const empty = partNames.length === 0;
+  return (
+    <div
+      data-team-parts-row={teamHalfId}
+      className="flex flex-wrap items-center gap-x-2 gap-y-2 text-sm"
+    >
+      <span className="inline-flex items-center gap-1 font-medium text-muted-foreground">
+        파트
+        {!empty ? (
+          <strong data-team-partcount={teamName} className="text-foreground">
+            {partCount}개
+          </strong>
+        ) : null}
+      </span>
+      {empty ? (
+        <span className="text-muted-foreground">등록된 파트 없음</span>
+      ) : (
+        <div className="flex flex-wrap gap-2" data-team-parts={teamName}>
+          {partNames.map((p) => (
+            <span
+              key={p}
+              className="rounded-md border border-input bg-background px-2.5 py-1 text-sm font-medium"
+            >
+              {p}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// 현재 시점 크루 수(3행) — 클러빙/정규/심화. ⚠ selectedHalf 무관(현재 접속 시점 기준).
+export type TeamCrewLike = {
+  clubbingCount: number;
+  regularCrewCount: number;
+  advancedCrewCount: number;
+};
+
+const CREW_CELLS: { key: keyof TeamCrewLike; label: string; helpKey: string }[] = [
+  { key: "clubbingCount", label: "클러빙", helpKey: "admin.teamPartsInfoClubs.column.clubbing" },
+  { key: "regularCrewCount", label: "정규 크루", helpKey: "admin.teamPartsInfoClubs.column.regular" },
+  { key: "advancedCrewCount", label: "심화 크루", helpKey: "admin.teamPartsInfoClubs.column.advanced" },
+];
+
+export function TeamCurrentCrewStrip({
+  teamHalfId,
+  crew,
+}: {
+  teamHalfId: string;
+  crew?: TeamCrewLike;
+}) {
+  return (
+    <div
+      data-team-current-crew-summary={teamHalfId}
+      className="grid grid-cols-1 gap-3 rounded-md border bg-muted/20 px-4 py-3 sm:grid-cols-3"
+    >
+      {CREW_CELLS.map((c) => (
+        <div
+          key={c.key}
+          data-team-current-crew-cell={c.key}
+          className="flex items-center gap-2 whitespace-nowrap"
+        >
+          <span className="text-sm text-muted-foreground">· {c.label}</span>
+          <strong className="text-base font-bold tabular-nums text-foreground">
+            {crew ? crew[c.key] : "–"}
+          </strong>
+          <AdminHelpIconButton helpKey={c.helpKey} title={c.label} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// 파트×주차 존재표 — 팀 상세 전용(클럽 상세에서는 미표시). 기존 표 렌더/선택자를 그대로 재사용.
+export type PartWeekColumnLike = {
+  weekStartDate: string;
+  label: string;
+  isRest: boolean;
+};
+export type PartWeekMatrixLike = {
+  partNames: string[];
+  present: boolean[][];
+};
+
+export function TeamPartWeekMatrix({
+  teamName,
+  matrix,
+  weekColumns,
+}: {
+  teamName: string;
+  matrix: PartWeekMatrixLike | null;
+  weekColumns: PartWeekColumnLike[];
+}) {
+  if (!matrix || weekColumns.length === 0) {
+    return (
+      <div className="rounded-md border border-dashed border-zinc-300 px-4 py-6 text-center text-sm text-muted-foreground">
+        이 반기의 파트×주차 존재표 데이터가 없습니다.
+      </div>
+    );
+  }
+  return (
+    <div
+      className="overflow-x-auto rounded-md border border-zinc-200"
+      data-part-week-table={teamName}
+    >
+      <table className="border-collapse text-xs">
+        <thead>
+          <tr>
+            <th className="sticky left-0 z-10 border-b border-r bg-zinc-50 px-2 py-1 text-left font-semibold whitespace-nowrap">
+              <span className="inline-flex items-center gap-1">
+                파트 \ 주차
+                <AdminHelpIconButton
+                  helpKey="admin.teamParts.info.column.partWeekMatrix"
+                  title="파트 × 주차 존재표"
+                />
+              </span>
+            </th>
+            {weekColumns.map((c) => (
+              <th
+                key={c.weekStartDate}
+                className={
+                  "border-b border-r px-1.5 py-1 text-center font-medium whitespace-nowrap " +
+                  (c.isRest ? "bg-zinc-100 text-zinc-400" : "bg-zinc-50")
+                }
+              >
+                {c.label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {matrix.partNames.map((p, pi) => (
+            <tr key={p} data-pw-row={p}>
+              <td className="sticky left-0 z-10 border-b border-r bg-white px-2 py-1 font-medium whitespace-nowrap">
+                {p}
+              </td>
+              {weekColumns.map((c, wi) => {
+                const on = Boolean(matrix.present[pi]?.[wi]);
+                return (
+                  <td
+                    key={c.weekStartDate}
+                    data-pw-cell={on ? "1" : "0"}
+                    className={
+                      "border-b border-r px-1.5 py-1 text-center " +
+                      (c.isRest ? "bg-zinc-50/60" : "")
+                    }
+                  >
+                    {on ? <span className="text-emerald-600">●</span> : ""}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}

@@ -407,6 +407,18 @@ const BREADCRUMB_OVERRIDES: { test: RegExp; parts: OverrideParts }[] = [
       { label: "클럽" },
     ],
   },
+  // 팀 상세 — /admin/team-parts/info/{clubId}/{teamHalfId}. 4단계: 클럽 정보 > 팀 내역 > 클럽 > 팀.
+  //   마지막 2칸(클럽·팀)은 페이지가 AdminDetailTitle items 로 실제 클럽명·팀명(+클럽 href)으로 교체한다.
+  //   weeks/seasons 는 자체 라우트라 제외(negative-lookahead). 두 세그먼트라 클럽 상세(1세그먼트)와 구분됨.
+  {
+    test: /^\/admin\/team-parts\/info\/(?!weeks(?:\/|$)|seasons(?:\/|$))[^/]+\/[^/]+\/?$/,
+    parts: [
+      { label: "클럽 정보", href: "/admin/team-parts/info" },
+      { label: "팀 내역", href: "/admin/team-parts/info" },
+      { label: "클럽" },
+      { label: "팀" },
+    ],
+  },
   // 라인 관리(등록/정보 탭 공용) — 통합 사이드바 정본 라벨로 고정(두 트리 중복 경로 정본화).
   {
     test: /^\/admin\/lines(\/.*)?$/,
