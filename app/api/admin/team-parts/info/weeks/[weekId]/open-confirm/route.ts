@@ -16,8 +16,10 @@ import { isOrganizationSlug } from "@/lib/organizations";
 import {
   saveWeekOpenConfirm,
   revertWeekOpenConfirm,
+  loadWeekReopenState,
   WeekDetailWriteError,
 } from "@/lib/adminTeamPartsInfoWeekDetailData";
+import { parseScopeMode } from "@/lib/userScopeShared";
 
 type Ctx = { params: Promise<{ weekId: string }> };
 
@@ -57,6 +59,18 @@ export async function POST(request: NextRequest, { params }: Ctx) {
   }
   const denied = await guardAdminOrgAccess(admin, club);
   if (denied) return denied;
+
+  // [오픈 확인 재실행 차단] — 이미 확인된 주차는 N주 목요일 00:01 KST 이전 && 검수 미완료일 때만 재실행.
+  //   HTTP 경계에서 강제(직접 호출도 차단·§12-D). 최초 확인(openConfirmed=false)은 항상 허용.
+  //   scope = 통합 화면 DTO 와 동일(resolveOrgResultScope(mode)). 서버/UI 동일 정책(resolveReopenEligibility).
+  const mode = parseScopeMode(request.nextUrl.searchParams.get("mode"));
+  const reopen = await loadWeekReopenState({ weekId, organization: club, mode });
+  if (reopen.openConfirmed && !reopen.reopenable) {
+    return Response.json(
+      { success: false, error: reopen.reopenBlockedReason ?? "오픈 확인을 다시 진행할 수 없습니다." },
+      { status: 409 },
+    );
+  }
 
   let body: unknown;
   try {

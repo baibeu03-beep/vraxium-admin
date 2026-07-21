@@ -85,6 +85,56 @@ export function isExperienceLineOpenForWeek(opts: {
   return Object.values(exp).some((team) => teamHasAnyChecked(team));
 }
 
+// ── [오픈 확인] 재실행 타임라인(시점 경계) ────────────────────────────────────
+//   재실행 정책: 각 액트는 "그 액트의 발생 예정 시각(occur)에 유효했던 config 버전"으로 가동을 판정한다.
+//   변경 이전 액트는 구설정 유지, 변경 이후 액트만 신설정 적용(과거 기록 보존·미래만 변경).
+//   라인 오픈(개설)은 시점 경계 대상이 아님 — 최신 config 로 판정한다(isInfoLineOpenForWeek 등 불변).
+
+// 설정 버전 1개 — config + 유효 시작 시각(ms). effectiveFromMs 오름차순으로 정렬돼 있다고 가정.
+export type TimelineVersion = { config: SavedConfig | null; effectiveFromMs: number };
+
+// 액트 시점 게이트 입력 — 타임라인 로더(loadWeekOpeningTimeline) 반환의 상위집합.
+export type ActOpenTimeline = {
+  openConfirmed: boolean; // live 마스터 스위치(cluster4_week_opening_configs.open_confirmed)
+  latestConfig: SavedConfig | null; // 최신 버전 config(= 부모 테이블 .config). 라인·폴백용.
+  versions: readonly TimelineVersion[]; // effectiveFromMs ASC. 비어 있음 = 이력 없음.
+  timelineAvailable: boolean; // 버전 테이블 적용 여부(미적용이면 latestConfig 폴백).
+};
+
+// occurMs 시각에 유효했던 config 버전 선택 — effectiveFromMs <= occurMs 중 "최신".
+//   occurMs 가 첫 버전보다 앞서면 첫 버전(floor-to-earliest: 최초 오픈 확인이 그 주 전체를 지배 →
+//   최초 확인 동작은 오늘과 동일, 정밀 경계는 재실행 델타에만 적용). versions 비어 있으면 null.
+export function resolveConfigAtTime(
+  versions: readonly TimelineVersion[],
+  occurMs: number,
+): SavedConfig | null {
+  if (versions.length === 0) return null;
+  let chosen: TimelineVersion | null = null;
+  for (const v of versions) {
+    if (v.effectiveFromMs <= occurMs) chosen = v;
+    else break; // ASC 정렬 가정 — 이후는 모두 미래 버전.
+  }
+  return (chosen ?? versions[0]).config;
+}
+
+// 액트가 "그 액트 예정 시각에" 가동 대상인가 — 시점 버전 config 를 골라 기존 isActOpenForWeek 에 위임.
+//   timelineAvailable=false(마이그 전) 또는 occurMs=null(예외 액트)이면 latestConfig 사용 = 오늘 동작(안전).
+//   mode/actAs/demo 무분기(스코프 확정 후 동일 타임라인·동일 판정).
+export function isActOpenAtTime(opts: {
+  hub: string;
+  timeline: ActOpenTimeline;
+  occurMs: number | null;
+  lineGroupId: string | null;
+  teamId?: string | null;
+}): boolean {
+  const { hub, timeline, occurMs, lineGroupId, teamId } = opts;
+  const config =
+    timeline.timelineAvailable && occurMs != null && timeline.versions.length > 0
+      ? resolveConfigAtTime(timeline.versions, occurMs)
+      : timeline.latestConfig;
+  return isActOpenForWeek({ hub, openConfirmed: timeline.openConfirmed, config, lineGroupId, teamId });
+}
+
 // 실무 역량 라인이 이번 주 "오픈(개설 대상)" 인가 — 오픈 확인 + practicalCompetency.checked === true.
 //   ⚠ 실무 역량은 라인급 단위가 없어(허브 공유 플래그) 액트 가동(isActOpenForWeek hub="competency")과
 //     "완전히 같은" 단일 SoT(practicalCompetency.checked)를 쓴다 — 프로세스 체크(가동)와 라인 개설(오픈)이

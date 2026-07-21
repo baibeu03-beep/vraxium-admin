@@ -31,3 +31,26 @@ export function resolveRegularActRequiredAt(input: {
   const time = hhmm(input.checkTime);
   return time ? `${date}T${time}:00+09:00` : date;
 }
+
+// 정규 액트의 "발생 예정 시각"(occur) 을 관리 주차 월요일 + occur 요일/시각으로 투영한 절대 ms.
+//   [오픈 확인] 재실행 시점 경계 판정의 단일 SoT — 액트가 그 주 언제 발생하도록 예정됐는가.
+//   occur_week/occur_dow/occur_time 은 check_* 과 동일한 요일수학(resolveRegularActRequiredDate,
+//   "N1"=다음 주 +7일)을 쓰되 시각은 occur_time 을 붙인다. occur_time 부재 시 그 날 00:00 KST.
+//   weekStart/occurDow 부재(예외 액트 등)면 null → 호출부는 최신 config 폴백(오늘 동작·안전).
+export function resolveRegularActOccurredAtMs(input: {
+  weekStart: string | null;
+  occurWeek: string | null;
+  occurDow: number | null;
+  occurTime: string | null;
+}): number | null {
+  const iso = resolveRegularActRequiredAt({
+    weekStart: input.weekStart,
+    checkWeek: input.occurWeek,
+    checkDow: input.occurDow,
+    checkTime: input.occurTime,
+  });
+  if (!iso) return null;
+  // 시각 없음(날짜만) → 그 날 00:00 KST 로 앵커.
+  const ms = Date.parse(iso.length <= 10 ? `${iso}T00:00:00+09:00` : iso);
+  return Number.isNaN(ms) ? null : ms;
+}

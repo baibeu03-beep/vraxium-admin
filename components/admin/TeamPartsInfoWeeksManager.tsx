@@ -464,7 +464,7 @@ export default function TeamPartsInfoWeeksManager({
                       <WeekTh
                         label="주차명"
                         helpKey="admin.teamPartsInfoWeeks.column.weekName"
-                        align="left"
+                        align="center"
                         sortKey="weekName"
                         sort={sort}
                         onSort={onSort}
@@ -477,18 +477,12 @@ export default function TeamPartsInfoWeeksManager({
                         sort={sort}
                         onSort={onSort}
                       />
-                      {/* 활동 관리 = 액션 버튼 전용 컬럼 → 정렬 제외(정렬 의미 없음). */}
-                      <WeekTh
-                        label="활동 관리"
-                        helpKey="admin.teamPartsInfoWeeks.column.activityManage"
-                        align="center"
-                        sort={sort}
-                        onSort={onSort}
-                      />
+                      {/* [활동 관리 컬럼 제거 2026-07-21] 상세 이동은 이제 "주차명" 클릭이 담당한다
+                          (onManageActivity 로직 재사용 — 공식 휴식 가드/URL 생성 동일). */}
                       <WeekTh
                         label="액트 체크 신청율"
                         helpKey="admin.teamPartsInfoWeeks.column.actCheckApplicationRate"
-                        align="right"
+                        align="center"
                         sortKey="actCheckApplicationRate"
                         sort={sort}
                         onSort={onSort}
@@ -497,7 +491,7 @@ export default function TeamPartsInfoWeeksManager({
                       <WeekTh
                         label="전체 액트"
                         helpKey="admin.teamPartsInfoWeeks.column.totalActs"
-                        align="right"
+                        align="center"
                         sort={sort}
                         onSort={onSort}
                       />
@@ -505,14 +499,14 @@ export default function TeamPartsInfoWeeksManager({
                       <WeekTh
                         label="가동 액트"
                         helpKey="admin.teamPartsInfoWeeks.column.activeActs"
-                        align="right"
+                        align="center"
                         sort={sort}
                         onSort={onSort}
                       />
                       <WeekTh
                         label="라인칸 개설율"
                         helpKey="admin.teamPartsInfoWeeks.column.lineOpenRate"
-                        align="right"
+                        align="center"
                         sortKey="lineOpenRate"
                         sort={sort}
                         onSort={onSort}
@@ -521,14 +515,14 @@ export default function TeamPartsInfoWeeksManager({
                       <WeekTh
                         label="전체 라인"
                         helpKey="admin.teamPartsInfoWeeks.column.totalLines"
-                        align="right"
+                        align="center"
                         sort={sort}
                         onSort={onSort}
                       />
                       <WeekTh
                         label="오픈 라인"
                         helpKey="admin.teamPartsInfoWeeks.column.openLines"
-                        align="right"
+                        align="center"
                         sortKey="openLines"
                         sort={sort}
                         onSort={onSort}
@@ -547,7 +541,7 @@ export default function TeamPartsInfoWeeksManager({
                     {(data?.items ?? []).length === 0 ? (
                       <tr>
                         <td
-                          colSpan={10}
+                          colSpan={9}
                           className="px-3 py-8 text-center text-muted-foreground"
                         >
                           표시할 주차가 없습니다.
@@ -560,45 +554,49 @@ export default function TeamPartsInfoWeeksManager({
                           data-week-row={item.weekId}
                           className={
                             "border-b last:border-b-0 " +
-                            (item.isCurrentWeek ? "bg-sky-50/50" : "")
+                            // 현재 주차 강조 — 과거·미래 주차는 배경 없음. 다크 모드까지 대비.
+                            //   현재 주차 판정(item.isCurrentWeek)은 서버 DTO 값 그대로(재계산 없음).
+                            (item.isCurrentWeek
+                              ? "bg-sky-100/80 dark:bg-sky-950/40"
+                              : "")
                           }
                         >
-                          <td className="px-3 py-2 whitespace-nowrap font-medium">
-                            <span data-week-name>{item.weekName}</span>
-                          </td>
-                          <td className="px-3 py-2 text-center">
-                            {statusBadge(item.clubActivityStatus)}
-                          </td>
-                          <td className="px-3 py-2 text-center">
-                            <Button
+                          <td className="px-3 py-2 whitespace-nowrap text-center font-medium">
+                            {/* 주차명 = 상세 이동 요소(기존 [활동 관리] 버튼과 동일 동작 재사용).
+                                버튼(현재 탭 이동)·Tab 포커스·Enter 지원·hover 로 클릭 가능 표시.
+                                공식 휴식 주차는 onManageActivity 가 이동 대신 안내 모달을 띄운다. */}
+                            <button
                               type="button"
-                              variant="outline"
-                              size="sm"
+                              data-week-name="true"
                               data-manage-activity={item.weekId}
                               onClick={() =>
                                 onManageActivity(item, effectiveTab as OrganizationSlug)
                               }
+                              className="mx-auto flex w-fit cursor-pointer justify-center rounded text-center font-medium text-sky-700 underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-sky-500/50 dark:text-sky-400"
                             >
-                              활동 관리
-                            </Button>
+                              {item.weekName}
+                            </button>
+                          </td>
+                          <td className="px-3 py-2 text-center">
+                            {statusBadge(item.clubActivityStatus)}
                           </td>
                           {/* 서버 DTO 값 그대로 표시 — 반올림된 값을 프론트에서 재계산하지 않는다. */}
-                          <td className="px-3 py-2 text-right tabular-nums" data-act-rate>
+                          <td className="px-3 py-2 text-center tabular-nums" data-act-rate>
                             {item.actCheck.applicationRate}%
                           </td>
-                          <td className="px-3 py-2 text-right tabular-nums">
+                          <td className="px-3 py-2 text-center tabular-nums">
                             {item.actCheck.totalCount}
                           </td>
-                          <td className="px-3 py-2 text-right tabular-nums">
+                          <td className="px-3 py-2 text-center tabular-nums">
                             {item.actCheck.activeCount}
                           </td>
-                          <td className="px-3 py-2 text-right tabular-nums" data-line-rate>
+                          <td className="px-3 py-2 text-center tabular-nums" data-line-rate>
                             {item.lineOpenRate}%
                           </td>
-                          <td className="px-3 py-2 text-right tabular-nums">
+                          <td className="px-3 py-2 text-center tabular-nums">
                             {item.totalLines}
                           </td>
-                          <td className="px-3 py-2 text-right tabular-nums">
+                          <td className="px-3 py-2 text-center tabular-nums">
                             {item.openLines}
                           </td>
                           <td className="px-3 py-2 text-center">

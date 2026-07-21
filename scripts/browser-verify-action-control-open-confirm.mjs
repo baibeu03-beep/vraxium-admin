@@ -90,10 +90,10 @@ try {
 
   await page.goto(`${BASE}/admin/team-parts/info/weeks/${weekId}?club=${ORG}`, { waitUntil: "networkidle" });
 
-  // 기존 '오픈 확인' 버튼은 그대로 유지(대체 아님).
+  // 기존 오픈 확인 버튼(현 표시명 '클럽 활동 진행')은 그대로 유지(액션 컨트롤이 대체하지 않음).
   const origBtn = page.locator('[data-open-confirm-button]');
   await origBtn.first().waitFor({ timeout: 15000 });
-  check("기존 '오픈 확인' 버튼 유지(라벨 불변)", (await origBtn.first().innerText()).includes("오픈 확인"));
+  check("기존 오픈 확인 버튼 유지(대체 아님)", (await origBtn.first().innerText()).includes("클럽 활동 진행"));
 
   // 공용 컨트롤은 기존 버튼 옆에 ↩ 실행 취소만 추가(⚡ 즉시 실행은 제거 — 중복 방지).
   const scope = page.locator('[data-ac-open-confirm]');

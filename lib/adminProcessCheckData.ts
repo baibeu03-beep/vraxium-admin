@@ -37,8 +37,9 @@ import {
   hasActiveProcessCheckException,
 } from "@/lib/processCheckWindowsData";
 import { isUuid } from "@/lib/isUuid";
-import { loadWeekOpeningConfig } from "@/lib/adminTeamPartsInfoWeekDetailData";
-import { isActOpenForWeek } from "@/lib/weekOpenGate";
+import { isActOpenAtTime, type ActOpenTimeline } from "@/lib/weekOpenGate";
+import { loadWeekOpeningTimeline } from "@/lib/weekOpeningTimeline";
+import { resolveRegularActOccurredAtMs } from "@/lib/regularActRequiredAt";
 import { filterTeamsByScope, isTestTeam } from "@/lib/cluster4ExperienceTestScope";
 import { listTeamParts, listPartCrews, listTeamCrews } from "@/lib/adminExperiencePartInput";
 import { uncompleteResetStamp } from "@/lib/processCheckCollectionReset";
@@ -793,7 +794,7 @@ const NEEDED: StatusState = {
 };
 
 // 상태창1(팀별) 완료 판정 — 요약(summary.isAllCompleted)과 "동일 SoT"를 팀 단위로 적용한다.
-//   한 팀의 team_all 롤업: 체크 대상(check_target='check') ∩ 이번 주 가동(isActOpenForWeek) 액트가
+//   한 팀의 team_all 롤업: 체크 대상(check_target='check') ∩ 이번 주 가동(isActOpenAtTime) 액트가
 //   전부 completed 인가. 파트 액트는 팀 파트별로 펼치고(미배정=1행·미완료), 팀 총괄 액트는 1행.
 //   → 아래 flatActs(team_all 분기) + summary 집계와 정확히 같은 술어(isCheckTarget·isOpenThisWeek·
 //     status==="completed")를 쓴다(DOM 재계산 아님·서버 데이터 판정). operating/test·전 org 공통.
@@ -805,12 +806,12 @@ async function computeTeamAllCompleted(params: {
   mode: ScopeMode;
   acts: ActRow[];
   groupNameById: Map<string, string>;
-  openConfig: Parameters<typeof isActOpenForWeek>[0]["config"];
-  openConfirmed: boolean;
+  timeline: ActOpenTimeline;
+  weekStart: string | null;
   partAvail: boolean;
   completionAvail: boolean;
 }): Promise<boolean> {
-  const { hub, organization, weekId, team, mode, acts, groupNameById, openConfig, openConfirmed, partAvail, completionAvail } = params;
+  const { hub, organization, weekId, team, mode, acts, groupNameById, timeline, weekStart, partAvail, completionAvail } = params;
   const [teamParts, rows] = await Promise.all([
     listTeamParts(organization, team.teamName, mode),
     loadStatusRows(organization, hub, weekId, team.teamId, partAvail, completionAvail),
@@ -829,7 +830,11 @@ async function computeTeamAllCompleted(params: {
   let completed = 0;
   for (const a of acts) {
     if (a.check_target !== "check") continue; // = isCheckTarget
-    if (!isActOpenForWeek({ hub, openConfirmed, config: openConfig, lineGroupId: a.line_group_id, teamId: team.teamId })) continue; // = isOpenThisWeek
+    // = isOpenThisWeek — 액트 occur 시각에 유효한 오픈 설정 버전으로 판정(재실행 시점 경계).
+    const occurMs = resolveRegularActOccurredAtMs({
+      weekStart, occurWeek: a.occur_week, occurDow: a.occur_dow, occurTime: a.occur_time,
+    });
+    if (!isActOpenAtTime({ hub, timeline, occurMs, lineGroupId: a.line_group_id, teamId: team.teamId })) continue;
     const groupName = groupNameById.get(a.line_group_id) ?? "-";
     if (isPartLineGroupName(groupName)) {
       if (teamParts.length === 0) { total++; continue; } // 파트(미배정) 1행 = NEEDED(미완료)
@@ -868,11 +873,18 @@ export async function getProcessCheckBoard(
   const teamBased = isTeamBasedProcessHub(hub);
 
   // 오픈 설정(가동 판정 SoT) — 선택 주차 × 클럽. open_confirmed=false 면 아무 액트도 가동 아님.
-  //   활동 관리·라인 관리와 동일 원천(loadWeekOpeningConfig)·동일 판정 함수(isActOpenForWeek).
-  //   mode(operating/test)로 분기하지 않는다 — 스코프 확정 후에는 동일 config 를 읽는다.
-  const { config: openConfig, openConfirmed } = effectiveWeekId
-    ? await loadWeekOpeningConfig(effectiveWeekId, organization as OrganizationSlug)
-    : { config: null, openConfirmed: false };
+  //   활동 관리·라인 관리와 동일 원천(loadWeekOpeningTimeline)·동일 판정 함수(isActOpenAtTime).
+  //   재실행 정책: 각 액트를 그 액트 occur 시각에 유효한 config 버전으로 판정한다(변경 이전 액트=구설정 유지).
+  //   mode(operating/test)로 분기하지 않는다 — 스코프 확정 후에는 동일 타임라인을 읽는다.
+  const timeline: ActOpenTimeline = effectiveWeekId
+    ? await loadWeekOpeningTimeline(effectiveWeekId, organization as OrganizationSlug)
+    : { openConfirmed: false, latestConfig: null, versions: [], timelineAvailable: false };
+  // 액트 occur 시각(ms) 산출 — 주차 월요일(week.startDate) 기준. week 미상이면 null(최신 config 폴백).
+  const boardWeekStart = week?.startDate ?? null;
+  const occurMsOfAct = (a: ActRow): number | null =>
+    resolveRegularActOccurredAtMs({
+      weekStart: boardWeekStart, occurWeek: a.occur_week, occurDow: a.occur_dow, occurTime: a.occur_time,
+    });
 
   // 팀 구분 허브면 org 팀 동적 조회(상태창1 팀별 문장 + 섹션.1 탭). 그 외는 빈 배열(허브 전체 1문장).
   //   isAllCompleted 는 아래에서 실제 체크 데이터로 재산정한다(loadProcessCheckTeams 는 목록만).
@@ -965,8 +977,8 @@ export async function getProcessCheckBoard(
           mode,
           acts,
           groupNameById,
-          openConfig,
-          openConfirmed,
+          timeline,
+          weekStart: boardWeekStart,
           partAvail: partColAvail,
           completionAvail,
         }),
@@ -1019,10 +1031,11 @@ export async function getProcessCheckBoard(
       cafeLabel: PROCESS_CAFE_LABEL[a.cafe as ProcessCafe] ?? a.cafe,
       isCheckTarget: a.check_target === "check",
       // 이번 주 가동 여부 — 오픈 확인 + 소속 라인급(체크) 선택(weekOpenGate SoT). experience 는 선택 팀 기준.
-      isOpenThisWeek: isActOpenForWeek({
+      //   재실행 정책: 액트 occur 시각에 유효한 config 버전으로 판정(변경 이전 액트=구설정 유지).
+      isOpenThisWeek: isActOpenAtTime({
         hub,
-        openConfirmed,
-        config: openConfig,
+        timeline,
+        occurMs: occurMsOfAct(a),
         lineGroupId: a.line_group_id,
         teamId,
       }),
@@ -1282,18 +1295,22 @@ export async function applyProcessCheckAction(input: {
     .maybeSingle();
   const lineGroupName = (groupData as { name: string } | null)?.name ?? "-";
 
-  // 이번 주 가동 여부(오픈 설정 SoT) — 활동 관리·보드와 동일 판정 함수(isActOpenForWeek). 미가동 액트는
+  // 이번 주 가동 여부(오픈 설정 SoT) — 활동 관리·보드와 동일 판정 함수(isActOpenAtTime). 미가동 액트는
   //   체크 신청 불가(서버 강제 — 프론트 숨김에 의존하지 않는다). mode 로 분기하지 않는다.
+  //   재실행 정책: 액트 occur 시각에 유효한 config 버전으로 판정 → 변경 이전 발생 액트는 신청 허용 유지.
   //   ⚠ cancel(대기 해제)은 미가동이어도 허용한다 — 오픈 설정이 도중에 바뀌어 남은 '체크 대기'를
   //     정리(미체크 상태로 되돌림)할 수 있어야 잔여 대기가 고착되지 않는다(미체크로의 이동은 정합).
-  const { config: openConfig, openConfirmed } = await loadWeekOpeningConfig(
-    weekId,
-    organization as OrganizationSlug,
-  );
-  const openThisWeek = isActOpenForWeek({
+  const [wkRow1, timeline1] = await Promise.all([
+    supabaseAdmin.from("weeks").select("start_date").eq("id", weekId).maybeSingle(),
+    loadWeekOpeningTimeline(weekId, organization as OrganizationSlug),
+  ]);
+  const openThisWeek = isActOpenAtTime({
     hub,
-    openConfirmed,
-    config: openConfig,
+    timeline: timeline1,
+    occurMs: resolveRegularActOccurredAtMs({
+      weekStart: (wkRow1.data as { start_date: string | null } | null)?.start_date ?? null,
+      occurWeek: act.occur_week, occurDow: act.occur_dow, occurTime: act.occur_time,
+    }),
     lineGroupId: act.line_group_id,
     teamId,
   });
@@ -1922,14 +1939,18 @@ export async function applyProcessManualGrant(input: {
   const lineGroupName = (groupData as { name: string } | null)?.name ?? "-";
 
   // 이번 주 가동 여부(오픈 설정 SoT) — 미가동 액트는 수동 부여 불가(서버 강제). 보드·활동 관리와 동일 판정.
-  const { config: openConfig, openConfirmed } = await loadWeekOpeningConfig(
-    weekId,
-    organization as OrganizationSlug,
-  );
-  const openThisWeek = isActOpenForWeek({
+  //   재실행 정책: 액트 occur 시각에 유효한 config 버전으로 판정.
+  const [wkRow2, timeline2] = await Promise.all([
+    supabaseAdmin.from("weeks").select("start_date").eq("id", weekId).maybeSingle(),
+    loadWeekOpeningTimeline(weekId, organization as OrganizationSlug),
+  ]);
+  const openThisWeek = isActOpenAtTime({
     hub,
-    openConfirmed,
-    config: openConfig,
+    timeline: timeline2,
+    occurMs: resolveRegularActOccurredAtMs({
+      weekStart: (wkRow2.data as { start_date: string | null } | null)?.start_date ?? null,
+      occurWeek: act.occur_week, occurDow: act.occur_dow, occurTime: act.occur_time,
+    }),
     lineGroupId: act.line_group_id,
     teamId,
   });

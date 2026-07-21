@@ -382,6 +382,24 @@ export default function Sidebar() {
                   className="mt-0.5 mb-1 ml-[1.0625rem] flex flex-col gap-px border-l border-sidebar-border pl-2"
                 >
                   {visibleChildren(item).map((child) => {
+                    // 준비 중(disabled) 메뉴 — 대응 페이지가 없어 링크가 아닌 비활성 span 으로 렌더.
+                    //   이동/포커스 불가 + "준비 중" 배지. 임의 페이지를 만들지 않고 메뉴명만 노출한다.
+                    if (child.disabled) {
+                      return (
+                        <li key={child.href}>
+                          <span
+                            aria-disabled="true"
+                            title="준비 중"
+                            className="flex cursor-not-allowed items-center justify-between gap-1.5 rounded-md px-2.5 py-1 text-xs text-sidebar-foreground/40"
+                          >
+                            <span className="truncate">{child.label}</span>
+                            <span className="shrink-0 rounded bg-sidebar-accent/60 px-1 py-px text-[0.625rem] font-medium text-sidebar-foreground/50">
+                              준비 중
+                            </span>
+                          </span>
+                        </li>
+                      );
+                    }
                     const childActive = child.matchPaths
                       ? child.matchPaths.some((p) => isUnderBase(pathname, p))
                       : child.exact

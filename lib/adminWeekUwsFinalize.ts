@@ -30,9 +30,11 @@ import { getCurrentWeekStartMs } from "@/lib/cluster4WeekPolicy";
 import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
 import type { StateScope } from "@/lib/operationalState";
 import { resolveUserScope } from "@/lib/userScope";
-import { isActOpenForWeek } from "@/lib/weekOpenGate";
+import { isActOpenAtTime, type ActOpenTimeline } from "@/lib/weekOpenGate";
+import { loadWeekOpeningTimeline } from "@/lib/weekOpeningTimeline";
+import { resolveRegularActOccurredAtMs } from "@/lib/regularActRequiredAt";
 // ⚠ 타입만 import(런타임 순환 방지 — adminTeamPartsInfoWeekDetailData 는 이 모듈을 런타임 import 한다).
-import type { SavedConfig } from "@/lib/adminTeamPartsInfoWeekDetailData";
+//   weekOpeningTimeline 은 adminTeamPartsInfoWeekDetailData 를 type-only import 하므로 런타임 순환 없음.
 
 const RUN_LOG_TABLE = "cluster4_week_finalize_runs";
 
@@ -55,29 +57,17 @@ export type AccrualGateResult = {
   awardCount: number;
 };
 
-// 주차별·org별 오픈 설정 캐시 로더 — cluster4_week_opening_configs(loadWeekOpeningConfig 와 동일 SoT).
-//   ⚠ 순환 import 방지로 직접 조회(adminTeamPartsInfoWeekDetailData 를 런타임 import 하지 않는다).
-async function loadOpeningConfigForOrg(
+// 주차별·org별 오픈 설정 타임라인 캐시 로더 — 프로세스 체크 보드와 동일 SoT(loadWeekOpeningTimeline).
+//   재실행 정책: 액트 가동을 그 액트 occur 시각에 유효한 버전으로 판정(변경 이전 액트=구설정 유지).
+async function loadOpeningTimelineForOrg(
   weekId: string,
   organization: string,
-): Promise<{ config: SavedConfig | null; openConfirmed: boolean }> {
-  const { data, error } = await supabaseAdmin
-    .from("cluster4_week_opening_configs")
-    .select("config,open_confirmed")
-    .eq("week_id", weekId)
-    .eq("organization_slug", organization)
-    .maybeSingle();
-  if (error) {
-    // config 조회 불가 → openConfirmed=false(미가동 간주). weekOpenGate 와 동일 fail-closed.
-    console.warn("[uws-finalize] opening config 조회 실패(미가동 간주)", { weekId, organization, message: error.message });
-    return { config: null, openConfirmed: false };
-  }
-  const row = data as { config: SavedConfig | null; open_confirmed: boolean } | null;
-  return { config: row?.config ?? null, openConfirmed: row?.open_confirmed === true };
+): Promise<ActOpenTimeline> {
+  return loadWeekOpeningTimeline(weekId, organization as OrganizationSlug);
 }
 
 // 그 주차의 정규 체크 상태를 /admin/processes/check 와 **동일한 유효 체크 대상 기준**으로 집계한다.
-//   유효 = act.is_active && act.check_target==='check' && isActOpenForWeek(오픈확인+라인급/팀 선택)
+//   유효 = act.is_active && act.check_target==='check' && isActOpenAtTime(오픈확인+라인급/팀 선택, occur 시각)
 //          && scope_mode===effMode(검수 코호트와 동일 모드).
 //   반환: { pending: 유효+status='pending' 수, total: 유효 상태행 수(모든 status) }.
 //   비활성·none·미가동·타모드 액트의 잔존 상태행은 pending/total 어디에도 포함하지 않는다(체크 페이지·코호트와 정합).
@@ -119,23 +109,31 @@ async function countValidOpenCheckStatuses(
 
   // 액트 마스터(is_active·check_target·line_group_id) 배치 조회.
   const actIds = [...new Set(statusRows.map((r) => r.act_id))];
-  const actById = new Map<string, { is_active: boolean; check_target: string; line_group_id: string | null }>();
+  type ActMeta = {
+    is_active: boolean; check_target: string; line_group_id: string | null;
+    occur_week: string | null; occur_dow: number | null; occur_time: string | null;
+  };
+  const actById = new Map<string, ActMeta>();
   const ACT_CHUNK = 300;
   for (let i = 0; i < actIds.length; i += ACT_CHUNK) {
     const chunk = actIds.slice(i, i + ACT_CHUNK);
     const { data: acts } = await supabaseAdmin
       .from("process_acts")
-      .select("id,is_active,check_target,line_group_id")
+      .select("id,is_active,check_target,line_group_id,occur_week,occur_dow,occur_time")
       .in("id", chunk);
-    for (const a of (acts ?? []) as Array<{ id: string; is_active: boolean; check_target: string; line_group_id: string | null }>) {
-      actById.set(a.id, { is_active: a.is_active, check_target: a.check_target, line_group_id: a.line_group_id });
+    for (const a of (acts ?? []) as Array<{ id: string } & ActMeta>) {
+      actById.set(a.id, {
+        is_active: a.is_active, check_target: a.check_target, line_group_id: a.line_group_id,
+        occur_week: a.occur_week, occur_dow: a.occur_dow, occur_time: a.occur_time,
+      });
     }
   }
 
-  // org 별 오픈 설정 1회 로드(캐시).
+  // org 별 오픈 설정 타임라인 1회 로드(캐시). 액트 occur 시각용 주차 월요일 = week.start_date.
   const orgs = [...new Set(statusRows.map((r) => r.organization_slug))];
-  const cfgByOrg = new Map<string, { config: SavedConfig | null; openConfirmed: boolean }>();
-  for (const org of orgs) cfgByOrg.set(org, await loadOpeningConfigForOrg(weekId, org));
+  const tlByOrg = new Map<string, ActOpenTimeline>();
+  for (const org of orgs) tlByOrg.set(org, await loadOpeningTimelineForOrg(weekId, org));
+  const weekStart = week.start_date;
 
   let pending = 0;
   let total = 0;
@@ -144,11 +142,14 @@ async function countValidOpenCheckStatuses(
     if (!act) continue; // 액트 마스터 부재(고아) → 유효 대상 아님.
     if (act.is_active !== true) continue; // 비활성 → 제외.
     if (act.check_target !== "check") continue; // 체크 대상 아님(none) → 제외.
-    const cfg = cfgByOrg.get(r.organization_slug) ?? { config: null, openConfirmed: false };
-    const open = isActOpenForWeek({
+    const timeline = tlByOrg.get(r.organization_slug) ??
+      ({ openConfirmed: false, latestConfig: null, versions: [], timelineAvailable: false } as ActOpenTimeline);
+    const open = isActOpenAtTime({
       hub: r.hub,
-      openConfirmed: cfg.openConfirmed,
-      config: cfg.config,
+      timeline,
+      occurMs: resolveRegularActOccurredAtMs({
+        weekStart, occurWeek: act.occur_week, occurDow: act.occur_dow, occurTime: act.occur_time,
+      }),
       lineGroupId: act.line_group_id, // 체크 보드와 동일하게 액트 마스터의 라인급 사용.
       teamId: r.team_id,
     });

@@ -44,9 +44,13 @@ export type ChildItem = ScopeFlags & {
   // 활성 판정용 추가 경로(선택). 하나의 메뉴가 여러 라우트를 묶을 때 사용
   //  (예: "라인 관리" = /admin/lines/register + /admin/lines/info). 없으면 href 로 판정.
   matchPaths?: string[];
-  // 정확 일치만 활성으로 본다(하위 경로 제외). 예: "팀 내역"(/admin/team-parts/info)이
-  //  "/admin/team-parts/info/weeks"(주차 내역)에서 같이 활성되지 않도록.
+  // 정확 일치만 활성으로 본다(하위 경로 제외). 예: "팀 관리"(/admin/team-parts/info)이
+  //  "/admin/team-parts/info/weeks"(주차 활동(클럽))에서 같이 활성되지 않도록.
   exact?: boolean;
+  // 대응 페이지가 아직 없는 "준비 중" 메뉴 — 사이드바가 링크가 아닌 비활성 span 으로 렌더한다.
+  //  href 는 라우트가 아니라 안정적인 key 용 placeholder(실제 페이지 없음). 임의의 빈/리다이렉트
+  //  페이지를 만들지 않고 메뉴명만 먼저 노출할 때 사용한다. breadcrumb 매칭에서도 제외된다.
+  disabled?: boolean;
 };
 
 export type BranchItem = ScopeFlags & {
@@ -129,9 +133,15 @@ export const MENU_INTEGRATED: MenuItem[] = [
     icon: Network,
     basePath: "/admin/team-parts",
     children: [
-      { label: "팀 내역", href: "/admin/team-parts/info", exact: true },
-      { label: "시즌 내역", href: "/admin/team-parts/info/seasons" },
-      { label: "주차 내역", href: "/admin/team-parts/info/weeks" },
+      // [표시명 변경 2026-07-21] URL/라우트는 무변경 — 사이드바·헤더 표시 라벨만 변경.
+      //   팀 내역→팀 관리 · 시즌 내역→시즌 관리 · 주차 내역→주차 활동(클럽).
+      { label: "팀 관리", href: "/admin/team-parts/info", exact: true },
+      { label: "시즌 관리", href: "/admin/team-parts/info/seasons" },
+      { label: "주차 활동(클럽)", href: "/admin/team-parts/info/weeks" },
+      // [주차 결과(크루)] 신규 메뉴 — 대응 전용 페이지가 아직 없어 disabled(준비 중)로 노출만 한다.
+      //   기존 "주차와 시즌 > 주차 인정 결과"(/admin/week-recognitions)는 목적이 달라 재사용하지 않는다.
+      //   전용 페이지 신설 시 disabled 를 제거하고 href 를 실제 라우트로 교체할 것.
+      { label: "주차 결과(크루)", href: "/admin/team-parts/info/crew-week-results", disabled: true },
       // [팀 & 파트 등록] 메뉴 비노출(주석 처리) — /admin/team-parts/register 라우트/코드는 유지.
       //   재활성화하려면 아래 줄의 주석을 해제하세요.
       // { label: "팀 & 파트 등록", href: "/admin/team-parts/register" },
@@ -254,13 +264,17 @@ export const MENU_ORG: MenuItem[] = [
       //   ?org 도 함께 부착되어(Sidebar.childHref → orgHref) 상세 진입 후에도 [개별] 사이드바 컨텍스트가
       //   유지된다(상세 route 는 path 기반 resolveAdminOrgFocus 미인식). 통합 목록의 클럽명 클릭과 같은
       //   ClubTeamDetail 을 재사용한다(진입 위치별 별도 화면/API/DTO 없음).
+      // [표시명 변경 2026-07-21] 통합 트리와 동일한 라벨을 공유한다(같은 페이지 = 같은 메뉴명,
+      //   org/mode 로 이름이 갈라지지 않음). URL/라우트는 무변경.
       ...ORGANIZATIONS.map((slug) => ({
-        label: "팀 내역",
+        label: "팀 관리",
         href: `/admin/team-parts/info/${slug}`,
         orgOnly: true,
       })),
-      { label: "시즌 내역", href: "/admin/team-parts/info/seasons" },
-      { label: "주차 내역", href: "/admin/team-parts/info/weeks" },
+      { label: "시즌 관리", href: "/admin/team-parts/info/seasons" },
+      { label: "주차 활동(클럽)", href: "/admin/team-parts/info/weeks" },
+      // [주차 결과(크루)] 통합 트리와 동일 — 전용 페이지 부재로 disabled(준비 중).
+      { label: "주차 결과(크루)", href: "/admin/team-parts/info/crew-week-results", disabled: true },
     ],
   },
   // 4) 크루 활동 — 크루 관리(해당 조직 목록), 휴식 관리, 커뮤니케이션.
@@ -391,7 +405,7 @@ const BREADCRUMB_OVERRIDES: { test: RegExp; parts: OverrideParts }[] = [
     test: /^\/admin\/team-parts\/info\/weeks\/[^/]+\/?$/,
     parts: [
       { label: "클럽 정보", href: "/admin/team-parts/info" },
-      { label: "주차 내역", href: "/admin/team-parts/info/weeks" },
+      { label: "주차 활동(클럽)", href: "/admin/team-parts/info/weeks" },
       { label: "주차 상세" },
     ],
   },
@@ -403,7 +417,7 @@ const BREADCRUMB_OVERRIDES: { test: RegExp; parts: OverrideParts }[] = [
     test: /^\/admin\/team-parts\/info\/(?!weeks(?:\/|$)|seasons(?:\/|$))[^/]+\/?$/,
     parts: [
       { label: "클럽 정보", href: "/admin/team-parts/info" },
-      { label: "팀 내역", href: "/admin/team-parts/info" },
+      { label: "팀 관리", href: "/admin/team-parts/info" },
       { label: "클럽" },
     ],
   },
@@ -414,7 +428,7 @@ const BREADCRUMB_OVERRIDES: { test: RegExp; parts: OverrideParts }[] = [
     test: /^\/admin\/team-parts\/info\/(?!weeks(?:\/|$)|seasons(?:\/|$))[^/]+\/[^/]+\/?$/,
     parts: [
       { label: "클럽 정보", href: "/admin/team-parts/info" },
-      { label: "팀 내역", href: "/admin/team-parts/info" },
+      { label: "팀 관리", href: "/admin/team-parts/info" },
       { label: "클럽" },
       { label: "팀" },
     ],
@@ -489,8 +503,10 @@ export function resolveAdminBreadcrumb(pathname: string): AdminBreadcrumbItem[] 
         continue;
       }
       // 그룹(부모) href = 첫 자식 href(basePath 는 실 페이지가 아닐 수 있어 회피).
-      const groupHref = item.children[0]?.href ?? item.basePath;
+      const groupHref = item.children.find((c) => !c.disabled)?.href ?? item.basePath;
       for (const child of item.children) {
+        // 준비 중(disabled) 메뉴는 대응 라우트가 없으므로 경로 매칭에서 제외한다.
+        if (child.disabled) continue;
         const paths = child.matchPaths ?? [child.href];
         const exactHref = child.exact && !child.matchPaths ? child.href : null;
         const len = matchLength(path, paths, exactHref);

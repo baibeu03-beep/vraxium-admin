@@ -156,6 +156,12 @@ async function main() {
     // 독립성(§15): 특정 정보 라인급 actCheck=false → 그 라인급만 미가동, 나머지 가동 유지.
     const targetLg = after.practicalInfo.lines[0]?.lineId;
     if (targetLg) {
+      // [오픈 확인 재실행 정책] 과거(종료된) 주차는 목요일 00:01 경과로 재실행이 서버에서 차단(409)된다.
+      //   이 테스트는 라인급 게이팅 독립성만 보므로, 재실행 대신 오픈 확인을 취소(revert)해 open_confirmed=false
+      //   로 되돌린 뒤 새 config 로 "최초 확인"을 다시 수행한다(정책상 최초 확인은 항상 허용).
+      await fetch(`${BASE}/api/admin/team-parts/info/weeks/${weekId}/open-confirm?club=${org}`, {
+        method: "DELETE", headers: { cookie },
+      });
       await fetch(`${BASE}/api/admin/team-parts/info/weeks/${weekId}/open-confirm?club=${org}`, {
         method: "POST", headers: { cookie, "content-type": "application/json" },
         body: JSON.stringify({ config: { practicalInfo: {}, practicalExperience: {}, practicalCompetency: { checked: false }, actCheck: { info: { [targetLg]: false }, experience: {}, club: {} } } }),

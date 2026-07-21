@@ -76,7 +76,8 @@ async function main() {
       // 인정 개수 문구 + 강조 숫자.
       const rc = await page.evaluate(() => {
         const strong = document.querySelector("[data-week-recognition-count]") as HTMLElement | null;
-        const p = strong?.closest("p") as HTMLElement | null;
+        // [2026-07-21] 문장(<p>) → 독립 요약 카드(<div>) 로 변경됨.
+        const p = strong?.closest("div") as HTMLElement | null;
         return {
           num: strong?.textContent?.trim() ?? null,
           text: p?.innerText?.replace(/\s+/g, " ").trim() ?? null,
@@ -84,7 +85,7 @@ async function main() {
         };
       });
       ck(`${label} 인정 개수 숫자=30 강조`, rc.num === "30" && Number(rc.fw) >= 700, rc);
-      ck(`${label} "개수/개입니다" 문구·"갯수" 아님`, !!rc.text && rc.text.includes("인정 개수는") && rc.text.includes("개입니다") && !rc.text.includes("갯수"), { text: rc.text });
+      ck(`${label} "활동 인정 개수" 문구·"갯수" 아님`, !!rc.text && rc.text.includes("활동 인정 개수") && rc.text.includes("개") && !rc.text.includes("갯수"), { text: rc.text });
 
       // 기존 버튼 유지.
       ck(`${label} 오픈확인/초기화/주차검수 버튼`, !!(await page.$("[data-open-confirm-button]")) && !!(await page.$("[data-hub-reset-button]")) && !!(await page.$("[data-review-button]")));

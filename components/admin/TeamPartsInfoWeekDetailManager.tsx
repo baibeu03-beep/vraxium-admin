@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { CheckCircle2, AlarmClock, ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -1044,6 +1044,9 @@ export default function TeamPartsInfoWeekDetailManager({
 
   const [reviewed, setReviewed] = useState(false);
   const [openConfirmed, setOpenConfirmed] = useState(false);
+  // [오픈 확인] 재실행 후 상세 DTO 재조회 트리거 — reopenable/reviewStatus/N 을 서버 확정값으로 재정합.
+  const [detailReloadTick, setDetailReloadTick] = useState(0);
+  const router = useRouter();
   // [활동 인정 개수 N] 라이브 미리보기 — 체크 상태 변경 시 서버(prepareWeekRecognition 동일 산식)로
   //   재계산한 값. null 이면 아직 계산 전/미적용 → 저장값·기본값으로 폴백. featureAvailable=false 면
   //   저장 흐름과 동일하게 N 을 확정하지 않는다(표시는 기본값 폴백).
@@ -1164,7 +1167,7 @@ export default function TeamPartsInfoWeekDetailManager({
     return () => {
       cancelled = true;
     };
-  }, [club, mode, weekId]);
+  }, [club, mode, weekId, detailReloadTick]);
 
   // [액트 체크 관리] 탭 활성 시(또는 오픈 확인 후) act-check-management 조회.
   useEffect(() => {
@@ -1350,31 +1353,63 @@ export default function TeamPartsInfoWeekDetailManager({
       setBanner({ kind: "success", message: "오픈 설정이 저장되었습니다." });
       // 액트 체크 관리 탭 "가동" 상태가 오픈 설정 기준으로 갱신되도록 재조회 트리거.
       setActRefresh((n) => n + 1);
+      // 상세 DTO 재조회 — reopenable/reviewStatus/N 을 서버 확정값으로 재정합(optimistic patch 보정).
+      setDetailReloadTick((n) => n + 1);
+      // [개별] 라인 개설·프로세스 체크 등 서버 컴포넌트가 최신 오픈 설정을 반영하도록 라우터 갱신
+      //   (새 캐시 레이어 없이 no-store 재조회 유도 — 강제 새로고침 불필요).
+      router.refresh();
     } catch (e) {
       console.error("[team-parts] open-confirm failed", e);
-      setBanner({ kind: "error", message: "오픈 확인 실패" });
+      setBanner({ kind: "error", message: "클럽 활동 진행 실패" });
     } finally {
       setConfirming(false);
     }
   };
 
-  // [오픈 확인] 버튼 클릭 게이트 — 과거(종료된) 주차면 바로 저장하지 않고 재확인 모달을 먼저 연다.
-  //   현재/미래 주차는 기존 동작 그대로(모달 없이 즉시 onOpenConfirm). 저장 로직·API·DTO 는 무변경.
+  // [오픈 확인] 버튼 클릭 게이트.
+  //   ① 이미 오픈 확인된 주차의 **재실행** — 즉시 저장하지 않고 경고 모달을 먼저 연다(§3). 재실행 불가
+  //      (목요일 00:01 KST 경과·검수 완료)면 서버가 409 로 차단하지만 여기서도 방어적으로 막는다.
+  //   ② 최초 확인 — 과거(종료된) 주차면 기존 주의 모달, 현재/미래는 즉시 저장(기존 동작 불변).
   const handleOpenConfirmClick = () => {
     if (!club || readOnly || confirming) return;
+    if (openConfirmed) {
+      // 재실행 불가면 아무 것도 하지 않는다(버튼도 비활성이나 이중 방어).
+      if (data?.managedWeek.reopenable === false) return;
+      void adminDialog.confirm({
+        variant: "danger",
+        title: "오픈 확인을 다시 진행하시겠습니까?",
+        confirmLabel: "계속 진행",
+        description: (
+          <div className="space-y-2 leading-relaxed">
+            <p className="rounded-md bg-amber-50 px-3 py-2 font-medium text-amber-800 dark:bg-amber-500/10 dark:text-amber-400">
+              이미 오픈 확인이 완료된 주차입니다.
+            </p>
+            <p>
+              다시 진행하면 <b>변경 시점 이후</b>의 오픈 액트와 활동 인정 개수가 변경됩니다.
+            </p>
+            <p>
+              변경 시점 이전의 <b>활동 기록과 지급된 포인트</b>는 그대로 유지됩니다.
+            </p>
+            <p>계속 진행하시겠습니까?</p>
+          </div>
+        ),
+        onConfirm: onOpenConfirm,
+      });
+      return;
+    }
     if (data?.managedWeek.weekPhase === "past") {
       // 과거(종료된) 주차 — 공통 adminDialog(danger)로 재확인. 확인 시에만 저장(onOpenConfirm).
       void adminDialog.confirm({
         variant: "danger",
-        title: "지난 주차의 오픈 상태를 변경하시겠습니까?",
-        confirmLabel: "그래도 변경",
+        title: "지난 주차의 클럽 활동 진행을 다시 실행하시겠습니까?",
+        confirmLabel: "그래도 실행",
         description: reviewed ? (
           <div className="space-y-2 leading-relaxed">
             <p className="rounded-md bg-rose-50 px-3 py-2 font-medium text-rose-700 dark:bg-rose-500/10 dark:text-rose-400">
               이미 검수가 완료된 주차입니다.
             </p>
             <p>
-              오픈 확인을 다시 진행한 뒤 <b>주차 검수를 다시 실행</b>하면 최신{" "}
+              클럽 활동 진행을 다시 실행한 뒤 <b>주차 검수를 다시 실행</b>하면 최신{" "}
               <b>주차 성공 기준(N)</b>으로 재판정되어 기존 <b>성공·실패 결과와 포인트</b>가 달라질
               수 있습니다.
             </p>
@@ -1386,7 +1421,7 @@ export default function TeamPartsInfoWeekDetailManager({
               이미 종료된 주차입니다.
             </p>
             <p>
-              오픈 확인을 다시 진행하면 이 주차의 <b>주차 성공 기준(활동 인정 개수 N)</b>이 새로
+              클럽 활동 진행을 다시 실행하면 이 주차의 <b>주차 성공 기준(활동 인정 개수 N)</b>이 새로
               계산됩니다.
             </p>
             <p>
@@ -1428,7 +1463,7 @@ export default function TeamPartsInfoWeekDetailManager({
       ),
     );
     setCompChecked(false);
-    setBanner({ kind: "success", message: "허브 선택을 기본값으로 초기화했습니다. [오픈 확인]을 눌러 저장하세요." });
+    setBanner({ kind: "success", message: "허브 선택을 기본값으로 초기화했습니다. [클럽 활동 진행]을 눌러 저장하세요." });
   };
 
   // 단일 요청(검수 완료/실행 취소) 동안 진행 상태를 하단 고정 "로딩 토스트"로 지속 표시한다.
@@ -1844,18 +1879,38 @@ export default function TeamPartsInfoWeekDetailManager({
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  {/* 기존 '오픈 확인' 버튼 — 그대로 유지(대체/이름변경 금지). */}
+                  {/* [문구 변경 2026-07-21] 버튼 표시명 '오픈 확인' → '클럽 활동 진행'.
+                      동작/클릭 핸들러(handleOpenConfirmClick)·data 속성·help key 는 무변경. */}
                   <span className="inline-flex items-center gap-1">
                     <Button
                       type="button"
                       data-open-confirm-button
                       onClick={handleOpenConfirmClick}
-                      disabled={readOnly || confirming}
+                      // 재실행 차단(이미 확인됨 && reopenable=false) 시 버튼 비활성. 최초 확인은 항상 가능.
+                      //   실제 강제는 서버(open-confirm 라우트 409) — 여기는 UI 편의.
+                      disabled={
+                        readOnly ||
+                        confirming ||
+                        (openConfirmed && managedWeek?.reopenable === false)
+                      }
+                      title={
+                        openConfirmed && managedWeek?.reopenable === false
+                          ? managedWeek?.reopenBlockedReason ?? undefined
+                          : undefined
+                      }
                       className="cursor-pointer bg-slate-800 text-white hover:bg-slate-700"
                     >
-                      {confirming ? "저장 중…" : "오픈 확인"}
+                      {confirming ? "저장 중…" : "클럽 활동 진행"}
                     </Button>
-                    <AdminHelpIconButton helpKey={`${HELP}.action.openConfirm`} title="오픈 확인" />
+                    <AdminHelpIconButton helpKey={`${HELP}.action.openConfirm`} title="클럽 활동 진행" />
+                    {openConfirmed && managedWeek?.reopenable === false && managedWeek?.reopenBlockedReason ? (
+                      <span
+                        data-open-confirm-blocked
+                        className="text-xs text-muted-foreground"
+                      >
+                        {managedWeek.reopenBlockedReason}
+                      </span>
+                    ) : null}
                   </span>
 
                   {/* 과거(종료된) 주차 [오픈 확인] 재확인 모달 — 취소 시 API 미전송·기존 상태 유지.
@@ -1881,37 +1936,40 @@ export default function TeamPartsInfoWeekDetailManager({
                   {readOnly ? (
                     <ReadOnlyStatusPill
                       done={openConfirmed}
-                      doneLabel="오픈 확인 완료"
-                      pendingLabel="오픈 확인 전"
+                      doneLabel="클럽 활동 진행 완료"
+                      pendingLabel="클럽 활동 진행 전"
                       dataAttr="data-open-confirmed"
                     />
                   ) : openConfirmed ? (
                     <span className="inline-flex items-center gap-1" data-open-confirmed="true">
                       <CheckV />
-                      <AdminHelpIconButton helpKey={`${HELP}.status.openConfirm`} title="오픈 확인 상태" />
+                      <AdminHelpIconButton helpKey={`${HELP}.status.openConfirm`} title="클럽 활동 진행 상태" />
                     </span>
                   ) : null}
                 </div>
               </div>
 
-              {/* 이번 주 활동 인정 개수 — 헤더 아래 별도의 보조 안내 행(큰 배지/별도 카드 아님).
-                  숫자 N 만 강조. 값은 [임시] 기본값(recognitionCount) — 계산 연결은 Phase 3. */}
-              <p className="inline-flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
-                <span>
-                  이번 주 활동 인정 개수는{" "}
+              {/* 이번 주 활동 인정 개수 — 독립된 사각형 요약 카드로 숫자를 크게 강조한다.
+                  값(recognitionCount)·산식·data 속성은 무변경 — 표시 레이아웃만 확대한다.
+                  작은 화면에서는 라벨/숫자가 자연 줄바꿈(flex-wrap)되어 상단 레이아웃을 깨지 않는다. */}
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-sky-200 bg-sky-50/60 px-5 py-4 dark:border-sky-900/60 dark:bg-sky-950/30">
+                <span className="inline-flex items-center gap-1 text-sm font-semibold text-muted-foreground">
+                  이번 주 활동 인정 개수
+                  <AdminHelpIconButton
+                    helpKey={`${HELP}.section.recognitionCount`}
+                    title="이번 주 활동 인정 개수"
+                  />
+                </span>
+                <span className="inline-flex min-w-[4rem] items-baseline justify-center gap-1">
                   <strong
                     data-week-recognition-count="true"
-                    className="font-extrabold text-foreground"
+                    className="text-4xl font-extrabold tabular-nums leading-none text-foreground md:text-5xl"
                   >
                     {recognitionCount}
                   </strong>
-                  개입니다.
+                  <span className="text-base text-muted-foreground">개</span>
                 </span>
-                <AdminHelpIconButton
-                  helpKey={`${HELP}.section.recognitionCount`}
-                  title="이번 주 활동 인정 개수"
-                />
-              </p>
+              </div>
 
               {/* 허브별로 라인 급(체크)→(7) 액트 체크 / 라인(개설)→(8) 라인 개설 을 독립 열로 분리.
                   카드 배경색은 "허브 기준"으로 통일 — 실무 정보=sky · 실무 경험=amber · 실무 역량=violet · 클럽 총괄=emerald.

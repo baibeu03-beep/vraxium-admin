@@ -161,9 +161,12 @@ const CREW_CELLS: { key: keyof TeamCrewLike; label: string; helpKey: string }[] 
 export function TeamCurrentCrewStrip({
   teamHalfId,
   crew,
+  clubbingLabel,
 }: {
   teamHalfId: string;
   crew?: TeamCrewLike;
+  // 클러빙 셀의 표시 문구(기본 "클러빙"). 집계 값·기준은 동일 — 화면 문구만 바꾼다(예: 팀 상세="전체 크루").
+  clubbingLabel?: string;
 }) {
   return (
     <div
@@ -176,7 +179,9 @@ export function TeamCurrentCrewStrip({
           data-team-current-crew-cell={c.key}
           className="flex items-center gap-2 whitespace-nowrap"
         >
-          <span className="text-sm text-muted-foreground">· {c.label}</span>
+          <span className="text-sm text-muted-foreground">
+            · {c.key === "clubbingCount" ? clubbingLabel ?? c.label : c.label}
+          </span>
           <strong className="text-base font-bold tabular-nums text-foreground">
             {crew ? crew[c.key] : "–"}
           </strong>
@@ -202,10 +207,14 @@ export function TeamPartWeekMatrix({
   teamName,
   matrix,
   weekColumns,
+  currentWeekStartDate,
 }: {
   teamName: string;
   matrix: PartWeekMatrixLike | null;
   weekColumns: PartWeekColumnLike[];
+  // 현재 주차 시작일 — 이 주차에 운용(●) 중인 파트 "행 전체"를 강조한다. 표 반기에 현재 주차가
+  //   없으면 null(강조 없음). 과거 주차 체크만 있는 행은 강조하지 않는다(현재 주차 셀 기준).
+  currentWeekStartDate?: string | null;
 }) {
   if (!matrix || weekColumns.length === 0) {
     return (
@@ -214,6 +223,10 @@ export function TeamPartWeekMatrix({
       </div>
     );
   }
+  // 현재 주차 컬럼 인덱스(표 반기에 포함될 때만 ≥0). 그 컬럼에 ● 인 파트 행만 현재 운용으로 강조.
+  const currentWeekIdx = currentWeekStartDate
+    ? weekColumns.findIndex((c) => c.weekStartDate === currentWeekStartDate)
+    : -1;
   return (
     <div
       className="overflow-x-auto rounded-md border border-zinc-200"
@@ -245,28 +258,46 @@ export function TeamPartWeekMatrix({
           </tr>
         </thead>
         <tbody>
-          {matrix.partNames.map((p, pi) => (
-            <tr key={p} data-pw-row={p}>
-              <td className="sticky left-0 z-10 border-b border-r bg-white px-2 py-1 font-medium whitespace-nowrap">
-                {p}
-              </td>
-              {weekColumns.map((c, wi) => {
-                const on = Boolean(matrix.present[pi]?.[wi]);
-                return (
-                  <td
-                    key={c.weekStartDate}
-                    data-pw-cell={on ? "1" : "0"}
-                    className={
-                      "border-b border-r px-1.5 py-1 text-center " +
-                      (c.isRest ? "bg-zinc-50/60" : "")
-                    }
-                  >
-                    {on ? <span className="text-emerald-600">●</span> : ""}
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
+          {matrix.partNames.map((p, pi) => {
+            // 현재 주차 운용 = 현재 주차 컬럼에 ● 인 파트. 표현은 "파트명 셀만" 강조한다
+            //   (행 전체·빈 칸 색칠 금지). 각 데이터 셀의 배경은 그 셀 자체의 운용 여부(on)로만 결정.
+            const currentWeekOperated =
+              currentWeekIdx >= 0 && Boolean(matrix.present[pi]?.[currentWeekIdx]);
+            return (
+              <tr
+                key={p}
+                data-pw-row={p}
+                data-pw-current-operated={currentWeekOperated ? "1" : "0"}
+              >
+                <td
+                  className={
+                    "sticky left-0 z-10 border-b border-r px-2 py-1 whitespace-nowrap " +
+                    (currentWeekOperated
+                      ? "bg-emerald-100 font-bold text-emerald-800"
+                      : "bg-white font-medium")
+                  }
+                >
+                  {p}
+                </td>
+                {weekColumns.map((c, wi) => {
+                  // 셀 배경은 그 칸 자체의 운용 여부(on)만 반영 — 빈 칸(data-pw-cell="0")은 배경 없음.
+                  const on = Boolean(matrix.present[pi]?.[wi]);
+                  return (
+                    <td
+                      key={c.weekStartDate}
+                      data-pw-cell={on ? "1" : "0"}
+                      className={
+                        "border-b border-r px-1.5 py-1 text-center " +
+                        (on ? "bg-emerald-50/60 " : c.isRest ? "bg-zinc-50/60 " : "")
+                      }
+                    >
+                      {on ? <span className="text-emerald-600">●</span> : ""}
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

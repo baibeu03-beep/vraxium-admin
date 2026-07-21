@@ -21,6 +21,9 @@ import {
   type SavedConfig,
 } from "@/lib/adminTeamPartsInfoWeekDetailData";
 import { loadLinePointConfigs } from "@/lib/weekRecognitionConfig";
+import { resolveConfigAtTime, type ActOpenTimeline } from "@/lib/weekOpenGate";
+import { resolveRegularActOccurredAtMs } from "@/lib/regularActRequiredAt";
+import { loadWeekOpeningTimeline } from "@/lib/weekOpeningTimeline";
 import {
   computeWeekRecognitionCount,
   RECOGNITION_CALC_VERSION,
@@ -65,16 +68,23 @@ export async function resolveRecognitionInputs(opts: {
   organization: OrganizationSlug;
   config: SavedConfig;
   openConfirmed: boolean;
+  // [오픈 확인] 재실행 타임라인 — 주어지면 액트 가동을 "그 액트 occur 시각에 유효한 버전"으로 판정한다.
+  //   미지정(레거시 스크립트 등)이면 단일 config 로 판정(기존 동작). 라인은 항상 최신 config(=opts.config).
+  timeline?: ActOpenTimeline;
+  weekStart?: string | null;
 }): Promise<{
   acts: RecognitionActInput[];
   lines: RecognitionLineInput[];
   pointConfigAvailable: boolean;
   missing: MissingPointConfig[];
 }> {
-  const { weekId, organization, config, openConfirmed } = opts;
+  const { weekId, organization, config, openConfirmed, timeline, weekStart } = opts;
+  // 액트를 타임라인으로 판정할지 여부 — 테이블 적용 && weekStart 있음 && 타임라인 전달.
+  const useTimeline =
+    timeline != null && timeline.timelineAvailable && weekStart != null && weekStart !== "";
   // 팀 집합 = 저장된 config 키(SoT). listTeams(mode) 불필요 → operating/test 분기 없음.
+  //   라인은 최신 config(opts.config)의 팀 키를 쓴다(액트는 판정 config 별로 아래에서 별도 산출).
   const lineTeamIds = Object.keys(config.practicalExperience ?? {});
-  const actTeamIds = Object.keys(config.actCheck?.experience ?? {});
   const pointCfg = await loadLinePointConfigs(organization);
   const lines: RecognitionLineInput[] = [];
   const acts: RecognitionActInput[] = [];
@@ -127,30 +137,45 @@ export async function resolveRecognitionInputs(opts: {
   //   액트 포인트는 process_acts 고유값(별도 config 없음) → 미설정 검사 대상 아님.
   const { data: actData } = await supabaseAdmin
     .from("process_acts")
-    .select("id, hub, act_type, point_check, point_advantage, line_group_id")
+    .select("id, hub, act_type, point_check, point_advantage, line_group_id, occur_week, occur_dow, occur_time")
     .in("hub", ["info", "experience", "competency", "club"])
     .eq("is_active", true)
     .eq("check_target", "check");
   const actRows = (actData ?? []) as Array<{
     id: string; hub: string; act_type: ActType | null; point_check: number | null; point_advantage: number | null; line_group_id: string | null;
+    occur_week: string | null; occur_dow: number | null; occur_time: string | null;
   }>;
-  const compChecked = config.practicalCompetency?.checked === true;
   for (const a of actRows) {
     const actType: ActType = a.act_type ?? "basic";
     const base = { actType, pointA: a.point_check ?? 0, pointB: a.point_advantage ?? 0 };
+    // 이 액트의 판정 config — 타임라인이면 occur 시각에 유효한 버전, 아니면 전달된 단일 config.
+    //   openConfirmed 도 타임라인이면 live 마스터 스위치(timeline.openConfirmed)를 쓴다.
+    let cfg = config;
+    let oc = openConfirmed;
+    if (useTimeline) {
+      oc = timeline!.openConfirmed;
+      const occurMs = resolveRegularActOccurredAtMs({
+        weekStart: weekStart!, occurWeek: a.occur_week, occurDow: a.occur_dow, occurTime: a.occur_time,
+      });
+      // occurMs 부재(예외 액트)면 최신 config 폴백(오늘 동작·안전).
+      const at = occurMs != null ? resolveConfigAtTime(timeline!.versions, occurMs) : null;
+      cfg = at ?? timeline!.latestConfig ?? config;
+    }
     if (a.hub === "experience") {
       // team/part scope 구분 없음(포인트=process_acts 고유값·team 무관) → 동일 act_id 는 조직·주차당
       //   최대 1회만 합산한다. "팀 시작"/"파트 시작"은 서로 다른 act_id 라 각각 1회씩 반영된다.
       //   isOpen = 어느 한 팀이라도 그 라인급(line_group_id)을 체크. (2026-07-19 정책: 팀 중복 폐기.)
+      //   팀 집합은 판정 config(cfg) 의 actCheck.experience 키에서 얻는다(버전별 상이 가능).
+      const cfgTeamIds = Object.keys(cfg.actCheck?.experience ?? {});
       const open =
-        openConfirmed &&
-        actTeamIds.some((teamId) => actChecked(config.actCheck?.experience?.[teamId]?.[a.line_group_id ?? ""]));
+        oc &&
+        cfgTeamIds.some((teamId) => actChecked(cfg.actCheck?.experience?.[teamId]?.[a.line_group_id ?? ""]));
       acts.push({ id: `act:${a.id}`, isOpen: open, ...base });
     } else {
-      let open = openConfirmed;
-      if (a.hub === "info") open = open && actChecked(config.actCheck?.info?.[a.line_group_id ?? ""]);
-      else if (a.hub === "club") open = open && actChecked(config.actCheck?.club?.[a.line_group_id ?? ""]);
-      else if (a.hub === "competency") open = open && compChecked;
+      let open = oc;
+      if (a.hub === "info") open = open && actChecked(cfg.actCheck?.info?.[a.line_group_id ?? ""]);
+      else if (a.hub === "club") open = open && actChecked(cfg.actCheck?.club?.[a.line_group_id ?? ""]);
+      else if (a.hub === "competency") open = open && cfg.practicalCompetency?.checked === true;
       acts.push({ id: `act:${a.id}`, isOpen: open, ...base });
     }
   }
@@ -217,18 +242,53 @@ export async function prepareWeekRecognition(opts: {
   weekId: string;
   organization: OrganizationSlug;
   config: SavedConfig;
+  // [오픈 확인] 저장 경로에서 넘기는 확정 시각(ms). 저장되는 버전 effective_from 과 동일해야 N 의
+  //   시점 경계가 정확히 일치한다. 미지정(미리보기)이면 Date.now().
+  effectiveFromMs?: number;
 }): Promise<{
   featureAvailable: boolean;
   result: RecognitionCountResult;
   missing: MissingPointConfig[];
 }> {
-  const [{ acts, lines, pointConfigAvailable, missing }, columnsAvailable] = await Promise.all([
-    resolveRecognitionInputs({ ...opts, openConfirmed: true }),
+  const nowMs = opts.effectiveFromMs ?? Date.now();
+  // 예상 타임라인 = 기존 확정 버전들 + 이번 확정(후보 config @ nowMs). 액트는 occur 시각에 유효한
+  //   버전으로 판정된다 — 변경 이전 액트는 구버전 유지, 이후 액트만 후보 config 적용(§8 실제 가동 기준 N).
+  //   테이블 미적용이면 timelineAvailable=false → resolveRecognitionInputs 가 단일 config 로 폴백(오늘 동작).
+  const [existing, weekStart, columnsAvailable] = await Promise.all([
+    loadWeekOpeningTimeline(opts.weekId, opts.organization),
+    loadWeekStartDate(opts.weekId),
     loadRecognitionColumnsAvailable(),
   ]);
+  const prospective: ActOpenTimeline = {
+    openConfirmed: true,
+    latestConfig: opts.config,
+    versions: existing.timelineAvailable
+      ? [...existing.versions, { config: opts.config, effectiveFromMs: nowMs }]
+      : [],
+    timelineAvailable: existing.timelineAvailable,
+  };
+  const { acts, lines, pointConfigAvailable, missing } = await resolveRecognitionInputs({
+    weekId: opts.weekId,
+    organization: opts.organization,
+    config: opts.config,
+    openConfirmed: true,
+    timeline: prospective,
+    weekStart,
+  });
   const featureAvailable = pointConfigAvailable && columnsAvailable;
   const result = computeWeekRecognitionCount({ acts, lines });
   return { featureAvailable, result, missing };
+}
+
+// 주차 월요일(start_date) 조회 — 액트 occur 시각 산출용. 없거나 오류면 null(타임라인 미사용 폴백).
+async function loadWeekStartDate(weekId: string): Promise<string | null> {
+  const { data, error } = await supabaseAdmin
+    .from("weeks")
+    .select("start_date")
+    .eq("id", weekId)
+    .maybeSingle();
+  if (error) return null;
+  return (data as { start_date: string | null } | null)?.start_date ?? null;
 }
 
 // A/B/N upsert payload(단일 원자 write 에 병합). featureAvailable 일 때만 컬럼 포함(미적용 시 생략=무회귀).

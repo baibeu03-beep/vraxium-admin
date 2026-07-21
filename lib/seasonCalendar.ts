@@ -105,6 +105,20 @@ export function hasWeekStartedKst(
   return nowMs >= weekStartToBoundaryMs(weekStartMs);
 }
 
+// N주 "목요일 00:01 KST" 경계 ms — 그 주 월요일(week_start_date) + 3일, 월요일 경계와 동일한
+//   00:01 KST 규칙(weekStartToBoundaryMs). [오픈 확인] 재실행 마감(이 시각 이후 재실행 불가)의 SoT.
+//   week_start_date = "YYYY-MM-DD"(월요일). 잘못된 입력은 NaN 반환(호출부 fail-closed).
+export function weekThursdayBoundaryMs(weekStartDateIso: string | null | undefined): number {
+  if (!weekStartDateIso) return Number.NaN;
+  const weekStartMs = Date.UTC(
+    +weekStartDateIso.slice(0, 4),
+    +weekStartDateIso.slice(5, 7) - 1,
+    +weekStartDateIso.slice(8, 10),
+  );
+  if (Number.isNaN(weekStartMs)) return Number.NaN;
+  return weekStartToBoundaryMs(weekStartMs) + 3 * 24 * 60 * 60 * 1000;
+}
+
 export function getSeasonCalendar(year: number): Season[] {
   const yearOffset = year - 2023;
   let cursor = ANCHOR_MS + yearOffset * 364 * DAY_MS;

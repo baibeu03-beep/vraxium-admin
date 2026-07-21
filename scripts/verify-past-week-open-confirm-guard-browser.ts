@@ -81,7 +81,7 @@ async function main() {
   await page.waitForTimeout(300);
   ck("[과거] 클릭 시 모달 표시", !!(await page.$("[data-admin-dialog]")));
   const title = await page.$eval("[data-admin-dialog] h2", (e: any) => e.textContent).catch(() => null);
-  ck("[과거] 모달 제목 '지난 주차의 오픈 상태를 변경하시겠습니까?'", (title ?? "").includes("지난 주차의 오픈 상태를 변경"), { title });
+  ck("[과거] 모달 제목 '지난 주차의 클럽 활동 진행을 다시 실행하시겠습니까?'", (title ?? "").includes("지난 주차의 클럽 활동 진행을 다시 실행"), { title });
   ck("[과거] 모달 표시 시점 요청 0", calls.length === 0, { calls: calls.length });
 
   // 취소 → 모달 닫힘·요청 0

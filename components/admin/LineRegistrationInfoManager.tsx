@@ -28,6 +28,7 @@ import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import LineRegistrationEditModal from "@/components/admin/LineRegistrationEditModal";
+import { ClubBadge, HubBadge } from "@/components/admin/LineRegistrationBadges";
 import {
   Table,
   TableBody,
@@ -810,14 +811,21 @@ export default function LineRegistrationInfoManager({
                   const href = normalizeUnitHref(row.unitLink);
                   return (
                     <TableRow key={row.id}>
-                      <TableCell>{clubKo(displayClub)}</TableCell>
+                      {/* 적용 클럽 — 표시 배지(색상 매핑 SoT = LineRegistrationBadges).
+                          정렬/필터/원본값은 무변경(clubKo·displayClub 그대로 사용). */}
+                      <TableCell>
+                        <ClubBadge value={displayClub}>{clubKo(displayClub)}</ClubBadge>
+                      </TableCell>
                       <TableCell className="font-mono text-xs">{row.lineCode}</TableCell>
                       <TableCell className="max-w-72 font-medium">
                         <span className="block truncate" title={row.lineName}>
                           {row.lineName}
                         </span>
                       </TableCell>
-                      <TableCell>{row.hubLabel}</TableCell>
+                      {/* 소속 허브 — 각진 배지(흰 글자). hub enum 으로 색상 매핑. */}
+                      <TableCell>
+                        <HubBadge hub={row.hub}>{row.hubLabel}</HubBadge>
+                      </TableCell>
                       <TableCell>{row.lineType}</TableCell>
                       {/* 소요 시간 — 공통 formatter 단일 SoT. 미설정(null)은 '-'(회색). */}
                       <TableCell className="text-center tabular-nums">

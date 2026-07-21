@@ -77,6 +77,9 @@ import {
   clearWeekRecognition,
   loadWeekRecognitionCount,
 } from "@/lib/weekRecognitionResolve";
+import { resolveReopenEligibility } from "@/lib/weekReopenPolicy";
+import { loadWeekOpeningTimeline } from "@/lib/weekOpeningTimeline";
+import { RECOGNITION_CALC_VERSION } from "@/lib/weekRecognitionCount";
 
 // 검수 완료/실행 취소의 사후 재계산(고객 snapshot·성장 캐시) 동시성 상한.
 //   snapshot 1건 ≈ 5s(실측 2026-07-09) 라 코호트가 크면 concurrency 가 벽시계를 좌우한다.
@@ -148,6 +151,11 @@ export type TeamPartsInfoWeekDetailData = {
     // 주차별 활동 인정 개수 N(오픈확인 시점 확정 저장값). 인정 컬럼 미적용/미계산이면 null →
     //   프론트가 Phase1 기본값(DEFAULT_WEEK_RECOGNITION_COUNT)으로 폴백.
     weekRecognitionCount: number | null;
+    // [오픈 확인] 재실행 허용 여부 — 이미 확인된 주차를 "다시 확인"할 수 있는가(N주 목요일 00:01 KST
+    //   이전 && 검수 미완료). 서버 강제(saveWeekOpenConfirm)와 동일 정책(resolveReopenEligibility) 공유 —
+    //   UI 버튼 비활성/안내용. 최초 확인(openConfirmed=false)은 이 값과 무관하게 항상 가능.
+    reopenable: boolean;
+    reopenBlockedReason: string | null;
   };
   openingConfig: {
     // (1)(3)(6) 라인급(체크) — process_line_groups 기반. (7) 액트 체크 관리에만 반영.
@@ -413,6 +421,14 @@ export async function loadTeamPartsInfoWeekDetail(opts: {
       openConfirmed,
       weekPhase,
       weekRecognitionCount,
+      ...(() => {
+        // 재실행 허용 = 목요일 00:01 KST 이전 && 검수 미완료(published 아님). 서버 강제와 동일 SoT.
+        const elig = resolveReopenEligibility({
+          weekStartIso: managedRow.week_start_date,
+          reviewStatus,
+        });
+        return { reopenable: elig.reopenable, reopenBlockedReason: elig.reason };
+      })(),
     },
     openingConfig: {
       actCheck: { info: actCheckInfo, experience: actCheckExperience, club: actCheckClub },
@@ -487,8 +503,33 @@ function normalizeConfig(input: unknown): SavedConfig {
   return out;
 }
 
+// [오픈 확인] 재실행 허용 상태 — 서버 강제(라우트 409)와 DTO/UI 가 공유하는 단일 판정.
+//   openConfirmed=true(이미 확인됨)이고 reopenable=false 면 재실행을 차단해야 한다(목요일 00:01 KST
+//   경과 또는 검수 완료). 최초 확인(openConfirmed=false)은 이 게이트 대상이 아니다.
+//   scope = resolveOrgResultScope(mode) — 통합 화면 DTO(loadReviewStatus)와 동일 scope 로 대칭.
+export async function loadWeekReopenState(opts: {
+  weekId: string;
+  organization: OrganizationSlug;
+  mode: ScopeMode;
+}): Promise<{ openConfirmed: boolean; reopenable: boolean; reopenBlockedReason: string | null }> {
+  const [{ openConfirmed }, wk] = await Promise.all([
+    loadWeekOpeningConfig(opts.weekId, opts.organization),
+    supabaseAdmin.from("weeks").select("start_date").eq("id", opts.weekId).maybeSingle(),
+  ]);
+  const startDate = (wk.data as { start_date: string | null } | null)?.start_date ?? null;
+  const reviewStatus = await loadReviewStatus(
+    opts.weekId,
+    opts.organization,
+    resolveOrgResultScope(opts.mode),
+    startDate,
+  );
+  const elig = resolveReopenEligibility({ weekStartIso: startDate, reviewStatus });
+  return { openConfirmed, reopenable: elig.reopenable, reopenBlockedReason: elig.reason };
+}
+
 // [오픈 확인] — 체크 상태를 주차×클럽 오픈 설정으로 저장하고 open_confirmed=true. review 와 무관.
-//   snapshot 무접촉(cluster4_week_opening_configs 만 write).
+//   재실행 시 버전 이력(cluster4_week_opening_config_versions)에 append + 최신 config 갱신(원자 RPC).
+//   snapshot 무접촉. 과거 체크/포인트 기록 삭제·재생성 없음(config·버전만 write).
 export async function saveWeekOpenConfirm(opts: {
   weekId: string;
   organization: OrganizationSlug;
@@ -508,36 +549,68 @@ export async function saveWeekOpenConfirm(opts: {
 
   const normalized = normalizeConfig(config);
 
+  // 확정 시각 — 저장되는 버전 effective_from == N 계산의 예상 타임라인 경계가 정확히 일치하도록
+  //   서버에서 한 번만 계산해 recognition 계산과 RPC 양쪽에 동일 값을 넘긴다(경계 불일치 방지).
+  const nowMs = Date.now();
+  const nowIso = new Date(nowMs).toISOString();
+
   // [주차별 인정 개수 N] — §4 원자성: 모든 DB write 전에 조회·미설정 검증·계산을 먼저 끝낸다.
   //   featureAvailable(포인트 config 테이블 && recognition 컬럼 둘 다 적용)일 때만:
   //     · 오픈 라인 중 미설정(config row 부재/NULL) 항목이 있으면 fail-closed(422) → 아무것도 저장 안 함.
-  //     · A/B/N 을 오픈확인 config 와 동일 upsert 에 병합 → 단일 원자 write("오픈확인 성공+N 실패" 반쪽 방지).
-  //   미적용(마이그 전)이면 A/B/N 필드를 생략 → 기존 오픈확인 흐름 유지(무회귀). snapshot 무접촉.
-  const recognition = await prepareWeekRecognition({ weekId, organization, config: normalized });
+  //     · A/B/N 을 오픈확인 저장과 함께 병합 → 원자 write("오픈확인 성공+N 실패" 반쪽 방지).
+  //   재실행 정책: N 은 확정 시각(nowMs) 기준 예상 타임라인(기존 버전 + 이번 확정)으로, 실제 가동 액트
+  //   기준으로 계산된다(§8). 미적용(마이그 전)이면 A/B/N 생략 + 단일 config 폴백(무회귀). snapshot 무접촉.
+  const recognition = await prepareWeekRecognition({
+    weekId,
+    organization,
+    config: normalized,
+    effectiveFromMs: nowMs,
+  });
   if (recognition.featureAvailable && recognition.missing.length > 0) {
     throw new WeekDetailWriteError(422, formatMissingPointConfigMessage(recognition.missing));
   }
+  const writeReco = recognition.featureAvailable;
+  const r = recognition.result;
 
-  const upsertRow: Record<string, unknown> = {
-    week_id: weekId,
-    organization_slug: organization,
-    config: normalized as unknown as Record<string, unknown>,
-    open_confirmed: true,
-    open_confirmed_at: new Date().toISOString(),
-    open_confirmed_by: actorId ?? null,
-    ...(recognition.featureAvailable ? recognitionUpsertFields(recognition.result) : {}),
-  };
-  const { error } = await supabaseAdmin
-    .from("cluster4_week_opening_configs")
-    .upsert(upsertRow, { onConflict: "week_id,organization_slug" });
-  if (error) {
-    // 테이블 미적용(마이그레이션 필요) 등.
-    throw new WeekDetailWriteError(500, `오픈 설정 저장 실패: ${error.message}`);
+  // 버전 이력 테이블 적용 여부 probe — 적용됐으면 원자 RPC(버전 append + 최신 config/open_confirmed),
+  //   아니면 기존 단일 upsert(무회귀·graceful degradation).
+  const timeline = await loadWeekOpeningTimeline(weekId, organization);
+  if (timeline.timelineAvailable) {
+    const { error } = await supabaseAdmin.rpc("apply_week_open_confirm", {
+      p_week_id: weekId,
+      p_org: organization,
+      p_config: normalized as unknown as Record<string, unknown>,
+      p_actor: actorId ?? null,
+      p_effective_from: nowIso,
+      p_write_recognition: writeReco,
+      p_min_points_a: writeReco ? r.minimalA : null,
+      p_exec_points_b: writeReco ? r.diligentB : null,
+      p_recognition_count_n: writeReco ? r.recognitionCountN : null,
+      p_recognition_calc_version: writeReco ? RECOGNITION_CALC_VERSION : null,
+    });
+    if (error) throw new WeekDetailWriteError(500, `오픈 설정 저장 실패: ${error.message}`);
+  } else {
+    const upsertRow: Record<string, unknown> = {
+      week_id: weekId,
+      organization_slug: organization,
+      config: normalized as unknown as Record<string, unknown>,
+      open_confirmed: true,
+      open_confirmed_at: nowIso,
+      open_confirmed_by: actorId ?? null,
+      ...(writeReco ? recognitionUpsertFields(r) : {}),
+    };
+    const { error } = await supabaseAdmin
+      .from("cluster4_week_opening_configs")
+      .upsert(upsertRow, { onConflict: "week_id,organization_slug" });
+    if (error) {
+      // 테이블 미적용(마이그레이션 필요) 등.
+      throw new WeekDetailWriteError(500, `오픈 설정 저장 실패: ${error.message}`);
+    }
   }
   // 화면 즉시 갱신용 — featureAvailable 이면 방금 확정된 N, 미적용이면 null(UI 는 기본값 폴백).
   return {
     openConfirmed: true,
-    weekRecognitionCount: recognition.featureAvailable ? recognition.result.recognitionCountN : null,
+    weekRecognitionCount: writeReco ? r.recognitionCountN : null,
   };
 }
 

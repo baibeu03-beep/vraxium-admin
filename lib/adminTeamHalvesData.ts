@@ -101,6 +101,11 @@ export const MAX_TEAMS_PER_CLUB = 10;
 export const MAX_TEAM_NAME_LENGTH = 12;
 export const MAX_TEAM_DESCRIPTION_LENGTH = 200;
 
+// 팀당 "사용자 생성 파트" 최대 개수(신규 정책 — 이전 정책/DB 제약 없음). 시스템 기본 파트 "일반"(is_default)은
+//   이 한도에 포함하지 않는다(생성·삭제 불가·항상 존재). ∴ catalog 최대 = 일반 1 + 생성 6 = 7행.
+export const MAX_CREATED_PARTS = 6;
+export const MAX_PART_NAME_LENGTH = 12;
+
 export type HalfOptionDto = {
   halfKey: string;
   label: string;
@@ -1080,22 +1085,58 @@ export async function loadTeamPartsInfo(
   };
 }
 
+// 팀(team_half_id)의 파트 카탈로그(cluster4_team_parts) — 생성 순서. is_default("일반") 구분 포함.
+//   생성 파트 목록(비-일반) + 파트 생성 중복/한도 검증의 원천.
+async function loadTeamPartCatalog(
+  teamHalfId: string,
+): Promise<Array<{ partName: string; isDefault: boolean; displayOrder: number }>> {
+  const { data, error } = await supabaseAdmin
+    .from("cluster4_team_parts")
+    .select("part_name,is_default,display_order")
+    .eq("team_half_id", teamHalfId);
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as Array<{
+    part_name: string;
+    is_default: boolean | null;
+    display_order: number | null;
+  }>)
+    .map((r) => ({ partName: r.part_name, isDefault: Boolean(r.is_default), displayOrder: r.display_order ?? 0 }))
+    .sort((a, b) => a.displayOrder - b.displayOrder);
+}
+
+// 현재(is_current_week) 주차의 시작일(YYYY-MM-DD) — 매트릭스 "현재 주차 운용 행" 강조 판정용(없으면 null).
+async function resolveCurrentWeekStartDate(today?: string): Promise<string | null> {
+  const { rows } = await loadSeasonWeeks(today);
+  const cur = rows.find((r) => r.is_current_week);
+  const d = cur?.week_start_date ?? null;
+  return d ? String(d).slice(0, 10) : null;
+}
+
 // ── 팀 상세(클럽 상세 → 팀 상세) ────────────────────────────────────────────
-//   anchorTeamHalfId(=클럽 상세 카드가 넘긴 cluster4_team_halves.id)로 팀(org+team_name)을 확정하고,
-//   선택 반기(selectedHalfKey, 기본 현재)의 해당 팀 상세를 반환한다. team_name 이 반기 간 안정 키이므로
-//   반기를 바꿔도 같은 팀을 재해소한다(팀이 그 반기에 없으면 team=null → 표/파트만 비고 크루는 유지).
-//   404(호출부에서 null 로 처리): 미존재 id / 타 org / 비활성(삭제 대기) / 스코프(QA) 불일치.
+//   anchorTeamHalfId(=클럽 상세 카드가 넘긴 cluster4_team_halves.id)로 팀(org+team_name)을 확정한다.
+//   두 시점 기준을 분리해 담는다:
+//     · 현재 접속 시점(현재 반기): 날짜/주차·팀 기본정보·팀장·크루 수·생성 파트 목록·운용 파트 수.
+//     · 선택 반기: 파트×주차 존재표(selectedTeam.partWeekMatrix + weekColumns). 반기 select 만 이걸 바꾼다.
+//   404(호출부에서 null 처리): 미존재 id / 타 org / 비활성(삭제 대기) / 스코프(QA) 불일치.
 export type TeamDetailDto = {
   organization: string;
   teamName: string;
   currentHalfKey: string | null;
   selectedHalfKey: string | null;
-  editable: boolean;
+  editable: boolean; // 선택 반기 편집 가능 여부(현재/다음 반기).
   halves: HalfOptionDto[];
-  team: TeamHalfTeamDto | null; // 선택 반기에 이 팀이 없으면 null.
+  // ── 현재 접속 시점(현재 반기 기준·selectedHalf 무관) ──
+  currentDate: string; // "2026년 7월 21일(화)"
+  currentWeek: TeamPartsInfoSummaryDto["currentWeek"];
+  currentWeekStartDate: string | null; // 매트릭스 현재 주차 강조용
+  team: TeamHalfTeamDto | null; // 현재 반기 팀(기본정보·팀장). 현재 반기에 없으면 null.
+  currentCrew: TeamCurrentCrewSummaryDto; // 클러빙/정규/심화(휴식 포함·userId 고유)
+  generatedParts: string[]; // 생성 파트(현재 반기 catalog 비-일반). "일반"은 제외(시스템 기본).
+  operatedPartCount: number; // 운용 파트 수 = 현재 배정 크루≥1 인 비-일반 파트 고유 수
+  maxCreatedParts: number; // 6 (생성 파트 한도, "일반" 미포함)
+  // ── 선택 반기(파트×주차 존재표) ──
+  selectedTeam: TeamHalfTeamDto | null; // 선택 반기 팀(partWeekMatrix 보유). 그 반기에 없으면 null.
   weekColumns: PartWeekColumnDto[];
-  // 현재 시점 크루 수(팀명 기준·반기 무관) — team 이 null 이어도 유효.
-  currentCrew: TeamCurrentCrewSummaryDto;
 };
 
 export async function loadTeamDetail(opts: {
@@ -1105,7 +1146,7 @@ export async function loadTeamDetail(opts: {
   mode?: ScopeMode;
   today?: string;
 }): Promise<TeamDetailDto | null> {
-  const { organization, anchorTeamHalfId } = opts;
+  const { organization, anchorTeamHalfId, today } = opts;
   const mode = opts.mode ?? "operating";
 
   // 1) 앵커 팀 확정 — id → team_name(org·활성·스코프 검증). 하나라도 어긋나면 null(=404).
@@ -1131,33 +1172,114 @@ export async function loadTeamDetail(opts: {
   if (isQa !== (resolveEffectiveScopeMode(mode) === "test")) return null; // 스코프(QA) 불일치
   const teamName = anchor.team_name;
 
-  // 2) 선택 반기 전체 정보 재사용 → 해당 팀만 추출(matrix·parts·leader·currentCrew 포함).
-  const info = await loadTeamPartsInfo(
-    organization,
-    opts.selectedHalfKey ?? null,
-    opts.today,
-    mode,
-  );
-  const team = info.teams.find((t) => t.teamName === teamName) ?? null;
+  // 2) 현재 접속 시점 기준 — 현재 반기 정보 + 날짜/주차 + 현재 배정 파트 점유.
+  const [currentInfo, week, currentWeekStartDate, occupiedByTeam] = await Promise.all([
+    loadTeamPartsInfo(organization, null, today, mode), // half 미지정 → 현재 반기
+    resolveCurrentWeekInfo(today),
+    resolveCurrentWeekStartDate(today),
+    currentMembershipPartsByTeam(organization, [teamName]),
+  ]);
+  const currentTeam = currentInfo.teams.find((t) => t.teamName === teamName) ?? null;
 
-  // 3) 현재 시점 크루 — team 이 있으면 그 값(이미 계산됨), 없으면 team_name 으로 별도 계산.
+  // 3) 선택 반기 — 현재와 같으면 재사용, 다르면 별도 로드(매트릭스만 이걸 사용).
+  const selectedKey =
+    opts.selectedHalfKey && isHalfKey(opts.selectedHalfKey) ? opts.selectedHalfKey : null;
+  const selectedInfo =
+    selectedKey && selectedKey !== currentInfo.selectedHalfKey
+      ? await loadTeamPartsInfo(organization, selectedKey, today, mode)
+      : currentInfo;
+  const selectedTeam = selectedInfo.teams.find((t) => t.teamName === teamName) ?? null;
+
+  // 4) 생성 파트(현재 반기 catalog 비-일반) + 운용 파트 수(현재 배정 비-일반 고유).
+  const generatedParts = currentTeam
+    ? (await loadTeamPartCatalog(currentTeam.teamHalfId))
+        .filter((p) => !p.isDefault)
+        .map((p) => p.partName)
+    : [];
+  const operatedPartCount = new Set(
+    (occupiedByTeam.get(teamName) ?? []).filter((p) => p !== DEFAULT_PART_NAME),
+  ).size;
+
   const currentCrew =
-    team?.currentCrew ??
-    (await loadTeamCurrentCrewByName(organization, [teamName], mode)).get(
-      teamName,
-    ) ?? { clubbingCount: 0, regularCrewCount: 0, advancedCrewCount: 0 };
+    currentTeam?.currentCrew ??
+    (await loadTeamCurrentCrewByName(organization, [teamName], mode)).get(teamName) ?? {
+      clubbingCount: 0,
+      regularCrewCount: 0,
+      advancedCrewCount: 0,
+    };
 
   return {
     organization,
     teamName,
-    currentHalfKey: info.currentHalfKey,
-    selectedHalfKey: info.selectedHalfKey,
-    editable: info.editable,
-    halves: info.halves,
-    team,
-    weekColumns: info.weekColumns,
+    currentHalfKey: currentInfo.currentHalfKey,
+    selectedHalfKey: selectedInfo.selectedHalfKey,
+    editable: selectedInfo.editable,
+    halves: selectedInfo.halves,
+    currentDate: week.currentDate,
+    currentWeek: week.currentWeek,
+    currentWeekStartDate,
+    team: currentTeam,
     currentCrew,
+    generatedParts,
+    operatedPartCount,
+    maxCreatedParts: MAX_CREATED_PARTS,
+    selectedTeam,
+    weekColumns: selectedInfo.weekColumns,
   };
+}
+
+// ── 파트 생성 ────────────────────────────────────────────────────────────
+//   현재 반기 팀(team_name)에 사용자 생성 파트를 추가한다. "일반"은 시스템 기본이라 별도.
+//   검증: org 접근(호출부 guard)·팀 존재/활성/스코프·현재 반기 편집 가능·이름(trim/빈값/길이/중복)·한도(6).
+//   새 파트는 크루 0명(운용 파트 아님) — 카탈로그 레코드만 추가한다(배정/파트장/운용 수 무변경).
+export async function createTeamPart(opts: {
+  organization: OrganizationSlug;
+  anchorTeamHalfId: string;
+  name: string;
+  mode?: ScopeMode;
+  today?: string;
+}): Promise<{ partName: string }> {
+  const { organization, anchorTeamHalfId, today } = opts;
+  const mode = opts.mode ?? "operating";
+  const name = (opts.name ?? "").trim();
+
+  if (name.length === 0) throw new TeamHalfWriteError(400, "파트명을 입력하세요.");
+  if (name.length > MAX_PART_NAME_LENGTH)
+    throw new TeamHalfWriteError(400, `파트명은 최대 ${MAX_PART_NAME_LENGTH}자까지 가능합니다.`);
+  if (name === DEFAULT_PART_NAME)
+    throw new TeamHalfWriteError(422, `"${DEFAULT_PART_NAME}"은 시스템 기본 파트라 생성할 수 없습니다.`);
+
+  // 앵커 → team_name 확정(loadTeamDetail 과 동일 검증).
+  const detail = await loadTeamDetail({ organization, anchorTeamHalfId, mode, today });
+  if (!detail) throw new TeamHalfWriteError(404, "팀을 찾을 수 없습니다.");
+  const currentTeam = detail.team;
+  if (!currentTeam) throw new TeamHalfWriteError(422, "현재 반기에 이 팀이 없어 파트를 생성할 수 없습니다.");
+  if (!detail.editable) throw new TeamHalfWriteError(403, "현재·다음 반기에서만 파트를 생성할 수 있습니다.");
+
+  // 중복·한도(비-일반 생성 파트 기준) 검증.
+  const catalog = await loadTeamPartCatalog(currentTeam.teamHalfId);
+  if (catalog.some((p) => p.partName === name))
+    throw new TeamHalfWriteError(409, "이미 같은 이름의 파트가 있습니다.");
+  const createdCount = catalog.filter((p) => !p.isDefault).length;
+  if (createdCount >= MAX_CREATED_PARTS)
+    throw new TeamHalfWriteError(422, `생성 파트는 팀당 최대 ${MAX_CREATED_PARTS}개까지입니다.`);
+
+  const nextOrder =
+    catalog.reduce((mx, p) => Math.max(mx, p.displayOrder), 0) + 1;
+  const { error } = await supabaseAdmin.from("cluster4_team_parts").insert({
+    team_half_id: currentTeam.teamHalfId,
+    part_name: name,
+    is_default: false,
+    leader_user_id: null, // 새 파트는 파트장 없음.
+    display_order: nextOrder,
+  });
+  if (error) {
+    // UNIQUE(team_half_id, part_name) 경합 → 409.
+    if ((error as { code?: string }).code === "23505")
+      throw new TeamHalfWriteError(409, "이미 같은 이름의 파트가 있습니다.");
+    throw new TeamHalfWriteError(500, error.message);
+  }
+  return { partName: name };
 }
 
 // 현재 반기 팀 목록 저장(순서 포함). 과거 반기는 fail-closed.

@@ -25,7 +25,9 @@
 // ─────────────────────────────────────────────────────────────────────
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { isActOpenForWeek } from "@/lib/weekOpenGate";
+import { isActOpenAtTime, type ActOpenTimeline, type TimelineVersion } from "@/lib/weekOpenGate";
+import { resolveRegularActOccurredAtMs } from "@/lib/regularActRequiredAt";
+import type { SavedConfig } from "@/lib/adminTeamPartsInfoWeekDetailData";
 import { listTeams } from "@/lib/adminExperienceLineData";
 import { effectiveIrregularStatus } from "@/lib/adminProcessIrregularTypes";
 import { getCurrentWeekStartMs } from "@/lib/cluster4WeekPolicy";
@@ -47,15 +49,16 @@ type ActRow = {
   hub: string;
   line_group_id: string | null;
   check_target: string | null;
+  occur_week: string | null;
+  occur_dow: number | null;
+  occur_time: string | null;
 };
-
-type SavedConfig = Parameters<typeof isActOpenForWeek>[0]["config"];
 
 type WeekConfig = {
   /** config 행 존재 여부 — 없으면 게이트 미적용(이력 보존). */
   hasRow: boolean;
-  openConfirmed: boolean;
-  config: SavedConfig;
+  /** 오픈 설정 타임라인 — 액트를 occur 시각에 유효한 버전으로 판정(재실행 시점 경계). */
+  timeline: ActOpenTimeline;
 };
 
 // PostgREST 1000행 cap 회피(전 주차 집계 시 필수) — order + range 페이징.
@@ -118,6 +121,7 @@ async function loadWeekConfigs(
 ): Promise<Map<string, WeekConfig>> {
   const map = new Map<string, WeekConfig>();
   if (weekIds.length === 0) return map;
+  // 최신본(부모) — hasRow / open_confirmed / latestConfig.
   const { data, error } = await supabaseAdmin
     .from("cluster4_week_opening_configs")
     .select("week_id,config,open_confirmed")
@@ -128,15 +132,39 @@ async function loadWeekConfigs(
     console.warn("[act-check-inputs] week_opening_configs read unavailable:", error.message);
     return map;
   }
-  for (const r of (data ?? []) as Array<{
-    week_id: string;
-    config: SavedConfig;
-    open_confirmed: boolean | null;
-  }>) {
-    map.set(r.week_id, {
+  const parentByWeek = new Map<string, { config: SavedConfig | null; openConfirmed: boolean }>();
+  for (const r of (data ?? []) as Array<{ week_id: string; config: SavedConfig | null; open_confirmed: boolean | null }>) {
+    parentByWeek.set(r.week_id, { config: r.config ?? null, openConfirmed: r.open_confirmed === true });
+  }
+
+  // 버전 이력(배치·주차 N개 1쿼리) — 테이블 미적용(42P01 등)이면 timelineAvailable=false(최신 config 폴백).
+  const versionsByWeek = new Map<string, TimelineVersion[]>();
+  const { data: vData, error: vErr } = await supabaseAdmin
+    .from("cluster4_week_opening_config_versions")
+    .select("week_id,config,effective_from")
+    .eq("organization_slug", organization)
+    .in("week_id", weekIds)
+    .order("effective_from", { ascending: true });
+  const timelineAvailable = !vErr;
+  if (!vErr) {
+    for (const r of (vData ?? []) as Array<{ week_id: string; config: SavedConfig | null; effective_from: string }>) {
+      const arr = versionsByWeek.get(r.week_id) ?? [];
+      arr.push({ config: r.config ?? null, effectiveFromMs: Date.parse(r.effective_from) });
+      versionsByWeek.set(r.week_id, arr);
+    }
+  }
+
+  for (const weekId of weekIds) {
+    const parent = parentByWeek.get(weekId);
+    if (!parent) continue; // 행 없음 = 이력 보존 대상(map 미포함, 호출부가 게이트 미적용 판정).
+    map.set(weekId, {
       hasRow: true,
-      openConfirmed: r.open_confirmed === true,
-      config: r.config ?? null,
+      timeline: {
+        openConfirmed: parent.openConfirmed,
+        latestConfig: parent.config,
+        versions: versionsByWeek.get(weekId) ?? [],
+        timelineAvailable,
+      },
     });
   }
   return map;
@@ -163,7 +191,7 @@ export async function loadActCheckApplicationInputsByWeek(opts: {
   const [{ data: actData, error: actErr }, { data: lgData }] = await Promise.all([
     supabaseAdmin
       .from("process_acts")
-      .select("id,hub,line_group_id,check_target")
+      .select("id,hub,line_group_id,check_target,occur_week,occur_dow,occur_time")
       .in("hub", ACT_CHECK_HUBS as unknown as string[])
       .eq("is_active", true),
     supabaseAdmin
@@ -184,21 +212,27 @@ export async function loadActCheckApplicationInputsByWeek(opts: {
     return [] as Array<{ id: string }>;
   });
 
-  // ── 3) 주차별 오픈 설정 + 과거 주차 판정(이력 보존 스코프) ──
+  // ── 3) 주차별 오픈 설정 + 과거 주차 판정(이력 보존 스코프) + 주차 시작일(occur 시각용) ──
   const configs = await loadWeekConfigs(weekIds, organization);
-  // 과거 주차 = 시작일이 현재 주차 시작(월요일)보다 이전. 현재/미래 주차는 이력 보존 대상이 아니다.
-  //   달력 갭(현재 주차 판별 불가)이면 보수적으로 "과거 아님" 취급 → 게이트 적용(기존 동작 유지).
-  const currentWeekStartMs = getCurrentWeekStartMs(getCurrentActivityDateIso());
-  const pastWeekIds = new Set<string>();
-  if (currentWeekStartMs != null) {
+  // 주차 월요일(start_date) 맵 — 액트 occur 시각 산출 + 과거 주차 판정 공용.
+  const weekStartById = new Map<string, string>();
+  {
     const { data: wk } = await supabaseAdmin
       .from("weeks")
       .select("id,start_date")
       .in("id", weekIds);
     for (const w of (wk ?? []) as Array<{ id: string; start_date: string | null }>) {
-      if (!w.start_date) continue;
-      const ms = Date.parse(`${w.start_date}T00:00:00Z`);
-      if (!Number.isNaN(ms) && ms < currentWeekStartMs) pastWeekIds.add(w.id);
+      if (w.start_date) weekStartById.set(w.id, w.start_date);
+    }
+  }
+  // 과거 주차 = 시작일이 현재 주차 시작(월요일)보다 이전. 현재/미래 주차는 이력 보존 대상이 아니다.
+  //   달력 갭(현재 주차 판별 불가)이면 보수적으로 "과거 아님" 취급 → 게이트 적용(기존 동작 유지).
+  const currentWeekStartMs = getCurrentWeekStartMs(getCurrentActivityDateIso());
+  const pastWeekIds = new Set<string>();
+  if (currentWeekStartMs != null) {
+    for (const [id, sd] of weekStartById) {
+      const ms = Date.parse(`${sd}T00:00:00Z`);
+      if (!Number.isNaN(ms) && ms < currentWeekStartMs) pastWeekIds.add(id);
     }
   }
 
@@ -291,32 +325,26 @@ export async function loadActCheckApplicationInputsByWeek(opts: {
     // 이력 보존: **config 행 없음 AND 과거 주차** 일 때만 게이트 미적용(전 정규 액트 가동).
     //   현재/미래 주차는 config 가 없어도 게이트 적용 → 오픈 확인 전 미가동(기존 동작 보존).
     const gateActive = cfg?.hasRow === true || !pastWeekIds.has(weekId);
-    const openConfirmed = cfg?.openConfirmed === true;
-    const config = cfg?.config ?? null;
+    const timeline: ActOpenTimeline =
+      cfg?.timeline ?? { openConfirmed: false, latestConfig: null, versions: [], timelineAvailable: false };
+    const weekStart = weekStartById.get(weekId) ?? null;
     const appliedActs = appliedByWeekAct.get(weekId) ?? new Set<string>();
     const appliedActTeams = appliedByWeekActTeam.get(weekId) ?? new Set<string>();
 
     const isActive = (a: ActRow): boolean => {
       if (a.check_target !== "check") return false; // 기존 두 화면 공통 조건 승계
       if (!gateActive) return true; // 이력 보존(설정 없는 legacy 주차)
+      // 재실행 정책: 액트 occur 시각에 유효한 config 버전으로 판정(보드·활동 관리 상세와 동일).
+      const occurMs = resolveRegularActOccurredAtMs({
+        weekStart, occurWeek: a.occur_week, occurDow: a.occur_dow, occurTime: a.occur_time,
+      });
       if (a.hub === "experience") {
         // 팀 중 하나라도 그 라인급이 체크되어 있으면 가동(상세 허브 요약과 동일 판정).
         return teams.some((t) =>
-          isActOpenForWeek({
-            hub: "experience",
-            openConfirmed,
-            config,
-            lineGroupId: a.line_group_id,
-            teamId: t.id,
-          }),
+          isActOpenAtTime({ hub: "experience", timeline, occurMs, lineGroupId: a.line_group_id, teamId: t.id }),
         );
       }
-      return isActOpenForWeek({
-        hub: a.hub,
-        openConfirmed,
-        config,
-        lineGroupId: a.line_group_id,
-      });
+      return isActOpenAtTime({ hub: a.hub, timeline, occurMs, lineGroupId: a.line_group_id });
     };
 
     const isApplied = (a: ActRow): boolean =>

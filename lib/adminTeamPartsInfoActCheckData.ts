@@ -17,8 +17,8 @@
 // 체크 상태(checkStatus): 신청됨일 때만 — 실제 신청(completed_at ?? requested_at) ≤ 신청 시점 → 'ontime'(🔴), 초과 → 'late'(🔵).
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { loadWeekOpeningConfig } from "@/lib/adminTeamPartsInfoWeekDetailData";
-import { isActOpenForWeek } from "@/lib/weekOpenGate";
+import { isActOpenAtTime } from "@/lib/weekOpenGate";
+import { loadWeekOpeningTimeline } from "@/lib/weekOpeningTimeline";
 import { listTeams } from "@/lib/adminExperienceLineData";
 import {
   buildActCheckApplicationSummary,
@@ -31,7 +31,7 @@ import {
 } from "@/lib/adminActCheckApplicationInputs";
 import { formatClubDate, formatClubDateTime, formatClubWeekdayTime } from "@/lib/clubDate";
 import { resolveActCardState, type ActCardState } from "@/lib/actCardState";
-import { resolveRegularActRequiredDate } from "@/lib/regularActRequiredAt";
+import { resolveRegularActRequiredDate, resolveRegularActOccurredAtMs } from "@/lib/regularActRequiredAt";
 import { memberStatusLabel } from "@/lib/adminMembersTypes";
 import type { OrganizationSlug } from "@/lib/organizations";
 import type { ScopeMode } from "@/lib/userScopeShared";
@@ -148,7 +148,9 @@ type ActRow = {
   line_group_id: string | null;
   hub: string;
   act_name: string;
+  occur_week: string | null;
   occur_dow: number | null;
+  occur_time: string | null;
   check_week: string | null;
   check_dow: number | null;
   check_time: string | null;
@@ -294,24 +296,27 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
   // 1) 오픈 확인 + 액트 체크(7) 라인급 선택(config.actCheck). open_confirmed=false → 아무 것도 가동 아님.
   //    라인급(체크) SoT = process_line_groups(hub, is_active). 액트는 line_group_id 로 직접 분류(이름매칭 없음).
   //    체크 기본값 = 전체 체크(§4 통일) — actCheck 없는 과거 확정 주차는 전 라인급 체크로 간주(읽기전용 표시만).
-  const { config, openConfirmed } = await loadWeekOpeningConfig(weekId, organization);
-  // 가동(오픈) 판정 = weekOpenGate.isActOpenForWeek 단일 SoT(프로세스 체크 보드·서버 강제와 동일 함수).
-  //   아래 헬퍼는 openConfirmed 를 포함한 "가동 여부"를 그대로 반환한다(callsite 에서 openConfirmed 재적용 불필요).
-  const infoOpen = (lgId: string | null): boolean =>
-    isActOpenForWeek({ hub: "info", openConfirmed, config, lineGroupId: lgId });
-  const clubOpen = (lgId: string | null): boolean =>
-    isActOpenForWeek({ hub: "club", openConfirmed, config, lineGroupId: lgId });
-  const expOpen = (teamId: string, lgId: string | null): boolean =>
-    isActOpenForWeek({ hub: "experience", openConfirmed, config, lineGroupId: lgId, teamId });
+  const timeline = await loadWeekOpeningTimeline(weekId, organization);
+  // 가동(오픈) 판정 = weekOpenGate.isActOpenAtTime 단일 SoT(프로세스 체크 보드·서버 강제와 동일 함수).
+  //   재실행 정책: 액트별 판정은 그 액트 occur 시각에 유효한 config 버전으로(변경 이전 액트=구설정 유지).
+  //   occurMs=null(라인급 헤더 표시 등 특정 액트 없음)이면 최신 config 로 판정(현재 설정 기준 요약 표시).
+  const occMs = (a: { occur_week: string | null; occur_dow: number | null; occur_time: string | null }): number | null =>
+    resolveRegularActOccurredAtMs({ weekStart, occurWeek: a.occur_week, occurDow: a.occur_dow, occurTime: a.occur_time });
+  const infoOpen = (lgId: string | null, occurMs: number | null = null): boolean =>
+    isActOpenAtTime({ hub: "info", timeline, occurMs, lineGroupId: lgId });
+  const clubOpen = (lgId: string | null, occurMs: number | null = null): boolean =>
+    isActOpenAtTime({ hub: "club", timeline, occurMs, lineGroupId: lgId });
+  const expOpen = (teamId: string, lgId: string | null, occurMs: number | null = null): boolean =>
+    isActOpenAtTime({ hub: "experience", timeline, occurMs, lineGroupId: lgId, teamId });
   // 액트 **가동 집계** 전용 게이트 스위치 — 이력 보존(legacy·config 없음) 시 게이트 미적용.
   //   ⚠ 라인 행 isOpenThisWeek(표시)에는 쓰지 않는다 — legacy 라인은 기존대로 "미오픈" 표시 유지.
   //   허브/주차 요약은 공통 로더가 이미 같은 규칙을 쓰므로, 팀 요약도 여기서 동일하게 맞춘다
   //   (안 맞추면 허브 가동 3 vs 팀 가동 0 처럼 내부 발산 — 실측으로 잡힌 케이스).
   const gateActive = await resolveActCheckGateActive(weekId, organization);
-  const expActiveForSummary = (teamId: string, lgId: string | null): boolean =>
-    !gateActive || expOpen(teamId, lgId);
-  const compOpen = (): boolean =>
-    isActOpenForWeek({ hub: "competency", openConfirmed, config, lineGroupId: null });
+  const expActiveForSummary = (teamId: string, lgId: string | null, occurMs: number | null = null): boolean =>
+    !gateActive || expOpen(teamId, lgId, occurMs);
+  const compOpen = (occurMs: number | null = null): boolean =>
+    isActOpenAtTime({ hub: "competency", timeline, occurMs, lineGroupId: null });
 
   // 2) 라인급(체크) 카탈로그 = process_line_groups(hub, is_active). sort_order → created_at 순(register 동일).
   const loadLineGroups = async (hub: string): Promise<Array<{ id: string; name: string }>> => {
@@ -335,7 +340,7 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
   // 3) 정규 액트 — hub∈ACT_HUBS·is_active·활성 라인급 소속만(비활성/미등록 라인그룹 액트 제외).
   const { data: actData, error: actErr } = await supabaseAdmin
     .from("process_acts")
-    .select("id,line_group_id,hub,act_name,occur_dow,check_week,check_dow,check_time,check_target")
+    .select("id,line_group_id,hub,act_name,occur_week,occur_dow,occur_time,check_week,check_dow,check_time,check_target")
     .in("hub", ACT_HUBS as unknown as string[])
     .eq("is_active", true);
   if (actErr) throw new Error(actErr.message);
@@ -490,10 +495,12 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
   // 7) 정규 액트 → 카드 필드 계산. info/competency/club 전용(experience 는 expCardOf 별도).
   //    가동 = isActOpenForWeek(info/competency/club). experience 는 expCardOf 별도(teamId 필요).
   const cardOf = (a: ActRow): ActCheckActDto => {
+    // 이 액트의 occur 시각에 유효한 버전으로 가동 판정(재실행 시점 경계).
+    const aOccur = occMs(a);
     const isActive =
-      a.hub === "info" ? infoOpen(a.line_group_id)
-      : a.hub === "competency" ? compOpen()
-      : a.hub === "club" ? clubOpen(a.line_group_id)
+      a.hub === "info" ? infoOpen(a.line_group_id, aOccur)
+      : a.hub === "competency" ? compOpen(aOccur)
+      : a.hub === "club" ? clubOpen(a.line_group_id, aOccur)
       : false;
     const st = statusByAct.get(a.id) ?? null;
     const applied = st != null && (st.status === "pending" || st.status === "completed");
@@ -593,7 +600,7 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
     const teamRegular: ActCheckRegularInput[] = expActs.map((a) => ({
       actId: a.id,
       hub: "experience",
-      isActive: a.check_target === "check" && expActiveForSummary(t.id, a.line_group_id),
+      isActive: a.check_target === "check" && expActiveForSummary(t.id, a.line_group_id, occMs(a)),
       isApplied: appliedExpSet.has(`${a.id}::${t.id}`),
     }));
     return {

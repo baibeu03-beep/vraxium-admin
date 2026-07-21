@@ -62,9 +62,9 @@ async function main() {
     results.weekId = await manage.getAttribute("data-manage-activity");
     await manage.click();
 
-    // 상세 로드 대기: "활동 관리" 헤딩 + "오픈 확인" 버튼.
+    // 상세 로드 대기: "활동 관리" 헤딩 + "클럽 활동 진행" 버튼(구 "오픈 확인").
     await page.waitForURL(/\/team-parts\/info\/weeks\/[^/]+/, { timeout: 15000 });
-    const openBtn = page.getByRole("button", { name: "오픈 확인", exact: true });
+    const openBtn = page.getByRole("button", { name: "클럽 활동 진행", exact: true });
     await openBtn.waitFor({ state: "visible", timeout: 15000 });
 
     await openBtn.click();
