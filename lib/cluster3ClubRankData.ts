@@ -30,6 +30,7 @@ type WeeklyPointRow = {
   user_id: string;
   year: number;
   week_number: number;
+  week_start_date: string | null; // as-of 윈도우(≤N) 판정 축 — 주차 이력 품계에서 사용.
   points: number;
   advantages: number;
   penalty: number;
@@ -74,7 +75,7 @@ async function readAllWeeklyPoints(): Promise<WeeklyPointRow[]> {
     const from = i * POINTS_PAGE;
     const res = await supabaseAdmin
       .from("user_weekly_points")
-      .select("user_id,year,week_number,points,advantages,penalty")
+      .select("user_id,year,week_number,week_start_date,points,advantages,penalty")
       .order("year", { ascending: true })
       .order("week_number", { ascending: true })
       .order("user_id", { ascending: true })
@@ -116,11 +117,20 @@ export async function getRankPopulationSeasonKey(): Promise<string | null> {
 }
 
 export async function getRankPopulationExcludedUserIds(): Promise<Set<string>> {
-  const excluded = new Set<string>();
   // 현재 시즌 season_key = 오늘이 속한 주차의 season_key (시즌 갭/전환이면 제외 없음 — 보수적).
   const currentSeasonKey = await getRankPopulationSeasonKey();
-  if (!currentSeasonKey) return excluded;
+  return getRankPopulationExcludedUserIdsForSeason(currentSeasonKey);
+}
 
+// 특정 시즌(season_key) 기준 rest 제외 집합 — 현재 품계(오늘 시즌)와 as-of 이력 품계(그 주차 시즌)가
+//   공유하는 단일 코어. season_key=null(시즌 갭/전환) → 제외 없음(보수적).
+export async function getRankPopulationExcludedUserIdsForSeason(
+  seasonKey: string | null,
+): Promise<Set<string>> {
+  const excluded = new Set<string>();
+  if (!seasonKey) return excluded;
+
+  const currentSeasonKey = seasonKey;
   const pageSize = 1000;
   let from = 0;
   for (;;) {
@@ -413,6 +423,108 @@ export async function getClubRankGradeBatch(
       result.set(userId, grade != null ? { grade, label, avgPercentile: frozen.avg_percentile ?? null } : null);
       continue;
     }
+    const details = pctByUser.get(userId) ?? [];
+    const first = firstWeekById.get(userId);
+    const eligible = details.filter(
+      (d) => !(first && d.year === first.year && d.week === first.week),
+    );
+    if (eligible.length === 0) {
+      result.set(userId, null);
+      continue;
+    }
+    const rawAvg = eligible.reduce((acc, d) => acc + d.pct, 0) / eligible.length;
+    const avgPercentile = Math.ceil(rawAvg * 100) / 100;
+    const label = resolveRankGrade(avgPercentile);
+    result.set(userId, { grade: toGradeNumber(label), label, avgPercentile });
+  }
+
+  return result;
+}
+
+// ─── as-of 주차 이력 품계 배치 (주차별 확정 품계 SoT용) ──────────────────
+// 특정 주차(week_start_date ≤ asOfWeekStartDate) 시점의 확정 품계 — getClubRankGradeBatch 와 동일
+//   산식(weekly_score·주차 RANK·백분위·온보딩 1주차 제외·평균)이되 3가지만 다르다:
+//     ⑴ 평균 대상 주차를 week_start_date ≤ asOf 로 **윈도우**(그 주차까지의 누적 상태).
+//     ⑵ rest 제외 population 을 **asOfSeasonKey**(그 주차 시즌) 기준 — 오늘 시즌 아님(재현 가능).
+//     ⑶ **frozen(졸업/정지) override 미적용** — 그 주차엔 활동 중이었으므로 실제 백분위로 산출.
+//   주차별 백분위는 주차 간 독립이라 같은 주차 pct 는 그때·지금 동일 → 재검수/backfill 재현성 보장.
+//   math fork 아님 — readAllWeeklyPoints·computeWeeklyScore·resolveRankGrade 공통 코어 재사용.
+export async function computeAsOfClubRankGradeBatch(params: {
+  userIds: string[];
+  asOfWeekStartDate: string;
+  asOfSeasonKey: string | null;
+}): Promise<Map<string, ClubRankGrade | null>> {
+  const { userIds, asOfWeekStartDate, asOfSeasonKey } = params;
+  const result = new Map<string, ClubRankGrade | null>();
+  if (userIds.length === 0) return result;
+
+  // 첫 주차(온보딩 제외 판정) — 배치. getClubRankGradeBatch 와 동일한 min(year,week_number).
+  const firstWeekById = new Map<string, { year: number; week: number }>();
+  const ID_CHUNK = 200;
+  for (let i = 0; i < userIds.length; i += ID_CHUNK) {
+    const chunk = userIds.slice(i, i + ID_CHUNK);
+    const UWS_PAGE = 1000;
+    let uwsFrom = 0;
+    for (;;) {
+      const r = await supabaseAdmin
+        .from("user_week_statuses")
+        .select("user_id,year,week_number")
+        .in("user_id", chunk)
+        .order("user_id", { ascending: true })
+        .order("year", { ascending: true })
+        .order("week_number", { ascending: true })
+        .range(uwsFrom, uwsFrom + UWS_PAGE - 1);
+      if (r.error) throw new GrowthError(500, r.error.message);
+      const rows = (r.data ?? []) as Array<{ user_id: string; year: number; week_number: number }>;
+      for (const row of rows) {
+        const cur = firstWeekById.get(row.user_id);
+        if (!cur || row.year < cur.year || (row.year === cur.year && row.week_number < cur.week)) {
+          firstWeekById.set(row.user_id, { year: row.year, week: row.week_number });
+        }
+      }
+      if (rows.length < UWS_PAGE) break;
+      uwsFrom += UWS_PAGE;
+    }
+  }
+
+  const excludedIds = await getRankPopulationExcludedUserIdsForSeason(asOfSeasonKey);
+  const allPoints = await readAllWeeklyPoints();
+
+  // 윈도우(≤asOf) + rest 제외.
+  const populationPoints = allPoints.filter(
+    (r) =>
+      !excludedIds.has(r.user_id) &&
+      r.week_start_date != null &&
+      r.week_start_date <= asOfWeekStartDate,
+  );
+
+  // 주차 버킷 = week_start_date(각 고유 주차). roster 만 백분위 기록.
+  const rosterSet = new Set(userIds);
+  const pctByUser = new Map<string, Array<{ year: number; week: number; pct: number }>>();
+  const byWeek = new Map<string, WeeklyPointRow[]>();
+  for (const row of populationPoints) {
+    const key = row.week_start_date as string;
+    const list = byWeek.get(key) ?? [];
+    list.push(row);
+    byWeek.set(key, list);
+  }
+  for (const [, rows] of byWeek) {
+    const scored = rows.map((r) => ({ userId: r.user_id, score: computeWeeklyScore(r), year: r.year, week: r.week_number }));
+    scored.sort((a, b) => b.score - a.score);
+    const total = scored.length;
+    let currentRank = 1;
+    for (let i = 0; i < scored.length; i++) {
+      if (i > 0 && scored[i].score < scored[i - 1].score) currentRank = i + 1;
+      const s = scored[i];
+      if (!rosterSet.has(s.userId)) continue;
+      const pct = total <= 1 ? 1 : Math.ceil(((currentRank - 1) / (total - 1)) * 99) + 1;
+      const list = pctByUser.get(s.userId) ?? [];
+      list.push({ year: s.year, week: s.week, pct });
+      pctByUser.set(s.userId, list);
+    }
+  }
+
+  for (const userId of userIds) {
     const details = pctByUser.get(userId) ?? [];
     const first = firstWeekById.get(userId);
     const eligible = details.filter(

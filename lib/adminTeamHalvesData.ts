@@ -283,7 +283,9 @@ export async function listAvailableHalves(
 
 // 팀장 기본정보(이름·생년월일6·성별·거주·학교·전공) 배치 조회. 시안 box Row2 표시용.
 //   user_profiles + 대표 학력(user_educations) — 품계/클래스(코호트 스캔)는 box 미표시라 제외.
-type LeaderBasic = {
+//   [B] 크루 편집표도 이 배치를 재사용(프로필·품계). ⚠ classLabel 은 현재 membership 클래스라 [B] 의
+//     "주차별 클래스"(effective positionCode)와 다른 개념 — [B] 는 gradeLabel 등 프로필만 쓴다.
+export type LeaderBasic = {
   name: string | null;
   org: string | null; // 연결 크루의 organization_slug — 팀 org 와 다르면 상세 미노출(조직 강제).
   birth6: string | null;
@@ -293,6 +295,7 @@ type LeaderBasic = {
   major: string | null;
   classLabel: string | null;
   gradeLabel: string | null;
+  gradeRank: number | null; // 품계 숫자 등급(1=정승 최상위 … 10=정9품). 문자열 라벨 정렬 오류 방지용.
 };
 
 // user_memberships 행 중 대표 등급(membership_level) 선택 — 클래스 산출용.
@@ -323,7 +326,7 @@ function pickLevel(rows: MemLevelRow[]): string | null {
   return best?.membership_level ?? null;
 }
 
-async function getLeaderBasicsBatch(
+export async function getLeaderBasicsBatch(
   userIds: string[],
 ): Promise<Map<string, LeaderBasic>> {
   const out = new Map<string, LeaderBasic>();
@@ -398,6 +401,7 @@ async function getLeaderBasicsBatch(
       major: edu?.major ?? p.department_name ?? null,
       classLabel: classLabel(p.role ?? null, level),
       gradeLabel: grade?.label ?? null,
+      gradeRank: grade?.grade ?? null,
     });
   }
   return out;
@@ -1139,6 +1143,35 @@ export type TeamDetailDto = {
   weekColumns: PartWeekColumnDto[];
 };
 
+// 앵커 teamHalfId → team_name 확정(org·활성·스코프 검증). 어긋나면 null(=404). 팀 상세·주차 요약 공용 SoT.
+export async function resolveTeamAnchorName(
+  organization: OrganizationSlug,
+  anchorTeamHalfId: string,
+  mode: ScopeMode = "operating",
+): Promise<string | null> {
+  const withScope = await hasScopeColumn();
+  const cols = withScope
+    ? `${TEAM_HALF_BASE_COLS},is_qa_test,organization_slug`
+    : `${TEAM_HALF_BASE_COLS},organization_slug`;
+  const { data, error } = await supabaseAdmin
+    .from("cluster4_team_halves")
+    .select(cols)
+    .eq("id", anchorTeamHalfId)
+    .limit(1);
+  if (error) throw new Error(error.message);
+  const anchor = ((data ?? []) as unknown as Array<
+    Row & { organization_slug: string; is_qa_test?: boolean }
+  >)[0];
+  if (!anchor) return null; // 존재하지 않는 teamHalfId
+  if (anchor.organization_slug !== organization) return null; // 해당 클럽 소속 아님(URL org 불일치)
+  if (!anchor.is_active) return null; // 삭제 대기/비활성
+  const isQa = withScope
+    ? Boolean(anchor.is_qa_test)
+    : isTestTeam(organization, anchor.team_name);
+  if (isQa !== (resolveEffectiveScopeMode(mode) === "test")) return null; // 스코프(QA) 불일치
+  return anchor.team_name;
+}
+
 export async function loadTeamDetail(opts: {
   organization: OrganizationSlug;
   anchorTeamHalfId: string;
@@ -1150,27 +1183,8 @@ export async function loadTeamDetail(opts: {
   const mode = opts.mode ?? "operating";
 
   // 1) 앵커 팀 확정 — id → team_name(org·활성·스코프 검증). 하나라도 어긋나면 null(=404).
-  const withScope = await hasScopeColumn();
-  const cols = withScope
-    ? `${TEAM_HALF_BASE_COLS},is_qa_test,organization_slug`
-    : `${TEAM_HALF_BASE_COLS},organization_slug`;
-  const { data: aData, error: aErr } = await supabaseAdmin
-    .from("cluster4_team_halves")
-    .select(cols)
-    .eq("id", anchorTeamHalfId)
-    .limit(1);
-  if (aErr) throw new Error(aErr.message);
-  const anchor = ((aData ?? []) as unknown as Array<
-    Row & { organization_slug: string; is_qa_test?: boolean }
-  >)[0];
-  if (!anchor) return null; // 존재하지 않는 teamHalfId
-  if (anchor.organization_slug !== organization) return null; // 해당 클럽 소속 아님(URL org 불일치)
-  if (!anchor.is_active) return null; // 삭제 대기/비활성
-  const isQa = withScope
-    ? Boolean(anchor.is_qa_test)
-    : isTestTeam(organization, anchor.team_name);
-  if (isQa !== (resolveEffectiveScopeMode(mode) === "test")) return null; // 스코프(QA) 불일치
-  const teamName = anchor.team_name;
+  const teamName = await resolveTeamAnchorName(organization, anchorTeamHalfId, mode);
+  if (!teamName) return null;
 
   // 2) 현재 접속 시점 기준 — 현재 반기 정보 + 날짜/주차 + 현재 배정 파트 점유.
   const [currentInfo, week, currentWeekStartDate, occupiedByTeam] = await Promise.all([

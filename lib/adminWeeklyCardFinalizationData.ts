@@ -39,6 +39,7 @@ import { QA_HIDE_REAL_USERS } from "@/lib/qaFixedScope";
 import { type StateScope, readQaWeekState, writeQaWeekState, setWeekAutoPublishHold } from "@/lib/operationalState";
 import { computeWeeklyLeagueAggregation } from "@/lib/weeklyLeaguePmsAggregation";
 import { reconcileLineAwardsForWeek } from "@/lib/lineResultAwardReconcile";
+import { computeAndUpsertWeekGrades } from "@/lib/userWeekGradeHistory";
 import type {
   FinalizationAggregation,
   FinalizationMode,
@@ -564,6 +565,39 @@ export async function runWeeklyCardFinalization(opts: {
     snapshotRecompute = await recompute();
   }
 
+  // 주차 확정 품계 이력 — **published 주차일 때만**(finalize 신규/재확정·recompute 모두). recompute 경로는
+  //   admin 이 이미 쓰는 보정 진입점이라, 저장 실패가 남아도 다음 recompute 가 self-heal 한다(cron 부재 대응).
+  //   ⚠ 단순 best-effort 로그로 끝내지 않는다 — computeAndUpsertWeekGrades 가 재시도하고, 최종 실패는
+  //     ok:false 로 결과에 실어 노출(무음 스왑 금지). 테이블 미적용(수동 마이그레이션 전)은 양성 스킵.
+  let gradeHistory: WeeklyCardFinalizationResult["gradeHistory"] = null;
+  if (resolvedPublishedAt && targetRow.start_date && cohortIds.length > 0) {
+    const res = await computeAndUpsertWeekGrades({
+      cohortUserIds: cohortIds,
+      week: {
+        startDate: targetRow.start_date,
+        seasonKey: opts.seasonKey,
+        weekNumber: opts.weekNumber,
+      },
+      scope: scope === "qa" ? "qa" : "operating",
+      source: "finalize",
+      finalizedAt: resolvedPublishedAt,
+      actor,
+    });
+    gradeHistory = {
+      ok: res.ok,
+      attempted: res.attempted,
+      written: res.written,
+      skipped: res.skipped,
+      error: res.error,
+    };
+    if (!res.ok) {
+      console.error(
+        "[weekly-card-finalization] 주차 확정 품계 이력 저장 실패(보정 필요)",
+        { weekId: targetRow.id, weekStart: targetRow.start_date, error: res.error },
+      );
+    }
+  }
+
   // 재계산/공표 후의 최신 status + (org 필터 반영) 집계. qa 면 테스트 코호트·overlay 공표상태.
   const built = await buildTargetStatusAndAggregation(
     targetRow,
@@ -580,6 +614,7 @@ export async function runWeeklyCardFinalization(opts: {
     aggregation: built.aggregation,
     published,
     snapshotRecompute,
+    gradeHistory,
     org: opts.org,
     generatedAt: new Date().toISOString(),
   };
@@ -664,6 +699,8 @@ export async function revertWeeklyCardFinalization(opts: {
     aggregation: built.aggregation,
     published: { resultPublishedAt: null, alreadyFinalized: false },
     snapshotRecompute,
+    // undo 는 품계 이력을 **삭제하지 않는다** — reviewCompleted=false 게이트가 숨기고, 재확정이 덮어씀.
+    gradeHistory: null,
     org: opts.org,
     generatedAt: new Date().toISOString(),
     reverted,

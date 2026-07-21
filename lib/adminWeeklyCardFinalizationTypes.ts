@@ -107,6 +107,15 @@ export type WeeklyCardFinalizationResult = {
     recomputed: number;
     failed: number;
   };
+  // 주차 확정 품계 이력 저장 결과 — published 주차의 finalize/recompute 시에만. null=미해당(미공표).
+  //   ok=false 는 저장 실패(누락 위험) — 무음 스왑 금지, 호출부/로그가 재시도·보정 신호로 사용.
+  gradeHistory: {
+    ok: boolean;
+    attempted: number;
+    written: number;
+    skipped?: "missing_table";
+    error?: string;
+  } | null;
   org: string | null;
   generatedAt: string;
 };

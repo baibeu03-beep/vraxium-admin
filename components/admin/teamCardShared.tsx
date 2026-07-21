@@ -197,6 +197,7 @@ export type PartWeekColumnLike = {
   weekStartDate: string;
   label: string;
   isRest: boolean;
+  weekNumber?: number | null; // 0주차(전환) UI 제외 판정용(서버 DTO 가 전달).
 };
 export type PartWeekMatrixLike = {
   partNames: string[];
@@ -232,10 +233,10 @@ export function TeamPartWeekMatrix({
       className="overflow-x-auto rounded-md border border-zinc-200"
       data-part-week-table={teamName}
     >
-      <table className="border-collapse text-xs">
+      <table className="min-w-max border-collapse text-sm">
         <thead>
           <tr>
-            <th className="sticky left-0 z-10 border-b border-r bg-zinc-50 px-2 py-1 text-left font-semibold whitespace-nowrap">
+            <th className="sticky left-0 z-10 min-w-[120px] border-b border-r bg-zinc-50 px-4 py-2.5 text-left text-sm font-semibold whitespace-nowrap">
               <span className="inline-flex items-center gap-1">
                 파트 \ 주차
                 <AdminHelpIconButton
@@ -248,7 +249,7 @@ export function TeamPartWeekMatrix({
               <th
                 key={c.weekStartDate}
                 className={
-                  "border-b border-r px-1.5 py-1 text-center font-medium whitespace-nowrap " +
+                  "min-w-[84px] border-b border-r px-3 py-2.5 text-center text-sm font-semibold whitespace-nowrap " +
                   (c.isRest ? "bg-zinc-100 text-zinc-400" : "bg-zinc-50")
                 }
               >
@@ -271,7 +272,7 @@ export function TeamPartWeekMatrix({
               >
                 <td
                   className={
-                    "sticky left-0 z-10 border-b border-r px-2 py-1 whitespace-nowrap " +
+                    "sticky left-0 z-10 min-w-[120px] border-b border-r px-4 py-2.5 text-sm whitespace-nowrap " +
                     (currentWeekOperated
                       ? "bg-emerald-100 font-bold text-emerald-800"
                       : "bg-white font-medium")
@@ -287,11 +288,11 @@ export function TeamPartWeekMatrix({
                       key={c.weekStartDate}
                       data-pw-cell={on ? "1" : "0"}
                       className={
-                        "border-b border-r px-1.5 py-1 text-center " +
+                        "min-w-[84px] border-b border-r px-3 py-2.5 text-center text-sm " +
                         (on ? "bg-emerald-50/60 " : c.isRest ? "bg-zinc-50/60 " : "")
                       }
                     >
-                      {on ? <span className="text-emerald-600">●</span> : ""}
+                      {on ? <span className="text-base text-emerald-600">●</span> : ""}
                     </td>
                   );
                 })}
