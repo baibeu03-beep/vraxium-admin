@@ -31,6 +31,7 @@
 import type { NextRequest } from "next/server";
 import { loadFinalizedWeeklyCards } from "@/lib/cluster4WeeklyCardsService";
 import type { Cluster4WeeklyCardDto, Cluster4RateDto } from "@/shared/cluster4.contracts";
+import { readWeeklyCardsSnapshotBatch } from "@/lib/cluster4WeeklyCardsSnapshot";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -140,13 +141,17 @@ export async function POST(request: NextRequest) {
   //   → 12 초과는 한계효익 미미(91명 12→20 약 4% 개선)한데 Supabase 동시 연결만 증가. p95 안정.
   const t0 = Date.now();
   const results = new Array<ProjectedUser>(userIds.length);
+  const snapshots = await readWeeklyCardsSnapshotBatch(userIds);
   for (let offset = 0; offset < userIds.length; offset += CONCURRENCY) {
     const slice = userIds.slice(offset, offset + CONCURRENCY);
     await Promise.all(
       slice.map(async (userId, i) => {
         const idx = offset + i;
         try {
-          const finalized = await loadFinalizedWeeklyCards(userId);
+          const finalized = await loadFinalizedWeeklyCards(
+            userId,
+            snapshots.get(userId) ?? { status: "miss" },
+          );
           if (finalized.outcome === "error") {
             // 단건 GET error 분기(success:false)와 동일 취급 → 크루가 스킵(emptyMetric).
             results[idx] = { userId, ok: false, outcome: finalized.outcome };

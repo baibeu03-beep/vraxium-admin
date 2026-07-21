@@ -15,6 +15,7 @@ import { after } from "next/server";
 import {
   readWeeklyCardsSnapshot,
   recomputeAndStoreWeeklyCardsSnapshot,
+  type WeeklyCardsSnapshotOutcome,
 } from "@/lib/cluster4WeeklyCardsSnapshot";
 import {
   applyEnhancementOverridesToCards,
@@ -138,9 +139,10 @@ function scheduleVersionMismatchRecompute(profileUserId: string): void {
 export async function loadWeeklyCards(
   profileUserId: string,
   preload: SubjectPreload,
+  preloadedSnapshot?: WeeklyCardsSnapshotOutcome,
 ): Promise<LoadResult> {
   const result = await traceSpan("loadWeeklyCardsRaw", () =>
-    loadWeeklyCardsRaw(profileUserId),
+    loadWeeklyCardsRaw(profileUserId, preloadedSnapshot),
   );
   try {
     // ① 강화 상태 overlay → ② 2차 기입 편집권 overlay. 둘 다 read-time(굽지 않음), 키=user_id(mode 무관).
@@ -179,8 +181,11 @@ export async function loadWeeklyCards(
 //                                                그 1명만 재계산 → 다음 조회부터 신버전 수렴. 실패 시 구값 보존.
 //   - miss(행 없음, 신규 유저)                 → 단건 재계산·저장 → 최신 반환. 실패 시 빈 배열.
 //   - error(조회 실패)                         → 빈 배열. 일시 오류에 계산 폭증 방지 — 절대 계산 안 함.
-async function loadWeeklyCardsRaw(profileUserId: string): Promise<LoadResult> {
-  const snap = await traceSpan("readWeeklyCardsSnapshot", () =>
+async function loadWeeklyCardsRaw(
+  profileUserId: string,
+  preloadedSnapshot?: WeeklyCardsSnapshotOutcome,
+): Promise<LoadResult> {
+  const snap = preloadedSnapshot ?? await traceSpan("readWeeklyCardsSnapshot", () =>
     readWeeklyCardsSnapshot(profileUserId),
   );
 
@@ -261,9 +266,10 @@ export type FinalizedWeeklyCards = {
 
 export async function loadFinalizedWeeklyCards(
   profileUserId: string,
+  preloadedSnapshot?: WeeklyCardsSnapshotOutcome,
 ): Promise<FinalizedWeeklyCards> {
   const preload = startSubjectPreload(profileUserId);
-  const result = await loadWeeklyCards(profileUserId, preload);
+  const result = await loadWeeklyCards(profileUserId, preload, preloadedSnapshot);
   if (result.outcome === "error") {
     // GET error 분기(route): data=result.cards(비-truncate), growthInfo=null.
     return {
