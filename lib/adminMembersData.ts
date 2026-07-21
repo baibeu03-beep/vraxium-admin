@@ -1035,6 +1035,66 @@ async function assertRoleUniqueness(
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// 공용 도메인 서비스 — 멤버의 role + 현재 팀/파트를 한 번에 정합(유일성 검증 + 감사).
+//   "team_leader ⟺ current_team_name" 결합 모델을 지키기 위해 role/team/part 를 함께 세팅한다.
+//   team-parts 팀장 lifecycle 과 /admin/members 편집이 같은 규칙/유일성/감사를 쓰도록 추출(중복 금지).
+//   유일성 위반(팀장=팀 유일·agent/part_leader=팀+파트 유일)은 MemberPatchError(409).
+//   ⚠ user_position_histories(주차·PMS)·user_memberships 는 건드리지 않는다(현재 role 축만).
+// ─────────────────────────────────────────────────────────────────────────
+export async function applyMemberRolePosition(params: {
+  userId: string;
+  role: string | null;
+  currentTeamName: string | null;
+  currentPartName: string | null;
+  actorId?: string | null;
+  reason?: string;
+}): Promise<{ oldRole: string | null; oldTeamName: string | null; oldPartName: string | null }> {
+  const { userId, role, currentTeamName, currentPartName, actorId = null, reason } = params;
+  if (!isUuid(userId)) throw new MemberPatchError(400, "user_id must be a UUID");
+
+  const { data: cur, error: readErr } = await supabaseAdmin
+    .from("user_profiles")
+    .select("role,organization_slug,current_team_name,current_part_name")
+    .eq("user_id", userId)
+    .single();
+  if (readErr || !cur) {
+    throw new MemberPatchError(readErr?.code === "PGRST116" ? 404 : 500, readErr?.message ?? "user_profile not found");
+  }
+  const oldRole = (cur.role as string | null) ?? null;
+  const oldTeamName = (cur.current_team_name as string | null) ?? null;
+  const oldPartName = (cur.current_part_name as string | null) ?? null;
+  const org = (cur.organization_slug as string | null) ?? null;
+
+  // 목표 포지션 기준 유일성 사전검증(친절한 409). DB 부분 유니크 인덱스가 최종 방어선.
+  if (role && isMemberAssignableRole(role)) {
+    await assertRoleUniqueness(userId, role, org, currentTeamName, currentPartName);
+  }
+
+  const { error: updErr } = await supabaseAdmin
+    .from("user_profiles")
+    .update({ role, current_team_name: currentTeamName, current_part_name: currentPartName })
+    .eq("user_id", userId);
+  if (updErr) {
+    if (updErr.code === "23505") {
+      throw new MemberPatchError(409, "같은 파트/팀에 동일 역할 멤버가 이미 존재합니다(유일성 제약 위반).");
+    }
+    throw new MemberPatchError(500, updErr.message);
+  }
+  // 감사 — role 이 실제로 바뀐 경우만(best-effort). changed_by 는 uuid NOT NULL 이라 actor 없으면 스킵.
+  if (actorId && oldRole !== (role ?? null)) {
+    const { error: aErr } = await supabaseAdmin.from("user_role_audit").insert({
+      user_id: userId,
+      old_role: oldRole,
+      new_role: role ?? null,
+      changed_by: actorId,
+      reason: reason ?? "team-leader lifecycle",
+    });
+    if (aErr) console.error("[applyMemberRolePosition] role audit insert failed", { userId, message: aErr.message });
+  }
+  return { oldRole, oldTeamName, oldPartName };
+}
+
 export async function updateMember(
   userId: string,
   patch: MemberPatchInput,

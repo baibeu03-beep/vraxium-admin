@@ -24,6 +24,8 @@ import {
 import type { ScopeMode } from "@/lib/userScopeShared";
 import { resolveUserScope } from "@/lib/userScope";
 import { SUPER_ADMIN_EXCLUDE_OR } from "@/lib/superAdmins";
+import { markWeeklyCardsSnapshotStaleMany } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { applyMemberRolePosition, MemberPatchError } from "@/lib/adminMembersData";
 
 // 반기별 팀 SoT(cluster4_team_halves) 데이터 접근.
 //   · 조회: 반기 → 그 반기의 팀 목록(불변 스냅샷 team_name).
@@ -1479,11 +1481,125 @@ export type RegisterTeamInput = {
   leaderCrewCode: string;
 };
 
+// ─────────────────────────────────────────────────────────────────────
+// 팀장 역할 lifecycle — "팀장 = role='team_leader' AND current_team_name=담당 팀" 결합 모델.
+//   팀 리더 지정/교체/삭제 시 role+current_team_name 을 함께 정합(공용 applyMemberRolePosition 재사용).
+//   · 승격 직전 포지션 {role,teamName,partName} = cluster4_team_halves.leader_previous_position(JSONB) 보존.
+//   · 교체 흐름은 demote-before-promote(그 팀 유일성 슬롯 확보) — 이전 팀장 먼저 복원 후 새 팀장 승격.
+//   · 이력/감사 = user_role_audit(기존 공식 SoT) 재사용. user_position_histories(주차·PMS)·user_memberships 미변경.
+//   · 모드 무관 동일 경로. 컬럼(leader_previous_position) 미적용(마이그 전)이면 lifecycle 스킵(무회귀).
+// ─────────────────────────────────────────────────────────────────────
+const TEAM_LEADER_ROLE = "team_leader";
+
+// 승격 직전 포지션 스냅샷(JSONB) — 정확 복원 소스. leader_previous_role(role만)의 확장.
+type LeaderPositionSnapshot = { role: string | null; teamName: string | null; partName: string | null };
+
+let leaderPrevPosColumnPresent = false;
+async function hasLeaderPrevPositionColumn(): Promise<boolean> {
+  if (leaderPrevPosColumnPresent) return true;
+  const { error } = await supabaseAdmin
+    .from("cluster4_team_halves")
+    .select("leader_previous_position")
+    .limit(1);
+  const present = !(error && (error as { code?: string }).code === "42703");
+  if (present) leaderPrevPosColumnPresent = true;
+  return present;
+}
+
+// 유저의 현재 포지션 스냅샷(READ-ONLY) — 승격 전에 저장할 값.
+async function readPositionSnapshot(userId: string): Promise<LeaderPositionSnapshot> {
+  const { data } = await supabaseAdmin
+    .from("user_profiles")
+    .select("role,current_team_name,current_part_name")
+    .eq("user_id", userId)
+    .maybeSingle();
+  const p = data as { role: string | null; current_team_name: string | null; current_part_name: string | null } | null;
+  return { role: p?.role ?? null, teamName: p?.current_team_name ?? null, partName: p?.current_part_name ?? null };
+}
+
+// 이 팀 행의 저장된 leader_previous_position(복원 소스) 조회. 컬럼/행 부재 → null.
+async function readLeaderPreviousPosition(teamHalfId: string): Promise<LeaderPositionSnapshot | null> {
+  const { data, error } = await supabaseAdmin
+    .from("cluster4_team_halves")
+    .select("leader_previous_position")
+    .eq("id", teamHalfId)
+    .maybeSingle();
+  if (error) return null;
+  return (data as { leader_previous_position: LeaderPositionSnapshot | null } | null)?.leader_previous_position ?? null;
+}
+
+async function leadsOtherActiveTeam(userId: string, excludeTeamHalfId: string): Promise<boolean> {
+  const { data } = await supabaseAdmin
+    .from("cluster4_team_halves")
+    .select("id")
+    .eq("leader_user_id", userId)
+    .eq("is_active", true)
+    .neq("id", excludeTeamHalfId)
+    .limit(1);
+  return (data?.length ?? 0) > 0;
+}
+
+// 새 팀장 B 승격 — role='team_leader' + current_team_name=팀명(결합 모델). 공용 도메인 서비스 재사용.
+//   유일성 충돌(예: 그 팀에 이미 팀장 — 교체 흐름에서 A 를 먼저 강등하지 않은 경우) 등은 note 로 보고.
+async function promoteTeamLeader(userId: string, teamName: string, actorId: string | null): Promise<string | null> {
+  try {
+    await applyMemberRolePosition({
+      userId,
+      role: TEAM_LEADER_ROLE,
+      currentTeamName: teamName,
+      currentPartName: null,
+      actorId,
+      reason: `team_leader_assign:${teamName}`,
+    });
+    await markWeeklyCardsSnapshotStaleMany([userId]).catch(() => {});
+    return null;
+  } catch (e) {
+    if (e instanceof MemberPatchError) return `팀장 승격 보류(${teamName}): ${e.message} (userId=${userId})`;
+    throw e;
+  }
+}
+
+// 이전 팀장 A 복원 — 다른 active 팀 리더면 team_leader 유지, 아니면 snapshot({role,team,part})으로 정확 복원.
+//   레거시(snapshot=null·복원 근거 없음) → 강등 안 함, note(수동 검토).
+async function restoreFormerLeader(params: {
+  userId: string | null;
+  excludeTeamHalfId: string;
+  snapshot: LeaderPositionSnapshot | null;
+  actorId: string | null;
+  teamLabel: string;
+}): Promise<string | null> {
+  const { userId, excludeTeamHalfId, snapshot, actorId, teamLabel } = params;
+  if (!userId) return null;
+  if (await leadsOtherActiveTeam(userId, excludeTeamHalfId)) return null; // 다른 팀 리더 → 유지.
+  const cur = await readPositionSnapshot(userId);
+  if (cur.role !== TEAM_LEADER_ROLE) return null; // 이미 팀장 아님 → 손대지 않음.
+  if (!snapshot || snapshot.role == null) {
+    // 레거시 — 복원 근거 없음. 임의 강등 금지(지시 F).
+    return `팀장 해제(${teamLabel}): 이전 포지션 복원 근거 없음(레거시) → 수동 검토 필요 (userId=${userId})`;
+  }
+  try {
+    await applyMemberRolePosition({
+      userId,
+      role: snapshot.role,
+      currentTeamName: snapshot.teamName,
+      currentPartName: snapshot.partName,
+      actorId,
+      reason: `team_leader_remove:${teamLabel}`,
+    });
+    await markWeeklyCardsSnapshotStaleMany([userId]).catch(() => {});
+    return null;
+  } catch (e) {
+    if (e instanceof MemberPatchError) return `팀장 해제 복원 보류(${teamLabel}): ${e.message} (userId=${userId})`;
+    throw e;
+  }
+}
+
 export async function registerTeamHalf(
   input: RegisterTeamInput,
   today?: string,
   mode: ScopeMode = "operating",
-): Promise<{ teams: TeamHalfTeamDto[] }> {
+  actorId: string | null = null,
+): Promise<{ teams: TeamHalfTeamDto[]; notes?: string[] }> {
   const organization = String(input.organization ?? "").trim();
   const halfKey = String(input.halfKey ?? "").trim();
   const teamName = String(input.teamName ?? "").trim();
@@ -1581,6 +1697,12 @@ export async function registerTeamHalf(
   // 스코프 각인은 컬럼 존재 시에만 기록(마이그 전엔 필드 생략 → 이름 폴백 유지).
   const scopeField = withScopeColumn ? { is_qa_test: isQaTest } : {};
 
+  // 팀장 역할 lifecycle — 승격 직전 포지션 스냅샷을 halves 쓰기 전에 읽는다(read-only). 실제 role+team
+  //   write 는 halves 저장 성공 후. 컬럼 미적용(마이그 전)이면 lifecycle 스킵(무회귀).
+  const roleLifecycle = await hasLeaderPrevPositionColumn();
+  const promoSnapshot = roleLifecycle ? await readPositionSnapshot(leaderUserId) : null;
+  const prevPosField = roleLifecycle ? { leader_previous_position: promoSnapshot } : {};
+
   let teamHalfId: string;
   if (sameName && !sameName.is_active) {
     // 비활성 동명 팀 → 재활성 + 갱신(재등록이므로 현재 실효 모드로 스코프 재각인).
@@ -1594,6 +1716,7 @@ export async function registerTeamHalf(
         leader_crew_code: leaderCrewCode,
         team_id: teamId,
         ...scopeField,
+        ...prevPosField,
       })
       .eq("id", sameName.id);
     if (error) throw new TeamHalfWriteError(500, error.message);
@@ -1612,6 +1735,7 @@ export async function registerTeamHalf(
         leader_crew_code: leaderCrewCode,
         team_id: teamId,
         ...scopeField,
+        ...prevPosField,
       })
       .select("id")
       .single();
@@ -1622,7 +1746,15 @@ export async function registerTeamHalf(
   // 산하 "일반" 파트 자동 보장(idempotent) — 팀장 = 기본 파트장. 같은 흐름에서 함께 보장.
   await ensureGeneralPart(teamHalfId, leaderUserId);
 
-  return { teams: await listHalfTeams(organization, halfKey) };
+  // halves 저장 성공 후 role='team_leader' + current_team_name=팀명 승격(부분 상태 방지). 신규 지정이라
+  //   이전 팀장 강등 없음. 유일성 충돌 등은 note 로 보고(팀 등록 자체는 성공).
+  const notes: string[] = [];
+  if (roleLifecycle) {
+    const note = await promoteTeamLeader(leaderUserId, teamName, actorId);
+    if (note) notes.push(note);
+  }
+
+  return { teams: await listHalfTeams(organization, halfKey), ...(notes.length ? { notes } : {}) };
 }
 
 // ── 팀 수정(현재·다음 반기만) ─────────────────────────────────────────
@@ -1642,7 +1774,8 @@ export async function updateTeamHalf(
   input: UpdateTeamInput,
   today?: string,
   mode: ScopeMode = "operating",
-): Promise<{ teams: TeamHalfTeamDto[] }> {
+  actorId: string | null = null,
+): Promise<{ teams: TeamHalfTeamDto[]; notes?: string[] }> {
   const organization = String(input.organization ?? "").trim();
   const halfKey = String(input.halfKey ?? "").trim();
   const teamHalfId = String(input.teamHalfId ?? "").trim();
@@ -1725,6 +1858,21 @@ export async function updateTeamHalf(
   if (masterError) throw new TeamHalfWriteError(500, masterError.message);
   const teamId = (masterData as { id: string } | null)?.id ?? null;
 
+  // 팀장 역할 lifecycle 준비(halves 쓰기 전 read-only).
+  const oldLeaderId = target.leader_user_id;
+  const roleLifecycle = await hasLeaderPrevPositionColumn();
+  const leaderChanged = roleLifecycle && !!oldLeaderId && oldLeaderId !== leaderUserId;
+  const newLeaderSnapshot = roleLifecycle ? await readPositionSnapshot(leaderUserId) : null;
+  const newLeaderAlreadyTL = newLeaderSnapshot?.role === TEAM_LEADER_ROLE;
+  // leader_previous_position 은 리더가 바뀌었거나(새 리더 스냅샷 기록) 미승격 리더를 지금 승격할 때만
+  //   갱신 — 변경 없는 재저장에서 기존 스냅샷을 team_leader 상태로 덮어쓰지 않는다.
+  const prevPosField =
+    roleLifecycle && (leaderChanged || !newLeaderAlreadyTL)
+      ? { leader_previous_position: newLeaderSnapshot }
+      : {};
+  // 이전 팀장 A 복원용 스냅샷 — update 가 덮어쓰기 전에 읽는다.
+  const oldSnapshot = leaderChanged ? await readLeaderPreviousPosition(teamHalfId) : null;
+
   const { error: updError } = await supabaseAdmin
     .from("cluster4_team_halves")
     .update({
@@ -1733,6 +1881,7 @@ export async function updateTeamHalf(
       leader_user_id: leaderUserId,
       leader_crew_code: leaderCrewCode,
       team_id: teamId,
+      ...prevPosField,
     })
     .eq("id", teamHalfId);
   if (updError) throw new TeamHalfWriteError(500, updError.message);
@@ -1746,7 +1895,25 @@ export async function updateTeamHalf(
     .eq("part_name", DEFAULT_PART_NAME);
   if (partError) throw new TeamHalfWriteError(500, partError.message);
 
-  return { teams: await listHalfTeams(organization, halfKey) };
+  // demote-before-promote: 교체면 이전 팀장 A 를 **먼저** 복원(그 팀 유일성 슬롯 확보) 후 새 팀장 B 승격.
+  //   role 동기화 충돌 등은 note 로만 보고(팀 수정 자체는 성공).
+  const notes: string[] = [];
+  if (leaderChanged && oldLeaderId) {
+    const note = await restoreFormerLeader({
+      userId: oldLeaderId,
+      excludeTeamHalfId: teamHalfId,
+      snapshot: oldSnapshot,
+      actorId,
+      teamLabel: teamName,
+    });
+    if (note) notes.push(note);
+  }
+  if (roleLifecycle) {
+    const note = await promoteTeamLeader(leaderUserId, teamName, actorId);
+    if (note) notes.push(note);
+  }
+
+  return { teams: await listHalfTeams(organization, halfKey), ...(notes.length ? { notes } : {}) };
 }
 
 // ── 팀 삭제 대기 처리(현재·다음 반기만) ───────────────────────────────
@@ -1758,7 +1925,8 @@ export async function markTeamHalfDeletionPending(
   teamHalfId: string,
   today?: string,
   mode: ScopeMode = "operating",
-): Promise<{ teams: TeamHalfTeamDto[] }> {
+  actorId: string | null = null,
+): Promise<{ teams: TeamHalfTeamDto[]; notes?: string[] }> {
   const org = String(organization ?? "").trim();
   const half = String(halfKey ?? "").trim();
   const id = String(teamHalfId ?? "").trim();
@@ -1787,6 +1955,11 @@ export async function markTeamHalfDeletionPending(
   // 쓰기 스코프 가드 — 대상 팀의 저장된 스코프가 실효 모드와 일치해야(QA서 운영팀 삭제 차단).
   assertStoredTeamScope(target.is_qa_test, resolveEffectiveScopeMode(mode));
 
+  // 삭제 전에 복원 소스(previous position 스냅샷) 확보. 팀장 역할 lifecycle.
+  const roleLifecycle = await hasLeaderPrevPositionColumn();
+  const formerLeaderId = target.leader_user_id;
+  const prevPos = roleLifecycle && formerLeaderId ? await readLeaderPreviousPosition(id) : null;
+
   if (target.is_active) {
     const { error } = await supabaseAdmin
       .from("cluster4_team_halves")
@@ -1796,7 +1969,20 @@ export async function markTeamHalfDeletionPending(
   }
   // 이미 비활성(중복 삭제 요청)이면 idempotent — 그대로 성공 처리.
 
-  return { teams: await listHalfTeams(org, half) };
+  // 이전 팀장 복원 — 다른 active 팀 리더면 team_leader 유지, 아니면 snapshot 으로 복원(레거시면 보고).
+  const notes: string[] = [];
+  if (roleLifecycle && formerLeaderId && target.is_active) {
+    const note = await restoreFormerLeader({
+      userId: formerLeaderId,
+      excludeTeamHalfId: id,
+      snapshot: prevPos,
+      actorId,
+      teamLabel: target.team_name,
+    });
+    if (note) notes.push(note);
+  }
+
+  return { teams: await listHalfTeams(org, half), ...(notes.length ? { notes } : {}) };
 }
 
 // 팀의 "일반" 파트를 보장한다(없으면 생성). UNIQUE(team_half_id, part_name) 로 중복 불가.

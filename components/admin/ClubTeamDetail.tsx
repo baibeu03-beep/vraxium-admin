@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { ChevronRight, X } from "lucide-react";
+import { X } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -121,6 +121,24 @@ const CHIP_CLS: Record<OrganizationSlug, string> = {
   oranke: "bg-yellow-300 text-zinc-900 border-yellow-400",
   phalanx: "bg-green-500 text-white border-green-600",
 };
+
+// 팀 box 배색 — 등록 순서(idx)대로 서로 다른 색을 계속 부여(반복 최소화). 14색 순환(라이트/다크 대응).
+const TEAM_BOX_TONES = [
+  "border-red-300 bg-red-50 dark:border-red-900/70 dark:bg-red-950/30",
+  "border-amber-300 bg-amber-50 dark:border-amber-900/70 dark:bg-amber-950/30",
+  "border-emerald-300 bg-emerald-50 dark:border-emerald-900/70 dark:bg-emerald-950/30",
+  "border-sky-300 bg-sky-50 dark:border-sky-900/70 dark:bg-sky-950/30",
+  "border-violet-300 bg-violet-50 dark:border-violet-900/70 dark:bg-violet-950/30",
+  "border-pink-300 bg-pink-50 dark:border-pink-900/70 dark:bg-pink-950/30",
+  "border-lime-300 bg-lime-50 dark:border-lime-900/70 dark:bg-lime-950/30",
+  "border-orange-300 bg-orange-50 dark:border-orange-900/70 dark:bg-orange-950/30",
+  "border-cyan-300 bg-cyan-50 dark:border-cyan-900/70 dark:bg-cyan-950/30",
+  "border-fuchsia-300 bg-fuchsia-50 dark:border-fuchsia-900/70 dark:bg-fuchsia-950/30",
+  "border-teal-300 bg-teal-50 dark:border-teal-900/70 dark:bg-teal-950/30",
+  "border-indigo-300 bg-indigo-50 dark:border-indigo-900/70 dark:bg-indigo-950/30",
+  "border-yellow-300 bg-yellow-50 dark:border-yellow-900/70 dark:bg-yellow-950/30",
+  "border-rose-300 bg-rose-50 dark:border-rose-900/70 dark:bg-rose-950/30",
+];
 
 const SELECT_CLS =
   "rounded-md border border-input bg-background px-3 py-2 text-sm";
@@ -280,31 +298,30 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
   }, [load]);
 
   // 현재 시점 현황 요약 — /summary?organization={org} (상위 목록과 동일 함수·DTO). half 와 독립적으로
-  //   clubId·mode 에만 반응한다(과거 반기 선택 시에도 숫자 불변). 실패해도 팀 상세는 정상 렌더.
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const params = new URLSearchParams({ organization: clubId });
-        if (mode === "test") params.set("mode", "test");
-        const res = await fetch(
-          `/api/admin/team-parts/info/summary?${params.toString()}`,
-          { cache: "no-store" },
-        );
-        const json = await res.json();
-        if (cancelled) return;
-        if (res.ok && json.success) {
-          const rows = (json.data?.rows ?? []) as ClubCurrentSummaryRow[];
-          setSummary(rows.find((r) => r.clubId === clubId) ?? rows[0] ?? null);
-        }
-      } catch {
-        // 현황 스트립은 보조 정보 — 조회 실패 시 값만 비운다(팀 상세는 그대로).
+  //   clubId·mode 에만 반응(과거 반기 선택 시에도 숫자 불변). 팀장 지정/교체/삭제로 역할이 바뀌면
+  //   운영진/팀장 수도 즉시 반영돼야 하므로 mutation 후에도 재호출한다(요구 C). 실패해도 팀 상세는 정상.
+  const loadSummary = useCallback(async () => {
+    try {
+      const params = new URLSearchParams({ organization: clubId });
+      if (mode === "test") params.set("mode", "test");
+      const res = await fetch(
+        `/api/admin/team-parts/info/summary?${params.toString()}`,
+        { cache: "no-store" },
+      );
+      const json = await res.json();
+      if (res.ok && json.success) {
+        const rows = (json.data?.rows ?? []) as ClubCurrentSummaryRow[];
+        setSummary(rows.find((r) => r.clubId === clubId) ?? rows[0] ?? null);
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    } catch {
+      // 현황 스트립은 보조 정보 — 조회 실패 시 값만 비운다(팀 상세는 그대로).
+    }
   }, [clubId, mode]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadSummary();
+  }, [loadSummary]);
 
   const onHalfChange = (value: string) => {
     void load(value);
@@ -434,6 +451,8 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
       );
       closeModal();
       await load(half);
+      // 팀장 지정/교체로 role 이 바뀌면 운영진/팀장 수도 즉시 갱신.
+      void loadSummary();
     } catch (e) {
       setLookupError(
         e instanceof Error ? e.message : isEditMode ? "수정 실패" : "등록 실패",
@@ -461,6 +480,8 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
       }
       t.success("delete", "팀이 삭제 대기 상태로 전환되었습니다.");
       await load(half);
+      // 팀 삭제로 이전 팀장 role 이 복원되면 운영진/팀장 수도 즉시 갱신.
+      void loadSummary();
     } catch (e) {
       console.error("[team-parts/info] 팀 삭제 실패", e);
       t.error("delete");
@@ -481,41 +502,7 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
       {/* 전역 헤더 breadcrumb 마지막 칸을 실제 클럽명으로 교체(중복 조회 없음·slug 미노출). */}
       <AdminDetailTitle title={clubName} />
       <CardHeader>
-        <div className="flex items-center justify-between gap-3">
-          {/* 상세 페이지 breadcrumb(3단계) — 클럽 정보 > 팀 내역(목록 복귀) > 실제 클럽명.
-              클럽 정보·팀 내역은 별도 인덱스 라우트가 없어 둘 다 기존 팀 내역 목록(/admin/team-parts/info)
-              으로 이동한다(신규 경로 생성 금지). 마지막 클럽명은 현재 페이지이므로 링크 아님. */}
-          <nav
-            aria-label="현재 위치"
-            className="flex min-w-0 items-center gap-1.5"
-          >
-            <Link
-              href="/admin/team-parts/info"
-              className="truncate rounded-sm text-sm text-muted-foreground underline-offset-2 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring sm:text-base"
-            >
-              클럽 정보
-            </Link>
-            <ChevronRight
-              className="size-4 shrink-0 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <Link
-              href="/admin/team-parts/info"
-              className="truncate rounded-sm text-sm text-muted-foreground underline-offset-2 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring sm:text-base"
-            >
-              팀 내역
-            </Link>
-            <ChevronRight
-              className="size-4 shrink-0 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <span
-              data-club-detail-name
-              className="truncate text-sm font-semibold text-foreground sm:text-base"
-            >
-              {clubName}
-            </span>
-          </nav>
+        <div className="flex items-center justify-end gap-3">
           <AdminHelp />
         </div>
       </CardHeader>
@@ -601,13 +588,14 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
         {loading ? (
           <LoadingState active />
         ) : (
-          <section className="space-y-3">
-            {/* 등록된 팀 box 누적 */}
-            {teams.map((team) => (
+          <section className="space-y-10">
+            {/* 등록된 팀 box 누적 — 팀 간 세로 여백 확대(space-y-3 → space-y-10) +
+                팀별 순차 배색(14색 순환)으로 확실히 구분(라이트/다크 대응). */}
+            {teams.map((team, idx) => (
               <div
                 key={team.teamHalfId}
                 data-team-box={team.teamName}
-                className="space-y-3 rounded-lg border border-zinc-300 bg-white p-4"
+                className={`space-y-3 rounded-lg border p-4 ${TEAM_BOX_TONES[idx % TEAM_BOX_TONES.length]}`}
               >
                 {/* Row 1: 팀명(→ 팀 상세 링크) · 개요 · 수정/삭제.
                     ⚠ 카드 전체가 아니라 팀 배지만 링크다. 수정·삭제 버튼은 기존 동작 유지(상세 이동 X). */}
@@ -826,7 +814,12 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
                 <Input
                   id="team-parts-crewcode-input"
                   value={crewCode}
-                  onChange={(e) => setCrewCode(e.target.value)}
+                  // 숫자·하이픈만 허용 — 타이핑·붙여넣기 모두 [0-9-] 이외 제거(state 항상 /^[0-9-]*$/).
+                  //   실제 크루 코드는 중간에 -가 포함될 수 있으므로 하이픈을 보존한다. 앞자리 0 은
+                  //   문자열 유지로 보존(숫자형 변환 금지). type=number 는 e/+/-/. 허용되므로 쓰지 않는다.
+                  inputMode="numeric"
+                  pattern="[0-9-]*"
+                  onChange={(e) => setCrewCode(e.target.value.replace(/[^0-9-]/g, ""))}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();

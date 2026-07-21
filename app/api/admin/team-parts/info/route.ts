@@ -121,12 +121,13 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { teams } = await registerTeamHalf(
+    const { teams, notes } = await registerTeamHalf(
       { organization, halfKey, teamName, description, leaderCrewCode },
       undefined,
       readScopeMode(request.nextUrl.searchParams),
+      admin.userId,
     );
-    return Response.json({ success: true, data: { teams } });
+    return Response.json({ success: true, data: { teams, ...(notes?.length ? { notes } : {}) } });
   } catch (error) {
     if (error instanceof TeamHalfWriteError) {
       return Response.json(
@@ -205,12 +206,13 @@ export async function PUT(request: NextRequest) {
   }
 
   try {
-    const { teams } = await updateTeamHalf(
+    const { teams, notes } = await updateTeamHalf(
       { organization, halfKey, teamHalfId, teamName, description, leaderCrewCode },
       undefined,
       readScopeMode(request.nextUrl.searchParams),
+      admin.userId,
     );
-    return Response.json({ success: true, data: { teams } });
+    return Response.json({ success: true, data: { teams, ...(notes?.length ? { notes } : {}) } });
   } catch (error) {
     if (error instanceof TeamHalfWriteError) {
       return Response.json(
@@ -271,14 +273,15 @@ export async function DELETE(request: NextRequest) {
   }
 
   try {
-    const { teams } = await markTeamHalfDeletionPending(
+    const { teams, notes } = await markTeamHalfDeletionPending(
       organization,
       halfKey,
       teamHalfId,
       undefined,
       readScopeMode(request.nextUrl.searchParams),
+      admin.userId,
     );
-    return Response.json({ success: true, data: { teams } });
+    return Response.json({ success: true, data: { teams, ...(notes?.length ? { notes } : {}) } });
   } catch (error) {
     if (error instanceof TeamHalfWriteError) {
       return Response.json(

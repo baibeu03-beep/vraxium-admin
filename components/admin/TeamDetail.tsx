@@ -737,6 +737,8 @@ export default function TeamDetail({
                 <div className="flex items-center justify-end">
                   <Button
                     type="button"
+                    size="lg"
+                    className="h-11 px-6 text-base font-semibold"
                     data-save-team-week-part-class
                     onClick={saveRows}
                     disabled={!weekEditable || dirtyCount === 0 || savingRows}
