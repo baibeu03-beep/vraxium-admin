@@ -55,6 +55,7 @@ import {
   resolveUserScope,
   readScopeMode,
   assertUserIdsInScope,
+  assertLineInRequestScope,
 } from "@/lib/userScope";
 import { loadWeekOpeningConfig } from "@/lib/adminTeamPartsInfoWeekDetailData";
 import { isInfoLineOpenForWeek } from "@/lib/weekOpenGate";
@@ -879,8 +880,21 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // 라인 + 타깃 삭제 + 영향 크루(배정자 + org audience) snapshot 재계산.
-    await deleteCluster4Line(lineId);
+    // 스코프 가드(fail-closed) — 이 라인의 타깃 유저가 요청 모드(operating/test) 집합에 속할 때만 취소 허용.
+    //   ?mode=test 요청이 운영 라인(실유저 타깃)을 삭제하지 못하게 막는다. lines/[id] DELETE 와 동일 가드.
+    //   mode 는 대상 사용자 스코프 선택 전용 — 삭제 로직 자체는 operating/test 동일.
+    let scope;
+    try {
+      scope = await assertLineInRequestScope(request, lineId);
+    } catch (error) {
+      return Response.json(
+        { success: false, error: error instanceof Error ? error.message : "Scope violation" },
+        { status: (error as { status?: number }).status ?? 422 },
+      );
+    }
+
+    // 라인 + 타깃 삭제 + 영향 크루 snapshot 재계산 — 재계산 대상도 요청 모드 코호트로 한정(scope.mode).
+    await deleteCluster4Line(lineId, scope.mode);
 
     // 개설 로그: 취소 = [개설 취소] 로그 append. best-effort(snapshot 무관, 본 동작과 분리).
     await insertOpeningLogForLine({

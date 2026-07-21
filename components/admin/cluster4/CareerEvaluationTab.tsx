@@ -281,6 +281,10 @@ export default function CareerEvaluationTab({
           line_target_id: target.lineTargetId,
           user_id: target.userId,
           grade,
+          // 조회(loadTargets)와 동일 모드를 저장에도 전달 — 서버 스코프 가드와 정합(대상 사용자 스코프 전용).
+          ...(readScopeMode(new URLSearchParams(window.location.search)) === "test"
+            ? { mode: "test" }
+            : {}),
         }),
       });
       status = res.status;

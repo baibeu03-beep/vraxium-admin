@@ -1154,6 +1154,10 @@ export default function PracticalExperienceManager() {
             rating,
             memo: dfMemo.trim() || null,
             input_status: asSubmit ? "submitted" : "draft",
+            // 조회와 동일 모드를 저장에도 전달 — 서버 스코프 가드와 정합(대상 사용자 스코프 전용).
+            ...(readScopeMode(new URLSearchParams(window.location.search)) === "test"
+              ? { mode: "test" }
+              : {}),
           };
           const res = await fetch(
             `/api/admin/cluster4/experience-drafts/${editingDraftId}`,
@@ -1190,6 +1194,10 @@ export default function PracticalExperienceManager() {
             rating,
             memo: dfMemo.trim() || null,
             input_status: asSubmit ? "submitted" : "draft",
+            // 조회와 동일 모드를 생성에도 전달 — 서버 스코프 가드와 정합(대상 사용자 스코프 전용).
+            ...(readScopeMode(new URLSearchParams(window.location.search)) === "test"
+              ? { mode: "test" }
+              : {}),
           };
           console.log("[experience draft create payload]", {
             selectedWeekId,
@@ -1278,6 +1286,10 @@ export default function PracticalExperienceManager() {
             body: JSON.stringify({
               review_status: decision,
               rejection_reason: decision === "rejected" ? rejectionReason.trim() : null,
+              // 조회와 동일 모드를 검수에도 전달 — 서버 스코프 가드와 정합(대상 사용자 스코프 전용).
+              ...(readScopeMode(new URLSearchParams(window.location.search)) === "test"
+                ? { mode: "test" }
+                : {}),
             }),
           },
         );
@@ -1317,11 +1329,18 @@ export default function PracticalExperienceManager() {
     if (!(await confirm({ ...CONFIRM.complete, description: `선택한 ${openSelectedIds.size}건을 최종 개설하시겠습니까?`, confirmLabel: "최종 개설" }))) return;
     setSaving(true);
     try {
-      const res = await fetch("/api/admin/cluster4/experience-drafts/open", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ draft_ids: Array.from(openSelectedIds) }),
-      });
+      // open 라우트는 URL ?mode 로 스코프를 읽는다(대상 사용자 스코프 전용) — 조회와 동일 모드를 전달.
+      const res = await fetch(
+        appendModeQuery(
+          "/api/admin/cluster4/experience-drafts/open",
+          readScopeMode(new URLSearchParams(window.location.search)),
+        ),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ draft_ids: Array.from(openSelectedIds) }),
+        },
+      );
       const json = await res.json();
       if (!json.success) {
         console.error("[experience] open failed", json?.error);

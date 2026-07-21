@@ -431,7 +431,9 @@ async function openCompetencyHubImpl(input: {
   // 대시보드에서 선택한 개설 주차(허용 예외 주차 포함). 미지정=정규 개설 대상 주차.
   weekId?: string | null;
 }): Promise<CompetencyOpeningActionResult> {
-  const mode: ScopeMode = "operating";
+  // 개설(open)도 취소(cancel)와 동일하게 요청 mode 를 존중한다 — mode 는 대상 사용자 집합(+ 주차 예외)만
+  //   결정하고, 개설 로직 자체는 동일하다. (과거엔 여기서 "operating" 을 하드코딩해 cancel 과 비대칭이었다.)
+  const mode: ScopeMode = input.mode ?? "operating";
   const { targetWeekId } = await resolveEffectiveWeek(mode, input.weekId, input.organization);
   if (!targetWeekId) {
     throw Object.assign(new Error("개설 대상 주차 정보를 확인할 수 없습니다"), { status: 400 });

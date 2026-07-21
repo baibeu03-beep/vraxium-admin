@@ -11,6 +11,7 @@ import { adminDialog } from "@/components/ui/admin-dialog";
 import { cn } from "@/lib/utils";
 import { CUSTOM_DROPDOWN_POPUP_CLASS } from "@/lib/customDropdownStyles";
 import { readOrgParam } from "@/lib/adminOrgContext";
+import { readScopeMode } from "@/lib/userScopeShared";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import {
   formatBannerPeriod,
@@ -70,6 +71,8 @@ export default function CompetencyOpeningDashboard() {
   const router = useRouter();
   const pathname = usePathname();
   const org = readOrgParam(searchParams);
+  // 운영/테스트 모드 — 읽기(상태창/신청/개설상태)와 동일 모드를 쓰기(개설/취소)에도 전달한다.
+  const mode = readScopeMode(searchParams);
   const { toast } = useToast();
   const t = useActionToast();
   // 운영/테스트 모드 — 개설 완료 시 라인 타깃 생성 가드(서버)와 같은 모드로 판정되도록 보존.
@@ -315,6 +318,8 @@ export default function CompetencyOpeningDashboard() {
       setActing(true);
       try {
         const body: Record<string, unknown> = { action, organization: org };
+        // 운영/테스트 모드 — 읽기와 동일 모드로 개설/취소(대상 사용자 스코프 + 예외 주차 판정). 서버 fail-closed.
+        if (mode === "test") body.mode = "test";
         // 선택한 개설 주차(허용 예외 포함) 전달 — 서버가 정규 대상/예외 주차만 허용(fail-closed).
         if (openTargetWeek) body.week_id = openTargetWeek.id;
         if (action === "open") {
@@ -363,7 +368,7 @@ export default function CompetencyOpeningDashboard() {
         setActing(false);
       }
     },
-    [org, linkUrl, linkDesc, fetchStatus, openTargetWeek, toast, t, canOpen],
+    [org, mode, linkUrl, linkDesc, fetchStatus, openTargetWeek, toast, t, canOpen],
   );
 
   return (

@@ -679,6 +679,8 @@ export default function PracticalInfoOpeningForm({
       });
       // org 분기 진입이면 organization 전달 → 서버가 그 org 라인만 취소(타org 오삭제 방지).
       if (org) qs.set("organization", org);
+      // 운영/테스트 모드 전달 — 개설(executeOpen)과 동일. 서버가 스코프 가드로 타 모드 라인 삭제를 차단.
+      if (new URLSearchParams(window.location.search).get("mode") === "test") qs.set("mode", "test");
       const res = await fetch(
         `/api/admin/cluster4/info-lines?${qs.toString()}`,
         { method: "DELETE" },

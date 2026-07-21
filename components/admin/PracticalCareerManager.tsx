@@ -1097,6 +1097,10 @@ export default function PracticalCareerManager() {
         // 그대로 전송한다(서버도 동일 규칙으로 강제 저장).
         submission_opens_at: selectedWeek.submissionOpensAt,
         submission_closes_at: selectedWeek.submissionClosesAt,
+        // 조회(대상자/라인)와 동일 모드를 개설에도 전달 — 서버 스코프 가드와 정합(대상 사용자 스코프 전용).
+        ...(readScopeMode(new URLSearchParams(window.location.search)) === "test"
+          ? { mode: "test" }
+          : {}),
       };
       console.log("[career line open payload]", {
         selectedWeekId,

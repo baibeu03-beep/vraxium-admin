@@ -5,6 +5,7 @@ import {
   toAdminErrorResponse,
 } from "@/lib/adminAuth";
 import { isOrganizationSlug } from "@/lib/organizations";
+import { parseScopeMode } from "@/lib/userScope";
 import {
   cancelCompetencyHub,
   openCompetencyHub,
@@ -78,8 +79,10 @@ export async function POST(request: NextRequest) {
   }
   // 대시보드에서 선택한 개설 주차(허용 예외 포함). 미지정=정규 개설 대상 주차.
   const weekId = typeof b.week_id === "string" && b.week_id.trim() ? b.week_id.trim() : null;
-  // 운영/테스트 모드 — 개설 완료 시 신청/승인 명단 기반 라인 타깃 생성 가드로 전달.
-  const mode = "operating";
+  // 운영/테스트 모드 — 개설/취소 모두 요청 모드를 존중한다(읽기와 동일 모드). 대상 사용자 스코프·예외
+  //   주차 판정에만 쓰이며 개설/취소 로직 자체는 동일. 미지정=operating(기존 동작). 형제 write 라우트
+  //   (competency-lines·applications·experience part-input)와 동일하게 parseScopeMode 로 판독.
+  const mode = parseScopeMode(typeof b.mode === "string" ? b.mode : null);
 
   // 순수 계측(로그 전용, 응답 DTO 미변경): elapsed·supabase 쿼리수·operation·actorMode·영향 라인/크루.
   return observeApiRoute("[admin/cluster4/competency/opening POST]", async (obs) => {

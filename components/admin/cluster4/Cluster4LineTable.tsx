@@ -641,6 +641,10 @@ function LineDetailModal({
           submission_opens_at: opensIso,
           submission_closes_at: closesIso,
           is_active: isActive,
+          // 조회와 동일 모드를 편집 저장에도 전달 — 서버 스코프 가드/재계산 코호트와 정합(대상 사용자 스코프 전용).
+          ...(readScopeMode(new URLSearchParams(window.location.search)) === "test"
+            ? { mode: "test" }
+            : {}),
         }),
       });
       const json = await res.json();
