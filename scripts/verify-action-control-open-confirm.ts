@@ -139,7 +139,8 @@ async function main() {
   const g = await fetch(`${BASE}/api/admin/team-parts/info/weeks/${weekId}?club=${ORG}`, { headers: { cookie }, cache: "no-store" });
   const gj: any = await g.json();
   check("[HTTP GET] managedWeek.openConfirmed=false", gj?.data?.managedWeek?.openConfirmed === false);
-  const wisdom = gj?.data?.openingConfig?.practicalInfo?.find((l: any) => l.lineId === "wisdom");
+  // DTO 경로 정정: openingConfig.lineOpening.practicalInfo (기존 오타 openingConfig.practicalInfo).
+  const wisdom = gj?.data?.openingConfig?.lineOpening?.practicalInfo?.find((l: any) => l.lineId === "wisdom");
   check("[HTTP GET] 취소 후에도 config 보존(wisdom checked=true)", wisdom?.checked === true, { wisdom });
 
   // direct GET(loadTeamPartsInfoWeekDetail) == HTTP GET.
@@ -161,6 +162,8 @@ async function main() {
   } else {
     await supabaseAdmin.from("cluster4_week_opening_configs").delete().eq("week_id", weekId).eq("organization_slug", ORG);
   }
+  // [오픈 확인 재실행 이력] save 마다 append 되는 버전 행 정리(이 테스트는 config 만 원복하므로 고아 방지).
+  await supabaseAdmin.from("cluster4_week_opening_config_versions").delete().eq("week_id", weekId).eq("organization_slug", ORG);
   const restored = await readRow(weekId);
   check("원본 상태 복원", JSON.stringify(restored) === JSON.stringify(orig), { restored, orig });
 
