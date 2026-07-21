@@ -1,21 +1,27 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { X } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ChevronRight, X } from "lucide-react";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { adminDialog } from "@/components/ui/admin-dialog";
 import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import { AdminDetailTitle } from "@/components/admin/AdminRouteTitleProvider";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
-import { readOrgParam } from "@/lib/adminOrgContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
-import { ORGANIZATIONS, type OrganizationSlug } from "@/lib/organizations";
+import { type OrganizationSlug } from "@/lib/organizations";
 import { parseHalfKey } from "@/lib/teamHalf";
 import { useActionToast } from "@/lib/actionToast";
+
+// ── 클럽 상세 하위 페이지(`/admin/team-parts/info/[clubId]`) — 선택 클럽의 팀·파트 상세 ──
+//   상위 목록의 클럽명을 눌러 진입한다. 클럽은 URL(clubId=org slug)로 이미 결정되므로 조직 탭이 없다.
+//   기존 팀 내역(§2) 편집 기능을 그대로 보존한다 — 클럽 탭 선택을 URL parameter 로 바꾼 것뿐.
+//   데이터 원천/DTO/로더/저장·수정·삭제 액션은 통합/개별·일반/test 모두 동일(기존 API 재사용).
 
 const MAX_TEAMS_PER_CLUB = 10;
 const MAX_TEAM_NAME = 12;
@@ -65,19 +71,6 @@ type HalfOption = {
   editable: boolean;
 };
 
-// 상단 요약 — 현재 접속 시점 현황(서버 SoT). selectedHalfKey 와 무관하며 전 조직·현재 반기 기준.
-//   모든 org 응답에서 동일 값이라 프론트는 base(첫 결과)만 읽는다.
-type SummaryDto = {
-  currentDate: string;
-  currentWeek: {
-    year: number;
-    seasonName: string;
-    weekNumber: number | null;
-    label: string;
-  } | null;
-  counts: { totalClubs: number; totalTeams: number; totalParts: number };
-};
-
 type InfoDto = {
   organization: string;
   currentHalfKey: string | null;
@@ -86,7 +79,6 @@ type InfoDto = {
   halves: HalfOption[];
   teams: TeamDto[];
   weekColumns: PartWeekColumn[];
-  summary: SummaryDto;
 };
 
 type LeaderCandidate = {
@@ -118,13 +110,11 @@ const CHIP_CLS: Record<OrganizationSlug, string> = {
   oranke: "bg-yellow-300 text-zinc-900 border-yellow-400",
   phalanx: "bg-green-500 text-white border-green-600",
 };
-const TAB_ACTIVE_CLS = CHIP_CLS;
 
 const SELECT_CLS =
   "rounded-md border border-input bg-background px-3 py-2 text-sm";
 
-// 해당 시기 드롭다운 고정 옵션(2022 상반기 ~ 2026 하반기). 표시=formatHalf, 현재 반기 기본 선택.
-//   편집 가능/현재 여부는 백엔드 SoT(isEditableHalf·currentHalfKey)로만 판정한다(프론트 재정의 금지).
+// 해당 시기 드롭다운 고정 옵션(2022 상반기 ~ 2026 하반기). 편집 가능/현재 여부는 백엔드 SoT.
 const HALF_OPTIONS = [
   "2022-H1",
   "2022-H2",
@@ -151,12 +141,7 @@ function formatBirth6(b: string | null): string {
   return `${b.slice(0, 2)}. ${b.slice(2, 4)}. ${b.slice(4, 6)}`;
 }
 
-// 팀장 메타 정보 행 — 표시 가능한 항목만 배열로 모아 "항목 사이에만" | 구분자를 렌더한다.
-//   · 값 없는 항목은 배열에서 제외 → 앞뒤 불필요한 구분자·연속 || · 첫/끝 구분자 없음.
-//   · 각 (구분자+항목)을 inline-flex 단위로 감싸 모바일 줄바꿈 시 구분자가 단독 고립되지 않게 함.
-//   · 구분자는 text-muted-foreground/50(본문보다 약함)·aria-hidden.
-//   · data-team-leader-*, data-team-partcount, data-team-parts 유지. 표현만 변경(데이터 로직 불변).
-//   · mode/org 분기 없음 — 모든 조직·모드가 이 공통 경로를 그대로 사용.
+// 팀장 메타 정보 행 — 표시 가능한 항목만 배열로 모아 "항목 사이에만" | 구분자를 렌더한다(기존 로직 보존).
 function TeamLeaderMeta({ team }: { team: TeamDto }) {
   const schoolMajor = team.leaderSchool
     ? team.leaderMajor
@@ -169,7 +154,6 @@ function TeamLeaderMeta({ team }: { team: TeamDto }) {
       : null;
 
   const items: { key: string; node: ReactNode }[] = [];
-  // 이름 배지(앵커 — 항상 표시).
   items.push({
     key: "name",
     node: (
@@ -186,7 +170,7 @@ function TeamLeaderMeta({ team }: { team: TeamDto }) {
     value: string | null,
     dataAttr?: Record<string, string>,
   ) => {
-    if (!value) return; // 값 없는 항목은 렌더링하지 않음(구분자도 함께 생략).
+    if (!value) return;
     items.push({
       key,
       node: (
@@ -202,7 +186,6 @@ function TeamLeaderMeta({ team }: { team: TeamDto }) {
   pushText("residence", team.leaderResidence);
   pushText("class", team.leaderClassLabel, { "data-team-leader-class": team.teamName });
   pushText("grade", team.leaderGradeLabel, { "data-team-leader-grade": team.teamName });
-  // 파트 수(선행 "·" 제거 — 구분자 체계로 대체).
   items.push({
     key: "partcount",
     node: (
@@ -214,7 +197,6 @@ function TeamLeaderMeta({ team }: { team: TeamDto }) {
       </span>
     ),
   });
-  // 파트 배지 묶음(앞에 구분자 1개 · 배지 내부엔 구분자 없음).
   items.push({
     key: "parts",
     node: (
@@ -247,41 +229,20 @@ function TeamLeaderMeta({ team }: { team: TeamDto }) {
   );
 }
 
-export default function TeamPartsInfoManager() {
+export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug }) {
   const searchParams = useSearchParams();
-  const orgFromUrl = readOrgParam(searchParams);
-  // QA 모드(?mode=test) — 팀 정보 조회에 전파(백엔드 filterTeamsByScope 와 정합: 테스트 (T)팀만).
+  // QA 모드(?mode=test) — 팀 정보 조회에 전파(백엔드 filterTeamsByScope 와 정합).
   const mode = readScopeMode(searchParams);
-  // 스코프 조직 = 상단 요약·집계(클럽 수/전체 팀 수)·하단 조직 탭이 공유하는 조회 대상.
-  //   · 개별 경로(?org={slug}): URL org 1개.
-  //   · 통합 경로(org 없음): 엥크레/오랑캐/팔랑크스 전체 — 상단에서 3개 클럽 팀 현황을 동시 조회한다.
-  const scopeOrgs = useMemo(
-    () => (orgFromUrl ? [orgFromUrl] : [...ORGANIZATIONS]),
-    [orgFromUrl],
-  );
-  // 하단 관리 영역의 활성 조직: 개별=URL org 고정, 통합=페이지 내부 상태(기본 엥크레).
-  //   조직 탭 클릭은 이 상태만 바꾸고 URL 에 org 를 붙이지 않는다(재진입 없음·배지=URL 기준 [통합] 유지).
-  //   탭 전환은 재조회 없이 byOrg 캐시로 즉시 표시. 데이터/DTO/로더/저장·수정·삭제 액션은 개별·통합 동일.
-  const [selectedOrg, setSelectedOrg] = useState<OrganizationSlug>(
-    ORGANIZATIONS[0],
-  );
-  const activeOrg: OrganizationSlug = orgFromUrl ?? selectedOrg;
+  const activeOrg = clubId;
+  const clubName = CLUB_LABEL[clubId];
 
   const [half, setHalf] = useState<string | null>(null);
   const [currentHalfKey, setCurrentHalfKey] = useState<string | null>(null);
-  // 편집 가능 = 백엔드 SoT(base.editable = isEditableHalf: 현재/다음 반기). 프론트 재정의 없음.
   const [editable, setEditable] = useState(false);
-  const [byOrg, setByOrg] = useState<Record<string, TeamDto[]>>({});
-  const [colsByOrg, setColsByOrg] = useState<Record<string, PartWeekColumn[]>>(
-    {},
-  );
-  // 상단 요약 = 현재 접속 시점 현황(전 조직·현재 반기). 선택 반기/org 변경과 무관하게 서버가 항상 현재
-  //   기준 값을 준다 → 반기 select 를 바꿔도 이 값은 바뀌지 않는다(요구). 재조회 중에는 이전 값 유지.
-  const [summary, setSummary] = useState<SummaryDto | null>(null);
+  const [teams, setTeams] = useState<TeamDto[]>([]);
+  const [weekColumns, setWeekColumns] = useState<PartWeekColumn[]>([]);
   const [loading, setLoading] = useState(true);
   useReportLoading(loading);
-  // 데이터 조회 실패(뷰 비움)만 인라인 배너로 유지한다 — 지속 상태.
-  //   등록/수정/삭제 등 액션 결과는 하단 공통 토스트(useActionToast)로 안내한다.
   const [banner, setBanner] = useState<Banner>(null);
   const t = useActionToast();
 
@@ -296,52 +257,34 @@ export default function TeamPartsInfoManager() {
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [registering, setRegistering] = useState(false);
 
-  // 삭제 확인 팝업(삭제 대기 전환 대상).
-
   const isEditMode = editingTeam != null;
 
   const load = useCallback(
     async (halfKey: string | null) => {
       setLoading(true);
       setBanner(null);
+      // 다른 클럽/반기로 전환 시 이전 데이터가 잠깐 남지 않도록 비운다.
       try {
-        // 스코프 조직(개별=1·통합=3)을 동일 로더로 조회 — 통합은 상단 요약에 3개 클럽 동시 표시.
-        const results = await Promise.all(
-          scopeOrgs.map(async (org) => {
-            const params = new URLSearchParams({ organization: org });
-            if (halfKey) params.set("half", halfKey);
-            if (mode === "test") params.set("mode", "test");
-            const res = await fetch(
-              `/api/admin/team-parts/info?${params.toString()}`,
-              { cache: "no-store" },
-            );
-            const json = await res.json();
-            if (!res.ok || !json.success) {
-              throw new Error(json?.error ?? `조회 실패 (${res.status})`);
-            }
-            return json.data as InfoDto;
-          }),
+        const params = new URLSearchParams({ organization: clubId });
+        if (halfKey) params.set("half", halfKey);
+        if (mode === "test") params.set("mode", "test");
+        const res = await fetch(
+          `/api/admin/team-parts/info?${params.toString()}`,
+          { cache: "no-store" },
         );
-
-        // 반기/편집가능은 조직 무관(isEditableHalf) → 첫 결과 기준. 조직별 팀·존재표는 map 으로 캐시.
-        const base = results[0];
-        setCurrentHalfKey(base.currentHalfKey);
-        setHalf(base.selectedHalfKey);
-        setEditable(base.editable);
-        // 요약 = 현재 접속 시점 현황(전 org 동일 값). base 하나만 읽는다.
-        setSummary(base.summary);
-
-        const map: Record<string, TeamDto[]> = {};
-        const cols: Record<string, PartWeekColumn[]> = {};
-        scopeOrgs.forEach((org, i) => {
-          map[org] = results[i].teams;
-          cols[org] = results[i].weekColumns ?? [];
-        });
-        setByOrg(map);
-        setColsByOrg(cols);
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          throw new Error(json?.error ?? `조회 실패 (${res.status})`);
+        }
+        const dto = json.data as InfoDto;
+        setCurrentHalfKey(dto.currentHalfKey);
+        setHalf(dto.selectedHalfKey);
+        setEditable(dto.editable);
+        setTeams(dto.teams);
+        setWeekColumns(dto.weekColumns ?? []);
       } catch (e) {
-        setByOrg({});
-        setColsByOrg({});
+        setTeams([]);
+        setWeekColumns([]);
         setBanner({
           kind: "error",
           message: e instanceof Error ? e.message : "조회 실패",
@@ -350,11 +293,11 @@ export default function TeamPartsInfoManager() {
         setLoading(false);
       }
     },
-    [mode, scopeOrgs],
+    [clubId, mode],
   );
 
   useEffect(() => {
-    // 스코프(orgFromUrl)·mode 변경 시 재조회. 하단 조직 탭 전환은 재조회 없이 byOrg 캐시로 즉시.
+    // clubId·mode 변경 시 재조회.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load(null);
   }, [load]);
@@ -363,20 +306,7 @@ export default function TeamPartsInfoManager() {
     void load(value);
   };
   const isCurrentHalf = half != null && half === currentHalfKey;
-
-  // 상단 요약(전체 클럽/팀/파트 수)은 서버 summary.counts(현재 접속 시점·전 조직·현재 반기)에서 온다.
-  //   ⚠ 렌더된 byOrg 행을 세지 않는다 — 선택 반기/org/페이지네이션과 무관하게 원천 집계값을 표시한다.
-  // 하단 관리 = 활성 조직 팀(개별=URL org, 통합=내부 선택 조직). byOrg 캐시로 탭 전환 즉시.
-  const activeTeams = byOrg[activeOrg] ?? [];
-  // 파트×주차 x축 = 활성 조직 weekColumns(탭 전환 시 재조회 없이 즉시). 없으면 첫 비어있지 않은 것.
-  const weekColumns = useMemo(
-    () =>
-      colsByOrg[activeOrg]?.length
-        ? colsByOrg[activeOrg]
-        : (scopeOrgs.map((o) => colsByOrg[o]).find((c) => c && c.length) ?? []),
-    [colsByOrg, activeOrg, scopeOrgs],
-  );
-  const atLimit = activeTeams.length >= MAX_TEAMS_PER_CLUB;
+  const atLimit = teams.length >= MAX_TEAMS_PER_CLUB;
 
   // ── 팝업 제어 ──
   const resetForm = () => {
@@ -386,10 +316,6 @@ export default function TeamPartsInfoManager() {
     setLeader(null);
     setLookupError(null);
   };
-  // 크루코드로 팀장 정보 호출. 인자 code 우선(수정 모드 프리필), 없으면 입력값.
-  //   organization = 활성 조직(개별=URL org·통합=선택 탭). 서버가 org·mode 스코프를 검증하므로
-  //   타 조직/타 모드 크루는 4xx → 사용자 정보를 표시하지 않는다(setLeader(null) 유지).
-  //   notifyOnFail=true(명시적 [호출] 버튼)일 때만 커스텀 팝업으로 사유를 안내(프리필은 조용히).
   const lookupCrew = async (
     code: string,
     notifyOnFail = false,
@@ -438,17 +364,16 @@ export default function TeamPartsInfoManager() {
     resetForm();
     setModalOpen(true);
   };
-  // [수정] — 같은 팝업을 수정 모드로. 기존 값 프리필 + 팀장 정보 자동 호출.
-  const openEditModal = (t: TeamDto) => {
+  const openEditModal = (team: TeamDto) => {
     if (!editable) return;
-    setEditingTeam(t);
-    setTeamName(t.teamName);
-    setDescription(t.description ?? "");
-    setCrewCode(t.leaderCrewCode ?? "");
+    setEditingTeam(team);
+    setTeamName(team.teamName);
+    setDescription(team.description ?? "");
+    setCrewCode(team.leaderCrewCode ?? "");
     setLeader(null);
     setLookupError(null);
     setModalOpen(true);
-    if (t.leaderCrewCode) void lookupCrew(t.leaderCrewCode);
+    if (team.leaderCrewCode) void lookupCrew(team.leaderCrewCode);
   };
   const closeModal = () => {
     setModalOpen(false);
@@ -469,21 +394,18 @@ export default function TeamPartsInfoManager() {
     if (!half || !leader) return;
     setRegistering(true);
     try {
-      const res = await fetch(
-        appendModeQuery(`/api/admin/team-parts/info`, mode),
-        {
-          method: isEditMode ? "PUT" : "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            organization: activeOrg,
-            halfKey: half,
-            ...(isEditMode ? { teamHalfId: editingTeam!.teamHalfId } : {}),
-            teamName: teamName.trim(),
-            description: description.trim(),
-            leaderCrewCode: (leader.crewCode ?? crewCode).trim(),
-          }),
-        },
-      );
+      const res = await fetch(appendModeQuery(`/api/admin/team-parts/info`, mode), {
+        method: isEditMode ? "PUT" : "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          organization: activeOrg,
+          halfKey: half,
+          ...(isEditMode ? { teamHalfId: editingTeam!.teamHalfId } : {}),
+          teamName: teamName.trim(),
+          description: description.trim(),
+          leaderCrewCode: (leader.crewCode ?? crewCode).trim(),
+        }),
+      });
       const json = await res.json();
       if (!res.ok || !json.success) {
         throw new Error(
@@ -497,7 +419,6 @@ export default function TeamPartsInfoManager() {
       closeModal();
       await load(half);
     } catch (e) {
-      // 팝업은 유지하고 오류 노출(재시도 가능).
       setLookupError(
         e instanceof Error ? e.message : isEditMode ? "수정 실패" : "등록 실패",
       );
@@ -506,22 +427,18 @@ export default function TeamPartsInfoManager() {
     }
   };
 
-  // [삭제] 확인 → 삭제 대기(is_active=false) 전환.
   const confirmDelete = async (target: TeamDto) => {
     if (!half) return;
     try {
-      const res = await fetch(
-        appendModeQuery(`/api/admin/team-parts/info`, mode),
-        {
-          method: "DELETE",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            organization: activeOrg,
-            halfKey: half,
-            teamHalfId: target.teamHalfId,
-          }),
-        },
-      );
+      const res = await fetch(appendModeQuery(`/api/admin/team-parts/info`, mode), {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          organization: activeOrg,
+          halfKey: half,
+          teamHalfId: target.teamHalfId,
+        }),
+      });
       const json = await res.json();
       if (!res.ok || !json.success) {
         throw new Error(json?.error ?? `삭제 실패 (${res.status})`);
@@ -534,7 +451,6 @@ export default function TeamPartsInfoManager() {
     }
   };
 
-  // 삭제 확인 팝업(공통 adminDialog·danger) → 확인 시 confirmDelete 실행.
   const requestDelete = (target: TeamDto) =>
     adminDialog.confirm({
       variant: "danger",
@@ -546,14 +462,35 @@ export default function TeamPartsInfoManager() {
 
   return (
     <Card>
+      {/* 전역 헤더 breadcrumb 마지막 칸을 실제 클럽명으로 교체(중복 조회 없음·slug 미노출). */}
+      <AdminDetailTitle title={clubName} />
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
-          <CardTitle>팀 내역</CardTitle>
+          {/* 상세 페이지 breadcrumb — 목록 복귀 링크 + 실제 클럽명. 클럽 탭은 URL 로 대체되어 없음. */}
+          <nav
+            aria-label="현재 위치"
+            className="flex min-w-0 items-center gap-1.5"
+          >
+            <Link
+              href="/admin/team-parts/info"
+              className="truncate rounded-sm text-sm font-medium text-muted-foreground underline-offset-2 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring sm:text-base"
+            >
+              클럽 정보
+            </Link>
+            <ChevronRight
+              className="size-4 shrink-0 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <span
+              data-club-detail-name
+              className="truncate text-sm font-semibold text-foreground sm:text-base"
+            >
+              {clubName}
+            </span>
+          </nav>
           <AdminHelp />
         </div>
       </CardHeader>
-      {/* 섹션 간 세로 리듬 = 공용 SoT(admin-section-stack-lg). space-y-6(24px) 직접값 대신
-          단일 출처로 이관 → 전역 2배 확대에 자동 정합. */}
       <CardContent className="admin-section-stack-lg">
         {banner ? (
           <div
@@ -568,218 +505,75 @@ export default function TeamPartsInfoManager() {
           </div>
         ) : null}
 
-        {/* ── [섹션.1] 요약 ─────────────────────────────── */}
-        <section className="rounded-lg border border-dashed border-red-300 p-4">
-          <div className="mb-3 flex flex-wrap items-center gap-x-6 gap-y-3">
-            {/* 좌: 조회 조건(해당 시기) — 목록·상세는 이 선택 반기 기준(기존 동작 유지) */}
-            <div className="flex shrink-0 items-center gap-2 text-sm font-semibold">
-              <span className="inline-flex items-center gap-1">
-                <span>● 해당 시기</span>
-                <AdminHelpIconButton
-                  helpKey="admin.teamParts.info.filter.half"
-                  title="해당 시기"
-                />
-              </span>
-              <select
-                id="team-parts-half-select"
-                className={SELECT_CLS}
-                value={half ?? ""}
-                onChange={(e) => onHalfChange(e.target.value)}
-                disabled={loading}
-              >
-                {HALF_OPTIONS.map((hk) => (
-                  <option key={hk} value={hk}>
-                    {formatHalf(hk)}
-                    {hk === currentHalfKey ? " (현재)" : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {/* 해당 시기 select "바로 우측": 오늘 날짜·현재 주차. 선택 반기 무관·현재 기준(서버 summary).
-                주변 문구보다 조금 크게(text-base·font-semibold). select 옆에 붙되 좁으면 자연 줄바꿈. */}
-            <p className="whitespace-nowrap text-sm text-muted-foreground">
-              오늘은{" "}
-              <span
-                className="text-base font-semibold text-foreground"
-                data-current-date
-              >
-                {summary?.currentDate ?? "-"}
-              </span>
-              이고,{" "}
-              <span
-                className="text-base font-semibold text-foreground"
-                data-current-week
-              >
-                {summary?.currentWeek?.label ?? "-"}
-              </span>
-              입니다.
-            </p>
-            {/* 우측 고정(원래 위치): 전체 클럽/팀/파트 수 — sm:ml-auto 로 헤더 행 오른쪽 끝에 배치.
-                날짜 블록과 독립(따라오지 않음). 라벨이 "전체 클럽 / 수"로 쪼개지지 않도록 각 항목 whitespace-nowrap·shrink-0. */}
-            <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 sm:ml-auto lg:flex-nowrap">
-              <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-sm">
-                · 전체 클럽 수{" "}
-                <strong id="team-parts-club-count" className="text-base">
-                  {summary?.counts.totalClubs ?? 0}
-                </strong>
-                <AdminHelpIconButton
-                  helpKey="admin.teamParts.info.summary.clubCount"
-                  title="전체 클럽 수"
-                />
-              </span>
-              <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-sm">
-                · 전체 팀 수{" "}
-                <strong id="team-parts-total-team-count" className="text-base">
-                  {summary?.counts.totalTeams ?? 0}
-                </strong>
-                <AdminHelpIconButton
-                  helpKey="admin.teamParts.info.summary.totalTeams"
-                  title="전체 팀 수"
-                />
-              </span>
-              <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-sm">
-                · 전체 파트 수{" "}
-                <strong id="team-parts-total-part-count" className="text-base">
-                  {summary?.counts.totalParts ?? 0}
-                </strong>
-                <AdminHelpIconButton
-                  helpKey="admin.teamParts.info.summary.totalParts"
-                  title="전체 파트 수"
-                />
-              </span>
-            </div>
+        {/* 상단 조회 조건(해당 시기) + 팀 수·반기 편집 상태 */}
+        <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3">
+          <div className="flex shrink-0 items-center gap-2 text-sm font-semibold">
+            <span className="inline-flex items-center gap-1">
+              <span>● 해당 시기</span>
+              <AdminHelpIconButton
+                helpKey="admin.teamParts.info.filter.half"
+                title="해당 시기"
+              />
+            </span>
+            <select
+              id="team-parts-half-select"
+              className={SELECT_CLS}
+              value={half ?? ""}
+              onChange={(e) => onHalfChange(e.target.value)}
+              disabled={loading}
+            >
+              {HALF_OPTIONS.map((hk) => (
+                <option key={hk} value={hk}>
+                  {formatHalf(hk)}
+                  {hk === currentHalfKey ? " (현재)" : ""}
+                </option>
+              ))}
+            </select>
           </div>
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <span className="inline-flex items-center gap-1 text-sm">
+              · 팀 수{" "}
+              <strong id="team-parts-active-team-count" className="text-base">
+                {teams.length}
+              </strong>
+              <span className="text-muted-foreground"> / {MAX_TEAMS_PER_CLUB}</span>
+              <AdminHelpIconButton
+                helpKey="admin.teamParts.info.summary.activeTeamCount"
+                title="팀 수"
+              />
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span
+                className={
+                  "rounded-md px-2 py-1 text-xs " +
+                  (editable
+                    ? "bg-emerald-50 text-emerald-700"
+                    : "bg-muted text-muted-foreground")
+                }
+              >
+                {isCurrentHalf
+                  ? "현재 반기 · 수정 가능"
+                  : editable
+                    ? "다음 반기 · 수정 가능"
+                    : "과거 반기 · 조회 전용"}
+              </span>
+              <AdminHelpIconButton
+                helpKey="admin.teamParts.info.summary.editableStatus"
+                title="반기 편집 상태"
+              />
+            </span>
+          </div>
+        </div>
 
-          {loading ? (
-            <LoadingState active />
-          ) : (
-            <div className="space-y-4 rounded-md bg-sky-50 p-4">
-              {scopeOrgs.map((org) => {
-                const teams = byOrg[org] ?? [];
-                return (
-                  <div
-                    key={org}
-                    data-club-row={org}
-                    className="flex items-start gap-4"
-                  >
-                    <div className="w-20 shrink-0 pt-1 text-sm font-bold">
-                      {CLUB_LABEL[org]}
-                    </div>
-                    <div className="flex flex-wrap gap-x-3 gap-y-3">
-                      {teams.length === 0 ? (
-                        <span className="text-sm text-muted-foreground">
-                          팀 없음
-                        </span>
-                      ) : (
-                        teams.map((t) => (
-                          <div
-                            key={t.teamName}
-                            className="flex flex-col items-center gap-1"
-                          >
-                            <span
-                              className={
-                                "rounded-md border px-3 py-1 text-sm font-bold " +
-                                CHIP_CLS[org]
-                              }
-                            >
-                              {t.teamName}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {dash(t.leaderName)}
-                            </span>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        {/* ── [섹션.2] 조직 탭 + 팀 등록 박스 ── */}
-        {!loading ? (
+        {loading ? (
+          <LoadingState active />
+        ) : (
           <section className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3">
-              {/* 좌: 조직 선택(탭) */}
-              <div className="flex flex-wrap items-center gap-3">
-                {/* 조직 탭 = 페이지 내부 상태 전환(버튼). 통합 경로=엥크레/오랑캐/팔랑크스 클릭 시
-                    URL 불변으로 활성 조직만 전환. 개별 경로=현재 조직 탭 1개(고정·전환 불가). */}
-                <div className="flex gap-1">
-                  {scopeOrgs.map((org) => {
-                    const active = activeOrg === org;
-                    return (
-                      <button
-                        key={org}
-                        type="button"
-                        data-org-tab={org}
-                        aria-current={active ? "page" : undefined}
-                        aria-pressed={active}
-                        onClick={() => {
-                          // 개별 경로(URL org 고정)는 전환하지 않는다 — 통합 경로만 내부 상태 변경.
-                          if (!orgFromUrl) setSelectedOrg(org);
-                        }}
-                        className={
-                          "rounded-md border px-3 py-1.5 text-sm font-bold transition-colors " +
-                          (active
-                            ? TAB_ACTIVE_CLS[org]
-                            : "border-input bg-background text-muted-foreground hover:bg-muted")
-                        }
-                      >
-                        {CLUB_LABEL[org]}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              {/* 우: 팀 수 · 반기 편집 상태 — 활성 조직 기준(개별=URL org, 통합=내부 선택). */}
-              <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-                <span className="inline-flex items-center gap-1 text-sm">
-                  · 팀 수{" "}
-                  <strong
-                    id="team-parts-active-team-count"
-                    className="text-base"
-                  >
-                    {activeTeams.length}
-                  </strong>
-                  <span className="text-muted-foreground">
-                    {" "}
-                    / {MAX_TEAMS_PER_CLUB}
-                  </span>
-                  <AdminHelpIconButton
-                    helpKey="admin.teamParts.info.summary.activeTeamCount"
-                    title="팀 수"
-                  />
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <span
-                    className={
-                      "rounded-md px-2 py-1 text-xs " +
-                      (editable
-                        ? "bg-emerald-50 text-emerald-700"
-                        : "bg-muted text-muted-foreground")
-                    }
-                  >
-                    {isCurrentHalf
-                      ? "현재 반기 · 수정 가능"
-                      : editable
-                        ? "다음 반기 · 수정 가능"
-                        : "과거 반기 · 조회 전용"}
-                  </span>
-                  <AdminHelpIconButton
-                    helpKey="admin.teamParts.info.summary.editableStatus"
-                    title="반기 편집 상태"
-                  />
-                </span>
-              </div>
-            </div>
-
-            {/* 등록된 팀 box 누적(위) — 시안 [4]. 하단 주차별 내역 영역은 범위 제외. */}
-            {activeTeams.map((t) => (
+            {/* 등록된 팀 box 누적 */}
+            {teams.map((team) => (
               <div
-                key={t.teamHalfId}
-                data-team-box={t.teamName}
+                key={team.teamHalfId}
+                data-team-box={team.teamName}
                 className="space-y-3 rounded-lg border border-zinc-300 bg-white p-4"
               >
                 {/* Row 1: 팀명 · 개요 · 수정/삭제 */}
@@ -790,10 +584,10 @@ export default function TeamPartsInfoManager() {
                       CHIP_CLS[activeOrg]
                     }
                   >
-                    {t.teamName}
+                    {team.teamName}
                   </span>
                   <span className="flex-1 rounded-md border border-input bg-muted/30 px-3 py-1.5 text-sm">
-                    {dash(t.description)}
+                    {dash(team.description)}
                   </span>
                   <div className="flex shrink-0 items-center gap-1">
                     <span className="inline-flex items-center gap-1">
@@ -801,9 +595,9 @@ export default function TeamPartsInfoManager() {
                         type="button"
                         variant="outline"
                         size="sm"
-                        data-team-edit={t.teamName}
+                        data-team-edit={team.teamName}
                         disabled={!editable}
-                        onClick={() => openEditModal(t)}
+                        onClick={() => openEditModal(team)}
                       >
                         수정
                       </Button>
@@ -817,9 +611,9 @@ export default function TeamPartsInfoManager() {
                         type="button"
                         variant="outline"
                         size="sm"
-                        data-team-delete={t.teamName}
+                        data-team-delete={team.teamName}
                         disabled={!editable}
-                        onClick={() => void requestDelete(t)}
+                        onClick={() => void requestDelete(team)}
                       >
                         삭제
                       </Button>
@@ -831,15 +625,15 @@ export default function TeamPartsInfoManager() {
                   </div>
                 </div>
 
-                {/* Row 2: 팀장 기본정보 · 파트 수 · 파트 칩 — 공통 항목배열+구분자 렌더 */}
-                <TeamLeaderMeta team={t} />
+                {/* Row 2: 팀장 기본정보 · 파트 수 · 파트 칩 */}
+                <TeamLeaderMeta team={team} />
 
-                {/* Row 3: 파트 × 주차 존재표 — 시안 [5]. 가로 스크롤. */}
-                {t.partWeekMatrix && weekColumns.length > 0 ? (
+                {/* Row 3: 파트 × 주차 존재표 — 가로 스크롤 */}
+                {team.partWeekMatrix && weekColumns.length > 0 ? (
                   <div className="space-y-1">
                     <div
                       className="overflow-x-auto rounded-md border border-zinc-200"
-                      data-part-week-table={t.teamName}
+                      data-part-week-table={team.teamName}
                     >
                       <table className="border-collapse text-xs">
                         <thead>
@@ -869,14 +663,14 @@ export default function TeamPartsInfoManager() {
                           </tr>
                         </thead>
                         <tbody>
-                          {t.partWeekMatrix.partNames.map((p, pi) => (
+                          {team.partWeekMatrix.partNames.map((p, pi) => (
                             <tr key={p} data-pw-row={p}>
                               <td className="sticky left-0 z-10 border-b border-r bg-white px-2 py-1 font-medium whitespace-nowrap">
                                 {p}
                               </td>
                               {weekColumns.map((c, wi) => {
                                 const on = Boolean(
-                                  t.partWeekMatrix?.present[pi]?.[wi],
+                                  team.partWeekMatrix?.present[pi]?.[wi],
                                 );
                                 return (
                                   <td
@@ -888,9 +682,7 @@ export default function TeamPartsInfoManager() {
                                     }
                                   >
                                     {on ? (
-                                      <span className="text-emerald-600">
-                                        ●
-                                      </span>
+                                      <span className="text-emerald-600">●</span>
                                     ) : (
                                       ""
                                     )}
@@ -907,8 +699,7 @@ export default function TeamPartsInfoManager() {
               </div>
             ))}
 
-            {/* 빈 박스 — 클릭 시 팀 등록 팝업(현재·다음 반기). 과거 반기=비활성.
-                활성 조직(개별=URL org, 통합=내부 선택) 기준으로 등록. */}
+            {/* 빈 박스 — 클릭 시 팀 등록 팝업(현재·다음 반기). 과거 반기=비활성. */}
             <div className="relative">
               <button
                 type="button"
@@ -934,10 +725,8 @@ export default function TeamPartsInfoManager() {
               </div>
             </div>
           </section>
-        ) : null}
+        )}
       </CardContent>
-
-      {/* 팀 삭제 확인은 공통 adminDialog(danger)로 대체됨(requestDelete). */}
 
       {/* ── 팀 등록/수정 팝업 ─────────────────────────────── */}
       {modalOpen ? (
@@ -955,7 +744,7 @@ export default function TeamPartsInfoManager() {
           >
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-bold">
-                {isEditMode ? "팀 수정" : "팀 등록"} · {CLUB_LABEL[activeOrg]} ·{" "}
+                {isEditMode ? "팀 수정" : "팀 등록"} · {clubName} ·{" "}
                 {half ? formatHalf(half) : ""}
               </h2>
               <div className="flex items-center gap-2">
@@ -993,8 +782,7 @@ export default function TeamPartsInfoManager() {
 
             {!isEditMode && atLimit ? (
               <div className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-                한 클럽에는 최대 {MAX_TEAMS_PER_CLUB}개 팀까지만 등록할 수
-                있습니다.
+                한 클럽에는 최대 {MAX_TEAMS_PER_CLUB}개 팀까지만 등록할 수 있습니다.
               </div>
             ) : null}
 

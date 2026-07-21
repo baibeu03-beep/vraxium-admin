@@ -236,16 +236,32 @@ export const MENU_ORG: MenuItem[] = [
       { label: "변동 액트", href: "/admin/processes/check/irregular" },
     ],
   },
-  // 3) 클럽 진행 — 개별 조직 운영진의 주차 진행 조회. 통합 어드민이 설정한 이번 주 활동 허브·라인,
-  //   파생 액트/개설 라인, 검수 상태를 자기 조직(?org) 스코프로 조회 전용 열람한다. 주차 검수·오픈
-  //   설정 변경은 통합 전용(서버 403). 통합 트리(MENU_INTEGRATED)는 기존 "클럽 정보 > 주차 내역" 유지.
+  // 3) 클럽 진행 — 개별 조직 운영진의 팀·시즌·주차 진행 조회. 통합 목록(클럽 현황 표)에서 클럽명을
+  //   눌러 들어가는 상세와 **동일한 상세 페이지/DTO** 를, 개별 페이지에서는 현재 조직(orgFocus) 것만
+  //   바로 열도록 연결한다. 통합 어드민이 설정한 이번 주 활동 허브·라인·검수 상태는 "주차 내역"에서
+  //   자기 조직(?org) 스코프 조회 전용으로 열람한다(설정 변경은 통합 전용·서버 403). 통합 트리
+  //   (MENU_INTEGRATED)는 기존 "클럽 정보 > 팀/시즌/주차 내역" 을 그대로 유지한다.
   {
     kind: "branch",
     label: "클럽 진행",
     icon: TrendingUp,
-    basePath: "/admin/team-parts/info/weeks",
-    matchPaths: ["/admin/team-parts/info/weeks"],
-    children: [{ label: "주차 내역", href: "/admin/team-parts/info/weeks" }],
+    // /admin/team-parts/info 전체(팀 내역 상세 /{org}·시즌 /seasons·주차 /weeks)를 이 분기로 묶는다.
+    basePath: "/admin/team-parts/info",
+    matchPaths: ["/admin/team-parts/info"],
+    children: [
+      // 팀 내역 — 현재 조직 상세(/admin/team-parts/info/{org}). org 별 href 를 생성하고 사이드바가
+      //   현재 orgFocus 것만 노출한다(크루 관리와 동일 패턴 — visibleChildren). path 로 org 를 결정하되
+      //   ?org 도 함께 부착되어(Sidebar.childHref → orgHref) 상세 진입 후에도 [개별] 사이드바 컨텍스트가
+      //   유지된다(상세 route 는 path 기반 resolveAdminOrgFocus 미인식). 통합 목록의 클럽명 클릭과 같은
+      //   ClubTeamDetail 을 재사용한다(진입 위치별 별도 화면/API/DTO 없음).
+      ...ORGANIZATIONS.map((slug) => ({
+        label: "팀 내역",
+        href: `/admin/team-parts/info/${slug}`,
+        orgOnly: true,
+      })),
+      { label: "시즌 내역", href: "/admin/team-parts/info/seasons" },
+      { label: "주차 내역", href: "/admin/team-parts/info/weeks" },
+    ],
   },
   // 4) 크루 활동 — 크루 관리(해당 조직 목록), 휴식 관리, 커뮤니케이션.
   {
@@ -270,7 +286,9 @@ export const MENU_ORG: MenuItem[] = [
       { label: "커뮤니케이션", href: "/admin/communications" },
     ],
   },
-  // 5) 클럽 정보 — 카탈로그/정보 묶음.
+  // 5) 클럽 정보 — 카탈로그/정보 묶음. (팀 내역은 "클럽 진행"으로 이동 — 개별 페이지는 통합 목록이
+  //   아니라 현재 조직 상세로 바로 진입한다. /admin/team-parts 경로 매칭도 "클럽 진행"이 전담하므로
+  //   여기 matchPaths 에서 제거한다 — 이중 강조 방지.)
   {
     kind: "branch",
     label: "클럽 정보",
@@ -282,14 +300,12 @@ export const MENU_ORG: MenuItem[] = [
       "/admin/periods",
       "/admin/lines/info",
       "/admin/processes/info",
-      "/admin/team-parts",
     ],
     children: [
       // 기간 관리는 클럽 전역 데이터(org 컬럼 없음 → 데이터는 전체). ?org 는 사이드바 컨텍스트 유지용.
       { label: "기간 관리", href: "/admin/periods/register" },
       { label: "허브와 라인", href: "/admin/lines/info" },
       { label: "허브별 프로세스 목록", href: "/admin/processes/info" },
-      { label: "팀 내역", href: "/admin/team-parts/info", exact: true },
     ],
   },
 ];
@@ -377,6 +393,15 @@ const BREADCRUMB_OVERRIDES: { test: RegExp; parts: OverrideParts }[] = [
       { label: "클럽 정보", href: "/admin/team-parts/info" },
       { label: "주차 내역", href: "/admin/team-parts/info/weeks" },
       { label: "주차 상세" },
+    ],
+  },
+  // 클럽 상세 — /admin/team-parts/info/{clubId} (clubId=org slug). weeks/seasons 는 제외(별도 라우트).
+  //   마지막 칸("클럽")은 페이지가 AdminDetailTitle 로 실제 클럽명으로 교체한다(slug 미노출).
+  {
+    test: /^\/admin\/team-parts\/info\/(?!weeks(?:\/|$)|seasons(?:\/|$))[^/]+\/?$/,
+    parts: [
+      { label: "클럽 정보", href: "/admin/team-parts/info" },
+      { label: "클럽" },
     ],
   },
   // 라인 관리(등록/정보 탭 공용) — 통합 사이드바 정본 라벨로 고정(두 트리 중복 경로 정본화).
