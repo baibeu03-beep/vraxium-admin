@@ -26,8 +26,9 @@ async function dump(mode: ScopeMode) {
 
   const clubIds = new Set<string>();
   const teamIds = new Set<string>();
-  const partIds = new Set<string>();
+  const partIds = new Set<string>(); // 카탈로그(cluster4_team_parts) 파트 id — 참고용
   const partRows: Array<Record<string, unknown>> = [];
+  const scopedByOrg = new Map<string, string[]>(); // org → 활성 팀명(현재 소속 파트 집계용)
 
   for (const org of ORGANIZATIONS) {
     // 유효 팀 = 현재 반기 · is_active · 스코프.
@@ -47,6 +48,7 @@ async function dump(mode: ScopeMode) {
       teamIds.add(h.id);
       teamNameById.set(h.id, h.team_name);
     }
+    scopedByOrg.set(org, [...teamNameById.values()]);
     const ids = [...teamNameById.keys()];
     if (ids.length === 0) continue;
 
@@ -83,21 +85,61 @@ async function dump(mode: ScopeMode) {
   console.log("팀별 파트 수:");
   for (const [k, n] of [...perTeam.entries()].sort())
     console.log(`  ${k}: ${n}`);
-  console.log(
-    `\n고유 ID 집계 → totalClubs=${clubIds.size} totalTeams=${teamIds.size} totalParts=${partIds.size}`,
-  );
-  console.log(
-    `partRows(조인 행 수)=${partRows.length}  vs  고유 partId=${partIds.size}  (중복=${partRows.length - partIds.size})`,
-  );
+  // 현재 시점 소속 멤버 ≥1 인 활성 파트(팀별 distinct) — 이것이 표시 기준(totalParts).
+  let occupiedParts = 0;
+  const occupiedDetail: string[] = [];
+  for (const [org, names] of scopedByOrg) {
+    if (names.length === 0) continue;
+    const { data: mems } = await supabaseAdmin
+      .from("user_memberships")
+      .select("user_id,team_name,part_name,is_current,membership_state")
+      .in("team_name", names)
+      .eq("is_current", true);
+    const rows = (mems ?? []).filter(
+      (m: { membership_state: string | null }) => m.membership_state !== "rest",
+    ) as Array<{ user_id: string; team_name: string; part_name: string | null }>;
+    const uids = [...new Set(rows.map((r) => r.user_id))];
+    const orgByUser = new Map<string, string | null>();
+    if (uids.length > 0) {
+      const { data: profs } = await supabaseAdmin
+        .from("user_profiles")
+        .select("user_id,organization_slug")
+        .in("user_id", uids);
+      for (const p of (profs ?? []) as Array<{ user_id: string; organization_slug: string | null }>)
+        orgByUser.set(p.user_id, p.organization_slug);
+    }
+    const byTeam = new Map<string, Set<string>>();
+    for (const r of rows) {
+      if (orgByUser.get(r.user_id) !== org) continue;
+      const pn = (r.part_name ?? "").trim();
+      if (!pn) continue;
+      if (!byTeam.has(r.team_name)) byTeam.set(r.team_name, new Set());
+      byTeam.get(r.team_name)!.add(pn);
+    }
+    for (const t of names) {
+      const s = byTeam.get(t) ?? new Set<string>();
+      occupiedParts += s.size;
+      occupiedDetail.push(`${org}/${t}: [${[...s].join(", ")}] (${s.size})`);
+    }
+  }
 
-  // loadTeamPartsCurrentSummary 와 대조.
+  console.log(
+    `\n집계 → totalClubs=${clubIds.size} totalTeams=${teamIds.size} totalParts(활성·멤버≥1)=${occupiedParts}`,
+  );
+  console.log(
+    `  (참고) 카탈로그 레코드 수(cluster4_team_parts, 멤버 0 포함)=${partIds.size} · 조인 중복=${partRows.length - partIds.size}`,
+  );
+  console.log("팀별 현재 소속 파트:");
+  for (const d of occupiedDetail) console.log(`  ${d}`);
+
+  // loadTeamPartsCurrentSummary 와 대조 — totalParts 는 활성(멤버≥1) 파트 기준.
   const summary = await loadTeamPartsCurrentSummary(mode);
   const match =
     summary.counts.totalClubs === clubIds.size &&
     summary.counts.totalTeams === teamIds.size &&
-    summary.counts.totalParts === partIds.size;
+    summary.counts.totalParts === occupiedParts;
   console.log(
-    `\nsummary.counts = ${JSON.stringify(summary.counts)}  → ${match ? "✅ 원천 고유ID와 일치" : "❌ 불일치"}`,
+    `\nsummary.counts = ${JSON.stringify(summary.counts)}  → ${match ? "✅ 원천(활성 파트)과 일치" : "❌ 불일치"}`,
   );
   console.log(`currentWeek.label = ${summary.currentWeek?.label ?? "null"} · currentDate = ${summary.currentDate}`);
 

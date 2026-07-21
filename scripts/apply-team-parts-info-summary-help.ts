@@ -13,11 +13,12 @@ const CLUB_KEY = "admin.teamParts.info.summary.clubCount";
 const TEAM_KEY = "admin.teamParts.info.summary.totalTeams";
 
 const TOTAL_PARTS_TEXT = [
-  "현재 접속 시점 기준, 전체 클럽(엥크레·오랑캐·팔랑크스)의 현재 반기 활성 팀에 등록된 파트의 총개수입니다.",
+  "현재 접속 시점 기준, 전체 클럽(엥크레·오랑캐·팔랑크스)의 현재 반기 활성 팀에서 '실제로 존재하는' 파트의 총개수입니다.",
   "",
+  "· 파트 카탈로그 레코드 수가 아니라, 현재 시점에 소속 멤버가 1명 이상인 활성 파트만 셉니다.",
+  "· 반기 초에 있었더라도 인원이 모두 이탈해 현재 소속 인원이 0명이 된 파트는 제외됩니다.",
   "· 상단 '해당 시기' 선택과 무관하게 항상 현재 시점 현황을 보여줍니다(과거 반기를 선택해도 값이 바뀌지 않습니다).",
-  "· 화면에 보이는 일부 행을 세는 것이 아니라 원천 데이터(cluster4_team_parts)를 파트 ID 기준으로 중복 없이 집계합니다.",
-  "· 모드(운영/QA 테스트)에 따라 대상 팀 범위가 달라지며, 같은 시점·같은 모드에서는 어느 조직 화면에서도 동일한 값입니다.",
+  "· 팀별로 현재 소속된 파트(중복 없이)를 합산하며, 같은 시점·같은 모드에서는 어느 조직 화면에서도 동일한 값입니다.",
 ].join("\n");
 
 const CLUB_TEXT = [
@@ -45,8 +46,9 @@ async function seedIfEmpty(key: string, text: string): Promise<void> {
 }
 
 async function main() {
-  // 신규 키 — 항상 보장(비어 있으면 채움).
-  await seedIfEmpty(TOTAL_PARTS_KEY, TOTAL_PARTS_TEXT);
+  // totalParts — 집계 기준이 "현재 소속 멤버 ≥1 활성 파트"로 변경되어 내용을 최신화(강제 upsert).
+  await upsertHelpContent(TOTAL_PARTS_KEY, TOTAL_PARTS_TEXT);
+  console.log(`update ${TOTAL_PARTS_KEY} (${TOTAL_PARTS_TEXT.length}자)`);
   // 기존 키 — 비어 있을 때만(관리자 작성 내용 보존).
   await seedIfEmpty(CLUB_KEY, CLUB_TEXT);
   await seedIfEmpty(TEAM_KEY, TEAM_TEXT);

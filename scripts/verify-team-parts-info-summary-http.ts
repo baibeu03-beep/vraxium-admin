@@ -71,36 +71,57 @@ async function cookieHeader(): Promise<string> {
   return captured.map((c) => `${c.name}=${c.value}`).join("; ");
 }
 
-// 원천 데이터 직접 집계(loadHalfRows 미사용 — 완전 독립 대조).
+// 원천 데이터 직접 집계(lib 미사용 — 완전 독립 대조).
+//   파트 = 현재 시점 소속 멤버 ≥1 인 활성 파트만(멤버 0 파트 제외). 카탈로그 레코드 수 아님.
 async function rawCounts(mode: ScopeMode) {
   const currentHalf = await resolveCurrentHalfKey();
   const wantQaTest = resolveEffectiveScopeMode(mode) === "test";
   let totalClubs = 0;
   let totalTeams = 0;
-  const teamHalfIds: string[] = [];
+  let totalParts = 0;
   for (const org of ORGANIZATIONS) {
     const { data, error } = await supabaseAdmin
       .from("cluster4_team_halves")
-      .select("id,is_qa_test")
+      .select("id,team_name,is_qa_test")
       .eq("organization_slug", org)
       .eq("half_key", currentHalf ?? "")
       .eq("is_active", true);
     if (error) throw new Error(error.message);
     const scoped = (data ?? []).filter(
       (r: { is_qa_test: boolean | null }) => Boolean(r.is_qa_test) === wantQaTest,
-    );
+    ) as Array<{ id: string; team_name: string }>;
     if (scoped.length > 0) totalClubs += 1;
     totalTeams += scoped.length;
-    for (const r of scoped as Array<{ id: string }>) teamHalfIds.push(r.id);
-  }
-  let totalParts = 0;
-  if (teamHalfIds.length > 0) {
-    const { data, error } = await supabaseAdmin
-      .from("cluster4_team_parts")
-      .select("id")
-      .in("team_half_id", teamHalfIds);
-    if (error) throw new Error(error.message);
-    totalParts = (data ?? []).length;
+    if (scoped.length === 0) continue;
+    // 현재 소속(is_current·비휴식·org 매칭)·part_name 비어있지 않음 → 팀별 distinct 파트.
+    const names = scoped.map((r) => r.team_name);
+    const { data: mems } = await supabaseAdmin
+      .from("user_memberships")
+      .select("user_id,team_name,part_name,is_current,membership_state")
+      .in("team_name", names)
+      .eq("is_current", true);
+    const rows = (mems ?? []).filter(
+      (m: { membership_state: string | null }) => m.membership_state !== "rest",
+    ) as Array<{ user_id: string; team_name: string; part_name: string | null }>;
+    const uids = [...new Set(rows.map((r) => r.user_id))];
+    const orgByUser = new Map<string, string | null>();
+    if (uids.length > 0) {
+      const { data: profs } = await supabaseAdmin
+        .from("user_profiles")
+        .select("user_id,organization_slug")
+        .in("user_id", uids);
+      for (const p of (profs ?? []) as Array<{ user_id: string; organization_slug: string | null }>)
+        orgByUser.set(p.user_id, p.organization_slug);
+    }
+    const byTeam = new Map<string, Set<string>>();
+    for (const r of rows) {
+      if (orgByUser.get(r.user_id) !== org) continue;
+      const pn = (r.part_name ?? "").trim();
+      if (!pn) continue;
+      if (!byTeam.has(r.team_name)) byTeam.set(r.team_name, new Set());
+      byTeam.get(r.team_name)!.add(pn);
+    }
+    for (const t of names) totalParts += (byTeam.get(t) ?? new Set()).size;
   }
   return { totalClubs, totalTeams, totalParts, currentHalf };
 }

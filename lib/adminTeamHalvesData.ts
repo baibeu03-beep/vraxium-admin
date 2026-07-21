@@ -113,7 +113,7 @@ export type TeamPartsInfoSummaryDto = {
   counts: {
     totalClubs: number; // 현재 반기 유효 팀 ≥1 인 조직 수(전 조직 기준)
     totalTeams: number; // 현재 반기 전 조직 활성 팀 총합(팀 half id 기준·중복 없음)
-    totalParts: number; // 위 팀들의 cluster4_team_parts 총합(파트 id 기준·중복 없음)
+    totalParts: number; // 현재 시점 소속 멤버 ≥1 인 활성 파트 총합(팀별 점유 파트 합·멤버 0 파트 제외)
   };
 };
 
@@ -163,12 +163,12 @@ async function hasScopeColumn(): Promise<boolean> {
   return present;
 }
 
-type HalfRow = Row & { is_qa_test: boolean };
+export type HalfRow = Row & { is_qa_test: boolean };
 
 // 반기 팀 행 로더(스코프 각인 포함).
 //   · 컬럼 존재 → 저장된 is_qa_test.
 //   · 컬럼 부재(마이그 전) → 이름 레지스트리(isTestTeam)로 파생 폴백(무회귀 · 앱 미중단).
-async function loadHalfRows(
+export async function loadHalfRows(
   organization: string,
   halfKey: string,
   opts: { activeOnly?: boolean } = {},
@@ -814,32 +814,34 @@ export async function loadTeamPartsCurrentSummary(
   }
 
   // ② 전체 클럽·팀·파트 수 — 현재 반기 × 전 조직 × 현재 모드 스코프.
+  //    · 클럽/팀 = 현재 반기 활성 팀(구조). · 파트 = 카탈로그 레코드가 아니라 "현재 시점 소속 멤버 ≥1
+  //      인 활성 파트"만(멤버 0 파트 제외). 예: 반기 초 존재했으나 인원이 모두 이탈해 현재 0명인 파트는 제외.
   const counts = { totalClubs: 0, totalTeams: 0, totalParts: 0 };
   const currentHalfKey = await resolveCurrentHalfKey(today);
   if (currentHalfKey) {
     const wantQaTest = resolveEffectiveScopeMode(mode) === "test";
-    const perOrgRows = await Promise.all(
-      [...ORGANIZATIONS].map((org) =>
-        loadHalfRows(org, currentHalfKey, { activeOnly: true }),
-      ),
+    const perOrg = await Promise.all(
+      [...ORGANIZATIONS].map(async (org) => {
+        // 목록과 동일한 스코프 규칙(is_qa_test === wantQaTest)으로 필터한 현재 반기 활성 팀.
+        const scoped = (
+          await loadHalfRows(org, currentHalfKey, { activeOnly: true })
+        ).filter((r) => r.is_qa_test === wantQaTest);
+        // 현재 시점 점유 파트 SoT = user_memberships(is_current·비휴식·org 매칭). 목록/존재표 폴백과 동일 원천.
+        //   part_name 미배정(팀장)·null 은 제외 → 소속 멤버 ≥1 인 파트명만 팀별 dedup 집합으로 반환.
+        const occupied = await currentMembershipPartsByTeam(
+          org,
+          scoped.map((r) => r.team_name),
+        );
+        return { scoped, occupied };
+      }),
     );
-    const teamHalfIds: string[] = [];
-    for (const orgRows of perOrgRows) {
-      // 목록과 동일한 스코프 규칙(is_qa_test === wantQaTest)으로 필터.
-      const scoped = orgRows.filter((r) => r.is_qa_test === wantQaTest);
+    for (const { scoped, occupied } of perOrg) {
       if (scoped.length > 0) counts.totalClubs += 1;
       counts.totalTeams += scoped.length;
-      for (const r of scoped) teamHalfIds.push(r.id);
-    }
-    // 파트 = 위 팀(half id)들의 cluster4_team_parts 행 수. (team_half_id, part_name) UNIQUE 이므로
-    //   행 id 기준으로 중복 없음. teamHalfIds ≤ 30(조직당 최대 10팀) — .in() URL 절벽 무관.
-    if (teamHalfIds.length > 0) {
-      const { data, error } = await supabaseAdmin
-        .from("cluster4_team_parts")
-        .select("id")
-        .in("team_half_id", teamHalfIds);
-      if (error) throw new Error(error.message);
-      counts.totalParts = (data ?? []).length;
+      // 활성 파트 = 팀별 점유 파트(멤버 ≥1)의 합. 멤버 0 인 카탈로그 파트는 세지 않는다.
+      for (const r of scoped) {
+        counts.totalParts += (occupied.get(r.team_name) ?? []).length;
+      }
     }
   }
 
