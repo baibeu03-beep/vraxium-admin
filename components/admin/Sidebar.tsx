@@ -13,6 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/components/theme/ThemeProvider";
 import { orgHref, resolveAdminOrgFocus } from "@/lib/adminOrgContext";
+import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
 import { useSidebar } from "@/components/admin/sidebarContext";
 import { useAdminMode } from "@/components/admin/AdminModeProvider";
 import {
@@ -27,6 +28,16 @@ import {
 
 // 메뉴 트리(MENU_INTEGRATED/MENU_ORG)·타입·매칭 헬퍼(isLeafActive/isUnderBase)는
 //   lib/adminMenuTree.ts 로 이관(사이드바·전역 헤더 경로 표시 공용 SoT). 여기서는 렌더만 담당.
+
+// 마지막 세그먼트로 현재 조직을 path 인코딩하는 자식 메뉴의 org 를 뽑는다(없으면 null).
+//   대상: 크루 목록(/admin/crews/{org}), 팀 내역 상세(/admin/team-parts/info/{org}).
+//   이런 자식은 org 별로 생성되며 사이드바가 현재 orgFocus 것 하나만 노출한다(visibleChildren).
+//   ⚠ /admin/team-parts/info/{seasons|weeks} 처럼 org slug 가 아닌 정적 세그먼트는 스코프 자식이
+//     아니다 — isOrganizationSlug 로 구분해 seasons/weeks 메뉴가 실수로 숨겨지지 않게 한다.
+function orgScopedChildOrg(href: string): OrganizationSlug | null {
+  const m = href.match(/^\/admin\/(?:crews|team-parts\/info)\/([^/]+)$/);
+  return m && isOrganizationSlug(m[1]) ? m[1] : null;
+}
 
 // 사이드바 최하단 설정 영역 — 라이트/다크 테마 전환. 네비게이션과 분리(상단 border-t).
 //   · 펼침: "테마" 라벨 + 라이트/다크 세그먼트 토글(설정처럼 보이게).
@@ -126,13 +137,14 @@ export default function Sidebar() {
 
   // - integratedOnly: 통합 모드에서만 노출 (조직 모드에서 숨김)
   // - orgOnly: 조직 모드에서만 노출 (통합 모드에서 숨김 — 조직별 크루 목록 등)
-  // - /admin/crews/{slug} 링크는 현재 조직 것만 노출 (기존 진입 정책 유지)
+  // - org 를 path 로 인코딩하는 자식(크루 목록 /admin/crews/{org}, 팀 내역 상세
+  //   /admin/team-parts/info/{org})은 현재 조직 것만 노출 (기존 진입 정책 유지)
   const visibleChildren = (item: BranchItem) =>
     item.children.filter((child) => {
       if (child.integratedOnly && orgFocus) return false;
       if (child.orgOnly && !orgFocus) return false;
-      const m = child.href.match(/^\/admin\/crews\/([^/]+)$/);
-      if (m) return m[1] === orgFocus;
+      const scopedOrg = orgScopedChildOrg(child.href);
+      if (scopedOrg) return scopedOrg === orgFocus;
       return true;
     });
 
