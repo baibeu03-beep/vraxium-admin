@@ -322,6 +322,54 @@ async function main() {
     ck((await readOverrideRow(org, weekStart, teamB, u)) == null, `복구: 합성 팀B 행 제거`);
   }
 
+  // ── §15 운용 파트 최대 6개 제한(서버 우회 저장에도 차단) ──────────────────
+  console.log("\n[§15] 운용 파트 최대 6개 제한(서버 검증)");
+  {
+    const opNow = base.operatedParts.length;
+    if (opNow >= 6) {
+      console.log(`  (현재 운용 파트=${opNow} — 이미 상한. 신규 파트 배정이 차단되는지만 확인)`);
+      const mover = base.crewRows.find((r) => base.operatedParts.find((p) => p.partName === r.rawPart && p.crewCount >= 2)) ?? base.crewRows[0];
+      const restore = await snapshotAndRestorer(org, weekStart, teamName, [mover.userId]);
+      const res = await applyOverride(org, teamName, editWeek.weekId, [{ userId: mover.userId, rawPart: "QA7번째파트", positionCode: "regular" }]);
+      ck(res.status === 422 && /운용.*6개/.test(res.error ?? ""), `7번째 파트 차단(422): "${res.error}"`);
+      ck((await readOverrideRow(org, weekStart, teamName, mover.userId))?.raw_part !== "QA7번째파트", `DB 미저장`);
+      await restore();
+    } else {
+      // 운용 파트가 6 미만 → **잉여 크루**(각 파트에서 1명 남기고 남는 인원)를 서로 다른 신규 파트로 흩뿌린다.
+      //   잉여만 옮기므로 원 파트는 미운용이 되지 않아 운용 수가 실제로 증가한다(파트 교체가 아님).
+      //   K명을 K개 신규 파트로 → 운용 = opNow + K. K=(7-opNow) 이면 7 → 차단, K=(6-opNow) 이면 6 → 허용.
+      const surplus: typeof base.crewRows = [];
+      for (const p of base.operatedParts) {
+        const inPart = base.crewRows.filter((r) => r.rawPart === p.partName);
+        surplus.push(...inPart.slice(1)); // 첫 1명은 남겨 원 파트 운용 유지.
+      }
+      const blockK = 7 - opNow;
+      if (surplus.length < blockK) {
+        console.log(`  (잉여 크루 ${surplus.length} < ${blockK} — 7개 유도 불가, skip)`);
+      } else {
+        const picks = surplus.slice(0, blockK);
+        const restore = await snapshotAndRestorer(org, weekStart, teamName, picks.map((p) => p.userId));
+        const changes = picks.map((p, i) => ({ userId: p.userId, rawPart: `QA운용${i + 1}`, positionCode: "regular" as PositionCode }));
+        const res = await applyOverride(org, teamName, editWeek.weekId, changes);
+        ck(res.status === 422 && /운용.*6개/.test(res.error ?? ""), `운용 ${opNow}→7 batch 차단(422): "${res.error}"`);
+        const anyWritten = (await Promise.all(picks.map((p) => readOverrideRow(org, weekStart, teamName, p.userId)))).some((o) => (o?.raw_part ?? "").startsWith("QA운용"));
+        ck(!anyWritten, `DB 미저장(부분 저장 없음)`);
+        // 경계: 정확히 6개까지는 허용(blockK-1 = 6-opNow 명만 신규 파트로).
+        const okK = 6 - opNow;
+        if (okK >= 1) {
+          const okPicks = surplus.slice(0, okK);
+          const okChanges = okPicks.map((p, i) => ({ userId: p.userId, rawPart: `QA운용${i + 1}`, positionCode: "regular" as PositionCode }));
+          const resOk = await applyOverride(org, teamName, editWeek.weekId, okChanges);
+          const afterOk = await getTeamSelectedWeekSummary({ organization: org, teamName, weekId: editWeek.weekId, mode: "test" });
+          ck(resOk.status === 200 && afterOk.operatedParts.length === 6, `운용 ${opNow}→6 경계 저장 허용(운용=${afterOk.operatedParts.length})`);
+        }
+        await restore();
+        const restored = await getTeamSelectedWeekSummary({ organization: org, teamName, weekId: editWeek.weekId, mode: "test" });
+        ck(restored.operatedParts.length === opNow, `복구: 운용 파트 ${opNow} 원복`);
+      }
+    }
+  }
+
   // ── §19 op/test parity(effective coalesce 동일 경로) ─────────────────────
   console.log("\n[§19] operating/test parity");
   {
@@ -339,7 +387,13 @@ async function main() {
     const { data } = await supabaseAdmin.from(TABLE).select("raw_team,raw_part").in("created_by", ["e2e-test", "e2e", "e2e-restore"]);
     const leftover = (data ?? []) as Array<{ raw_team: string; raw_part: string | null }>;
     // e2e-restore 는 원본 재기입일 수 있으므로 raw_team=합성/임시 파트만 잔여로 간주.
-    const bad = leftover.filter((r) => r.raw_team.includes("QA복수팀") || r.raw_part === "QA임시파트");
+    const bad = leftover.filter(
+      (r) =>
+        r.raw_team.includes("QA복수팀") ||
+        r.raw_part === "QA임시파트" ||
+        r.raw_part === "QA7번째파트" ||
+        (r.raw_part ?? "").startsWith("QA운용"),
+    );
     ck(bad.length === 0, `합성/임시 잔여 행 없음(발견 ${bad.length})`);
   }
 

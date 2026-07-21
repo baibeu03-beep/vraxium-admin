@@ -22,7 +22,8 @@ import type { PositionCode } from "@/lib/positionHistory";
 //     · cluster4_team_week_position_overrides upsert(conflict = user_id,week_start_date,organization,raw_team).
 //     · UPH 원본 무변경 — override 만 생성/갱신. effective = override ?? UPH.
 //   서버 검증(우회 방지): 검수 완료 주차 차단(403) · positionCode 화이트리스트 · 팀 전체 next 상태로
-//     파트장≤1/파트 · 심화≤정규(validateWeekPositionRows). 1단계에선 snapshot invalidate 미호출(#27).
+//     파트장≤1/파트 · 심화≤정규 · <운용>파트(배정 크루≥1 distinct rawPart, '일반' 포함)≤6
+//     (validateWeekPositionRows — 클라이언트 onCellChange 와 동일 순수 함수). 1단계 snapshot invalidate 미호출(#27).
 export async function PATCH(request: NextRequest) {
   let admin: AdminContext;
   try {

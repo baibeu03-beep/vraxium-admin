@@ -47,10 +47,25 @@ export function validateAdvancedRatio(rows: PositionDraftRow[]): ValidationResul
   return { ok: true };
 }
 
+// next 상태에서 실제 크루가 배정된(rawPart 비어있지 않은) distinct 파트 수 ≤ 6.
+//   변경을 가상 적용한 **최종 draft 전체**로 재계산하므로: 운용 파트 간 이동(6→6)·마지막 크루 이동에
+//   따른 파트 교체(A 0명 되고 G 1명 → 여전히 6)는 통과하고, 미운용 파트가 새로 운용되어 7이 되면 차단.
+export function validateOperatedPartLimit(rows: PositionDraftRow[]): ValidationResult {
+  const parts = new Set<string>();
+  for (const r of rows) {
+    const p = (r.rawPart ?? "").trim();
+    if (p) parts.add(p);
+  }
+  if (parts.size > OPERATED_PART_LIMIT) return { ok: false, message: OPERATED_PART_LIMIT_MSG };
+  return { ok: true };
+}
+
 export function validateWeekPositionRows(rows: PositionDraftRow[]): ValidationResult {
   const a = validatePartLeaderUniqueness(rows);
   if (!a.ok) return a;
-  return validateAdvancedRatio(rows);
+  const b = validateAdvancedRatio(rows);
+  if (!b.ok) return b;
+  return validateOperatedPartLimit(rows);
 }
 
 export const POSITION_CODE_VALUES: PositionCode[] = [
