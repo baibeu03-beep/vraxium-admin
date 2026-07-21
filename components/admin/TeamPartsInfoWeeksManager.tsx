@@ -405,13 +405,25 @@ export default function TeamPartsInfoWeeksManager({
                   title="현재 주차 안내"
                 />
               </span>
-              <span className="rounded bg-sky-50 px-2 py-0.5 font-semibold text-sky-800">
-                <span data-cw-season>{currentWeek?.seasonWeekName ?? "-"}</span>
-                {currentWeek?.seasonWeekName ? "입니다." : null}
-              </span>
-              <span className="text-muted-foreground" data-cw-range>
-                {currentWeek?.weekRangeLabel ?? "-"}
-              </span>
+              {/* 전환 기간엔 0주차를 자동 선택하지 않는다 — 주차명/기간/활동 배지 대신 안내 문구만. */}
+              {currentWeek?.isTransitionPeriod ? (
+                <span
+                  data-cw-transition
+                  className="rounded bg-amber-50 px-2 py-0.5 font-semibold text-amber-800"
+                >
+                  현재는 시즌 전환 기간입니다.
+                </span>
+              ) : (
+                <>
+                  <span className="rounded bg-sky-50 px-2 py-0.5 font-semibold text-sky-800">
+                    <span data-cw-season>{currentWeek?.seasonWeekName ?? "-"}</span>
+                    {currentWeek?.seasonWeekName ? "입니다." : null}
+                  </span>
+                  <span className="text-muted-foreground" data-cw-range>
+                    {currentWeek?.weekRangeLabel ?? "-"}
+                  </span>
+                </>
+              )}
               {currentWeek?.clubActivityStatus ? (
                 <span className="ml-auto inline-flex items-center gap-1">
                   <span

@@ -95,6 +95,10 @@ export type TeamPartsInfoCurrentWeek = {
   seasonWeekName: string | null; // "26년 여름 시즌 3주차"
   weekRangeLabel: string | null; // "26 - 07 - 13 (월) ~ 26 - 07 - 19 (일)"
   clubActivityStatus: ClubActivityStatus | null;
+  // 오늘이 시즌 전환 기간(다음 시즌 W0)인가. 이 페이지는 전환 주차를 행에서 제외하고 자동 선택도
+  //   하지 않으므로, 전환 기간엔 0주차를 "공식 활동"으로 오분류하는 대신 이 플래그로 안내만 한다.
+  //   전환 기간이 아니면 항상 false(=일반 주차 배너 그대로).
+  isTransitionPeriod: boolean;
 };
 
 export type TeamPartsInfoWeeksPagination = {
@@ -595,18 +599,30 @@ export async function loadTeamPartsInfoWeeks(opts: {
   const { organization, today } = opts;
   const mode: ScopeMode = opts.mode ?? "operating";
   const sort = opts.sort ?? null;
-  const page = Math.max(1, Math.floor(opts.page) || 1);
+  const requestedPage = Math.max(1, Math.floor(opts.page) || 1);
   const pageSize = Math.min(
     MAX_WEEKS_PAGE_SIZE,
     Math.max(1, Math.floor(opts.pageSize) || DEFAULT_WEEKS_PAGE_SIZE),
   );
 
   // 1) 전 주차 목록(전역) — 기본순 = 최신 주차 최상단.
+  //    ⚠ 전환 주차(다음 시즌 W0)는 이 페이지의 데이터셋 단계에서 통째로 제외한다.
+  //      판정 SoT = loadSeasonWeeks 가 세팅하는 is_transition(= 공통 isTransitionWeek):
+  //        · 신규 데이터: week_number === 0 (다음 시즌 귀속)
+  //        · 레거시 데이터: 전환 주차 월요일 날짜(isTransitionWeekStart) — 구 "이전 시즌 마지막+1" 형태
+  //      두 형태 모두 여기서 걸러진다. 제외를 목록/드롭다운/결과 수/페이지네이션의 단일 원천으로 삼아,
+  //      표시 문자열만 숨기는 방식(오분류·개수 불일치의 원인)을 피한다.
+  //      ⚠ 공통 API(loadSeasonWeeks)의 의미는 전역 변경하지 않는다 — 이 페이지 로더에서만 필터한다
+  //        (예: /admin/periods/register 는 전환 주차를 그대로 표시).
   const { rows } = await loadSeasonWeeks(today);
-  const defaultOrdered = [...rows].sort(cmpWeekStartDesc);
+  const visibleRows = rows.filter((r) => !r.is_transition);
+  const defaultOrdered = [...visibleRows].sort(cmpWeekStartDesc);
 
   const totalCount = defaultOrdered.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  // 빈 페이지 보정 — 전환 주차 제외로 총 페이지 수가 줄어 요청 페이지가 범위를 넘으면
+  //   유효한 마지막 페이지로 되돌린다(직접 URL·새로고침에 스테일 page 가 남아도 빈 표가 뜨지 않음).
+  const page = Math.min(requestedPage, totalPages);
   const startIdx = (page - 1) * pageSize;
 
   // 2) 정렬 방식 분기 — 전체 목록 기준으로 정렬한 뒤 페이지를 나눈다.
@@ -623,17 +639,23 @@ export async function loadTeamPartsInfoWeeks(opts: {
   }
 
   // 3) 현재 주차 배너 — is_current_week 행(전역).
+  //    오늘이 전환 기간이면(현재 주차 == 전환 주차) 0주차를 자동 선택/공식 활동으로 표기하지 않는다.
+  //      대신 isTransitionPeriod=true 로 안내만 하고, 배너의 주차명/활동 상태는 비운다(오분류 방지).
+  //      전환 기간이 아니면 기존과 동일하게 현재 일반 주차 배너를 그대로 노출한다.
   const currentRow = rows.find((r) => r.is_current_week) ?? null;
+  const isTransitionPeriod = currentRow?.is_transition === true;
+  const bannerRow = isTransitionPeriod ? null : currentRow;
   const todayIso = today ?? getCurrentActivityDateIso();
   const currentWeek: TeamPartsInfoCurrentWeek = {
     todayLabel: formatTodayLabel(todayIso),
-    seasonWeekName: currentRow ? weekBannerName(currentRow) : null,
-    weekRangeLabel: currentRow ? weekRangeLabel(currentRow) : null,
-    clubActivityStatus: currentRow
-      ? currentRow.is_official_rest
+    seasonWeekName: bannerRow ? weekBannerName(bannerRow) : null,
+    weekRangeLabel: bannerRow ? weekRangeLabel(bannerRow) : null,
+    clubActivityStatus: bannerRow
+      ? bannerRow.is_official_rest
         ? "official_rest"
         : "official_activity"
       : null,
+    isTransitionPeriod,
   };
 
   return {
