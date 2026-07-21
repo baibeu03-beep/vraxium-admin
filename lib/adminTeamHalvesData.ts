@@ -15,7 +15,8 @@ import { getUserIdByCrewCode } from "@/lib/adminCrewCodeData";
 import { getCrewDetailDto } from "@/lib/adminCrewDetailData";
 import { getClubRankGradeBatch } from "@/lib/cluster3ClubRankData";
 import { classLabel } from "@/lib/adminMembersTypes";
-import { isOrganizationSlug } from "@/lib/organizations";
+import { isOrganizationSlug, ORGANIZATIONS } from "@/lib/organizations";
+import { loadSeasonWeeks } from "@/lib/adminSeasonWeeksData";
 import {
   isTestTeam,
   resolveEffectiveScopeMode,
@@ -96,6 +97,26 @@ export type HalfOptionDto = {
   editable: boolean;
 };
 
+// 상단 요약 영역 — 현재 접속 시점(Asia/Seoul) 기준 현황. **selectedHalfKey 와 무관**하다.
+//   · currentDate/currentWeek = 프로젝트 공통 시즌·주차 판정(loadSeasonWeeks, is_current_week) 재사용.
+//   · counts = 현재 반기(resolveCurrentHalfKey) × 전 조직(ORGANIZATIONS) × 현재 모드 스코프.
+//     렌더된 행이 아니라 원천 테이블을 ID 기준으로 직접 집계한다(중복 없음).
+//   · mode/org 분기 없음 — 일반/test/actAs/demo 모든 경로가 이 동일 DTO·동일 함수를 쓴다.
+export type TeamPartsInfoSummaryDto = {
+  currentDate: string; // "2026년 7월 17일(금)"
+  currentWeek: {
+    year: number; // 2026
+    seasonName: string; // "여름"
+    weekNumber: number | null; // 3 (전환 주차 = 0)
+    label: string; // "[26년, 여름 시즌, 3주차]"
+  } | null;
+  counts: {
+    totalClubs: number; // 현재 반기 유효 팀 ≥1 인 조직 수(전 조직 기준)
+    totalTeams: number; // 현재 반기 전 조직 활성 팀 총합(팀 half id 기준·중복 없음)
+    totalParts: number; // 위 팀들의 cluster4_team_parts 총합(파트 id 기준·중복 없음)
+  };
+};
+
 export type TeamPartsInfoDto = {
   organization: string;
   currentHalfKey: string | null;
@@ -105,6 +126,8 @@ export type TeamPartsInfoDto = {
   teams: TeamHalfTeamDto[];
   // 파트×주차 존재표 x축(선택 반기 ~26주). 팀별 partWeekMatrix.present 와 인덱스 일치.
   weekColumns: PartWeekColumnDto[];
+  // 현재 접속 시점 요약(선택 반기 무관). 모든 org 응답에서 동일 값(전 조직·현재 반기 기준).
+  summary: TeamPartsInfoSummaryDto;
 };
 
 type Row = {
@@ -737,6 +760,92 @@ function derivePartsFromMatrix(
   return { partCount: names.length, partNames: names };
 }
 
+// ── 상단 요약(현재 접속 시점 현황) ────────────────────────────────────
+// 표시 문구 형식 = "오늘은, 2026년 7월 17일(금)이고, [26년, 여름 시즌, 3주차] 입니다."
+//   currentDate 부분("YYYY년 M월 D일(요일)")과 currentWeek.label("[YY년, 시즌명 시즌, N주차]").
+const KOREAN_WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"] as const;
+
+// date-only ISO(YYYY-MM-DD)를 "YYYY년 M월 D일(요일)" 로. 날짜/요일 계산 = UTC 절단(주차 라벨
+//   formatTodayLabel 과 동일 규칙) — 입력 날짜 자체는 getCurrentActivityDateIso(Asia/Seoul 00:01 경계)로 이미 확정된다.
+function formatKoreanFullDate(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return iso;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  const weekday = KOREAN_WEEKDAYS[new Date(Date.UTC(y, mo - 1, d)).getUTCDay()];
+  return `${y}년 ${mo}월 ${d}일(${weekday})`;
+}
+
+// 현재 접속 시점 요약 — 날짜·주차 + 전체 클럽/팀/파트 수. **selectedHalfKey 와 무관**하게
+//   항상 현재 시점 기준(현재 반기·현재 주차)으로 계산한다.
+//   · 현재 주차 = 프로젝트 공통 SoT(loadSeasonWeeks: season_definitions + weeks + official_rest_periods,
+//     is_current_week). 별도 날짜·시즌·주차 계산 로직을 새로 만들지 않는다.
+//   · counts = 현재 반기(resolveCurrentHalfKey) × 전 조직(ORGANIZATIONS) × 현재 모드 스코프(is_qa_test).
+//     페이지 목록/검색/페이지네이션과 무관하게 원천 테이블을 ID 기준으로 직접 집계한다.
+//   · mode 는 팀 스코프 필터에만 관여(운영=운영팀·test=테스트팀) — 목록과 동일한 wantQaTest 규칙.
+export async function loadTeamPartsCurrentSummary(
+  mode: ScopeMode = "operating",
+  today?: string,
+): Promise<TeamPartsInfoSummaryDto> {
+  const todayIso = today ?? getCurrentActivityDateIso();
+
+  // ① 현재 주차 — 공통 로더의 is_current_week 행(전역). 전환 주차 재귀속(다음 시즌 W0) 포함.
+  const { rows } = await loadSeasonWeeks(today);
+  const currentRow = rows.find((r) => r.is_current_week) ?? null;
+  let currentWeek: TeamPartsInfoSummaryDto["currentWeek"] = null;
+  if (currentRow) {
+    const yearIso =
+      currentRow.week_end_date ??
+      currentRow.week_start_date ??
+      currentRow.season_start_date ??
+      todayIso;
+    const year = Number(String(yearIso).slice(0, 4));
+    const yy = String(((year % 100) + 100) % 100).padStart(2, "0");
+    // 시즌명 = 공통 season_key → 한글 라벨(seasonKeyToSeasonLabel). weekNumber = DB 값(전환=0).
+    const seasonName = seasonKeyToSeasonLabel(currentRow.season_key);
+    const weekNumber = currentRow.week_number;
+    currentWeek = {
+      year: Number.isFinite(year) ? year : 0,
+      seasonName,
+      weekNumber,
+      label: `[${yy}년, ${seasonName} 시즌, ${weekNumber ?? "-"}주차]`,
+    };
+  }
+
+  // ② 전체 클럽·팀·파트 수 — 현재 반기 × 전 조직 × 현재 모드 스코프.
+  const counts = { totalClubs: 0, totalTeams: 0, totalParts: 0 };
+  const currentHalfKey = await resolveCurrentHalfKey(today);
+  if (currentHalfKey) {
+    const wantQaTest = resolveEffectiveScopeMode(mode) === "test";
+    const perOrgRows = await Promise.all(
+      [...ORGANIZATIONS].map((org) =>
+        loadHalfRows(org, currentHalfKey, { activeOnly: true }),
+      ),
+    );
+    const teamHalfIds: string[] = [];
+    for (const orgRows of perOrgRows) {
+      // 목록과 동일한 스코프 규칙(is_qa_test === wantQaTest)으로 필터.
+      const scoped = orgRows.filter((r) => r.is_qa_test === wantQaTest);
+      if (scoped.length > 0) counts.totalClubs += 1;
+      counts.totalTeams += scoped.length;
+      for (const r of scoped) teamHalfIds.push(r.id);
+    }
+    // 파트 = 위 팀(half id)들의 cluster4_team_parts 행 수. (team_half_id, part_name) UNIQUE 이므로
+    //   행 id 기준으로 중복 없음. teamHalfIds ≤ 30(조직당 최대 10팀) — .in() URL 절벽 무관.
+    if (teamHalfIds.length > 0) {
+      const { data, error } = await supabaseAdmin
+        .from("cluster4_team_parts")
+        .select("id")
+        .in("team_half_id", teamHalfIds);
+      if (error) throw new Error(error.message);
+      counts.totalParts = (data ?? []).length;
+    }
+  }
+
+  return { currentDate: formatKoreanFullDate(todayIso), currentWeek, counts };
+}
+
 // 페이지 1회 로드: 현재 반기 + 반기 옵션 + 선택 반기 팀.
 //   selectedHalfKey 미지정 → 현재 반기, 현재가 데이터에 없으면 최신 반기.
 export async function loadTeamPartsInfo(
@@ -815,6 +924,10 @@ export async function loadTeamPartsInfo(
     weekColumns = cols;
   }
 
+  // 상단 요약 — 현재 접속 시점 기준(선택 반기와 무관). mode 스코프만 전파(운영/test 동일 함수).
+  //   모든 org 응답이 동일 값을 담으므로 프론트는 base(첫 결과)만 읽어도 전 조직 현황을 얻는다.
+  const summary = await loadTeamPartsCurrentSummary(mode, today);
+
   return {
     organization,
     currentHalfKey,
@@ -823,6 +936,7 @@ export async function loadTeamPartsInfo(
     halves,
     teams,
     weekColumns,
+    summary,
   };
 }
 

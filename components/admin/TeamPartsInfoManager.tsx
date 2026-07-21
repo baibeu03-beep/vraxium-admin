@@ -65,6 +65,19 @@ type HalfOption = {
   editable: boolean;
 };
 
+// 상단 요약 — 현재 접속 시점 현황(서버 SoT). selectedHalfKey 와 무관하며 전 조직·현재 반기 기준.
+//   모든 org 응답에서 동일 값이라 프론트는 base(첫 결과)만 읽는다.
+type SummaryDto = {
+  currentDate: string;
+  currentWeek: {
+    year: number;
+    seasonName: string;
+    weekNumber: number | null;
+    label: string;
+  } | null;
+  counts: { totalClubs: number; totalTeams: number; totalParts: number };
+};
+
 type InfoDto = {
   organization: string;
   currentHalfKey: string | null;
@@ -73,6 +86,7 @@ type InfoDto = {
   halves: HalfOption[];
   teams: TeamDto[];
   weekColumns: PartWeekColumn[];
+  summary: SummaryDto;
 };
 
 type LeaderCandidate = {
@@ -261,6 +275,9 @@ export default function TeamPartsInfoManager() {
   const [colsByOrg, setColsByOrg] = useState<Record<string, PartWeekColumn[]>>(
     {},
   );
+  // 상단 요약 = 현재 접속 시점 현황(전 조직·현재 반기). 선택 반기/org 변경과 무관하게 서버가 항상 현재
+  //   기준 값을 준다 → 반기 select 를 바꿔도 이 값은 바뀌지 않는다(요구). 재조회 중에는 이전 값 유지.
+  const [summary, setSummary] = useState<SummaryDto | null>(null);
   const [loading, setLoading] = useState(true);
   useReportLoading(loading);
   // 데이터 조회 실패(뷰 비움)만 인라인 배너로 유지한다 — 지속 상태.
@@ -311,6 +328,8 @@ export default function TeamPartsInfoManager() {
         setCurrentHalfKey(base.currentHalfKey);
         setHalf(base.selectedHalfKey);
         setEditable(base.editable);
+        // 요약 = 현재 접속 시점 현황(전 org 동일 값). base 하나만 읽는다.
+        setSummary(base.summary);
 
         const map: Record<string, TeamDto[]> = {};
         const cols: Record<string, PartWeekColumn[]> = {};
@@ -345,14 +364,8 @@ export default function TeamPartsInfoManager() {
   };
   const isCurrentHalf = half != null && half === currentHalfKey;
 
-  const clubCount = useMemo(
-    () => scopeOrgs.filter((o) => (byOrg[o]?.length ?? 0) > 0).length,
-    [byOrg, scopeOrgs],
-  );
-  const totalTeams = useMemo(
-    () => scopeOrgs.reduce((sum, o) => sum + (byOrg[o]?.length ?? 0), 0),
-    [byOrg, scopeOrgs],
-  );
+  // 상단 요약(전체 클럽/팀/파트 수)은 서버 summary.counts(현재 접속 시점·전 조직·현재 반기)에서 온다.
+  //   ⚠ 렌더된 byOrg 행을 세지 않는다 — 선택 반기/org/페이지네이션과 무관하게 원천 집계값을 표시한다.
   // 하단 관리 = 활성 조직 팀(개별=URL org, 통합=내부 선택 조직). byOrg 캐시로 탭 전환 즉시.
   const activeTeams = byOrg[activeOrg] ?? [];
   // 파트×주차 x축 = 활성 조직 weekColumns(탭 전환 시 재조회 없이 즉시). 없으면 첫 비어있지 않은 것.
@@ -557,9 +570,9 @@ export default function TeamPartsInfoManager() {
 
         {/* ── [섹션.1] 요약 ─────────────────────────────── */}
         <section className="rounded-lg border border-dashed border-red-300 p-4">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-x-8 gap-y-3">
-            {/* 좌: 조회 조건(해당 시기) */}
-            <div className="flex items-center gap-2 text-sm font-semibold">
+          <div className="mb-3 flex flex-wrap items-center gap-x-6 gap-y-3">
+            {/* 좌: 조회 조건(해당 시기) — 목록·상세는 이 선택 반기 기준(기존 동작 유지) */}
+            <div className="flex shrink-0 items-center gap-2 text-sm font-semibold">
               <span className="inline-flex items-center gap-1">
                 <span>● 해당 시기</span>
                 <AdminHelpIconButton
@@ -582,26 +595,56 @@ export default function TeamPartsInfoManager() {
                 ))}
               </select>
             </div>
-            {/* 우: 요약 지표 */}
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-              <span className="inline-flex items-center gap-1 text-sm">
-                · 클럽 수{" "}
+            {/* 해당 시기 select "바로 우측": 오늘 날짜·현재 주차. 선택 반기 무관·현재 기준(서버 summary).
+                주변 문구보다 조금 크게(text-base·font-semibold). select 옆에 붙되 좁으면 자연 줄바꿈. */}
+            <p className="whitespace-nowrap text-sm text-muted-foreground">
+              오늘은{" "}
+              <span
+                className="text-base font-semibold text-foreground"
+                data-current-date
+              >
+                {summary?.currentDate ?? "-"}
+              </span>
+              이고,{" "}
+              <span
+                className="text-base font-semibold text-foreground"
+                data-current-week
+              >
+                {summary?.currentWeek?.label ?? "-"}
+              </span>
+              입니다.
+            </p>
+            {/* 우측 고정(원래 위치): 전체 클럽/팀/파트 수 — sm:ml-auto 로 헤더 행 오른쪽 끝에 배치.
+                날짜 블록과 독립(따라오지 않음). 라벨이 "전체 클럽 / 수"로 쪼개지지 않도록 각 항목 whitespace-nowrap·shrink-0. */}
+            <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 sm:ml-auto lg:flex-nowrap">
+              <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-sm">
+                · 전체 클럽 수{" "}
                 <strong id="team-parts-club-count" className="text-base">
-                  {clubCount}
+                  {summary?.counts.totalClubs ?? 0}
                 </strong>
                 <AdminHelpIconButton
                   helpKey="admin.teamParts.info.summary.clubCount"
-                  title="클럽 수"
+                  title="전체 클럽 수"
                 />
               </span>
-              <span className="inline-flex items-center gap-1 text-sm">
+              <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-sm">
                 · 전체 팀 수{" "}
                 <strong id="team-parts-total-team-count" className="text-base">
-                  {totalTeams}
+                  {summary?.counts.totalTeams ?? 0}
                 </strong>
                 <AdminHelpIconButton
                   helpKey="admin.teamParts.info.summary.totalTeams"
                   title="전체 팀 수"
+                />
+              </span>
+              <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-sm">
+                · 전체 파트 수{" "}
+                <strong id="team-parts-total-part-count" className="text-base">
+                  {summary?.counts.totalParts ?? 0}
+                </strong>
+                <AdminHelpIconButton
+                  helpKey="admin.teamParts.info.summary.totalParts"
+                  title="전체 파트 수"
                 />
               </span>
             </div>
