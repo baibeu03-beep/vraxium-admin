@@ -20,7 +20,7 @@ type ClubRow = {
   clubSlug: string;
   clubName: string;
   staffCount: number;
-  teamCount: number;
+  teamLeaderCount: number;
   ambassadorCount: number;
   clubbingCount: number;
   regularCrewCount: number;
@@ -44,7 +44,7 @@ const NUM_COLUMNS: {
   helpKey: string;
 }[] = [
   { key: "staffCount", label: "운영진", helpKey: "admin.teamPartsInfoClubs.column.staff" },
-  { key: "teamCount", label: "팀 수", helpKey: "admin.teamPartsInfoClubs.column.team" },
+  { key: "teamLeaderCount", label: "팀장 수", helpKey: "admin.teamPartsInfoClubs.column.team" },
   { key: "ambassadorCount", label: "앰배서더", helpKey: "admin.teamPartsInfoClubs.column.ambassador" },
   { key: "clubbingCount", label: "클러빙", helpKey: "admin.teamPartsInfoClubs.column.clubbing" },
   { key: "regularCrewCount", label: "정규 크루", helpKey: "admin.teamPartsInfoClubs.column.regular" },

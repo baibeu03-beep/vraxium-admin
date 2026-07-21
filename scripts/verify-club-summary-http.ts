@@ -64,7 +64,7 @@ async function cookieHeader(): Promise<string> {
 }
 
 const NUM_KEYS = [
-  "staffCount", "teamCount", "ambassadorCount", "clubbingCount",
+  "staffCount", "teamLeaderCount", "ambassadorCount", "clubbingCount",
   "regularCrewCount", "advancedCrewCount", "partCount", "partLeaderCount", "agentCount",
 ] as const;
 
@@ -96,8 +96,9 @@ async function main() {
     ck("HTTP 200", status === 200, `status=${status}`);
     if (!json?.success) { ck("success", false, JSON.stringify(json).slice(0, 120)); continue; }
     const data = json.data;
-    ck("DTO 키(asOf/currentWeekLabel/rows/totals)",
+    ck("DTO 키(asOf/currentWeekLabel/structureTotals/rows/totals)",
       typeof data.asOf === "string" && typeof data.currentWeekLabel === "string" &&
+      data.structureTotals && typeof data.structureTotals === "object" &&
       Array.isArray(data.rows) && data.totals && typeof data.totals === "object");
     ck("행 수 == 유효 클럽 수", data.rows.length === ORGANIZATIONS.length, `rows=${data.rows.length}`);
     // 숫자 타입 + 등식 per row
@@ -121,9 +122,26 @@ async function main() {
     ck("합계 == 각 행 합", totalsOk);
     // 합계 등식
     const t = data.totals;
-    ck("합계 등식 운영진=팀수+앰", t.staffCount === t.teamCount + t.ambassadorCount);
+    ck("합계 등식 운영진=팀수+앰", t.staffCount === t.teamLeaderCount + t.ambassadorCount);
     ck("합계 등식 클러빙=정규+심화", t.clubbingCount === t.regularCrewCount + t.advancedCrewCount);
     ck("합계 등식 심화=파트장+에이전트", t.advancedCrewCount === t.partLeaderCount + t.agentCount);
+
+    // ★ 구조 숫자 SoT — 하단 partCount/teamEntity 합 == structureTotals(상단 요약과 동일 원천).
+    const sumPart = data.rows.reduce((a: number, r: any) => a + r.partCount, 0);
+    const sumTeamEntity = data.rows.reduce((a: number, r: any) => a + r.teamEntityCount, 0);
+    ck("SUM(partCount) == structureTotals.totalParts", sumPart === data.structureTotals.totalParts, `${sumPart}/${data.structureTotals.totalParts}`);
+    ck("SUM(teamEntityCount) == structureTotals.totalTeams", sumTeamEntity === data.structureTotals.totalTeams, `${sumTeamEntity}/${data.structureTotals.totalTeams}`);
+    // 상단 요약(info API summary.counts)과 교차검증 — 같은 SoT 이므로 값 일치해야 함.
+    const infoRes = await fetch(
+      `${baseUrl}/api/admin/team-parts/info?organization=encre${mode === "test" ? "&mode=test" : ""}`,
+      { headers: { cookie } },
+    );
+    const info = await infoRes.json();
+    const topParts = info?.data?.summary?.counts?.totalParts;
+    const topTeams = info?.data?.summary?.counts?.totalTeams;
+    ck("하단 SUM(partCount) == 상단 전체 파트 수(info API)", sumPart === topParts, `${sumPart}/${topParts}`);
+    ck("하단 SUM(teamEntityCount) == 상단 전체 팀 수(info API)", sumTeamEntity === topTeams, `${sumTeamEntity}/${topTeams}`);
+
     // HTTP == direct(lib)
     const direct = await loadClubCurrentSummary({ mode });
     ck("HTTP == direct(lib) rows",

@@ -4,50 +4,46 @@ import { ORGANIZATIONS, type OrganizationSlug } from "@/lib/organizations";
 import { SUPER_ADMIN_EXCLUDE_OR } from "@/lib/superAdmins";
 import { resolveUserScope } from "@/lib/userScope";
 import { memberStatusLabel } from "@/lib/adminMembersTypes";
-import { resolveEffectiveScopeMode } from "@/lib/cluster4ExperienceTestScope";
 import type { ScopeMode } from "@/lib/userScopeShared";
 import {
-  loadHalfRows,
-  loadTeamPartsCurrentSummary,
-  resolveCurrentHalfKey,
+  loadCurrentClubStructure,
+  resolveCurrentWeekInfo,
 } from "@/lib/adminTeamHalvesData";
 
 // ── 클럽 목록(상위 페이지) 요약 — 현재 접속 시점(Asia/Seoul) 기준 클럽별 현황 ──────────
 //
-//   `/admin/team-parts/info` 상위 목록 표의 각 행(클럽 1개)에 들어가는 10개 컬럼.
-//   ⚠ 모든 값은 **현재 접속 시점(asOf) 기준**이다 — 상세 페이지의 `해당 시기`(selectedHalf)
-//     select 와 무관하다. 과거 반기를 선택해도 이 목록 값은 변하지 않는다.
+//   `/admin/team-parts/info` 상위 목록 표의 각 행(클럽 1개). 모든 값 = **현재 접속 시점(asOf) 기준**
+//   (상세 페이지의 `해당 시기` select 와 무관).
 //
-//   집계 원천(두 계열):
-//     · 사람 수(운영진/팀장/앰배서더/클러빙/정규/심화/파트장/에이전트) = 라이브 로스터
-//       = user_profiles(organization_slug) ∩ resolveUserScope(mode) − super_admin.
-//       등급(membership_level) = user_memberships(is_current 우선). 역할 라벨 = memberStatusLabel.
-//       ⚠ "주차 휴식"(membership_state='rest') 크루도 **포함**한다(현재 소속이므로 제외하지 않음).
-//         완전 탈퇴/소속 종료/삭제는 애초에 org 로스터/스코프에 없으므로 자연 제외된다.
-//     · 파트 수(파트 entity) = cluster4_team_parts 중 현재 반기 활성·스코프 팀(team_half_id) 소속 행 수.
-//       (상단 요약 totalParts 와 동일 규칙을 org 단위로 분해.)
+//   두 계열의 원천 — 각자의 SoT 를 그대로 파생(별도 재집계 금지):
+//     · **구조 숫자(teamEntityCount·partCount)** = `loadCurrentClubStructure`(상단 요약 '전체 팀/파트 수'
+//       와 **동일 함수**). ∴ SUM(rows.partCount) === structureTotals.totalParts,
+//       SUM(rows.teamEntityCount) === structureTotals.totalTeams 가 항상 성립한다.
+//       partCount = "현재 소속 멤버 ≥1 활성 파트" 수(카탈로그 레코드 수 아님·멤버 0 파트 제외).
+//     · **역할 기반 사람 수(운영진/팀장/앰배서더/클러빙/정규·심화/파트장/에이전트)** = 라이브 로스터
+//       (user_profiles ∩ resolveUserScope(mode) − super_admin, 등급=user_memberships). 주차 휴식 포함.
 //
-//   ⚠ 헤더 "팀 수" 컬럼의 값 = **팀장(운영진 중 role=team_leader) 인원 수**이지 팀 entity 수가 아니다.
-//     실측상 `운영진 = 팀 수 + 앰배서더` 등식은 "팀 수"가 사람(팀장) 수일 때만 성립한다(팀 entity 수로는
-//     깨짐). 사용자 요청대로 헤더 문구는 "팀 수"로 유지하되 내부 값/필드 의미는 팀장 인원 수다.
-//     → 팀 entity 개수와 사람 수를 섞어 계산해 억지로 등식을 맞추지 않는다.
+//   ⚠ 헤더 "팀 수" 컬럼의 표시값 = **teamLeaderCount(role=team_leader 인원 수)** — 팀 entity 수 아님.
+//     `운영진 = 팀장 수 + 앰배서더` 등식은 사람 수 기준에서만 성립. 실제 팀 entity 수는 teamEntityCount 로
+//     별도 노출(상단 '전체 팀 수'와 동일 SoT). 두 값은 서로 다른 개념 — 섞어 계산하지 않는다.
 //
 //   mode/org 분기 없음 — 일반/test/actAs/demo 모든 경로가 이 동일 함수·동일 DTO 를 쓴다(context 만 전달).
 
 export type ClubCurrentSummaryRow = {
   clubId: string; // = 조직 slug(안정 식별자). 상세 라우팅 키.
-  clubSlug: string; // = clubId (표시용 별칭, 현재 동일)
+  clubSlug: string; // = clubId (표시용 별칭)
   clubName: string; // 한글 클럽명
 
   staffCount: number; // 운영진 = 팀장 수 + 앰배서더
-  teamCount: number; // 헤더 "팀 수" — 값은 팀장(role=team_leader) 인원 수(entity 아님)
+  teamLeaderCount: number; // 헤더 "팀 수" 표시값 — role=team_leader 인원 수(사람, entity 아님)
+  teamEntityCount: number; // 실제 팀 entity 수(현재 반기 활성·스코프). 상단 '전체 팀 수'와 동일 SoT
   ambassadorCount: number; // 앰배서더
 
   clubbingCount: number; // 클러빙 = 정규 + 심화
   regularCrewCount: number; // 정규 크루(일반/크루)
   advancedCrewCount: number; // 심화 크루 = 파트장 + 에이전트
 
-  partCount: number; // 파트 수(현재 반기 활성·스코프 팀의 cluster4_team_parts 고유 행 수)
+  partCount: number; // 파트 수(현재 소속 멤버 ≥1 활성 파트). 상단 '전체 파트 수'와 동일 SoT
   partLeaderCount: number; // 심화(파트장) 인원 수
   agentCount: number; // 심화(에이전트) 인원 수
 };
@@ -60,6 +56,8 @@ export type ClubCurrentSummaryTotals = Omit<
 export type ClubCurrentSummaryResponse = {
   asOf: string; // 현재 접속 시점 date-only ISO(Asia/Seoul)
   currentWeekLabel: string; // "[26년, 여름 시즌, 3주차]" (없으면 "-")
+  // 상단 요약 구조 합계(SoT). SUM(rows.partCount)===totalParts, SUM(rows.teamEntityCount)===totalTeams.
+  structureTotals: { totalClubs: number; totalTeams: number; totalParts: number };
   rows: ClubCurrentSummaryRow[];
   totals: ClubCurrentSummaryTotals;
 };
@@ -73,7 +71,7 @@ const CLUB_LABEL: Record<OrganizationSlug, string> = {
 // 순수 검증 함수 — 세 등식 성립 여부. 개발/검증에서 불일치 탐지용(숫자 보정 금지).
 export function validateClubSummary(row: {
   staffCount: number;
-  teamCount: number;
+  teamLeaderCount: number;
   ambassadorCount: number;
   clubbingCount: number;
   regularCrewCount: number;
@@ -82,7 +80,7 @@ export function validateClubSummary(row: {
   agentCount: number;
 }): { staffValid: boolean; clubbingValid: boolean; advancedValid: boolean } {
   return {
-    staffValid: row.staffCount === row.teamCount + row.ambassadorCount,
+    staffValid: row.staffCount === row.teamLeaderCount + row.ambassadorCount,
     clubbingValid:
       row.clubbingCount === row.regularCrewCount + row.advancedCrewCount,
     advancedValid:
@@ -175,25 +173,6 @@ async function buildClubRoleCounts(
   };
 }
 
-// 한 조직의 현재 반기 활성·스코프 팀의 파트(entity) 수. 상단 요약 totalParts 의 org 분해판.
-async function countCurrentHalfParts(
-  organization: OrganizationSlug,
-  currentHalfKey: string | null,
-  wantQaTest: boolean,
-): Promise<number> {
-  if (!currentHalfKey) return 0;
-  const rows = await loadHalfRows(organization, currentHalfKey, { activeOnly: true });
-  const teamHalfIds = rows.filter((r) => r.is_qa_test === wantQaTest).map((r) => r.id);
-  if (teamHalfIds.length === 0) return 0;
-  // (team_half_id, part_name) UNIQUE → 행 id 기준 중복 없음. teamHalfIds ≤ 10(조직당 최대) — URL 절벽 무관.
-  const { data, error } = await supabaseAdmin
-    .from("cluster4_team_parts")
-    .select("id")
-    .in("team_half_id", teamHalfIds);
-  if (error) throw new Error(error.message);
-  return (data ?? []).length;
-}
-
 // 상위 목록 요약 로드. orgs 미지정 시 전 조직. 모든 값 = 현재 접속 시점 기준.
 export async function loadClubCurrentSummary(opts: {
   mode?: ScopeMode;
@@ -205,36 +184,35 @@ export async function loadClubCurrentSummary(opts: {
   const today = opts.today;
   const asOf = today ?? getCurrentActivityDateIso();
 
-  // 현재 주차 라벨 + 현재 반기 — 상단 요약과 동일 SoT 재사용(별도 날짜/시즌 계산 금지).
-  const [summary, currentHalfKey] = await Promise.all([
-    loadTeamPartsCurrentSummary(mode, today),
-    resolveCurrentHalfKey(today),
+  // 날짜·주차 + 구조 숫자(teamEntity·part) — 상단 요약과 **동일 SoT** 함수에서 파생.
+  const [week, structure] = await Promise.all([
+    resolveCurrentWeekInfo(today),
+    loadCurrentClubStructure(mode, today),
   ]);
-  const currentWeekLabel = summary.currentWeek?.label ?? "-";
-  const wantQaTest = resolveEffectiveScopeMode(mode) === "test";
+  const currentWeekLabel = week.currentWeek?.label ?? "-";
+  const structByOrg = new Map(structure.perOrg.map((r) => [r.orgSlug, r]));
 
   const rows: ClubCurrentSummaryRow[] = await Promise.all(
     orgs.map(async (org) => {
-      const [roleCounts, partCount] = await Promise.all([
-        buildClubRoleCounts(org, mode),
-        countCurrentHalfParts(org, currentHalfKey, wantQaTest),
-      ]);
+      const roleCounts = await buildClubRoleCounts(org, mode);
+      const struct = structByOrg.get(org) ?? { teamEntityCount: 0, partCount: 0 };
       const advancedCrewCount = roleCounts.partLeaderCount + roleCounts.agentCount;
       const clubbingCount = roleCounts.regularCrewCount + advancedCrewCount;
-      // "팀 수" 값 = 팀장 인원 수(사람). 운영진 = 팀장 + 앰배서더.
-      const teamCount = roleCounts.teamLeaderCount;
-      const staffCount = teamCount + roleCounts.ambassadorCount;
+      // "팀 수" 표시값 = 팀장 인원 수(사람). 운영진 = 팀장 + 앰배서더.
+      const teamLeaderCount = roleCounts.teamLeaderCount;
+      const staffCount = teamLeaderCount + roleCounts.ambassadorCount;
       const row: ClubCurrentSummaryRow = {
         clubId: org,
         clubSlug: org,
         clubName: CLUB_LABEL[org],
         staffCount,
-        teamCount,
+        teamLeaderCount,
+        teamEntityCount: struct.teamEntityCount,
         ambassadorCount: roleCounts.ambassadorCount,
         clubbingCount,
         regularCrewCount: roleCounts.regularCrewCount,
         advancedCrewCount,
-        partCount,
+        partCount: struct.partCount, // 상단 '전체 파트 수'와 동일 SoT(멤버 ≥1 활성 파트)
         partLeaderCount: roleCounts.partLeaderCount,
         agentCount: roleCounts.agentCount,
       };
@@ -247,11 +225,12 @@ export async function loadClubCurrentSummary(opts: {
     }),
   );
 
-  // 합계 = 각 클럽 행의 값 합(요청 사항). 로스터는 organization_slug 단일값이라 사용자가 여러 클럽에
-  //   중복 소속되지 않는다 → 행 합계 == 전체 고유 인원 수(중복 없음).
+  // 합계 = 각 클럽 행 값의 합. 로스터는 organization_slug 단일값이라 사용자가 여러 클럽에 중복 소속되지
+  //   않는다 → 행 합계 == 전체 고유 인원 수. 구조 합계(part/teamEntity)는 structureTotals 와 동일.
   const totals: ClubCurrentSummaryTotals = {
     staffCount: 0,
-    teamCount: 0,
+    teamLeaderCount: 0,
+    teamEntityCount: 0,
     ambassadorCount: 0,
     clubbingCount: 0,
     regularCrewCount: 0,
@@ -262,7 +241,8 @@ export async function loadClubCurrentSummary(opts: {
   };
   for (const r of rows) {
     totals.staffCount += r.staffCount;
-    totals.teamCount += r.teamCount;
+    totals.teamLeaderCount += r.teamLeaderCount;
+    totals.teamEntityCount += r.teamEntityCount;
     totals.ambassadorCount += r.ambassadorCount;
     totals.clubbingCount += r.clubbingCount;
     totals.regularCrewCount += r.regularCrewCount;
@@ -272,5 +252,11 @@ export async function loadClubCurrentSummary(opts: {
     totals.agentCount += r.agentCount;
   }
 
-  return { asOf, currentWeekLabel, rows, totals };
+  return {
+    asOf,
+    currentWeekLabel,
+    structureTotals: structure.totals,
+    rows,
+    totals,
+  };
 }

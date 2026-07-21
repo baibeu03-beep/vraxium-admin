@@ -10,12 +10,12 @@ import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { readScopeMode } from "@/lib/userScopeShared";
 import { ORGANIZATIONS, type OrganizationSlug } from "@/lib/organizations";
-import { parseHalfKey } from "@/lib/teamHalf";
 
-// ── [섹션.1] 상단 요약 — 기존 팀 내역 요약을 그대로 유지(대체·삭제 금지) ──────────────
-//   해당 시기 select · 오늘 날짜/현재 주차 · 전체 클럽/팀/파트 수 · 클럽별 팀 배지(팀장명).
-//   신규 클럽 현황 표(ClubSummaryList)는 이 섹션 "아래"에 추가된다(별도 카드).
-//   요약 수치 = 현재 접속 시점(서버 SoT), selectedHalf 무관. 배지 목록 = 선택 반기 팀.
+// ── [섹션.1] 상단 요약 — **현재 접속 시점(today) 전용** ──────────────────────────────
+//   오늘 날짜·현재 주차 · 전체 클럽/팀/파트 수 · 클럽별 팀 배지(팀장명). 모두 현재 시점 기준.
+//   ⚠ `해당 시기`(selectedHalf) 선택 UI 는 여기에 두지 않는다 — 그것은 상세 페이지 전용이다.
+//     상위 페이지는 "현재 조직 현황"만 보여주며 selectedHalf 를 사용하지 않는다.
+//   신규 클럽 현황 표(ClubSummaryList)도 현재 시점 기준으로 이 섹션 "아래"에 온다.
 
 type TeamDto = {
   teamName: string;
@@ -34,8 +34,6 @@ type SummaryDto = {
 };
 
 type InfoDto = {
-  currentHalfKey: string | null;
-  selectedHalfKey: string | null;
   teams: TeamDto[];
   summary: SummaryDto;
 };
@@ -51,27 +49,6 @@ const CHIP_CLS: Record<OrganizationSlug, string> = {
   phalanx: "bg-green-500 text-white border-green-600",
 };
 
-const SELECT_CLS =
-  "rounded-md border border-input bg-background px-3 py-2 text-sm";
-
-const HALF_OPTIONS = [
-  "2022-H1",
-  "2022-H2",
-  "2023-H1",
-  "2023-H2",
-  "2024-H1",
-  "2024-H2",
-  "2025-H1",
-  "2025-H2",
-  "2026-H1",
-  "2026-H2",
-] as const;
-
-function formatHalf(halfKey: string): string {
-  const p = parseHalfKey(halfKey);
-  if (!p) return halfKey;
-  return `${p.year}년 ${p.period === "H1" ? "상반기" : "하반기"}`;
-}
 function dash(v: string | number | null | undefined): string {
   return v === null || v === undefined || v === "" ? "-" : String(v);
 }
@@ -86,54 +63,47 @@ export default function TeamPartsSummarySection() {
     [orgFromUrl],
   );
 
-  const [half, setHalf] = useState<string | null>(null);
-  const [currentHalfKey, setCurrentHalfKey] = useState<string | null>(null);
   const [byOrg, setByOrg] = useState<Record<string, TeamDto[]>>({});
   const [summary, setSummary] = useState<SummaryDto | null>(null);
   const [loading, setLoading] = useState(true);
   useReportLoading(loading);
 
-  const load = useCallback(
-    async (halfKey: string | null) => {
-      setLoading(true);
-      try {
-        const results = await Promise.all(
-          scopeOrgs.map(async (org) => {
-            const params = new URLSearchParams({ organization: org });
-            if (halfKey) params.set("half", halfKey);
-            if (mode === "test") params.set("mode", "test");
-            const res = await fetch(
-              `/api/admin/team-parts/info?${params.toString()}`,
-              { cache: "no-store" },
-            );
-            const json = await res.json();
-            if (!res.ok || !json.success) {
-              throw new Error(json?.error ?? `조회 실패 (${res.status})`);
-            }
-            return json.data as InfoDto;
-          }),
-        );
-        const base = results[0];
-        setCurrentHalfKey(base.currentHalfKey);
-        setHalf(base.selectedHalfKey);
-        setSummary(base.summary);
-        const map: Record<string, TeamDto[]> = {};
-        scopeOrgs.forEach((org, i) => {
-          map[org] = results[i].teams;
-        });
-        setByOrg(map);
-      } catch {
-        setByOrg({});
-      } finally {
-        setLoading(false);
-      }
-    },
-    [mode, scopeOrgs],
-  );
+  // 현재 시점 조회 — half 파라미터를 넘기지 않는다(서버가 현재 반기로 기본 선택).
+  //   요약(날짜/주차/전체 수치)은 selectedHalf 와 무관한 현재 시점 값이고, 배지 목록은 현재 반기 팀이다.
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const results = await Promise.all(
+        scopeOrgs.map(async (org) => {
+          const params = new URLSearchParams({ organization: org });
+          if (mode === "test") params.set("mode", "test");
+          const res = await fetch(
+            `/api/admin/team-parts/info?${params.toString()}`,
+            { cache: "no-store" },
+          );
+          const json = await res.json();
+          if (!res.ok || !json.success) {
+            throw new Error(json?.error ?? `조회 실패 (${res.status})`);
+          }
+          return json.data as InfoDto;
+        }),
+      );
+      setSummary(results[0].summary);
+      const map: Record<string, TeamDto[]> = {};
+      scopeOrgs.forEach((org, i) => {
+        map[org] = results[i].teams;
+      });
+      setByOrg(map);
+    } catch {
+      setByOrg({});
+    } finally {
+      setLoading(false);
+    }
+  }, [mode, scopeOrgs]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load(null);
+    void load();
   }, [load]);
 
   return (
@@ -145,84 +115,58 @@ export default function TeamPartsSummarySection() {
         </div>
       </CardHeader>
       <CardContent>
-        {/* ── [섹션.1] 요약 ─────────────────────────────── */}
+        {/* ── [섹션.1] 요약(현재 시점 전용) ─────────────────────────── */}
         <section className="rounded-lg border border-dashed border-red-300 p-4">
+          {/* 좌: 오늘 날짜·현재 주차 / 우(맨 끝): 전체 클럽·팀·파트 수. ml-auto 로 카드 오른쪽 끝 고정. */}
           <div className="mb-3 flex flex-wrap items-center gap-x-6 gap-y-3">
-            {/* 좌: 조회 조건(해당 시기) */}
-            <div className="flex shrink-0 items-center gap-2 text-sm font-semibold">
-              <span className="inline-flex items-center gap-1">
-                <span>● 해당 시기</span>
+            <p className="min-w-0 whitespace-nowrap text-sm text-muted-foreground">
+              오늘은{" "}
+              <span
+                className="text-base font-semibold text-foreground"
+                data-current-date
+              >
+                {summary?.currentDate ?? "-"}
+              </span>
+              이고,{" "}
+              <span
+                className="text-base font-semibold text-foreground"
+                data-current-week
+              >
+                {summary?.currentWeek?.label ?? "-"}
+              </span>
+              입니다.
+            </p>
+            <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-x-4 gap-y-1 lg:flex-nowrap">
+              <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-sm">
+                · 전체 클럽 수{" "}
+                <strong id="team-parts-club-count" className="text-base">
+                  {summary?.counts.totalClubs ?? 0}
+                </strong>
                 <AdminHelpIconButton
-                  helpKey="admin.teamParts.info.filter.half"
-                  title="해당 시기"
+                  helpKey="admin.teamParts.info.summary.clubCount"
+                  title="전체 클럽 수"
                 />
               </span>
-              <select
-                id="team-parts-half-select"
-                className={SELECT_CLS}
-                value={half ?? ""}
-                onChange={(e) => void load(e.target.value)}
-                disabled={loading}
-              >
-                {HALF_OPTIONS.map((hk) => (
-                  <option key={hk} value={hk}>
-                    {formatHalf(hk)}
-                    {hk === currentHalfKey ? " (현재)" : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {/* 우: 현재 접속 시점 현황 — 오늘 날짜·주차 + 전체 클럽/팀/파트 수 */}
-            <div className="flex min-w-0 flex-wrap items-center justify-start gap-x-4 gap-y-2 lg:flex-nowrap">
-              <p className="whitespace-nowrap text-sm text-muted-foreground">
-                오늘은{" "}
-                <span
-                  className="text-base font-semibold text-foreground"
-                  data-current-date
-                >
-                  {summary?.currentDate ?? "-"}
-                </span>
-                이고,{" "}
-                <span
-                  className="text-base font-semibold text-foreground"
-                  data-current-week
-                >
-                  {summary?.currentWeek?.label ?? "-"}
-                </span>
-                입니다.
-              </p>
-              <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 lg:flex-nowrap">
-                <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-sm">
-                  · 전체 클럽 수{" "}
-                  <strong id="team-parts-club-count" className="text-base">
-                    {summary?.counts.totalClubs ?? 0}
-                  </strong>
-                  <AdminHelpIconButton
-                    helpKey="admin.teamParts.info.summary.clubCount"
-                    title="전체 클럽 수"
-                  />
-                </span>
-                <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-sm">
-                  · 전체 팀 수{" "}
-                  <strong id="team-parts-total-team-count" className="text-base">
-                    {summary?.counts.totalTeams ?? 0}
-                  </strong>
-                  <AdminHelpIconButton
-                    helpKey="admin.teamParts.info.summary.totalTeams"
-                    title="전체 팀 수"
-                  />
-                </span>
-                <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-sm">
-                  · 전체 파트 수{" "}
-                  <strong id="team-parts-total-part-count" className="text-base">
-                    {summary?.counts.totalParts ?? 0}
-                  </strong>
-                  <AdminHelpIconButton
-                    helpKey="admin.teamParts.info.summary.totalParts"
-                    title="전체 파트 수"
-                  />
-                </span>
-              </div>
+              <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-sm">
+                · 전체 팀 수{" "}
+                <strong id="team-parts-total-team-count" className="text-base">
+                  {summary?.counts.totalTeams ?? 0}
+                </strong>
+                <AdminHelpIconButton
+                  helpKey="admin.teamParts.info.summary.totalTeams"
+                  title="전체 팀 수"
+                />
+              </span>
+              <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-sm">
+                · 전체 파트 수{" "}
+                <strong id="team-parts-total-part-count" className="text-base">
+                  {summary?.counts.totalParts ?? 0}
+                </strong>
+                <AdminHelpIconButton
+                  helpKey="admin.teamParts.info.summary.totalParts"
+                  title="전체 파트 수"
+                />
+              </span>
             </div>
           </div>
 

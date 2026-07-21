@@ -15,7 +15,7 @@ import { getUserIdByCrewCode } from "@/lib/adminCrewCodeData";
 import { getCrewDetailDto } from "@/lib/adminCrewDetailData";
 import { getClubRankGradeBatch } from "@/lib/cluster3ClubRankData";
 import { classLabel } from "@/lib/adminMembersTypes";
-import { isOrganizationSlug, ORGANIZATIONS } from "@/lib/organizations";
+import { isOrganizationSlug, ORGANIZATIONS, type OrganizationSlug } from "@/lib/organizations";
 import { loadSeasonWeeks } from "@/lib/adminSeasonWeeksData";
 import {
   isTestTeam,
@@ -784,13 +784,12 @@ function formatKoreanFullDate(iso: string): string {
 //   · counts = 현재 반기(resolveCurrentHalfKey) × 전 조직(ORGANIZATIONS) × 현재 모드 스코프(is_qa_test).
 //     페이지 목록/검색/페이지네이션과 무관하게 원천 테이블을 ID 기준으로 직접 집계한다.
 //   · mode 는 팀 스코프 필터에만 관여(운영=운영팀·test=테스트팀) — 목록과 동일한 wantQaTest 규칙.
-export async function loadTeamPartsCurrentSummary(
-  mode: ScopeMode = "operating",
+// 현재 접속 시점의 날짜·주차 정보(전역·selectedHalf 무관). 상단 요약·클럽 목록이 공유하는 단일 SoT.
+export async function resolveCurrentWeekInfo(
   today?: string,
-): Promise<TeamPartsInfoSummaryDto> {
+): Promise<Pick<TeamPartsInfoSummaryDto, "currentDate" | "currentWeek">> {
   const todayIso = today ?? getCurrentActivityDateIso();
-
-  // ① 현재 주차 — 공통 로더의 is_current_week 행(전역). 전환 주차 재귀속(다음 시즌 W0) 포함.
+  // 공통 로더의 is_current_week 행(전역). 전환 주차 재귀속(다음 시즌 W0) 포함.
   const { rows } = await loadSeasonWeeks(today);
   const currentRow = rows.find((r) => r.is_current_week) ?? null;
   let currentWeek: TeamPartsInfoSummaryDto["currentWeek"] = null;
@@ -802,7 +801,6 @@ export async function loadTeamPartsCurrentSummary(
       todayIso;
     const year = Number(String(yearIso).slice(0, 4));
     const yy = String(((year % 100) + 100) % 100).padStart(2, "0");
-    // 시즌명 = 공통 season_key → 한글 라벨(seasonKeyToSeasonLabel). weekNumber = DB 값(전환=0).
     const seasonName = seasonKeyToSeasonLabel(currentRow.season_key);
     const weekNumber = currentRow.week_number;
     currentWeek = {
@@ -812,40 +810,81 @@ export async function loadTeamPartsCurrentSummary(
       label: `[${yy}년, ${seasonName} 시즌, ${weekNumber ?? "-"}주차]`,
     };
   }
+  return { currentDate: formatKoreanFullDate(todayIso), currentWeek };
+}
 
-  // ② 전체 클럽·팀·파트 수 — 현재 반기 × 전 조직 × 현재 모드 스코프.
-  //    · 클럽/팀 = 현재 반기 활성 팀(구조). · 파트 = 카탈로그 레코드가 아니라 "현재 시점 소속 멤버 ≥1
-  //      인 활성 파트"만(멤버 0 파트 제외). 예: 반기 초 존재했으나 인원이 모두 이탈해 현재 0명인 파트는 제외.
-  const counts = { totalClubs: 0, totalTeams: 0, totalParts: 0 };
+// 현재 접속 시점의 조직 "구조" 숫자(팀 entity·파트) — **상단 요약과 클럽 목록 표의 단일 SoT**.
+//   ⚠ 상단 '전체 팀 수/전체 파트 수'와 하단 표의 클럽별 실제 팀 수/파트 수는 반드시 이 함수에서 파생한다
+//     → SUM(perOrg.partCount) === totals.totalParts 가 항상 성립(별도 재집계 금지).
+//   · teamEntityCount = 현재 반기 활성·스코프 팀(entity) 수(사람 아님).
+//   · partCount = "현재 소속 멤버 ≥1 인 활성 파트" 수(팀별 dedup 합). 카탈로그 레코드 수 아님(멤버 0 제외).
+//   · mode/org 분기 없음 — operating/test/actAs/demo 동일 경로(스코프만 반영).
+export type CurrentClubStructureRow = {
+  orgSlug: OrganizationSlug;
+  teamEntityCount: number;
+  partCount: number;
+};
+export type CurrentClubStructure = {
+  currentHalfKey: string | null;
+  perOrg: CurrentClubStructureRow[];
+  totals: { totalClubs: number; totalTeams: number; totalParts: number };
+};
+
+export async function loadCurrentClubStructure(
+  mode: ScopeMode = "operating",
+  today?: string,
+): Promise<CurrentClubStructure> {
   const currentHalfKey = await resolveCurrentHalfKey(today);
-  if (currentHalfKey) {
-    const wantQaTest = resolveEffectiveScopeMode(mode) === "test";
-    const perOrg = await Promise.all(
-      [...ORGANIZATIONS].map(async (org) => {
-        // 목록과 동일한 스코프 규칙(is_qa_test === wantQaTest)으로 필터한 현재 반기 활성 팀.
-        const scoped = (
-          await loadHalfRows(org, currentHalfKey, { activeOnly: true })
-        ).filter((r) => r.is_qa_test === wantQaTest);
-        // 현재 시점 점유 파트 SoT = user_memberships(is_current·비휴식·org 매칭). 목록/존재표 폴백과 동일 원천.
-        //   part_name 미배정(팀장)·null 은 제외 → 소속 멤버 ≥1 인 파트명만 팀별 dedup 집합으로 반환.
-        const occupied = await currentMembershipPartsByTeam(
-          org,
-          scoped.map((r) => r.team_name),
-        );
-        return { scoped, occupied };
-      }),
-    );
-    for (const { scoped, occupied } of perOrg) {
-      if (scoped.length > 0) counts.totalClubs += 1;
-      counts.totalTeams += scoped.length;
-      // 활성 파트 = 팀별 점유 파트(멤버 ≥1)의 합. 멤버 0 인 카탈로그 파트는 세지 않는다.
-      for (const r of scoped) {
-        counts.totalParts += (occupied.get(r.team_name) ?? []).length;
-      }
-    }
+  const perOrg: CurrentClubStructureRow[] = [];
+  const totals = { totalClubs: 0, totalTeams: 0, totalParts: 0 };
+
+  if (!currentHalfKey) {
+    for (const org of ORGANIZATIONS)
+      perOrg.push({ orgSlug: org, teamEntityCount: 0, partCount: 0 });
+    return { currentHalfKey, perOrg, totals };
   }
 
-  return { currentDate: formatKoreanFullDate(todayIso), currentWeek, counts };
+  const wantQaTest = resolveEffectiveScopeMode(mode) === "test";
+  const results = await Promise.all(
+    [...ORGANIZATIONS].map(async (org) => {
+      // 현재 반기 활성 + 스코프(is_qa_test) 팀.
+      const scoped = (
+        await loadHalfRows(org, currentHalfKey, { activeOnly: true })
+      ).filter((r) => r.is_qa_test === wantQaTest);
+      // 현재 시점 점유 파트 SoT = user_memberships(is_current·비휴식·org 매칭)·part_name 비어있지 않음.
+      const occupied = await currentMembershipPartsByTeam(
+        org,
+        scoped.map((r) => r.team_name),
+      );
+      let partCount = 0;
+      for (const r of scoped) partCount += (occupied.get(r.team_name) ?? []).length;
+      return { orgSlug: org, teamEntityCount: scoped.length, partCount };
+    }),
+  );
+
+  for (const r of results) {
+    perOrg.push(r);
+    if (r.teamEntityCount > 0) totals.totalClubs += 1;
+    totals.totalTeams += r.teamEntityCount;
+    totals.totalParts += r.partCount;
+  }
+  return { currentHalfKey, perOrg, totals };
+}
+
+export async function loadTeamPartsCurrentSummary(
+  mode: ScopeMode = "operating",
+  today?: string,
+): Promise<TeamPartsInfoSummaryDto> {
+  // 날짜·주차 + 구조 숫자를 각각 단일 SoT 함수에서 파생(클럽 목록 표와 완전 동일 원천).
+  const [week, structure] = await Promise.all([
+    resolveCurrentWeekInfo(today),
+    loadCurrentClubStructure(mode, today),
+  ]);
+  return {
+    currentDate: week.currentDate,
+    currentWeek: week.currentWeek,
+    counts: structure.totals,
+  };
 }
 
 // 페이지 1회 로드: 현재 반기 + 반기 옵션 + 선택 반기 팀.

@@ -396,11 +396,14 @@ const BREADCRUMB_OVERRIDES: { test: RegExp; parts: OverrideParts }[] = [
     ],
   },
   // 클럽 상세 — /admin/team-parts/info/{clubId} (clubId=org slug). weeks/seasons 는 제외(별도 라우트).
-  //   마지막 칸("클럽")은 페이지가 AdminDetailTitle 로 실제 클럽명으로 교체한다(slug 미노출).
+  //   3단계: 클럽 정보 > 팀 내역 > 클럽. 클럽 정보·팀 내역은 별도 인덱스 라우트가 없어 둘 다 팀 내역
+  //   목록(/admin/team-parts/info)으로 이동한다. 마지막 칸("클럽")은 페이지가 AdminDetailTitle 로 실제
+  //   클럽명으로 교체한다(slug 미노출).
   {
     test: /^\/admin\/team-parts\/info\/(?!weeks(?:\/|$)|seasons(?:\/|$))[^/]+\/?$/,
     parts: [
       { label: "클럽 정보", href: "/admin/team-parts/info" },
+      { label: "팀 내역", href: "/admin/team-parts/info" },
       { label: "클럽" },
     ],
   },

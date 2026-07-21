@@ -15,6 +15,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import { type OrganizationSlug } from "@/lib/organizations";
+import type { ClubCurrentSummaryRow } from "@/lib/adminClubSummaryData";
 import { parseHalfKey } from "@/lib/teamHalf";
 import { useActionToast } from "@/lib/actionToast";
 
@@ -133,6 +134,60 @@ function formatHalf(halfKey: string): string {
   if (!p) return halfKey;
   return `${p.year}년 ${p.period === "H1" ? "상반기" : "하반기"}`;
 }
+
+// ── 조직별 현재 시점 현황 스트립 ────────────────────────────────────────────
+//   상위 목록 표(ClubSummaryList)의 해당 조직 행과 **동일 DTO/집계**(loadClubCurrentSummary,
+//   /api/admin/team-parts/info/summary?organization={org})를 재사용해 9개 수치만 가로로 표시한다.
+//   ⚠ 모든 값 = 현재 접속 시점 기준 — 상세의 `해당 시기`(selectedHalf) 변경과 무관하다.
+//   ⚠ 표시는 현재 조직 값 하나뿐 — 클럽명 컬럼·다른 클럽 행·합계 행은 포함하지 않는다(org scope).
+//   도움말 키는 상위 목록과 동일 키(admin.teamPartsInfoClubs.column.*) 재사용(중복 정의 금지).
+type SummaryNumKey = Exclude<
+  keyof ClubCurrentSummaryRow,
+  "clubId" | "clubSlug" | "clubName"
+>;
+const SUMMARY_ITEMS: { key: SummaryNumKey; label: string; helpKey: string }[] = [
+  { key: "staffCount", label: "운영진", helpKey: "admin.teamPartsInfoClubs.column.staff" },
+  { key: "teamLeaderCount", label: "팀장 수", helpKey: "admin.teamPartsInfoClubs.column.team" },
+  { key: "ambassadorCount", label: "앰배서더", helpKey: "admin.teamPartsInfoClubs.column.ambassador" },
+  { key: "clubbingCount", label: "클러빙", helpKey: "admin.teamPartsInfoClubs.column.clubbing" },
+  { key: "regularCrewCount", label: "정규 크루", helpKey: "admin.teamPartsInfoClubs.column.regular" },
+  { key: "advancedCrewCount", label: "심화 크루", helpKey: "admin.teamPartsInfoClubs.column.advanced" },
+  { key: "partCount", label: "파트 수", helpKey: "admin.teamPartsInfoClubs.column.part" },
+  { key: "partLeaderCount", label: "파트장 수", helpKey: "admin.teamPartsInfoClubs.column.partLeader" },
+  { key: "agentCount", label: "에이전트 수", helpKey: "admin.teamPartsInfoClubs.column.agent" },
+];
+
+function ClubCurrentSummaryStrip({
+  orgSlug,
+  summary,
+}: {
+  orgSlug: OrganizationSlug;
+  summary: ClubCurrentSummaryRow | null;
+}) {
+  return (
+    <div
+      data-club-current-summary={orgSlug}
+      className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-md border bg-muted/20 px-4 py-3 text-sm"
+    >
+      <span className="shrink-0 text-xs font-semibold text-muted-foreground">
+        현재 시점 현황
+      </span>
+      {SUMMARY_ITEMS.map((item) => (
+        <span
+          key={item.key}
+          data-club-current-cell={item.key}
+          className="inline-flex items-center gap-1 whitespace-nowrap"
+        >
+          <span className="text-muted-foreground">· {item.label}</span>
+          <strong className="tabular-nums text-foreground">
+            {summary ? summary[item.key] : "–"}
+          </strong>
+          <AdminHelpIconButton helpKey={item.helpKey} title={item.label} />
+        </span>
+      ))}
+    </div>
+  );
+}
 function dash(v: string | number | null | undefined): string {
   return v === null || v === undefined || v === "" ? "-" : String(v);
 }
@@ -246,6 +301,10 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
   const [banner, setBanner] = useState<Banner>(null);
   const t = useActionToast();
 
+  // 조직별 현재 시점 현황(상위 목록과 동일 DTO/집계). ⚠ selectedHalf 무관 — half 변경 시 재조회하지
+  //   않는다. clubId·mode 변경 시에만 한 번 로드한다(현재 접속 시점 고정).
+  const [summary, setSummary] = useState<ClubCurrentSummaryRow | null>(null);
+
   // 팀 등록/수정 팝업(같은 컴포넌트, editingTeam 으로 모드 구분).
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTeam, setEditingTeam] = useState<TeamDto | null>(null);
@@ -301,6 +360,33 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load(null);
   }, [load]);
+
+  // 현재 시점 현황 요약 — /summary?organization={org} (상위 목록과 동일 함수·DTO). half 와 독립적으로
+  //   clubId·mode 에만 반응한다(과거 반기 선택 시에도 숫자 불변). 실패해도 팀 상세는 정상 렌더.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const params = new URLSearchParams({ organization: clubId });
+        if (mode === "test") params.set("mode", "test");
+        const res = await fetch(
+          `/api/admin/team-parts/info/summary?${params.toString()}`,
+          { cache: "no-store" },
+        );
+        const json = await res.json();
+        if (cancelled) return;
+        if (res.ok && json.success) {
+          const rows = (json.data?.rows ?? []) as ClubCurrentSummaryRow[];
+          setSummary(rows.find((r) => r.clubId === clubId) ?? rows[0] ?? null);
+        }
+      } catch {
+        // 현황 스트립은 보조 정보 — 조회 실패 시 값만 비운다(팀 상세는 그대로).
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [clubId, mode]);
 
   const onHalfChange = (value: string) => {
     void load(value);
@@ -466,16 +552,28 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
       <AdminDetailTitle title={clubName} />
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
-          {/* 상세 페이지 breadcrumb — 목록 복귀 링크 + 실제 클럽명. 클럽 탭은 URL 로 대체되어 없음. */}
+          {/* 상세 페이지 breadcrumb(3단계) — 클럽 정보 > 팀 내역(목록 복귀) > 실제 클럽명.
+              클럽 정보·팀 내역은 별도 인덱스 라우트가 없어 둘 다 기존 팀 내역 목록(/admin/team-parts/info)
+              으로 이동한다(신규 경로 생성 금지). 마지막 클럽명은 현재 페이지이므로 링크 아님. */}
           <nav
             aria-label="현재 위치"
             className="flex min-w-0 items-center gap-1.5"
           >
             <Link
               href="/admin/team-parts/info"
-              className="truncate rounded-sm text-sm font-medium text-muted-foreground underline-offset-2 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring sm:text-base"
+              className="truncate rounded-sm text-sm text-muted-foreground underline-offset-2 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring sm:text-base"
             >
               클럽 정보
+            </Link>
+            <ChevronRight
+              className="size-4 shrink-0 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <Link
+              href="/admin/team-parts/info"
+              className="truncate rounded-sm text-sm text-muted-foreground underline-offset-2 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring sm:text-base"
+            >
+              팀 내역
             </Link>
             <ChevronRight
               className="size-4 shrink-0 text-muted-foreground"
@@ -564,6 +662,11 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
             </span>
           </div>
         </div>
+
+        {/* 조직별 현재 시점 현황(운영진·팀장 수·앰배서더·클러빙·정규/심화·파트/파트장·에이전트).
+            ⚠ 위 '해당 시기' select 와 무관한 현재 접속 시점 값 — half 변경 시 이 숫자는 바뀌지 않는다.
+            위 '· 팀 수 3 / 10'(선택 반기 실제 팀 entity 현황)과는 다른 의미다. */}
+        <ClubCurrentSummaryStrip orgSlug={activeOrg} summary={summary} />
 
         {loading ? (
           <LoadingState active />

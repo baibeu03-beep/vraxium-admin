@@ -42,8 +42,8 @@ async function cookies() {
   return cap.map((i) => ({ name: i.name, value: i.value, domain: "localhost", path: "/", httpOnly: false, secure: false, sameSite: "Lax" }));
 }
 
-const NUM_KEYS = ["staffCount","teamCount","ambassadorCount","clubbingCount","regularCrewCount","advancedCrewCount","partCount","partLeaderCount","agentCount"];
-const HEADERS = ["클럽","운영진","팀 수","앰배서더","클러빙","정규 크루","심화 크루","파트 수","파트장 수","에이전트 수"];
+const NUM_KEYS = ["staffCount","teamLeaderCount","ambassadorCount","clubbingCount","regularCrewCount","advancedCrewCount","partCount","partLeaderCount","agentCount"];
+const HEADERS = ["클럽","운영진","팀장 수","앰배서더","클러빙","정규 크루","심화 크루","파트 수","파트장 수","에이전트 수"];
 
 const waitList = (page) =>
   page.waitForFunction(() => document.querySelectorAll("[data-club-table-row]").length > 0, { timeout: 25000 }).catch(() => {});
@@ -72,7 +72,8 @@ async function main() {
       (await page.locator("#team-parts-club-count").count()) === 1 &&
       (await page.locator("#team-parts-total-team-count").count()) === 1 &&
       (await page.locator("#team-parts-total-part-count").count()) === 1);
-    ck("§1 해당 시기 select 유지", (await page.locator("#team-parts-half-select").count()) === 1);
+    // 상위 페이지 = 현재 시점 전용 → 해당 시기 select 는 없어야 한다(상세 페이지 전용).
+    ck("§1 해당 시기 select 없음(상위=현재시점)", (await page.locator("#team-parts-half-select").count()) === 0);
     const badgeRows = await page.locator("[data-club-row]").count();
     ck("§1 클럽별 팀 배지 행 3개", badgeRows === 3, `rows=${badgeRows}`);
     // §1 배지는 링크가 아님(정보 표시용)
@@ -109,7 +110,7 @@ async function main() {
     for (const org of ["encre","oranke","phalanx"]) {
       const r = await readRow(org);
       const allNum = NUM_KEYS.every((k) => Number.isFinite(r[k]));
-      const eq1 = r.staffCount === r.teamCount + r.ambassadorCount;
+      const eq1 = r.staffCount === r.teamLeaderCount + r.ambassadorCount;
       const eq2 = r.clubbingCount === r.regularCrewCount + r.advancedCrewCount;
       const eq3 = r.advancedCrewCount === r.partLeaderCount + r.agentCount;
       ck(`${org} 수치 표시(0도 0)`, allNum, JSON.stringify(r));
@@ -121,7 +122,7 @@ async function main() {
     ck("합계 행 표시", (await totalRow.count()) === 1);
     const tot = {};
     for (const k of NUM_KEYS) tot[k] = Number((await page.locator(`[data-club-total="${k}"]`).innerText()).trim());
-    const teq1 = tot.staffCount === tot.teamCount + tot.ambassadorCount;
+    const teq1 = tot.staffCount === tot.teamLeaderCount + tot.ambassadorCount;
     const teq2 = tot.clubbingCount === tot.regularCrewCount + tot.advancedCrewCount;
     const teq3 = tot.advancedCrewCount === tot.partLeaderCount + tot.agentCount;
     ck("합계 세 등식", teq1 && teq2 && teq3, JSON.stringify(tot));
@@ -146,10 +147,28 @@ async function main() {
     ck("상세 클럽 탭 없음", (await page.locator("[data-org-tab]").count()) === 0);
     ck("breadcrumb = 팔랑크스", (await page.locator("[data-club-detail-name]").innerText().catch(() => "")).trim() === "팔랑크스");
     // 목록 복귀 링크(카드 내부 breadcrumb nav 로 스코프 — 전역 헤더 breadcrumb 와 구분).
-    const backHref = await page.locator('nav:has([data-club-detail-name]) a').getAttribute("href").catch(() => null);
-    ck("breadcrumb 목록 링크 존재", backHref === "/admin/team-parts/info", `href=${backHref}`);
+    // breadcrumb = 클럽 정보 > 팀 내역 > 클럽명(3단계·앞 2개는 목록 복귀 링크). 마지막 링크로 확인.
+    const navLinks = page.locator('nav:has([data-club-detail-name]) a');
+    const backHref = await navLinks.last().getAttribute("href").catch(() => null);
+    const allToList = (await navLinks.evaluateAll((els) => els.map((e) => e.getAttribute("href")))).every(
+      (h) => h === "/admin/team-parts/info",
+    );
+    ck("breadcrumb 목록 복귀 링크(전부 /info)", backHref === "/admin/team-parts/info" && allToList, `href=${backHref}`);
     ck("해당 시기 select 존재", (await page.locator("#team-parts-half-select").count()) === 1);
     ck("팀 등록 박스 존재", (await page.locator("#team-parts-register-box").count()) === 1);
+
+    // selectedHalf 동작 — 과거 반기 선택 시 상세가 그 반기로 재조회(현재 시점 아님).
+    //   controlled select 라 async 재조회(setHalf)가 끝나야 값이 확정된다 → 값 확정까지 대기.
+    await page.selectOption("#team-parts-half-select", "2024-H1").catch(() => {});
+    const settled = await page
+      .waitForFunction(
+        () => document.querySelector("#team-parts-half-select")?.value === "2024-H1",
+        { timeout: 15000 },
+      )
+      .then(() => true)
+      .catch(() => false);
+    const selVal = await page.locator("#team-parts-half-select").inputValue().catch(() => "");
+    ck("상세: 해당 시기(2024-H1) 선택 반영 = selectedHalf 동작", settled && selVal === "2024-H1", `val=${selVal}`);
 
     // 새로고침 정상
     await page.reload({ waitUntil: "domcontentloaded" });
