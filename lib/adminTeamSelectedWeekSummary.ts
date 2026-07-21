@@ -54,7 +54,8 @@ function weekResultLabel(status: string | undefined): string | null {
       return "성장 실패";
     case "personal_rest":
     case "official_rest":
-      return "주차 휴식";
+      // [A] 성장 결과 요약(성장 성공/실패/휴식)과 동일 라벨 — [B] 주차 결과도 '성장 휴식'로 통일.
+      return "성장 휴식";
     default:
       return null;
   }
