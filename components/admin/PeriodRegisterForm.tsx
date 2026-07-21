@@ -22,6 +22,7 @@ import {
   SEASON_LABEL,
   type SeasonToken,
 } from "@/lib/seasonSelectOptions";
+import { validateTransitionWeek } from "@/lib/seasonCalendar";
 import type { SeasonWeekRow } from "@/components/admin/seasonWeeksData";
 
 // ── 선택지 상수 ──────────────────────────────────────────────────────────────
@@ -48,28 +49,9 @@ const ACTIVITY_OPTIONS: { key: ActivityKey; label: string }[] = [
   { key: "transition", label: "전환 주차" },
 ];
 
-// 시즌별 정규 주수 — 전환 주차(정규 주수 +1) 검증용. 백엔드 SEASON_WEEKS 미러.
-//   전환 주차 번호 = SEASON_WEEKS + 1 (봄/가을 17, 여름/겨울 9).
-const SEASON_WEEKS: Record<SeasonToken, number> = {
-  winter: 8,
-  spring: 16,
-  summer: 8,
-  autumn: 16,
-};
-
-// 전환 주차 저장 규칙 = 다음 시즌 + 0주차. 관리자는 "끝나는 시즌"(예: 봄)을 고르지만 저장/중복검증
-//   대상은 다음 시즌(여름) 0주차다. 가을만 다음 해 겨울로 넘어간다(백엔드 nextSeasonKeyOf 미러).
-const NEXT_SEASON: Record<SeasonToken, SeasonToken> = {
-  winter: "spring",
-  spring: "summer",
-  summer: "autumn",
-  autumn: "winter",
-};
-function nextSeasonKeyOf(year: string, type: SeasonToken): string {
-  const nextType = NEXT_SEASON[type];
-  const nextYear = type === "autumn" ? Number(year) + 1 : Number(year);
-  return `${nextYear}-${nextType}`;
-}
+// 전환 주차 저장/검증 규칙은 lib/seasonCalendar.validateTransitionWeek 단일 SoT(서버 POST 와 공유).
+//   관리자는 "끝나는 시즌 + 마지막+1 주차"(구 정책)가 아니라 **도착 시즌 + 0주차**를 직접 선택한다
+//   (예: 여름→가을 전환 = "가을" + "0주차"). week_number===0 은 전환 주차 전용.
 
 // base-ui Select 는 items 매핑이 있어야 닫힌 트리거에 라벨을 표시한다.
 // 옵션 목록 렌더와 트리거 라벨 해석이 동일 배열(items SoT)을 쓰도록 한다.
@@ -256,31 +238,27 @@ export default function PeriodRegisterForm({ rows, onRegistered }: Props) {
       return;
     }
 
-    // 전환 주차: 시즌 정규 주수 +1 (봄/가을 17주, 여름/겨울 9주)만 등록 가능.
-    //   저장 DTO 는 그대로(is_official_rest=false) — is_transition 은 week_number 로 파생되므로
-    //   주차 번호가 맞지 않으면 조회 시 전환으로 잡히지 않아 등록 단계에서 차단한다.
+    // 전환/공식/휴식 활동 유형별 주차 검증 — 공통 정책 SoT(validateTransitionWeek, 서버 POST 와 동일).
+    //   전환 주차 = 도착 시즌 + 0주차 전용, 0주차는 공식 활동/휴식으로 등록 불가.
     //   (백엔드 POST 에서도 동일 규칙으로 재검증한다 — 400)
-    if (isTransition) {
-      const expectedWeek = SEASON_WEEKS[regSeason as SeasonToken] + 1;
-      if (weekNumber !== expectedWeek) {
-        const seasonLabel =
-          SEASON_OPTIONS.find((o) => o.key === regSeason)?.label ?? regSeason;
-        void adminDialog.alert({ variant: "warning", title: "전환 주차 확인", description: `전환 주차는 ${seasonLabel} 시즌 ${expectedWeek}주차여야 합니다.` });
-        return;
-      }
+    const activityValidation = validateTransitionWeek({
+      seasonType: regSeason,
+      weekNumber,
+      activityType: activity as ActivityKey,
+    });
+    if (!activityValidation.ok) {
+      void adminDialog.alert({ variant: "warning", title: "등록 불가", description: activityValidation.message });
+      return;
     }
 
     // 프론트 중복 검증 — 기간 정보와 동일한 rows(season_key+week_number) 기준.
-    //   전환 주차는 다음 시즌 0주차로 저장되므로 중복 검증 대상도 (다음 시즌, 0주차)로 맞춘다.
+    //   관리자가 도착 시즌 + 0주차를 직접 선택하므로 별도 시즌 변환 없이 그대로 검증한다
+    //   (전환 주차도 seasonKey = 선택 시즌, week_number = 0).
     // (백엔드 POST 에서도 동일 규칙으로 재검증한다 — 409)
-    const targetSeasonKey = isTransition
-      ? nextSeasonKeyOf(regYear, regSeason as SeasonToken)
-      : seasonKey;
-    const targetWeekNumber = isTransition ? 0 : weekNumber;
     const duplicated = rows.some(
       (row) =>
-        row.season_key === targetSeasonKey &&
-        row.week_number === targetWeekNumber,
+        row.season_key === seasonKey &&
+        row.week_number === weekNumber,
     );
     if (duplicated) {
       void adminDialog.alert({ variant: "warning", title: "중복 확인", description: "동일한 주차 정보를 가진 기간이 있습니다." });
@@ -297,7 +275,7 @@ export default function PeriodRegisterForm({ rows, onRegistered }: Props) {
           season_type: regSeason,
           week_number: weekNumber,
           // 전환 주차도 저장 표현은 공식 활동과 동일(is_official_rest=false). 전환 여부는
-          // week_number(정규 주수 +1)로 조회 시 파생되며, is_transition 은 백엔드 교차검증용.
+          // week_number===0(도착 시즌 0주차)으로 조회 시 파생되며, is_transition 은 백엔드 교차검증용.
           is_official_rest: activity === "rest",
           is_transition: isTransition,
           note: trimmedNote.length > 0 ? trimmedNote : null,
@@ -313,11 +291,9 @@ export default function PeriodRegisterForm({ rows, onRegistered }: Props) {
 
       const regSeasonLabel =
         SEASON_OPTIONS.find((o) => o.key === regSeason)?.label ?? regSeason;
-      const nextSeasonLabel =
-        SEASON_LABEL[NEXT_SEASON[regSeason as SeasonToken]] ?? "";
       setSuccessMessage(
         isTransition
-          ? `${regSeasonLabel} → ${nextSeasonLabel} 시즌 전환 주차(${selectedCandidate.label})가 등록되었습니다.`
+          ? `${regYear}년 ${regSeasonLabel} 시즌 전환 주차(0주차, ${selectedCandidate.label})가 등록되었습니다.`
           : `${regYear}년 ${regSeasonLabel} ${weekNumber}주차(${selectedCandidate.label})가 등록되었습니다.`,
       );
       resetForm();

@@ -239,6 +239,63 @@ export function isTransitionWeek(week: {
   return false;
 }
 
+// ── 기간 등록 활동 유형별 검증 (전환/공식/휴식 공통 정책 SoT) ─────────────────
+// 클라이언트 폼(등록 버튼)·서버 POST·검증 스크립트가 모두 이 함수 하나를 공유한다.
+//   네 경로(① DB 마이그레이션 ② /admin/periods/register 신규 등록 ③ 전환 주차 수정
+//   ④ 조회/표시)가 서로 다른 규칙을 쓰지 않도록 저장 정책을 단일화한다.
+//
+// 저장 정책(= [[isTransitionWeek]] / DB 마이그레이션과 동일):
+//   전환 주차 = 시즌 사이 1주 브릿지를 **도착(다음) 시즌의 0주차**로 저장한다. 관리자는
+//   "끝나는 시즌 + 마지막+1 주차"(구 정책, 봄17/여름9)가 아니라 **도착 시즌 + 0주차**를
+//   직접 선택한다(예: 여름→가을 전환 = "가을" + "0주차"). week_number===0 은 전환 주차 전용.
+//
+// 활동 유형별 규칙:
+//   · 전환 주차(transition) → week_number 는 반드시 0. 공식 휴식 불가(is_official_rest=false).
+//   · 공식 활동(official)    → week_number >= 1 (0주차 등록 불가 — 0은 전환 주차 전용).
+//   · 공식 휴식(rest)        → week_number >= 1 (0주차는 전환 주차 전용이라 등록 불가).
+export type PeriodActivityType = "official" | "rest" | "transition";
+
+export type PeriodInputValidation =
+  | { ok: true }
+  | { ok: false; message: string };
+
+// 도착 시즌 + 0주차 조합만 전환 주차로 허용한다. seasonType 은 "autumn" 또는 "2026-autumn"
+//   (season_key) 어느 쪽이든 받는다(koSeasonFromKey 가 둘 다 처리). 실패 시 사용자 메시지 포함.
+export function validateTransitionWeek(input: {
+  seasonType?: string | null;
+  weekNumber: number;
+  activityType: PeriodActivityType;
+}): PeriodInputValidation {
+  const { weekNumber, activityType } = input;
+  const ko = koSeasonFromKey(input.seasonType);
+  const seasonPhrase = ko ? `${ko} 시즌` : "다음 시즌의";
+  const isZeroWeek = weekNumber === 0;
+
+  if (activityType === "transition") {
+    if (!isZeroWeek) {
+      // 구 "가을 시즌 17주차여야 합니다"(이전 시즌 마지막 주차 강제) 문구 폐기.
+      return {
+        ok: false,
+        message: `전환 주차는 ${seasonPhrase} 0주차로 등록해야 합니다.`,
+      };
+    }
+    return { ok: true };
+  }
+
+  // 전환이 아닌데 0주차 → 차단. 0주차는 전환 주차 전용이라 공식 활동/휴식과 중복 분류하지 않는다.
+  if (isZeroWeek) {
+    return {
+      ok: false,
+      message:
+        activityType === "rest"
+          ? "0주차는 전환 주차 전용이라 공식 휴식으로 등록할 수 없습니다."
+          : "0주차는 전환 주차로만 등록할 수 있습니다. 공식 활동은 1주차 이상이어야 합니다.",
+    };
+  }
+
+  return { ok: true };
+}
+
 // 이전 시즌(시즌 체인 역방향). 겨울 → 직전 해 가을. (DB 무관·순수 캘린더)
 //   전환 주차의 season_key(=다음 시즌)로부터 "출발 시즌"(from)을 복원할 때 쓴다 —
 //   예: 재귀속된 2026-summer W0(전환)의 from = 2026-spring. 코드 문자열에서 역추론하지 말 것.

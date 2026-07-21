@@ -8,6 +8,10 @@ import {
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createOfficialRestPeriod } from "@/lib/officialRestPeriodsData";
 import { loadSeasonWeeks } from "@/lib/adminSeasonWeeksData";
+import {
+  validateTransitionWeek,
+  type PeriodActivityType,
+} from "@/lib/seasonCalendar";
 
 type SeasonDefinitionRow = {
   season_key: string;
@@ -88,22 +92,6 @@ const REGISTER_YEARS = [2022, 2023, 2024, 2025, 2026] as const;
 const SEASON_TYPES = ["winter", "spring", "summer", "autumn"] as const;
 type RegisterSeasonType = (typeof SEASON_TYPES)[number];
 
-// 공식 시즌 순서 SoT(캘린더 체인) — 전환 주차의 "다음 시즌"을 날짜 추측이 아니라 이 순서로 결정.
-//   가을 → 다음 해 겨울(연도 넘김). 전환 주차는 이 다음 시즌의 0주차로 저장한다.
-const NEXT_SEASON: Record<RegisterSeasonType, RegisterSeasonType> = {
-  winter: "spring",
-  spring: "summer",
-  summer: "autumn",
-  autumn: "winter",
-};
-
-// (연도, 시작 시즌) → 다음 시즌 season_key. 가을만 다음 해로 넘어간다.
-function nextSeasonKeyOf(year: number, type: RegisterSeasonType): string {
-  const nextType = NEXT_SEASON[type];
-  const nextYear = type === "autumn" ? year + 1 : year;
-  return `${nextYear}-${nextType}`;
-}
-
 const NOTE_MAX_LENGTH = 30;
 const WEEK_NUMBER_MIN = 0;
 const WEEK_NUMBER_MAX = 18;
@@ -113,7 +101,7 @@ type RegisterBody = {
   season_type?: unknown;
   week_number?: unknown;
   is_official_rest?: unknown;
-  // 전환 주차 의도(선택). 저장 컬럼 없음 — is_transition 은 week_number(정규 주수 +1)로
+  // 전환 주차 의도(선택). 저장 컬럼 없음 — is_transition 은 week_number===0(도착 시즌 0주차)으로
   // GET 에서 파생된다. 본 필드는 교차검증 전용이며 미전송(undefined)이면 기존 흐름과 동일.
   is_transition?: unknown;
   note?: unknown;
@@ -193,8 +181,8 @@ export async function POST(request: Request) {
   const isOfficialRest = body.is_official_rest;
 
   // 전환 주차(선택): 저장 표현은 공식 활동과 동일(is_official_rest=false)이며 별도 컬럼이 없다.
-  //   전환 여부는 GET 에서 week_number(정규 주수 +1)로 파생되므로, 여기서는 의도와 주차 번호가
-  //   어긋나는 등록(전환인데 휴식·전환 번호가 아님)을 차단해 조회 시 전환으로 잡히도록 보장한다.
+  //   전환 여부는 GET 에서 week_number===0(도착 시즌 0주차)으로 파생되므로, 여기서는 의도와 주차
+  //   번호가 어긋나는 등록(전환인데 휴식·0주차 아님)을 차단해 조회 시 전환으로 잡히도록 보장한다.
   let isTransition = false;
   if (body.is_transition != null) {
     if (typeof body.is_transition !== "boolean") {
@@ -202,17 +190,25 @@ export async function POST(request: Request) {
     }
     isTransition = body.is_transition;
   }
-  if (isTransition) {
-    if (isOfficialRest) {
-      return badRequest("전환 주차는 공식 휴식으로 등록할 수 없습니다.");
-    }
-    const regularWeeks = SEASON_WEEKS[seasonType as RegisterSeasonType];
-    if (regularWeeks == null) {
-      return badRequest("시즌 정규 주수를 확인할 수 없습니다.");
-    }
-    if (weekNumber !== regularWeeks + 1) {
-      return badRequest(`전환 주차는 ${regularWeeks + 1}주차여야 합니다.`);
-    }
+  if (isTransition && isOfficialRest) {
+    return badRequest("전환 주차는 공식 휴식으로 등록할 수 없습니다.");
+  }
+
+  // 전환/공식/휴식 활동 유형별 주차 검증 — 공통 정책 SoT(validateTransitionWeek, 클라이언트 폼과 동일).
+  //   전환 주차 = 도착 시즌 + 0주차 전용(구 "이전 시즌 마지막+1 주차" 강제 폐기), 0주차는 공식
+  //   활동/휴식으로 등록 불가. 규칙 변경은 seasonCalendar 한 곳에서만 한다.
+  const activityType: PeriodActivityType = isTransition
+    ? "transition"
+    : isOfficialRest
+      ? "rest"
+      : "official";
+  const activityValidation = validateTransitionWeek({
+    seasonType,
+    weekNumber,
+    activityType,
+  });
+  if (!activityValidation.ok) {
+    return badRequest(activityValidation.message);
   }
 
   // 시험기간 고정 휴식(2026-06-07 정책 확정): 봄/가을 6~8·14~16주차는 공식 휴식 고정 —
@@ -251,15 +247,13 @@ export async function POST(request: Request) {
     return badRequest("주차 종료일은 시작일로부터 6일 뒤 일요일이어야 합니다.");
   }
 
-  // 전환 주차 저장 규칙(정책): 다음 시즌 + week_number = 0.
-  //   · 관리자는 "끝나는 시즌"(예: 봄) + 전환 주차(정규주수+1)를 선택하지만, 저장은 다음 시즌
-  //     (예: 여름)의 0주차로 재귀속한다("이전 시즌 + 마지막 주차 번호" 저장 금지).
+  // 전환 주차 저장 규칙(정책): 도착(다음) 시즌 + week_number = 0.
+  //   · 관리자가 도착 시즌(예: 여름→가을 전환이면 "가을") + 0주차를 직접 선택하므로, 시즌 변환/
+  //     주차 재귀속 없이 선택 값 그대로 저장한다("이전 시즌 + 마지막 주차 번호" 저장 금지).
   //   · season_definitions/seasons 의 공식 시즌 경계(1주차 시작)는 그대로 두고, 전환 주차는 그
-  //     사이 gap 에 위치한 다음 시즌의 0주차로 들어간다.
-  const seasonKey = isTransition
-    ? nextSeasonKeyOf(year, seasonType as RegisterSeasonType)
-    : `${year}-${seasonType}`;
-  const storedWeekNumber = isTransition ? 0 : weekNumber;
+  //     사이 gap 에 위치한 도착 시즌의 0주차로 들어간다.
+  const seasonKey = `${year}-${seasonType}`;
+  const storedWeekNumber = weekNumber;
 
   try {
     // ── 시즌 정의 확인 (기간 정보 GET 이 season_definitions 기준으로 조회하므로 필수) ──
