@@ -5,6 +5,7 @@ import { User } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
+import { organizationLabelKo } from "@/lib/organizations";
 import { cn } from "@/lib/utils";
 
 // ─────────────────────────────────────────────────────────────────────
@@ -40,11 +41,7 @@ export type CrewIdentity = {
   partName: string | null;
 };
 
-const CLUB_LABEL_KO: Record<string, string> = {
-  encre: "엥크레",
-  oranke: "오랑캐",
-  phalanx: "팔랑크스",
-};
+// 클럽 표시명 = lib/organizations 단일 SoT(organizationLabelKo). 화면별 한글 매핑 재작성 금지.
 
 // 문자열 값 — null/공백만 "-".
 export function dash(value: string | null | undefined): string {
@@ -161,9 +158,7 @@ export function CrewIdentityCards({ member }: { member: CrewIdentity }) {
               {member.crewCode ?? <span className="font-sans text-muted-foreground">미생성</span>}
             </Field>
             <Field label="클럽명" helpKey={ADMIN_SHARED_HELP_KEYS.crew.organization}>
-              {member.organizationSlug
-                ? CLUB_LABEL_KO[member.organizationSlug] ?? member.organizationSlug
-                : "공통"}
+              {organizationLabelKo(member.organizationSlug)}
             </Field>
             <Field label="상태">{dash(member.statusLabel)}</Field>
             <Field label="활동 시작일">{member.activityStartDate}</Field>

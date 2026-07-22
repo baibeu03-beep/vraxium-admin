@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import AdminHelp from "@/components/admin/AdminHelp";
-import { ORGANIZATIONS, ORGANIZATION_LABEL } from "@/lib/organizations";
+import { ORGANIZATIONS, organizationLabelKo } from "@/lib/organizations";
 import type {
   FinalizationAggregation,
   FinalizationSeasonOption,
@@ -483,14 +483,14 @@ export default function WeeklyCardFinalizationView() {
                     {(v: string | null) =>
                       !v || v === ALL
                         ? "전체"
-                        : ORGANIZATION_LABEL[v as keyof typeof ORGANIZATION_LABEL] ?? v}
+                        : organizationLabelKo(v)}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={ALL}>전체</SelectItem>
                   {ORGANIZATIONS.map((slug) => (
                     <SelectItem key={slug} value={slug}>
-                      {ORGANIZATION_LABEL[slug]}
+                      {organizationLabelKo(slug)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -537,7 +537,7 @@ export default function WeeklyCardFinalizationView() {
                 </CardTitle>
                 <CardDescription>
                   {formatClubDate(target.startDate)} ~ {formatClubDate(target.endDate)} · 클럽{" "}
-                  {org === ALL ? "전체" : ORGANIZATION_LABEL[org as keyof typeof ORGANIZATION_LABEL] ?? org}
+                  {org === ALL ? "전체" : organizationLabelKo(org)}
                 </CardDescription>
               </div>
               <StatusBadges target={target} />

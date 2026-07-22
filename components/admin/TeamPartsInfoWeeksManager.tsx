@@ -17,7 +17,12 @@ import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import { readOrgParam } from "@/lib/adminOrgContext";
-import { ORGANIZATIONS, isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
+import {
+  ORGANIZATIONS,
+  isOrganizationSlug,
+  organizationLabelKo,
+  type OrganizationSlug,
+} from "@/lib/organizations";
 import {
   useAdminOrgAccess,
   AdminNoOrgAccess,
@@ -34,11 +39,12 @@ const PAGE_SIZE = 20;
 // 통합 + 3개 클럽 탭. 통합은 기획 미정 → 준비 중 안내.
 type TabKey = "integrated" | OrganizationSlug;
 
+// 조직 탭 라벨 — 조직명은 lib/organizations 단일 SoT(organizationLabelKo). "통합"만 이 화면 고유.
 const TAB_LABEL: Record<TabKey, string> = {
   integrated: "통합",
-  encre: "엥크레",
-  oranke: "오랑캐",
-  phalanx: "팔랑크스",
+  encre: organizationLabelKo("encre"),
+  oranke: organizationLabelKo("oranke"),
+  phalanx: organizationLabelKo("phalanx"),
 };
 
 // 활성 탭 색상(팀 내역 화면 CHIP_CLS 미러 + 통합 다크).

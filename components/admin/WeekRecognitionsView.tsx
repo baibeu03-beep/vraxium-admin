@@ -40,10 +40,8 @@ import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 import {
   ORGANIZATIONS,
-  ORGANIZATION_COMMON_LABEL,
-  ORGANIZATION_LABEL,
   ORGANIZATION_LABEL_KO,
-  isOrganizationSlug,
+  organizationLabelKo,
 } from "@/lib/organizations";
 import {
   WEEK_RECOGNITION_STATUSES,
@@ -107,10 +105,9 @@ function formatDateTime(value: string | null | undefined) {
   return formatAdminDateTime(value, { fallback: "—" });
 }
 
+// 조직 표시명 = lib/organizations 단일 SoT(null=공통 · 미인식 slug=원문).
 function orgLabel(slug: string | null | undefined) {
-  if (!slug) return ORGANIZATION_COMMON_LABEL;
-  if (isOrganizationSlug(slug)) return ORGANIZATION_LABEL[slug];
-  return slug;
+  return organizationLabelKo(slug);
 }
 
 function StatusBadge({ row }: { row: WeekRecognitionRow }) {
@@ -586,7 +583,7 @@ export default function WeekRecognitionsView() {
                   <SelectItem value={ALL}>전체 클럽</SelectItem>
                   {ORGANIZATIONS.map((slug) => (
                     <SelectItem key={slug} value={slug}>
-                      {ORGANIZATION_LABEL[slug]}
+                      {organizationLabelKo(slug)}
                     </SelectItem>
                   ))}
                 </SelectContent>

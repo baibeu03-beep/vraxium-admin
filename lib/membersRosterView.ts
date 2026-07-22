@@ -4,12 +4,12 @@
 import type { MemberRosterRow } from "@/lib/adminMembersData";
 import { classLabel } from "@/lib/adminMembersTypes";
 import { BUCKET_LABEL, statusBucket, type MemberStatusBucket } from "@/lib/memberStatusBucket";
+import { organizationLabelKo } from "@/lib/organizations";
 
 export type ClubValue = "all" | "encre" | "oranke" | "phalanx" | "none";
-const CLUB_LABEL_KO: Record<string, string> = { encre: "엥크레", oranke: "오랑캐", phalanx: "팔랑크스" };
+// 클럽 표시명 = lib/organizations 단일 SoT. 미지정(null)은 이 명부 규칙대로 "-".
 export function clubLabelKo(slug: string | null): string {
-  if (!slug) return "-";
-  return CLUB_LABEL_KO[slug] ?? slug;
+  return organizationLabelKo(slug, { nullLabel: "-" });
 }
 
 function fmtStr(v: string | null | undefined): string { return v && v.trim() ? v : "—"; }

@@ -35,7 +35,7 @@ import { cn } from "@/lib/utils";
 import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
-import { ORGANIZATION_LABEL, isOrganizationSlug } from "@/lib/organizations";
+import { organizationLabelKo } from "@/lib/organizations";
 import {
   DEFAULT_RESOURCE_KEY,
   EDITABLE_RESOURCES,
@@ -71,10 +71,9 @@ function fmtDate(value: string | null | undefined) {
   return formatAdminDateTime(value, { fallback: "-" });
 }
 
+// 조직 표시명 = lib/organizations 단일 SoT. 이 화면은 미지정을 "-" 로 표기한다.
 function orgLabel(slug: string | null) {
-  if (!slug) return "-";
-  if (isOrganizationSlug(slug)) return ORGANIZATION_LABEL[slug];
-  return slug;
+  return organizationLabelKo(slug, { nullLabel: "-" });
 }
 
 function toLocalInputValue(date: Date): string {

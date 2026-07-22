@@ -3,6 +3,9 @@ export const ORGANIZATIONS = ["encre", "oranke", "phalanx"] as const;
 
 export type OrganizationSlug = (typeof ORGANIZATIONS)[number];
 
+// 조직 영문명 — **영문 병기 전용**(환경 배너 "엥크레 / Encre", 홈 런처 카드 부제 등).
+//   ⚠ 화면의 "조직 표시명"으로 이 상수를 직접 쓰지 말 것. 표시명 SoT 는 organizationLabelKo() 다.
+//     (2026-07-22: 드롭다운/표/필터/문구의 조직 표시명을 전부 한글로 통일하면서 용도를 분리했다.)
 export const ORGANIZATION_LABEL: Record<OrganizationSlug, string> = {
   encre: "Encre",
   oranke: "Oranke",
@@ -25,9 +28,50 @@ export const ORGANIZATION_TEXT_CLASS: Record<OrganizationSlug, string> = {
   phalanx: "text-emerald-600",
 };
 
-// slug → 한글 표시명. 미매핑/공통은 null(호출부에서 미표시/공통 처리).
-export function organizationLabelKo(slug: string | null | undefined): string | null {
-  return isOrganizationSlug(slug) ? ORGANIZATION_LABEL_KO[slug] : null;
+// ── 조직 표시명 formatter (화면 표시 단일 SoT) ─────────────────────────────
+// 어드민 전역(/admin)의 드롭다운·표 컬럼·필터·배너·breadcrumb·토스트/오류 문구는 조직을
+//   표시할 때 **반드시 이 함수**를 쓴다. 화면별 한글 매핑 재작성 금지(2026-07-22 통합).
+//
+// 계약:
+//   · encre/oranke/phalanx → 엥크레/오랑캐/팔랑크스 (ORGANIZATION_LABEL_KO)
+//   · "common"             → "공통" (ORGANIZATION_COMMON_LABEL)
+//   · null/undefined/""    → options.nullLabel ?? "공통"
+//       - organization_slug NULL 을 "공통"으로 읽는 화면(계정/시즌/주차 등)은 기본값 그대로.
+//       - "미지정"과 "공통"을 구분해야 하는 화면(라인 등록/정보)은 nullLabel: "-" 를 넘긴다.
+//   · 그 외 미인식 문자열 → 원문 그대로(추측 표시 금지 · 디버깅 가능성 보존)
+//
+// ⚠ 표시 전용이다. slug 비교·권한 검사·쿼리 조건·DTO 키에는 절대 사용하지 않는다.
+export type OrganizationLabelOptions = {
+  /** organization_slug 가 null/빈값일 때의 표시. 기본 = "공통". */
+  nullLabel?: string;
+};
+
+export function organizationLabelKo(
+  slug: string | null | undefined,
+  options?: OrganizationLabelOptions,
+): string {
+  if (slug === null || slug === undefined || slug.trim() === "") {
+    return options?.nullLabel ?? ORGANIZATION_COMMON_LABEL;
+  }
+  const normalized = slug.trim();
+  if (isOrganizationSlug(normalized)) return ORGANIZATION_LABEL_KO[normalized];
+  if (normalized === "common") return ORGANIZATION_COMMON_LABEL;
+  return normalized;
+}
+
+// 조직 드롭다운/탭 옵션 — {value: slug(전송값 불변), label: 한글}. 옵션 목록을 화면마다
+//   다시 만들지 않도록 여기서 생성한다. includeCommon=true 면 끝에 "공통"(value="common") 추가.
+export function organizationSelectOptions(
+  options?: { includeCommon?: boolean },
+): Array<{ value: string; label: string }> {
+  const rows = ORGANIZATIONS.map((slug) => ({
+    value: slug as string,
+    label: ORGANIZATION_LABEL_KO[slug],
+  }));
+  if (options?.includeCommon) {
+    rows.push({ value: "common", label: ORGANIZATION_COMMON_LABEL });
+  }
+  return rows;
 }
 
 // ── 조직 메타데이터(통합 SoT) ───────────────────────────────────────────────

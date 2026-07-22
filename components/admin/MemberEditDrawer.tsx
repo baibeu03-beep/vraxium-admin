@@ -15,7 +15,7 @@ import {
 import {
   ORGANIZATIONS,
   ORGANIZATION_COMMON_LABEL,
-  ORGANIZATION_LABEL,
+  organizationLabelKo,
 } from "@/lib/organizations";
 import { ACCOUNT_STATUSES } from "@/lib/adminAppUsersTypes";
 import {
@@ -374,7 +374,7 @@ function MemberEditDrawerInner({
                   </SelectItem>
                   {ORGANIZATIONS.map((slug) => (
                     <SelectItem key={slug} value={slug}>
-                      {ORGANIZATION_LABEL[slug]}
+                      {organizationLabelKo(slug)}
                     </SelectItem>
                   ))}
                 </SelectContent>

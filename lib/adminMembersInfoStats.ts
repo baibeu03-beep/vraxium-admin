@@ -14,7 +14,11 @@
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { mapWithConcurrency } from "@/lib/concurrency";
-import { ORGANIZATIONS, type OrganizationSlug } from "@/lib/organizations";
+import {
+  ORGANIZATIONS,
+  organizationLabelKo,
+  type OrganizationSlug,
+} from "@/lib/organizations";
 import { SUPER_ADMIN_EXCLUDE_OR } from "@/lib/superAdmins";
 import { resolveUserScope, type ScopeMode } from "@/lib/userScope";
 import { loadSeasonWeeks } from "@/lib/adminSeasonWeeksData";
@@ -351,14 +355,9 @@ type RosterRow = {
   growth_status: string | null;
 };
 
-const CLUB_LABEL_KO: Record<string, string> = {
-  encre: "엥크레",
-  oranke: "오랑캐",
-  phalanx: "팔랑크스",
-};
+// 클럽 표시명 = lib/organizations 단일 SoT. 미지정(null)은 이 화면 규칙대로 "-".
 function clubLabelKo(slug: string | null): string {
-  if (!slug) return "-";
-  return CLUB_LABEL_KO[slug] ?? slug;
+  return organizationLabelKo(slug, { nullLabel: "-" });
 }
 
 // user_profiles 스코프 로스터 — org∈orgs, activity_started_at 보유, super admin 제외, mode 스코프.

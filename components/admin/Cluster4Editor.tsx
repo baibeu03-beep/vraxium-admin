@@ -18,7 +18,7 @@ import { formatClubDate } from "@/lib/clubDate";
 import { formatAdminDateTime } from "@/lib/adminDateTime";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import {
-  ORGANIZATION_LABEL,
+  organizationLabelKo,
   type OrganizationSlug,
 } from "@/lib/organizations";
 import { DebugSection } from "@/components/admin/fieldKit";
@@ -525,7 +525,7 @@ function formatTimestamp(value: string | null): string {
 
 function formatReviewerOrganization(slug: string | null): string {
   if (!slug) return "-";
-  const knownLabel = (ORGANIZATION_LABEL as Record<string, string | undefined>)[slug];
+  const knownLabel = organizationLabelKo(slug);
   return knownLabel ?? slug;
 }
 
@@ -1512,7 +1512,7 @@ export default function Cluster4Editor({
             {devMode ? "Cluster 4 Editor" : "Cluster 4 관리"}
           </h1>
           <div className="text-xs text-muted-foreground">
-            {ORGANIZATION_LABEL[organization]} ·{" "}
+            {organizationLabelKo(organization)} ·{" "}
             <span className="font-medium text-foreground">
               {memberDisplayName ?? (devMode ? legacyUserId : "이름 미등록")}
             </span>

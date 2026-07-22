@@ -1,6 +1,9 @@
 // Browser-safe constants and types for the /admin/lines/register registry APIs.
 // Must not import server-only modules here.
 //
+// 조직 표시명은 lib/organizations 의 organizationLabelKo() 단일 SoT 를 재사용한다
+//   (browser-safe 모듈끼리의 import — server-only 유입 없음).
+//
 // 정책 (2026-06-07 additive Phase):
 //   - 신규 등록 라인만 line_registrations 에 저장한다.
 //   - 기존 4허브 SoT(cluster4_lines · experience/competency 마스터 · career_projects)는
@@ -9,6 +12,8 @@
 // 유닛 링크 정정 (2026-06-07): output link/image 구조가 아니라 **단일 텍스트 필드**
 //   unit_link 사용 (URL 형식 강제 없음, 미입력 시 '-'). DB 의 output_links/output_images
 //   컬럼은 deprecated — 신규 저장/조회 모두 미사용 (마이그레이션 #39 참조).
+
+import { organizationLabelKo } from "@/lib/organizations";
 
 // 소속 허브 — cluster4_lines.part_type 과 동일 enum (값 호환을 위해 동일 토큰 사용).
 export type LineRegistrationHub = "info" | "experience" | "competency" | "career";
@@ -172,11 +177,13 @@ export const LINE_REGISTRATION_ORGS = [
 
 export type LineRegistrationOrg = (typeof LINE_REGISTRATION_ORGS)[number];
 
+// 표시명은 조직 표시 SoT(organizationLabelKo)에서 파생한다 — 이 파일에서 한글/영문을 재작성하지 않는다.
+//   저장값(LineRegistrationOrg = encre|oranke|phalanx|common)은 무변경 — 라벨만 한글(2026-07-22).
 export const LINE_REGISTRATION_ORG_LABEL: Record<LineRegistrationOrg, string> = {
-  encre: "Encre",
-  oranke: "Oranke",
-  phalanx: "Phalanx",
-  common: "공통",
+  encre: organizationLabelKo("encre"),
+  oranke: organizationLabelKo("oranke"),
+  phalanx: organizationLabelKo("phalanx"),
+  common: organizationLabelKo("common"),
 };
 
 export function isLineRegistrationOrg(value: unknown): value is LineRegistrationOrg {
@@ -193,6 +200,11 @@ export function isLineRegistrationOrg(value: unknown): value is LineRegistration
 //   - organization_slug === "common" → 공통
 //   - 미지정(null) → "-"
 //   - 그 외(encre·oranke·phalanx) → organization_slug 원문 보존(표시 무변경)
+//
+// ⚠ 반환값은 "표시 그룹 키"다(배지 색 매핑 · 클럽 필터 매칭 · 공통 라인 중복 제거 키).
+//   화면에 찍을 때는 반드시 organizationLabelKo(반환값, { nullLabel: "-" }) 로 한 번 더 통과시킨다
+//   (2026-07-22 한글 통일 — 키는 slug 유지, 라벨만 한글). 여기서 한글을 반환하도록 바꾸면
+//   matchesClub()/CLUB_BADGE_CLASS 의 키 비교가 깨진다.
 export const COMMON_CLUB_LABEL = "공통";
 
 // 실무 경험에서 적용 클럽을 "공통"으로 표시하는 라인 종류.

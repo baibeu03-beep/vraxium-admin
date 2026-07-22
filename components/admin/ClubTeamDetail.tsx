@@ -14,7 +14,7 @@ import { AdminDetailTitle } from "@/components/admin/AdminRouteTitleProvider";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
-import { type OrganizationSlug } from "@/lib/organizations";
+import { organizationLabelKo, type OrganizationSlug } from "@/lib/organizations";
 import type { ClubCurrentSummaryRow } from "@/lib/adminClubSummaryData";
 import { parseHalfKey } from "@/lib/teamHalf";
 import { useActionToast } from "@/lib/actionToast";
@@ -111,11 +111,7 @@ type LeaderCandidate = {
 
 type Banner = { kind: "success" | "error"; message: string } | null;
 
-const CLUB_LABEL: Record<OrganizationSlug, string> = {
-  encre: "엥크레",
-  oranke: "오랑캐",
-  phalanx: "팔랑크스",
-};
+// 클럽 표시명 = lib/organizations 단일 SoT(화면별 한글 매핑 재작성 금지).
 const CHIP_CLS: Record<OrganizationSlug, string> = {
   encre: "bg-red-500 text-white border-red-600",
   oranke: "bg-yellow-300 text-zinc-900 border-yellow-400",
@@ -228,7 +224,7 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
   // QA 모드(?mode=test) — 팀 정보 조회에 전파(백엔드 filterTeamsByScope 와 정합).
   const mode = readScopeMode(searchParams);
   const activeOrg = clubId;
-  const clubName = CLUB_LABEL[clubId];
+  const clubName = organizationLabelKo(clubId);
 
   const [half, setHalf] = useState<string | null>(null);
   const [currentHalfKey, setCurrentHalfKey] = useState<string | null>(null);

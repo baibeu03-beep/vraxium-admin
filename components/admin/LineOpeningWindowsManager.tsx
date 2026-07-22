@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Power, Trash2, CalendarClock } from "lucide-react";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
+import { organizationSelectOptions } from "@/lib/organizations";
 import {
   Card,
   CardContent,
@@ -31,11 +32,10 @@ import { formatClubDate } from "@/lib/clubDate";
 // null(전체)을 나타내는 select 센티널 — 명시적 "all".
 const ALL = "all";
 
+// value(=저장/조회 slug)는 불변, label 만 조직 표시 SoT(organizationSelectOptions).
 const ORG_OPTIONS = [
   { value: ALL, label: "전체 클럽" },
-  { value: "encre", label: "Encre" },
-  { value: "oranke", label: "Oranke" },
-  { value: "phalanx", label: "Phalanx" },
+  ...organizationSelectOptions(),
 ];
 
 // 라인 종류(hub) — line-opening 이 실제 주차를 여는 3허브. (클럽/경력은 라인 개설 흐름 없음 → 제외)

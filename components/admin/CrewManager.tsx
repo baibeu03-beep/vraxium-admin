@@ -34,7 +34,7 @@ import { cn } from "@/lib/utils";
 import { Checkbox, checkedTextClass } from "@/components/ui/checkbox";
 import {
   ORGANIZATIONS,
-  ORGANIZATION_LABEL,
+  organizationLabelKo,
   type OrganizationSlug,
 } from "@/lib/organizations";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
@@ -349,7 +349,7 @@ export default function CrewManager({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
         <StatCard
           label={devMode ? "Organization" : "소속"}
-          value={ORGANIZATION_LABEL[organization]}
+          value={organizationLabelKo(organization)}
           isText
         />
         <StatCard label={devMode ? "Total Crews" : "전체 인원"} value={data.length} />
@@ -360,7 +360,7 @@ export default function CrewManager({
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>
-            {ORGANIZATION_LABEL[organization]} {devMode ? "Crews" : "크루"}
+            {organizationLabelKo(organization)} {devMode ? "Crews" : "크루"}
           </CardTitle>
           <Button onClick={openCreate} size="sm">
             <Plus className="h-4 w-4" />
@@ -879,7 +879,7 @@ function CrewFormModal({
                 ? "Add Crew"
                 : "멤버 추가"}{" "}
             <span className="text-sm font-normal text-muted-foreground">
-              @ {ORGANIZATION_LABEL[organization]}
+              @ {organizationLabelKo(organization)}
             </span>
           </h2>
           <Button
@@ -1003,7 +1003,7 @@ function CrewFormModal({
                 <SelectContent>
                   {ORGANIZATIONS.map((slug) => (
                     <SelectItem key={slug} value={slug}>
-                      {ORGANIZATION_LABEL[slug]}
+                      {organizationLabelKo(slug)}
                     </SelectItem>
                   ))}
                 </SelectContent>

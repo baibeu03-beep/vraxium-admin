@@ -16,7 +16,7 @@ import { useActionToast } from "@/lib/actionToast";
 import { formatAdminDateTime } from "@/lib/adminDateTime";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import {
-  ORGANIZATION_LABEL,
+  organizationLabelKo,
   type OrganizationSlug,
 } from "@/lib/organizations";
 import {
@@ -644,7 +644,7 @@ export default function Cluster2Editor({
             {devMode ? "Cluster 2 Editor" : "활동 페이지 편집"}
           </h1>
           <div className="text-xs text-muted-foreground">
-            {ORGANIZATION_LABEL[organization]} ·{" "}
+            {organizationLabelKo(organization)} ·{" "}
             <span className="font-medium text-foreground">
               {memberDisplayName ?? (devMode ? legacyUserId : "이름 미등록")}
             </span>

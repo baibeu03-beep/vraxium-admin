@@ -43,7 +43,11 @@ import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import EmergencyRestModal from "@/components/admin/EmergencyRestModal";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { readOrgParam } from "@/lib/adminOrgContext";
-import { ORGANIZATIONS, type OrganizationSlug } from "@/lib/organizations";
+import {
+  ORGANIZATIONS,
+  organizationLabelKo,
+  type OrganizationSlug,
+} from "@/lib/organizations";
 import {
   getCurrentActivityDateIso,
   operationalSeasonDbKey,
@@ -59,10 +63,11 @@ import type {
 
 const PAGE_SIZE = 20;
 
+// 클럽 표시명 = lib/organizations 단일 SoT(organizationLabelKo). 화면별 한글 매핑 재작성 금지.
 const CLUB_LABEL_KO: Record<OrganizationSlug, string> = {
-  encre: "엥크레",
-  oranke: "오랑캐",
-  phalanx: "팔랑크스",
+  encre: organizationLabelKo("encre"),
+  oranke: organizationLabelKo("oranke"),
+  phalanx: organizationLabelKo("phalanx"),
 };
 
 // org 대표색(요약 영역 상단 액센트 · 클럽 표기 점). 팔레트는 조정 가능한 최소 기준값.

@@ -50,7 +50,11 @@ import {
   type LineRegistrationHub,
   type ListLineRegistrationsResult,
 } from "@/lib/adminLineRegistrationsTypes";
-import type { OrganizationSlug } from "@/lib/organizations";
+import {
+  organizationLabelKo,
+  organizationSelectOptions,
+  type OrganizationSlug,
+} from "@/lib/organizations";
 
 // 이 화면이 다루는 허브 — 실무 경력(career)은 제외.
 const INFO_HUBS = LINE_REGISTRATION_HUBS.filter(
@@ -58,23 +62,19 @@ const INFO_HUBS = LINE_REGISTRATION_HUBS.filter(
 ) as readonly LineRegistrationHub[]; // ["info", "experience", "competency"]
 
 // 적용 클럽 한글 표시 — lineRegistrationDisplayClub 반환(공통/encre/oranke/phalanx/-) → 한글.
-const CLUB_KO: Record<string, string> = {
-  encre: "엥크레",
-  oranke: "오랑캐",
-  phalanx: "팔랑크스",
-};
+//   매핑 SoT = lib/organizations.organizationLabelKo (화면별 재작성 금지). "공통"/"-" 는 그대로 통과.
 function clubKo(raw: string): string {
-  return CLUB_KO[raw] ?? raw; // "공통", "-" 는 그대로
+  return organizationLabelKo(raw, { nullLabel: "-" });
 }
 
-// 클럽 필터 — value 는 표시 헬퍼 반환값과 매칭하기 위한 키.
+// 클럽 필터 — value 는 표시 헬퍼 반환값과 매칭하기 위한 **키(slug 유지)**, label 만 한글.
 type ClubFilter = "-" | "encre" | "oranke" | "phalanx" | "common";
 const CLUB_FILTER_OPTIONS: { value: ClubFilter; label: string }[] = [
   { value: "-", label: "-" },
-  { value: "encre", label: "엥크레" },
-  { value: "oranke", label: "오랑캐" },
-  { value: "phalanx", label: "팔랑크스" },
-  { value: "common", label: "공통" },
+  ...organizationSelectOptions({ includeCommon: true }).map((o) => ({
+    value: o.value as ClubFilter,
+    label: o.label,
+  })),
 ];
 
 // 적용 클럽 필터 매칭 — 표시값(displayClub ∈ {"공통","encre","oranke","phalanx","-"}) 기준.

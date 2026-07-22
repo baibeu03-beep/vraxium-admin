@@ -14,7 +14,7 @@ import { useActionToast } from "@/lib/actionToast";
 import { pointColorClass } from "@/components/ui/point-value";
 import { formatAdminDateTime } from "@/lib/adminDateTime";
 import {
-  ORGANIZATION_LABEL,
+  organizationLabelKo,
   type OrganizationSlug,
 } from "@/lib/organizations";
 import {
@@ -504,7 +504,7 @@ export default function ResumeCardEditor({
             {devMode ? "Cluster1 Editor" : "이력 카드 편집"}
           </h1>
           <div className="text-xs text-muted-foreground">
-            {ORGANIZATION_LABEL[organization]} ·{" "}
+            {organizationLabelKo(organization)} ·{" "}
             <span className="font-medium text-foreground">
               {memberDisplayName ?? (devMode ? legacyUserId : "이름 미등록")}
             </span>

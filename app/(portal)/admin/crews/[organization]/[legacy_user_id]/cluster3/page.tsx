@@ -5,7 +5,7 @@ import AdminHelp from "@/components/admin/AdminHelp";
 import { AdminDetailTitle } from "@/components/admin/AdminRouteTitleProvider";
 import Cluster3Editor from "@/components/admin/Cluster3Editor";
 import { getMemberDisplayName } from "@/lib/adminCrewData";
-import { isOrganizationSlug, ORGANIZATION_LABEL } from "@/lib/organizations";
+import { isOrganizationSlug, organizationLabelKo } from "@/lib/organizations";
 
 type Props = {
   params: Promise<{ organization: string; legacy_user_id: string }>;
@@ -44,7 +44,7 @@ export default async function CrewCluster3Page({
           href={`/admin/crews/${organization}${devSuffix}`}
           className="hover:text-foreground"
         >
-          {ORGANIZATION_LABEL[organization]}
+          {organizationLabelKo(organization)}
         </Link>
         <span>/</span>
         <span className="text-foreground">{crumbLabel}</span>

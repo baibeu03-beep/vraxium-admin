@@ -15,7 +15,7 @@ import { useActionToast } from "@/lib/actionToast";
 import { pointColorClass } from "@/components/ui/point-value";
 import { formatAdminDateTime } from "@/lib/adminDateTime";
 import {
-  ORGANIZATION_LABEL,
+  organizationLabelKo,
   type OrganizationSlug,
 } from "@/lib/organizations";
 import { DebugSection } from "@/components/admin/fieldKit";
@@ -607,7 +607,7 @@ export default function Cluster3Editor({
             )}
           </h1>
           <div className="text-xs text-muted-foreground">
-            {ORGANIZATION_LABEL[organization]} ·{" "}
+            {organizationLabelKo(organization)} ·{" "}
             <span className="font-medium text-foreground">
               {memberDisplayName ?? (devMode ? legacyUserId : "이름 미등록")}
             </span>

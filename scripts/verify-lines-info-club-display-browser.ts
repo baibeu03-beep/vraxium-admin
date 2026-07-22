@@ -6,6 +6,8 @@
 import { chromium } from "playwright-core";
 import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
+import { ORGANIZATIONS, organizationLabelKo } from "@/lib/organizations";
+import { COMMON_CLUB_LABEL } from "@/lib/adminLineRegistrationsTypes";
 
 const baseUrl = process.env.SMOKE_BASE_URL ?? "http://localhost:3000";
 const adminEmail = process.env.SMOKE_ADMIN_EMAIL ?? "vanuatu.golden@gmail.com";
@@ -137,11 +139,16 @@ async function main() {
     await page.getByLabel("라인 종류 필터").selectOption("도출");
     await page.waitForTimeout(300);
     triples = await collectTriples();
+    // 셀 표시값은 한글 통일(2026-07-22) — 기대값을 조직 표시 SoT 에서 생성한다(문자열 재작성 금지).
+    //   저장값/필터 키는 여전히 slug 다(lineRegistrationDisplayClub 반환값) — 표시만 한글.
+    const EXPECTED_CLUB_CELLS = [
+      COMMON_CLUB_LABEL,
+      ...ORGANIZATIONS.map((slug) => organizationLabelKo(slug)),
+      "-",
+    ];
     check(
-      `실무 경험 '도출'(${triples.length}건) — 공통/encre/oranke/phalanx/'-' 중 하나 (강제 아님)`,
-      triples.every((t) =>
-        ["공통", "encre", "oranke", "phalanx", "-"].includes(t.club),
-      ),
+      `실무 경험 '도출'(${triples.length}건) — ${EXPECTED_CLUB_CELLS.join("/")} 중 하나 (강제 아님)`,
+      triples.every((t) => EXPECTED_CLUB_CELLS.includes(t.club)),
       `값: ${[...new Set(triples.map((t) => t.club))].join(", ")}`,
     );
 

@@ -54,8 +54,8 @@ import { useActionToast } from "@/lib/actionToast";
 import {
   ORGANIZATIONS,
   ORGANIZATION_COMMON_LABEL,
-  ORGANIZATION_LABEL,
   isOrganizationSlug,
+  organizationLabelKo,
 } from "@/lib/organizations";
 import {
   ADMIN_USERS_ROLES,
@@ -99,10 +99,9 @@ function fmtDate(value: string | null | undefined) {
   return formatAdminDateTime(value, { fallback: "—" });
 }
 
+// 조직 표시명 = lib/organizations 단일 SoT(null=공통 · 미인식 slug=원문).
 function orgLabel(slug: string | null) {
-  if (!slug) return ORGANIZATION_COMMON_LABEL;
-  if (isOrganizationSlug(slug)) return ORGANIZATION_LABEL[slug];
-  return slug;
+  return organizationLabelKo(slug);
 }
 
 export default function AccountsManager() {
@@ -735,7 +734,7 @@ export default function AccountsManager() {
                               </SelectItem>
                               {ORGANIZATIONS.map((slug) => (
                                 <SelectItem key={slug} value={slug}>
-                                  {ORGANIZATION_LABEL[slug]}
+                                  {organizationLabelKo(slug)}
                                 </SelectItem>
                               ))}
                               {account.organizationSlug &&
@@ -1095,9 +1094,7 @@ function CreateAccountDrawerInner({
                   <SelectValue>
                     {organizationSlug === ORG_NONE
                       ? ORGANIZATION_COMMON_LABEL
-                      : ORGANIZATION_LABEL[
-                          organizationSlug as (typeof ORGANIZATIONS)[number]
-                        ] ?? organizationSlug}
+                      : organizationLabelKo(organizationSlug)}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
@@ -1106,7 +1103,7 @@ function CreateAccountDrawerInner({
                   </SelectItem>
                   {ORGANIZATIONS.map((slug) => (
                     <SelectItem key={slug} value={slug}>
-                      {ORGANIZATION_LABEL[slug]}
+                      {organizationLabelKo(slug)}
                     </SelectItem>
                   ))}
                 </SelectContent>

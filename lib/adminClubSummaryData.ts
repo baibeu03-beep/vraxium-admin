@@ -1,6 +1,10 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
-import { ORGANIZATIONS, type OrganizationSlug } from "@/lib/organizations";
+import {
+  ORGANIZATIONS,
+  organizationLabelKo,
+  type OrganizationSlug,
+} from "@/lib/organizations";
 import { SUPER_ADMIN_EXCLUDE_OR } from "@/lib/superAdmins";
 import { resolveUserScope } from "@/lib/userScope";
 import { memberStatusLabel } from "@/lib/adminMembersTypes";
@@ -62,11 +66,7 @@ export type ClubCurrentSummaryResponse = {
   totals: ClubCurrentSummaryTotals;
 };
 
-const CLUB_LABEL: Record<OrganizationSlug, string> = {
-  encre: "엥크레",
-  oranke: "오랑캐",
-  phalanx: "팔랑크스",
-};
+// 클럽 표시명 = lib/organizations 단일 SoT(organizationLabelKo). 여기서 한글을 재작성하지 않는다.
 
 // 순수 검증 함수 — 세 등식 성립 여부. 개발/검증에서 불일치 탐지용(숫자 보정 금지).
 export function validateClubSummary(row: {
@@ -204,7 +204,7 @@ export async function loadClubCurrentSummary(opts: {
       const row: ClubCurrentSummaryRow = {
         clubId: org,
         clubSlug: org,
-        clubName: CLUB_LABEL[org],
+        clubName: organizationLabelKo(org),
         staffCount,
         teamLeaderCount,
         teamEntityCount: struct.teamEntityCount,

@@ -9,7 +9,11 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { readScopeMode } from "@/lib/userScopeShared";
-import { ORGANIZATIONS, type OrganizationSlug } from "@/lib/organizations";
+import {
+  ORGANIZATIONS,
+  organizationLabelKo,
+  type OrganizationSlug,
+} from "@/lib/organizations";
 
 // ── [섹션.1] 상단 요약 — **현재 접속 시점(today) 전용** ──────────────────────────────
 //   오늘 날짜·현재 주차 · 전체 클럽/팀/파트 수 · 클럽별 팀 배지(팀장명). 모두 현재 시점 기준.
@@ -38,11 +42,7 @@ type InfoDto = {
   summary: SummaryDto;
 };
 
-const CLUB_LABEL: Record<OrganizationSlug, string> = {
-  encre: "엥크레",
-  oranke: "오랑캐",
-  phalanx: "팔랑크스",
-};
+// 클럽 표시명 = lib/organizations 단일 SoT(organizationLabelKo).
 const CHIP_CLS: Record<OrganizationSlug, string> = {
   encre: "bg-red-500 text-white border-red-600",
   oranke: "bg-yellow-300 text-zinc-900 border-yellow-400",
@@ -183,7 +183,7 @@ export default function TeamPartsSummarySection() {
                     className="flex items-start gap-4"
                   >
                     <div className="w-20 shrink-0 pt-1 text-sm font-bold">
-                      {CLUB_LABEL[org]}
+                      {organizationLabelKo(org)}
                     </div>
                     <div className="flex flex-wrap gap-x-3 gap-y-3">
                       {teams.length === 0 ? (

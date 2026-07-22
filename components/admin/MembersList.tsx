@@ -33,7 +33,8 @@ import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 import { buildCrewsTabs, buildMembersTabs } from "@/lib/adminHeaderTabs";
 import {
-  ORGANIZATION_LABEL,
+  organizationLabelKo,
+  organizationSelectOptions,
   type OrganizationSlug,
 } from "@/lib/organizations";
 import { getProcessPointLabels, type ProcessPointKey } from "@/lib/pointLabels";
@@ -98,22 +99,16 @@ type MemberTab = "list" | "info";
 // ── 조건: 클럽 ──────────────────────────────────────────────────────
 // "all"=전체 / 조직 slug / "none"=- (검색 시 중립). all·none 은 데이터상 동일(전체 조회).
 type ClubValue = "all" | "encre" | "oranke" | "phalanx" | "none";
+// 옵션 value(=조회 파라미터)는 slug 그대로, label 만 조직 표시 SoT(organizationSelectOptions).
 const CLUB_OPTIONS: { value: ClubValue; label: string }[] = [
   { value: "all", label: "전체" },
-  { value: "encre", label: "엥크레" },
-  { value: "oranke", label: "오랑캐" },
-  { value: "phalanx", label: "팔랑크스" },
+  ...organizationSelectOptions().map((o) => ({ value: o.value as ClubValue, label: o.label })),
   { value: "none", label: "-" },
 ];
 
-const CLUB_LABEL_KO: Record<string, string> = {
-  encre: "엥크레",
-  oranke: "오랑캐",
-  phalanx: "팔랑크스",
-};
+// 클럽 표시명 = lib/organizations 단일 SoT. 미지정(null)은 이 목록 규칙대로 "-".
 function clubLabelKo(slug: string | null): string {
-  if (!slug) return "-";
-  return CLUB_LABEL_KO[slug] ?? slug;
+  return organizationLabelKo(slug, { nullLabel: "-" });
 }
 
 // ── 상태 버킷 — 표시 성장상태(GrowthStatusKey) → 상태 컬럼/필터 공용 버킷 ──
@@ -647,7 +642,7 @@ export default function MembersList({
     // max-w 와 분리. 좁은 max-w 를 강제하지 않는다(공통 wrapper 미공유).
     <div className="admin-section-stack-lg w-full px-4 py-6">
       <AdminPageHeader
-        title={lockedOrg ? `${ORGANIZATION_LABEL[lockedOrg]} 크루` : "크루 관리"}
+        title={lockedOrg ? `${organizationLabelKo(lockedOrg)} 크루` : "크루 관리"}
         tabs={
           lockedOrg
             ? buildCrewsTabs(pathname, searchParams, secondTabActive ? "manage" : "list")
@@ -944,9 +939,7 @@ export default function MembersList({
 type InfoClubTab = "all" | "encre" | "oranke" | "phalanx";
 const INFO_CLUB_TABS: { value: InfoClubTab; label: string }[] = [
   { value: "all", label: "통합" },
-  { value: "encre", label: "엥크레" },
-  { value: "oranke", label: "오랑캐" },
-  { value: "phalanx", label: "팔랑크스" },
+  ...organizationSelectOptions().map((o) => ({ value: o.value as InfoClubTab, label: o.label })),
 ];
 
 function MembersInfoTab({

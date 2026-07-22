@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { ORGANIZATION_LABEL, isOrganizationSlug } from "@/lib/organizations";
+import { organizationLabelKo } from "@/lib/organizations";
 import { SUPER_ADMIN_ROLE } from "@/lib/superAdmins";
 import { normalizeMemberRole } from "@/lib/adminMembersTypes";
 
@@ -33,10 +33,10 @@ export type TestUserDto = {
   memberRole: "team_leader" | "part_leader" | "agent" | "member";
 };
 
-// organization_slug → 표시 라벨. 알려진 slug 면 ORGANIZATION_LABEL, 아니면 slug 원문, 없으면 null.
+// organization_slug → 표시 라벨(한글, lib/organizations 단일 SoT). 미인식 slug 는 원문, 없으면 null.
 function organizationNameFromSlug(slug: string | null): string | null {
   if (!slug) return null;
-  return isOrganizationSlug(slug) ? ORGANIZATION_LABEL[slug] : slug;
+  return organizationLabelKo(slug);
 }
 
 type MarkerRow = {

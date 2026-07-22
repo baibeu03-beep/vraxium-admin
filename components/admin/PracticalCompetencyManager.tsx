@@ -25,9 +25,9 @@ import TabButton from "@/components/admin/AdminSubTab";
 import { buildLineOpeningTabs } from "@/lib/adminHeaderTabs";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import {
-  ORGANIZATIONS,
-  ORGANIZATION_LABEL,
   ORGANIZATION_COMMON_LABEL,
+  organizationLabelKo,
+  organizationSelectOptions,
 } from "@/lib/organizations";
 import Cluster4LineTable from "@/components/admin/cluster4/Cluster4LineTable";
 import CompetencyOpeningDashboard from "@/components/admin/CompetencyOpeningDashboard";
@@ -44,7 +44,7 @@ import { useActionToast } from "@/lib/actionToast";
 import { LINE_OPENING_RESULT } from "@/lib/lineOpeningResultMessages";
 
 const ORG_OPTIONS: Array<{ value: string; label: string }> = [
-  ...ORGANIZATIONS.map((slug) => ({ value: slug, label: ORGANIZATION_LABEL[slug] })),
+  ...organizationSelectOptions(),
   { value: "common", label: ORGANIZATION_COMMON_LABEL },
 ];
 
@@ -56,7 +56,7 @@ const SHOW_LEGACY_SECTIONS: boolean = false;
 function formatOrgLabel(slug: string | null | undefined): string {
   if (!slug) return "-";
   if (slug === "common") return ORGANIZATION_COMMON_LABEL;
-  return (ORGANIZATION_LABEL as Record<string, string>)[slug] ?? slug;
+  return organizationLabelKo(slug);
 }
 
 type TabKey = "opening" | "masters" | "cafe";

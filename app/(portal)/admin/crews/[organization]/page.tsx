@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import MembersList from "@/components/admin/MembersList";
-import { isOrganizationSlug, ORGANIZATION_LABEL } from "@/lib/organizations";
+import { isOrganizationSlug, organizationLabelKo } from "@/lib/organizations";
 
 type Props = {
   params: Promise<{ organization: string }>;
@@ -31,7 +31,7 @@ export default async function CrewOrganizationPage({
         </Link>
         <span>/</span>
         <span className="text-foreground">
-          {ORGANIZATION_LABEL[organization]}
+          {organizationLabelKo(organization)}
         </span>
       </div>
       {/* /admin/members 와 동일한 UI 를 org 로 고정해 재사용한다.

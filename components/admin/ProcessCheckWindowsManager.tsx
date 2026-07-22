@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { organizationSelectOptions } from "@/lib/organizations";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -30,11 +31,10 @@ import { formatClubDate } from "@/lib/clubDate";
 // null(전체) 을 나타내는 select 센티널 — 빈 문자열/undefined 회피(명시적 "all").
 const ALL = "all";
 
+// value(=저장/조회 slug)는 불변, label 만 조직 표시 SoT(organizationSelectOptions).
 const ORG_OPTIONS = [
   { value: ALL, label: "전체 클럽" },
-  { value: "encre", label: "Encre" },
-  { value: "oranke", label: "Oranke" },
-  { value: "phalanx", label: "Phalanx" },
+  ...organizationSelectOptions(),
 ];
 
 const HUB_OPTIONS = [
