@@ -56,6 +56,7 @@ import {
 } from "@/lib/experiencePartInputTypes";
 import { confirmReinforcementFailure } from "@/lib/experienceReinforcementFailureConfirm";
 import ExperienceLineSelect from "@/components/admin/cluster4/ExperienceLineSelect";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 // 실무 경험 [팀 총괄] — 개설 검수/완료/취소 편집 보드.
 //   행=전 파트 크루(+파트장), 열=도출/분석/견문(파트신청 라이브, 읽기전용) + 관리/확장(팀장 입력).
@@ -294,12 +295,12 @@ export default function ExperienceTeamOverallBoard({
         hydrate(b);
       } else {
         setBoard(null);
-        console.error("[experience] team-overall load failed", json?.error);
-        toast("error", "팀 총괄 데이터를 불러오지 못했습니다");
+        throw apiErrorFrom(res, json, "팀 총괄 데이터를 불러오지 못했습니다");
       }
-    } catch {
+    } catch (err) {
+      console.error("[experience] team-overall load failed", err);
       setBoard(null);
-      toast("error", "팀 총괄 데이터를 불러오지 못했습니다");
+      toast("error", getApiErrorMessage(err, "팀 총괄 데이터를 불러오지 못했습니다"));
     } finally {
       setLoading(false);
     }
@@ -468,7 +469,8 @@ export default function ExperienceTeamOverallBoard({
           ...(actAsTestUserId ? { actAsTestUserId } : {}),
         }),
       });
-      return res.json();
+      // status 를 호출부까지 전달해야 4xx 업무 사유를 그대로 안내할 수 있다.
+      return { res, json: (await res.json().catch(() => ({}))) as Record<string, unknown> };
     },
     [buildPayload, organization, weekId, teamId, teamName, mode, actAsTestUserId],
   );
@@ -540,7 +542,7 @@ export default function ExperienceTeamOverallBoard({
   const onReview = useCallback(async () => {
     setSaving(true);
     try {
-      const json = await post("review");
+      const { res, json } = await post("review");
       if (!json?.success) {
         const rawError = typeof json?.error === "string" ? json.error : "";
         console.error("[experience] team-overall review failed", json?.error);
@@ -551,7 +553,8 @@ export default function ExperienceTeamOverallBoard({
         } else if (rawError.startsWith(OVERALL_APPLICATION_INCOMPLETE_MESSAGE)) {
           toast("warning", OVERALL_APPLICATION_INCOMPLETE_MESSAGE);
         } else {
-          t.error("review");
+          // 그 외 4xx 업무 사유는 서버 문구 그대로(5xx·네트워크는 안전 문구로 치환).
+          t.apiError("review", apiErrorFrom(res, json, "개설 검수에 실패했습니다"));
         }
         return;
       }
@@ -560,8 +563,9 @@ export default function ExperienceTeamOverallBoard({
       toast("success", LINE_OPENING_RESULT.reviewSuccess);
       await fetchBoard();
       onActivity?.();
-    } catch {
-      toast("error", "개설 검수 중 오류가 발생했습니다");
+    } catch (err) {
+      console.error("[experience] team-overall review error", err);
+      toast("error", getApiErrorMessage(err, "개설 검수 중 오류가 발생했습니다"));
     } finally {
       setSaving(false);
     }
@@ -658,10 +662,10 @@ export default function ExperienceTeamOverallBoard({
       "라인 개설을 처리하고 있습니다. 대상 인원에 따라 완료까지 다소 시간이 걸릴 수 있으니 잠시만 기다려 주세요.",
     );
     try {
-      const json = await post("open");
+      const { res, json } = await post("open");
       if (!json?.success) {
         console.error("[experience] team-overall open failed", json?.error);
-        t.error("open");
+        t.apiError("open", apiErrorFrom(res, json, "개설 완료에 실패했습니다"));
         return;
       }
       const d = json.data as {
@@ -669,13 +673,14 @@ export default function ExperienceTeamOverallBoard({
         targetsCreated: number;
         evaluationsCreated: number;
       };
-      const warnings: string[] = json.warnings ?? [];
+      const warnings = (json.warnings ?? []) as string[];
       console.warn("[line-opening] open result", { linesCreated: d.linesCreated, targetsCreated: d.targetsCreated, evaluationsCreated: d.evaluationsCreated, warnings });
       toast("success", lineOpenSuccessMessage(warnings.length > 0));
       await fetchBoard();
       onActivity?.();
-    } catch {
-      toast("error", "개설 완료 중 오류가 발생했습니다");
+    } catch (err) {
+      console.error("[experience] team-overall open error", err);
+      toast("error", getApiErrorMessage(err, "개설 완료 중 오류가 발생했습니다"));
     } finally {
       dismissToast(progressToastId);
       setSaving(false);
@@ -694,10 +699,10 @@ export default function ExperienceTeamOverallBoard({
       return;
     setSaving(true);
     try {
-      const json = await post("cancel");
+      const { res, json } = await post("cancel");
       if (!json?.success) {
         console.error("[experience] team-overall cancel failed", json?.error);
-        t.error("cancel");
+        t.apiError("cancel", apiErrorFrom(res, json, "개설 취소에 실패했습니다"));
         return;
       }
       const d = json.data as { linesRemoved: number };
@@ -705,8 +710,9 @@ export default function ExperienceTeamOverallBoard({
       toast("success", LINE_OPENING_RESULT.cancelSuccess);
       await fetchBoard();
       onActivity?.();
-    } catch {
-      toast("error", "개설 취소 중 오류가 발생했습니다");
+    } catch (err) {
+      console.error("[experience] team-overall cancel error", err);
+      toast("error", getApiErrorMessage(err, "개설 취소 중 오류가 발생했습니다"));
     } finally {
       setSaving(false);
     }
@@ -1336,13 +1342,14 @@ function OutputImageInput({ value, disabled, invalid, onChange, focusRef, wrapRe
       const body = new FormData();
       body.append("file", file);
       const response = await fetch("/api/admin/cluster4/upload-image", { method: "POST", body });
-      const json = await response.json();
+      const json = await response.json().catch(() => ({}));
       if (!response.ok || !json?.success || typeof json?.data?.url !== "string") {
-        throw new Error(json?.error || "이미지 업로드에 실패했습니다.");
+        throw apiErrorFrom(response, json, "이미지 업로드에 실패했습니다.");
       }
       onChange(json.data.url);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "이미지 업로드에 실패했습니다.");
+      console.error("[experience] output image upload failed", cause);
+      setError(getApiErrorMessage(cause, "이미지 업로드에 실패했습니다."));
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";

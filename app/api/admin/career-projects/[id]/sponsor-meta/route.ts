@@ -12,6 +12,7 @@ import {
   recomputeWeeklyCardsSnapshotsForUsers,
 } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { syncRegistrationFromCareerProject } from "@/lib/lineMasterDriftGuard";
+import { publicErrorMessage } from "@/lib/apiError";
 
 // PATCH /api/admin/career-projects/[id]/sponsor-meta
 //   career_projects 의 sponsor-card 6필드만 부분 수정 (full upsert 아님 — 다른 컬럼/career_records 불변).
@@ -116,7 +117,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
     return Response.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to update sponsor meta",
+        error: publicErrorMessage(error, 500, "제휴사 정보를 저장하지 못했습니다."),
       },
       { status: 500 },
     );

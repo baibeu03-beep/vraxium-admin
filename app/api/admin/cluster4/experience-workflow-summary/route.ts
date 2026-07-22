@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { requireAdmin, toAdminErrorResponse, ADMIN_READ_ROLES } from "@/lib/adminAuth";
 import { getExperienceWorkflowSummary } from "@/lib/adminExperienceDraftData";
 import { resolveRequestScope } from "@/lib/userScope";
+import { publicErrorMessage } from "@/lib/apiError";
 
 export async function GET(request: NextRequest) {
   try {
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("[experience-workflow-summary GET]", error);
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed" },
+      { success: false, error: publicErrorMessage(error, 500, "요약 정보를 불러오지 못했습니다.") },
       { status: 500 },
     );
   }

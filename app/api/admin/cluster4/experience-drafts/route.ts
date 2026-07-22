@@ -12,6 +12,7 @@ import {
   assertUserInRequestScope,
   resolveRequestScope,
 } from "@/lib/userScope";
+import { publicErrorMessage } from "@/lib/apiError";
 
 export async function GET(request: NextRequest) {
   try {
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("[experience-drafts GET]", error);
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed" },
+      { success: false, error: publicErrorMessage(error, 500, "실무 경험 초안을 처리하지 못했습니다.") },
       { status: 500 },
     );
   }
@@ -81,7 +82,14 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Scope violation" },
+      {
+        success: false,
+        error: publicErrorMessage(
+          error,
+          (error as { status?: number }).status ?? 422,
+          "실무 경험 초안을 처리하지 못했습니다.",
+        ),
+      },
       { status: (error as { status?: number }).status ?? 422 },
     );
   }
@@ -93,7 +101,7 @@ export async function POST(request: NextRequest) {
     const status = (error as { status?: number }).status ?? 500;
     console.error("[experience-drafts POST]", error);
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed" },
+      { success: false, error: publicErrorMessage(error, status, "실무 경험 초안을 처리하지 못했습니다.") },
       { status },
     );
   }

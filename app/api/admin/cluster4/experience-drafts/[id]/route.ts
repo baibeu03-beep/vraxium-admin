@@ -9,6 +9,7 @@ import {
   assertUsersInRequestScope,
   getExperienceDraftTargetUserIds,
 } from "@/lib/userScope";
+import { publicErrorMessage } from "@/lib/apiError";
 
 type RouteCtx = { params: Promise<{ id: string }> };
 
@@ -43,7 +44,14 @@ export async function PATCH(request: NextRequest, ctx: RouteCtx) {
     );
   } catch (error) {
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Scope violation" },
+      {
+        success: false,
+        error: publicErrorMessage(
+          error,
+          (error as { status?: number }).status ?? 422,
+          "실무 경험 초안을 처리하지 못했습니다.",
+        ),
+      },
       { status: (error as { status?: number }).status ?? 422 },
     );
   }
@@ -55,7 +63,7 @@ export async function PATCH(request: NextRequest, ctx: RouteCtx) {
     const status = (error as { status?: number }).status ?? 500;
     console.error("[experience-drafts PATCH]", error);
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed" },
+      { success: false, error: publicErrorMessage(error, status, "실무 경험 초안을 처리하지 못했습니다.") },
       { status },
     );
   }

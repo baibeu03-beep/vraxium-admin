@@ -197,7 +197,7 @@ export async function updateExperienceDraft(
 
   if (fetchError) throw new Error(fetchError.message);
   if (!existing) {
-    throw Object.assign(new Error("Draft를 찾을 수 없습니다"), { status: 404 });
+    throw Object.assign(new Error("실무 경험 초안을 찾을 수 없습니다"), { status: 404 });
   }
 
   const row = existing as { id: string; input_status: string; review_status: string; open_status: string };
@@ -331,7 +331,7 @@ export async function reviewExperienceDraft(
 
   if (fetchError) throw new Error(fetchError.message);
   if (!existing) {
-    throw Object.assign(new Error("Draft를 찾을 수 없습니다"), { status: 404 });
+    throw Object.assign(new Error("실무 경험 초안을 찾을 수 없습니다"), { status: 404 });
   }
 
   const row = existing as { id: string; input_status: string; review_status: string; open_status: string };
@@ -476,8 +476,12 @@ async function openExperienceDraftsImpl(
   if (drafts.length !== draftIds.length) {
     const found = new Set(drafts.map((d) => d.id));
     const missing = draftIds.filter((id) => !found.has(id));
+    // 내부 id 는 사용자 문구에 넣지 않는다(개수만 안내) — 상세는 서버 로그로.
+    console.error("[experience-drafts] missing drafts", { missing });
     throw Object.assign(
-      new Error(`Draft를 찾을 수 없습니다: ${missing.join(", ")}`),
+      new Error(
+        `선택한 항목 중 ${missing.length}건을 찾을 수 없습니다. 목록을 새로고침한 뒤 다시 시도해주세요.`,
+      ),
       { status: 404 },
     );
   }

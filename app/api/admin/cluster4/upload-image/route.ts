@@ -5,6 +5,7 @@ import {
 } from "@/lib/adminAuth";
 import { CLUSTER4_LINE_WRITE_ROLES } from "@/lib/adminCluster4LinesTypes";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { publicErrorMessage } from "@/lib/apiError";
 
 const BUCKET = "cluster4-line-images";
 const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
@@ -111,7 +112,7 @@ export async function POST(request: NextRequest) {
     return Response.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "업로드 실패",
+        error: publicErrorMessage(error, 500, "업로드 실패"),
       },
       { status: 500 },
     );

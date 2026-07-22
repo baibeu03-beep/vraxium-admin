@@ -33,6 +33,7 @@ import {
   resolveImpersonation,
   resolveTeamNameById,
 } from "@/lib/experienceImpersonation";
+import { publicErrorMessage } from "@/lib/apiError";
 
 // 실무 경험 파트장 입력 그리드 — 신청 데이터(신규 전용 저장) API.
 //   GET    ?organization=&week_id=&team_id=&team_name=&part=  → 파트/크루/셀/신청상태 (+actor 기본값)
@@ -159,7 +160,7 @@ export async function GET(request: NextRequest) {
     return Response.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "파트 입력 데이터를 불러오지 못했습니다",
+        error: publicErrorMessage(error, 500, "파트 입력 데이터를 불러오지 못했습니다"),
       },
       { status: 500 },
     );
@@ -275,7 +276,7 @@ export async function POST(request: NextRequest) {
     return Response.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "신청 저장에 실패했습니다",
+        error: publicErrorMessage(error, status, "신청 저장에 실패했습니다"),
       },
       { status },
     );
@@ -331,7 +332,7 @@ export async function DELETE(request: NextRequest) {
     return Response.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "신청 취소에 실패했습니다",
+        error: publicErrorMessage(error, 500, "신청 취소에 실패했습니다"),
       },
       { status: 500 },
     );

@@ -15,6 +15,7 @@ import {
   validateCompetencyOutput,
   COMPETENCY_OUTPUT_MESSAGE,
 } from "@/lib/competencyOutputValidation";
+import { publicErrorMessage } from "@/lib/apiError";
 
 // 실무 역량 [라인 개설] — 허브 전체 개설 완료/취소.
 //   POST { action: 'open'|'cancel', organization, output_link_1?, output_description? }
@@ -109,7 +110,7 @@ export async function POST(request: NextRequest) {
       return Response.json(
         {
           success: false,
-          error: error instanceof Error ? error.message : "처리에 실패했습니다",
+          error: publicErrorMessage(error, status, "처리에 실패했습니다"),
         },
         { status },
       );

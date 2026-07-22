@@ -11,6 +11,7 @@ import {
   readScopeMode,
   getExperienceDraftTargetUserIds,
 } from "@/lib/userScope";
+import { publicErrorMessage } from "@/lib/apiError";
 
 export async function POST(request: NextRequest) {
   let admin;
@@ -41,7 +42,14 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Scope violation" },
+      {
+        success: false,
+        error: publicErrorMessage(
+          error,
+          (error as { status?: number }).status ?? 422,
+          "개설에 실패했습니다.",
+        ),
+      },
       { status: (error as { status?: number }).status ?? 422 },
     );
   }
@@ -57,7 +65,7 @@ export async function POST(request: NextRequest) {
     const status = (error as { status?: number }).status ?? 500;
     console.error("[experience-drafts open POST]", error);
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed" },
+      { success: false, error: publicErrorMessage(error, status, "개설에 실패했습니다.") },
       { status },
     );
   }

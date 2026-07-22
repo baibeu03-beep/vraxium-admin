@@ -26,6 +26,7 @@ import {
   resolveTeamNameById,
 } from "@/lib/experienceImpersonation";
 import { resolveActorContext } from "@/lib/adminExperiencePartInput";
+import { publicErrorMessage } from "@/lib/apiError";
 
 // 실무 경험 [팀 총괄] — 개설 검수/완료/취소 API.
 //   GET  ?organization=&week_id=&team_id=&team_name=  → 보드(파트별 크루×5열 + 아웃풋 + status + 확장)
@@ -89,7 +90,7 @@ export async function GET(request: NextRequest) {
     return Response.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "팀 총괄 데이터를 불러오지 못했습니다",
+        error: publicErrorMessage(error, 500, "팀 총괄 데이터를 불러오지 못했습니다"),
       },
       { status: 500 },
     );
@@ -292,7 +293,7 @@ export async function POST(request: NextRequest) {
     return Response.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "팀 총괄 처리에 실패했습니다",
+        error: publicErrorMessage(error, status, "팀 총괄 처리에 실패했습니다"),
       },
       { status },
     );

@@ -53,6 +53,7 @@ import { OUTPUT_IMAGE_CAPTION_MAX_LENGTH } from "@/lib/cluster4OutputImages";
 import { useToast } from "@/components/ui/toast";
 import { useActionToast } from "@/lib/actionToast";
 import { LINE_OPENING_RESULT } from "@/lib/lineOpeningResultMessages";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 // ──────────────────────────────────────────────────────────────
 // Types
@@ -365,14 +366,19 @@ function ImageUploadSlot({
           method: "POST",
           body: formData,
         });
-        const json = await res.json();
-        if (!json.success) {
-          void adminDialog.alert({ variant: "danger", title: "업로드 실패", description: json.error || "업로드에 실패했습니다" });
-          return;
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json.success) {
+          // 서버 4xx(용량/확장자 등)는 원인 그대로, 5xx·네트워크는 안전 문구로 치환된다.
+          throw apiErrorFrom(res, json, "업로드에 실패했습니다");
         }
         onUpload({ url: json.data.url, name: file.name });
-      } catch {
-        void adminDialog.alert({ variant: "danger", title: "업로드 오류", description: "업로드 중 오류가 발생했습니다" });
+      } catch (err) {
+        console.error("[upload] image upload failed", err);
+        void adminDialog.alert({
+          variant: "danger",
+          title: "업로드 실패",
+          description: getApiErrorMessage(err, "업로드에 실패했습니다"),
+        });
       } finally {
         setUploading(false);
         if (fileRef.current) fileRef.current.value = "";
@@ -482,14 +488,19 @@ function LogoUploadField({
           method: "POST",
           body: formData,
         });
-        const json = await res.json();
-        if (!json.success) {
-          void adminDialog.alert({ variant: "danger", title: "업로드 실패", description: json.error || "업로드에 실패했습니다" });
-          return;
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json.success) {
+          // 서버 4xx(용량/확장자 등)는 원인 그대로, 5xx·네트워크는 안전 문구로 치환된다.
+          throw apiErrorFrom(res, json, "업로드에 실패했습니다");
         }
         onChange(json.data.url);
-      } catch {
-        void adminDialog.alert({ variant: "danger", title: "업로드 오류", description: "업로드 중 오류가 발생했습니다" });
+      } catch (err) {
+        console.error("[upload] image upload failed", err);
+        void adminDialog.alert({
+          variant: "danger",
+          title: "업로드 실패",
+          description: getApiErrorMessage(err, "업로드에 실패했습니다"),
+        });
       } finally {
         setUploading(false);
         if (fileRef.current) fileRef.current.value = "";
@@ -792,8 +803,8 @@ export default function PracticalCareerManager() {
       const crewsJson = await crewsRes.json();
       if (crewsJson.success) setCrews(crewsJson.data);
     } catch (error) {
-      console.error("Failed to fetch data", error);
-      toast("error", "데이터를 불러오는데 실패했습니다");
+      console.error("[career] initial data load failed", error);
+      toast("error", getApiErrorMessage(error, "데이터를 불러오는데 실패했습니다"));
     } finally {
       setLoading(false);
     }
@@ -919,17 +930,16 @@ export default function PracticalCareerManager() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
       if (!json.success && !json.data) {
-        console.error("[career] save failed", json?.error);
-        t.error("save", { status: res.status });
-        return;
+        throw apiErrorFrom(res, json, "저장에 실패했습니다");
       }
       toast("success", editingProjectId ? "경력 라인이 수정되었습니다" : "경력 라인이 등록되었습니다");
       resetRegForm();
       await fetchInitialData();
-    } catch {
-      toast("error", "저장 중 오류가 발생했습니다");
+    } catch (err) {
+      console.error("[career] save failed", err);
+      toast("error", getApiErrorMessage(err, "저장 중 오류가 발생했습니다"));
     } finally {
       setSaving(false);
     }
@@ -946,12 +956,15 @@ export default function PracticalCareerManager() {
     if (!(await adminDialog.confirm({ variant: "danger", title: "경력 라인 삭제", description: "이 경력 라인을 삭제하시겠습니까?", confirmLabel: "삭제" }))) return;
     try {
       const res = await fetch(`/api/admin/career-projects/${id}`, { method: "DELETE" });
-      const json = await res.json();
-      if (!json.success) { console.error("[career] delete failed", json?.error); t.error("delete", { status: res.status }); return; }
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        throw apiErrorFrom(res, json, "삭제에 실패했습니다");
+      }
       toast("success", "삭제되었습니다");
       await fetchInitialData();
-    } catch {
-      toast("error", "삭제 중 오류가 발생했습니다");
+    } catch (err) {
+      console.error("[career] delete failed", err);
+      toast("error", getApiErrorMessage(err, "삭제에 실패했습니다"));
     }
   }, [fetchInitialData]);
 
@@ -1113,15 +1126,18 @@ export default function PracticalCareerManager() {
         body: JSON.stringify(payload),
       });
 
-      const json = await res.json();
-      if (!json.success) { console.error("[career] open failed", json?.error); t.error("open", { status: res.status }); return; }
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        throw apiErrorFrom(res, json, "개설에 실패했습니다");
+      }
       console.warn("[line-opening] career open result", { targetCount: json.data?.targetCount ?? 0 });
       toast("success", LINE_OPENING_RESULT.openSuccess);
       resetLineForm();
       setLineRefreshKey((k) => k + 1);
       await fetchInitialData();
-    } catch {
-      toast("error", "저장 중 오류가 발생했습니다");
+    } catch (err) {
+      console.error("[career] open failed", err);
+      toast("error", getApiErrorMessage(err, "개설에 실패했습니다"));
     } finally {
       setSaving(false);
     }

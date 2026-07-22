@@ -34,6 +34,7 @@ import {
 import { loadWeekOpeningConfig } from "@/lib/adminTeamPartsInfoWeekDetailData";
 import { isCompetencyLineOpenForWeek } from "@/lib/weekOpenGate";
 import { COMPETENCY_LINE_NOT_NORMAL_REASON } from "@/lib/adminCompetencyLineOpening";
+import { publicErrorMessage } from "@/lib/apiError";
 
 type CompetencyLineCreateBody = {
   competency_line_master_id: string;
@@ -513,7 +514,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("[competency-lines POST]", error);
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed to create competency line" },
+      { success: false, error: publicErrorMessage(error, 500, "역량 라인을 처리하지 못했습니다.") },
       { status: 500 },
     );
   }

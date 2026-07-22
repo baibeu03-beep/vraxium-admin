@@ -19,6 +19,7 @@ import {
   parseCareerProjectUpsertBody,
 } from "@/lib/adminCareerProjectsTypes";
 import { markWeeklyCardsSnapshotStaleMany } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { publicErrorMessage } from "@/lib/apiError";
 
 // /api/admin/career-projects/[id]
 //   GET    — 단건 조회 (read roles)
@@ -53,7 +54,7 @@ export async function GET(_request: NextRequest, { params }: Ctx) {
       {
         success: false,
         error:
-          error instanceof Error ? error.message : "Failed to fetch career_project",
+          publicErrorMessage(error, 500, "실무 경력 정보를 처리하지 못했습니다."),
       },
       { status: 500 },
     );
@@ -114,7 +115,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
       {
         success: false,
         error:
-          error instanceof Error ? error.message : "Failed to update career_project",
+          publicErrorMessage(error, 500, "실무 경력 정보를 처리하지 못했습니다."),
       },
       { status: 500 },
     );
@@ -147,7 +148,7 @@ export async function DELETE(_request: NextRequest, { params }: Ctx) {
       {
         success: false,
         error:
-          error instanceof Error ? error.message : "Failed to delete career_project",
+          publicErrorMessage(error, 500, "실무 경력 정보를 처리하지 못했습니다."),
       },
       { status: 500 },
     );

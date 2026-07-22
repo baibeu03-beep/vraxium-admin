@@ -47,6 +47,7 @@ import {
   type CareerProjectDto,
   type CareerProjectWeekStateDto,
 } from "@/lib/adminCareerProjectsTypes";
+import { getApiErrorMessage } from "@/lib/apiError";
 
 const PAGE_SIZE = 50;
 
@@ -258,7 +259,8 @@ export default function CareerProjectsManager() {
         setIsSuperAdmin(Boolean(data.isSuperAdmin));
       } catch (err) {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : "목록을 불러오지 못했습니다");
+        console.error("[career-projects] list load failed", err);
+        setError(getApiErrorMessage(err, "목록을 불러오지 못했습니다"));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -300,8 +302,8 @@ export default function CareerProjectsManager() {
         t.success("delete", "실무 경력 항목이 삭제되었습니다.");
         refresh();
       } catch (err) {
-        console.error(err);
-        t.error("delete");
+        console.error("[career-projects] delete failed", err);
+        t.apiError("delete", err, "실무 경력 항목을 삭제하지 못했습니다.");
       } finally {
         setDeletingId(null);
       }
@@ -643,7 +645,8 @@ function CareerProjectEditor({
       );
       onClose();
     } catch (err) {
-      onError(err instanceof Error ? err.message : "저장에 실패했습니다");
+      console.error("[career-projects] save failed", err);
+      onError(getApiErrorMessage(err, "저장에 실패했습니다"));
     } finally {
       setSaving(false);
     }
@@ -1014,7 +1017,8 @@ function WeekScheduler({
         setStates(next);
       } catch (err) {
         if (cancelled) return;
-        onError(err instanceof Error ? err.message : "주차 목록 로드 실패");
+        console.error("[career-projects] week states load failed", err);
+        onError(getApiErrorMessage(err, "주차 목록을 불러오지 못했습니다"));
         setStates([]);
       } finally {
         if (!cancelled) setLoading(false);
@@ -1051,7 +1055,8 @@ function WeekScheduler({
         }
         setReloadTick((n) => n + 1);
       } catch (err) {
-        onError(err instanceof Error ? err.message : "주차 업데이트 실패");
+        console.error("[career-projects] week patch failed", err);
+        onError(getApiErrorMessage(err, "주차 정보를 저장하지 못했습니다"));
       } finally {
         setPending((prev) => {
           const next = new Set(prev);

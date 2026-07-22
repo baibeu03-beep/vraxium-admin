@@ -14,6 +14,7 @@ import {
   CAREER_PROJECTS_WRITE_ROLES,
   parseCareerProjectUpsertBody,
 } from "@/lib/adminCareerProjectsTypes";
+import { publicErrorMessage } from "@/lib/apiError";
 
 // /api/admin/career-projects
 //   GET  — 목록 조회 (read roles: owner/admin/viewer)
@@ -64,7 +65,7 @@ export async function GET(request: NextRequest) {
       {
         success: false,
         error:
-          error instanceof Error ? error.message : "Failed to list career_projects",
+          publicErrorMessage(error, 500, "실무 경력 정보를 처리하지 못했습니다."),
       },
       { status: 500 },
     );
@@ -116,7 +117,7 @@ export async function POST(request: NextRequest) {
       {
         success: false,
         error:
-          error instanceof Error ? error.message : "Failed to create career_project",
+          publicErrorMessage(error, 500, "실무 경력 정보를 처리하지 못했습니다."),
       },
       { status: 500 },
     );

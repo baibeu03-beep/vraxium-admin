@@ -26,6 +26,7 @@ import {
 } from "@/lib/adminCompetencyApplications";
 import { resolveEffectiveWeek } from "@/lib/adminCompetencyLineOpening";
 import { deriveEndStatus } from "@/lib/growthCore";
+import { publicErrorMessage } from "@/lib/apiError";
 
 // 실무 역량 [라인 개설] 신청/승인 명단.
 //   GET  ?organization=&week_id?=  → { applications, summary, weekId } (week_id 미지정 시 개설 대상 주차)
@@ -110,7 +111,7 @@ export async function GET(request: NextRequest) {
     return Response.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "신청 명단을 불러오지 못했습니다",
+        error: publicErrorMessage(error, 500, "신청 명단을 불러오지 못했습니다"),
       },
       { status: 500 },
     );
@@ -246,7 +247,7 @@ export async function POST(request: NextRequest) {
     return Response.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "수동 추가에 실패했습니다",
+        error: publicErrorMessage(error, status, "수동 추가에 실패했습니다"),
       },
       { status },
     );

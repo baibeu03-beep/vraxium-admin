@@ -3,6 +3,7 @@ import { requireAdmin, toAdminErrorResponse, ADMIN_READ_ROLES } from "@/lib/admi
 import { COMPETENCY_LINE_WRITE_ROLES } from "@/lib/adminCompetencyLineTypes";
 import { listCompetencyLineMasters } from "@/lib/adminCompetencyLineData";
 import { MASTER_CREATE_BLOCKED_MESSAGE } from "@/lib/lineMasterDriftGuard";
+import { publicErrorMessage } from "@/lib/apiError";
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("[competency-line-masters GET]", error);
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed" },
+      { success: false, error: publicErrorMessage(error, 500, "역량 라인 정보를 불러오지 못했습니다.") },
       { status: 500 },
     );
   }

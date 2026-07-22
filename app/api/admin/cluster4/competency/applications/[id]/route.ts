@@ -9,6 +9,7 @@ import {
   deleteManualCompetencyApplication,
   updateCompetencyApplication,
 } from "@/lib/adminCompetencyApplications";
+import { publicErrorMessage } from "@/lib/apiError";
 
 // 실무 역량 신청 1건 갱신/삭제.
 //   PATCH  { cafe_checked?, approval_checked?, rejection_reason? }
@@ -63,7 +64,7 @@ export async function PATCH(
     return Response.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "갱신에 실패했습니다",
+        error: publicErrorMessage(error, status, "갱신에 실패했습니다"),
       },
       { status },
     );
@@ -96,7 +97,7 @@ export async function DELETE(
     return Response.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "삭제에 실패했습니다",
+        error: publicErrorMessage(error, status, "삭제에 실패했습니다"),
       },
       { status },
     );

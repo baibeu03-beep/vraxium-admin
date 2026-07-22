@@ -311,7 +311,7 @@ export default function CareerEvaluationTab({
       t.success("save");
     } catch (e) {
       console.error("career evaluation save failed", e);
-      t.error("save", status ? { status } : undefined);
+      t.apiError("save", e, "평가를 저장하지 못했습니다.");
     } finally {
       setSavingTargetId(null);
     }

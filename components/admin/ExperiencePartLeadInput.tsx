@@ -66,6 +66,7 @@ import {
 } from "@/lib/experiencePartInputTypes";
 import ExperienceLineSelect from "@/components/admin/cluster4/ExperienceLineSelect";
 import type { ExperienceTeamOverallBoard as OverallBoardDto } from "@/lib/experienceTeamOverallTypes";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 // 실무 경험 [라인 개설] — 파트장 입력 그리드(additive).
 //   팀 탭(동적) + 개설 주차(openable) + 파트 드롭다운(팀 총괄+parts) + 크루×라인 체크/점수 + 신청/취소.
@@ -349,8 +350,9 @@ export default function ExperiencePartLeadInput({
         const defaultTeam =
           teamList.find((t) => t.teamName === actorData?.teamName) ?? teamList[0];
         setSelectedTeamId((prev) => prev || (defaultTeam?.id ?? ""));
-      } catch {
-        if (!cancelled) toast("error", "초기 데이터를 불러오지 못했습니다");
+      } catch (err) {
+        console.error("[experience/part-input] boot load failed", err);
+        if (!cancelled) toast("error", getApiErrorMessage(err, "초기 데이터를 불러오지 못했습니다"));
       } finally {
         if (!cancelled) setBootLoading(false);
       }
@@ -470,9 +472,10 @@ export default function ExperiencePartLeadInput({
       } else {
         setLocalCells(new Map());
       }
-    } catch {
+    } catch (err) {
+      console.error("[experience/part-input] grid load failed", err);
       setData(null);
-      toast("error", "그리드 데이터를 불러오지 못했습니다");
+      toast("error", getApiErrorMessage(err, "그리드 데이터를 불러오지 못했습니다"));
     } finally {
       setGridLoading(false);
     }
@@ -722,16 +725,16 @@ export default function ExperiencePartLeadInput({
           ...(actAsTestUserId ? { actAsTestUserId } : {}),
         }),
       });
-      const json = await res.json();
-      if (!json?.success) {
-        toast("error", "신청에 실패했습니다");
-        return;
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.success) {
+        throw apiErrorFrom(res, json, "신청에 실패했습니다");
       }
       toast("success", LINE_OPENING_RESULT.applySuccess);
       await fetchGrid();
       handleActivity();
-    } catch {
-      toast("error", "신청 중 오류가 발생했습니다");
+    } catch (err) {
+      console.error("[experience/part-input] apply failed", err);
+      toast("error", getApiErrorMessage(err, "신청에 실패했습니다"));
     } finally {
       setSaving(false);
     }
@@ -754,16 +757,16 @@ export default function ExperiencePartLeadInput({
         `/api/admin/cluster4/experience/part-input?${qs.toString()}`,
         { method: "DELETE" },
       );
-      const json = await res.json();
-      if (!json?.success) {
-        toast("error", "신청 취소에 실패했습니다");
-        return;
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.success) {
+        throw apiErrorFrom(res, json, "신청 취소에 실패했습니다");
       }
       toast("success", LINE_OPENING_RESULT.applyCancelSuccess);
       await fetchGrid();
       handleActivity();
-    } catch {
-      toast("error", "취소 중 오류가 발생했습니다");
+    } catch (err) {
+      console.error("[experience/part-input] cancel failed", err);
+      toast("error", getApiErrorMessage(err, "신청 취소에 실패했습니다"));
     } finally {
       setSaving(false);
     }

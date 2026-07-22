@@ -11,6 +11,7 @@ import {
 } from "@/lib/cluster4WeekPolicy";
 import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import { listCompetencyOpeningLogs } from "@/lib/adminCompetencyOpeningLogs";
+import { publicErrorMessage } from "@/lib/apiError";
 
 // 실무 역량 라인 개설 행동 이력 로그 — read-only.
 //
@@ -66,7 +67,7 @@ export async function GET(request: NextRequest) {
       {
         success: false,
         error:
-          error instanceof Error ? error.message : "개설 로그를 불러오지 못했습니다",
+          publicErrorMessage(error, 500, "개설 로그를 불러오지 못했습니다"),
       },
       { status: 500 },
     );
