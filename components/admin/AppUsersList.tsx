@@ -39,6 +39,7 @@ import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { useActionToast } from "@/lib/actionToast";
 import type { ScopeMode } from "@/lib/userScopeShared";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 type AppUser = {
   userId: string;
@@ -107,7 +108,7 @@ export default function AppUsersList({ mode }: { mode: ScopeMode }) {
         const res = await fetch(url, { cache: "no-store" });
         const json = await res.json();
         if (!res.ok || !json.success) {
-          throw new Error(json?.error ?? "Failed to load users.");
+          throw apiErrorFrom(res, json, "사용자 목록을 불러오지 못했습니다.");
         }
         if (!cancelled) {
           setUsers((json.data ?? []) as AppUser[]);
@@ -116,7 +117,8 @@ export default function AppUsersList({ mode }: { mode: ScopeMode }) {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load users.");
+          console.error("[app-users] load failed", err);
+          setError(getApiErrorMessage(err, "사용자 목록을 불러오지 못했습니다."));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -218,8 +220,8 @@ export default function AppUsersList({ mode }: { mode: ScopeMode }) {
         : ORGANIZATION_COMMON_LABEL;
       t.success("update", `소속을 ${label}(으)로 변경했습니다.`);
     } catch (err) {
-      console.error(err);
-      t.error("update");
+      console.error("[app-users] organization update failed", err);
+      t.apiError("update", err, "소속을 변경하지 못했습니다.");
     } finally {
       setSavingUserId(null);
     }

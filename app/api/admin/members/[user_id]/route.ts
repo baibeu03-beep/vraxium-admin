@@ -14,6 +14,7 @@ import { getCrewDetailDto } from "@/lib/adminCrewDetailData";
 import { getCrewNote } from "@/lib/adminCrewManagementNotes";
 import { isOrganizationSlug } from "@/lib/organizations";
 import { assertUserInRequestScope } from "@/lib/userScope";
+import { publicErrorMessage } from "@/lib/apiError";
 
 type Ctx = { params: Promise<{ user_id: string }> };
 
@@ -35,7 +36,14 @@ export async function GET(request: NextRequest, { params }: Ctx) {
     await assertUserInRequestScope(request, user_id);
   } catch (error) {
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Scope violation" },
+      {
+        success: false,
+        error: publicErrorMessage(
+          error,
+          (error as { status?: number }).status ?? 422,
+          "현재 모드에서 접근할 수 없는 사용자입니다.",
+        ),
+      },
       { status: (error as { status?: number }).status ?? 422 },
     );
   }
@@ -57,7 +65,7 @@ export async function GET(request: NextRequest, { params }: Ctx) {
     return Response.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to load crew detail",
+        error: "크루 상세를 불러오지 못했습니다.",
       },
       { status: 500 },
     );
@@ -105,7 +113,14 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
     });
   } catch (error) {
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Scope violation" },
+      {
+        success: false,
+        error: publicErrorMessage(
+          error,
+          (error as { status?: number }).status ?? 422,
+          "현재 모드에서 접근할 수 없는 사용자입니다.",
+        ),
+      },
       { status: (error as { status?: number }).status ?? 422 },
     );
   }
@@ -136,7 +151,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
       {
         success: false,
         error:
-          error instanceof Error ? error.message : "Failed to update member",
+          "회원 정보를 수정하지 못했습니다.",
       },
       { status: 500 },
     );

@@ -7,6 +7,7 @@ import {
 import { approveApplicant } from "@/lib/adminApplicantData";
 import { isUuid } from "@/lib/isUuid";
 import { parseScopeMode } from "@/lib/userScopeShared";
+import { publicErrorMessage } from "@/lib/apiError";
 
 export async function POST(
   request: NextRequest,
@@ -41,7 +42,7 @@ export async function POST(
     });
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Failed to approve applicant";
+      publicErrorMessage(error, 500, "가입 요청을 승인하지 못했습니다.");
     const status =
       (error as { status?: number })?.status ??
       (message.includes("not found") ? 404 : message.includes("pending") ? 409 : 400);

@@ -30,6 +30,7 @@ import {
 import { USER_FACING_ROLE_LABELS } from "@/lib/adminPermissionsTypes";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
+import { getApiErrorMessage } from "@/lib/apiError";
 
 export type EditableMember = {
   userId: string;
@@ -298,7 +299,8 @@ function MemberEditDrawerInner({
         currentPartName: updated.currentPartName,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save");
+      console.error("[members] edit save failed", err);
+      setError(getApiErrorMessage(err, "회원 정보를 저장하지 못했습니다."));
     } finally {
       setSaving(false);
     }

@@ -12,6 +12,7 @@ import {
   type AdminUsersRole,
   type CreateAccountPayload,
 } from "@/lib/adminAccountsData";
+import { publicErrorMessage } from "@/lib/apiError";
 
 // admin_users.role='owner' = logical super_admin (단일 매핑 지점).
 const SUPER_ADMIN_ROLES = ["owner"] as const;
@@ -53,7 +54,7 @@ export async function GET(request: NextRequest) {
   const adminRoleRaw = params.get("admin_role")?.trim() || null;
   if (adminRoleRaw !== null && !isAdminUsersRole(adminRoleRaw)) {
     return Response.json(
-      { success: false, error: `Unknown admin_role: ${adminRoleRaw}` },
+      { success: false, error: "선택할 수 없는 권한 등급입니다." },
       { status: 400 },
     );
   }
@@ -65,7 +66,7 @@ export async function GET(request: NextRequest) {
   else if (activeRaw === "false") isActive = false;
   else if (activeRaw !== null && activeRaw !== "") {
     return Response.json(
-      { success: false, error: `Unknown active filter: ${activeRaw}` },
+      { success: false, error: "선택할 수 없는 활성 상태 필터입니다." },
       { status: 400 },
     );
   }
@@ -86,20 +87,14 @@ export async function GET(request: NextRequest) {
     });
     return Response.json({ success: true, data });
   } catch (error) {
-    if (error instanceof AccountsError) {
-      return Response.json(
-        { success: false, error: error.message },
-        { status: error.status },
-      );
-    }
     console.error("[admin/accounts GET]", error);
+    const status = error instanceof AccountsError ? error.status : 500;
     return Response.json(
       {
         success: false,
-        error:
-          error instanceof Error ? error.message : "Failed to list accounts",
+        error: publicErrorMessage(error, status, "계정 목록을 불러오지 못했습니다."),
       },
-      { status: 500 },
+      { status },
     );
   }
 }
@@ -124,14 +119,14 @@ export async function POST(request: NextRequest) {
     body = await request.json();
   } catch {
     return Response.json(
-      { success: false, error: "Invalid JSON body" },
+      { success: false, error: "요청 형식이 올바르지 않습니다." },
       { status: 400 },
     );
   }
 
   if (!body || typeof body !== "object") {
     return Response.json(
-      { success: false, error: "Request body must be a JSON object" },
+      { success: false, error: "요청 형식이 올바르지 않습니다." },
       { status: 400 },
     );
   }
@@ -143,20 +138,14 @@ export async function POST(request: NextRequest) {
     });
     return Response.json({ success: true, data: result }, { status: 201 });
   } catch (error) {
-    if (error instanceof AccountsError) {
-      return Response.json(
-        { success: false, error: error.message },
-        { status: error.status },
-      );
-    }
     console.error("[admin/accounts POST]", error);
+    const status = error instanceof AccountsError ? error.status : 500;
     return Response.json(
       {
         success: false,
-        error:
-          error instanceof Error ? error.message : "Failed to create account",
+        error: publicErrorMessage(error, status, "계정을 생성하지 못했습니다."),
       },
-      { status: 500 },
+      { status },
     );
   }
 }

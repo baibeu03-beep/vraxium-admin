@@ -4,6 +4,7 @@ import {
   AccountsError,
   resetAccountPassword,
 } from "@/lib/adminAccountsData";
+import { publicErrorMessage } from "@/lib/apiError";
 
 const SUPER_ADMIN_ROLES = ["owner"] as const;
 
@@ -28,20 +29,14 @@ export async function POST(_request: NextRequest, { params }: Ctx) {
     const result = await resetAccountPassword(user_id);
     return Response.json({ success: true, data: result });
   } catch (error) {
-    if (error instanceof AccountsError) {
-      return Response.json(
-        { success: false, error: error.message },
-        { status: error.status },
-      );
-    }
     console.error("[admin/accounts/:user_id/password-reset POST]", error);
+    const status = error instanceof AccountsError ? error.status : 500;
     return Response.json(
       {
         success: false,
-        error:
-          error instanceof Error ? error.message : "Failed to reset password",
+        error: publicErrorMessage(error, status, "비밀번호를 초기화하지 못했습니다."),
       },
-      { status: 500 },
+      { status },
     );
   }
 }

@@ -32,6 +32,7 @@ import { formatAdminDateTime } from "@/lib/adminDateTime";
 import { ADMIN_READ_ROLES } from "@/lib/adminAuthRoles";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 type AdminUser = {
   id: string;
@@ -104,14 +105,13 @@ export default function AdminUsersList() {
         const res = await fetch(url, { cache: "no-store" });
         const json = await res.json();
         if (!res.ok || !json.success) {
-          throw new Error(json?.error ?? "Failed to load admin users.");
+          throw apiErrorFrom(res, json, "운영 계정 목록을 불러오지 못했습니다.");
         }
         if (!cancelled) setAdminUsers((json.data ?? []) as AdminUser[]);
       } catch (err) {
         if (!cancelled) {
-          setError(
-            err instanceof Error ? err.message : "Failed to load admin users.",
-          );
+          console.error("[admin-users] load failed", err);
+          setError(getApiErrorMessage(err, "운영 계정 목록을 불러오지 못했습니다."));
         }
       } finally {
         if (!cancelled) setLoading(false);

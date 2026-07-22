@@ -35,6 +35,7 @@ import {
   dash,
 } from "@/components/admin/crew/CrewIdentityCards";
 import { CrewNoteDialog, type CrewNote } from "@/components/admin/crew/CrewNoteDialog";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 type CrewDetailDto = {
   userId: string;
@@ -331,11 +332,12 @@ export default function CrewDetail({
       const res = await fetch(`/api/admin/members/${userId}`, { cache: "no-store" });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? "크루 상세를 불러오지 못했습니다.");
+        throw apiErrorFrom(res, json, "크루 상세를 불러오지 못했습니다.");
       }
       setDetail(json.data as CrewDetailDto);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "크루 상세를 불러오지 못했습니다.");
+      console.error("[crews] detail load failed", err);
+      setError(getApiErrorMessage(err, "크루 상세를 불러오지 못했습니다."));
     } finally {
       setLoading(false);
     }

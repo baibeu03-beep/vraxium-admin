@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { ADMIN_READ_ROLES, requireAdmin, toAdminErrorResponse } from "@/lib/adminAuth";
 import { isAdminUserRole, listAdminUsers } from "@/lib/adminUsersData";
+import { publicErrorMessage } from "@/lib/apiError";
 
 export async function GET(request: NextRequest) {
   try {
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest) {
       {
         success: false,
         error:
-          error instanceof Error ? error.message : "Failed to load admin users",
+          publicErrorMessage(error, 500, "운영 계정 목록을 불러오지 못했습니다."),
       },
       { status: 500 },
     );

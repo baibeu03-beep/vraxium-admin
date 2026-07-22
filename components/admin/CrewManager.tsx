@@ -46,6 +46,7 @@ import { formatDepartmentName } from "@/components/admin/fieldKit";
 import MemberEditDrawer, {
   type EditableMember,
 } from "@/components/admin/MemberEditDrawer";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 type Crew = {
   id?: string | number;
@@ -168,13 +169,14 @@ export default function CrewManager({
       );
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? "Failed to load crews.");
+        throw apiErrorFrom(res, json, "크루 목록을 불러오지 못했습니다.");
       }
       setData((json.data ?? []) as Crew[]);
     } catch (err) {
+      console.error("[crews] load failed", err);
       setBanner({
         kind: "error",
-        message: err instanceof Error ? err.message : "Failed to load crews.",
+        message: getApiErrorMessage(err, "크루 목록을 불러오지 못했습니다."),
       });
     } finally {
       setLoading(false);
@@ -283,7 +285,7 @@ export default function CrewManager({
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? "Failed to save crew.");
+        throw apiErrorFrom(res, json, "크루를 저장하지 못했습니다.");
       }
 
       if (json.warning) console.warn(json.warning);
@@ -291,8 +293,8 @@ export default function CrewManager({
       setModalOpen(false);
       await refresh(organization);
     } catch (err) {
-      console.error(err);
-      t.error(editing ? "update" : "create");
+      console.error("[crews] save failed", err);
+      t.apiError(editing ? "update" : "create", err, "크루를 저장하지 못했습니다.");
     } finally {
       setSubmitting(false);
     }
@@ -311,13 +313,13 @@ export default function CrewManager({
       );
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? "Failed to change visibility.");
+        throw apiErrorFrom(res, json, "노출 상태를 변경하지 못했습니다.");
       }
       t.success("update");
       await refresh(organization);
     } catch (err) {
-      console.error(err);
-      t.error("update");
+      console.error("[crews] visibility toggle failed", err);
+      t.apiError("update", err, "노출 상태를 변경하지 못했습니다.");
     }
   };
 

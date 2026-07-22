@@ -8,6 +8,7 @@ import {
 import { getMemberDisplayName } from "@/lib/adminCrewData";
 import { getCrewNote, upsertCrewNote } from "@/lib/adminCrewManagementNotes";
 import { assertUserInRequestScope } from "@/lib/userScope";
+import { publicErrorMessage } from "@/lib/apiError";
 
 // 클럽 관리 기록(관리자 메모) — 조회/저장. 사용자당 1행 upsert. snapshot 무접촉.
 //   GET  /api/admin/members/[user_id]/note  → 마지막 저장 메모
@@ -28,7 +29,14 @@ export async function GET(request: NextRequest, { params }: Ctx) {
     await assertUserInRequestScope(request, user_id);
   } catch (error) {
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Scope violation" },
+      {
+        success: false,
+        error: publicErrorMessage(
+          error,
+          (error as { status?: number }).status ?? 422,
+          "현재 모드에서 접근할 수 없는 사용자입니다.",
+        ),
+      },
       { status: (error as { status?: number }).status ?? 422 },
     );
   }
@@ -38,7 +46,7 @@ export async function GET(request: NextRequest, { params }: Ctx) {
   } catch (error) {
     console.error("[admin/members/:user_id/note GET]", error);
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed to load note" },
+      { success: false, error: "메모를 불러오지 못했습니다." },
       { status: 500 },
     );
   }
@@ -60,7 +68,7 @@ export async function PUT(request: NextRequest, { params }: Ctx) {
   try {
     body = await request.json();
   } catch {
-    return Response.json({ success: false, error: "Invalid JSON body" }, { status: 400 });
+    return Response.json({ success: false, error: "요청 형식이 올바르지 않습니다." }, { status: 400 });
   }
 
   const note = (body as { note?: unknown })?.note;
@@ -76,7 +84,14 @@ export async function PUT(request: NextRequest, { params }: Ctx) {
     });
   } catch (error) {
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Scope violation" },
+      {
+        success: false,
+        error: publicErrorMessage(
+          error,
+          (error as { status?: number }).status ?? 422,
+          "현재 모드에서 접근할 수 없는 사용자입니다.",
+        ),
+      },
       { status: (error as { status?: number }).status ?? 422 },
     );
   }
@@ -85,14 +100,14 @@ export async function PUT(request: NextRequest, { params }: Ctx) {
     // 존재하지 않는 user_id 에 메모 행을 만들지 않도록 가드(FK 위반 전 방어).
     const exists = await getMemberDisplayName(user_id);
     if (!exists) {
-      return Response.json({ success: false, error: "Crew not found" }, { status: 404 });
+      return Response.json({ success: false, error: "대상 크루를 찾을 수 없습니다." }, { status: 404 });
     }
     const saved = await upsertCrewNote(user_id, note, admin.userId);
     return Response.json({ success: true, data: saved });
   } catch (error) {
     console.error("[admin/members/:user_id/note PUT]", error);
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed to save note" },
+      { success: false, error: "메모를 저장하지 못했습니다." },
       { status: 500 },
     );
   }

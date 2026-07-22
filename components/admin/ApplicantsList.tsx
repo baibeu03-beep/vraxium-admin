@@ -43,6 +43,7 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { useActionToast } from "@/lib/actionToast";
 import type { ScopeMode } from "@/lib/userScopeShared";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 type Applicant = {
   id: string;
@@ -133,14 +134,13 @@ export default function ApplicantsList({ mode }: { mode: ScopeMode }) {
         const res = await fetch(url, { cache: "no-store" });
         const json = await res.json();
         if (!res.ok || !json.success) {
-          throw new Error(json?.error ?? "Failed to load applicants.");
+          throw apiErrorFrom(res, json, "가입 요청 목록을 불러오지 못했습니다.");
         }
         if (!cancelled) setApplicants((json.data ?? []) as Applicant[]);
       } catch (err) {
         if (!cancelled) {
-          setError(
-            err instanceof Error ? err.message : "Failed to load applicants.",
-          );
+          console.error("[applicants] load failed", err);
+          setError(getApiErrorMessage(err, "가입 요청 목록을 불러오지 못했습니다."));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -200,13 +200,13 @@ export default function ApplicantsList({ mode }: { mode: ScopeMode }) {
       );
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? "Failed to reject applicant.");
+        throw apiErrorFrom(res, json, "가입 요청을 거절하지 못했습니다.");
       }
       t.success("reject", "가입을 거절했습니다.");
       setRefreshTick((n) => n + 1);
     } catch (err) {
-      console.error(err);
-      t.error("reject");
+      console.error("[applicants] reject failed", err);
+      t.apiError("reject", err, "가입 요청을 거절하지 못했습니다.");
     } finally {
       setRejectingId(null);
     }
@@ -254,8 +254,8 @@ export default function ApplicantsList({ mode }: { mode: ScopeMode }) {
       }
       setRefreshTick((n) => n + 1);
     } catch (err) {
-      console.error(err);
-      t.error("approve");
+      console.error("[applicants] approve-all failed", err);
+      t.apiError("approve", err, "일괄 승인을 처리하지 못했습니다.");
     } finally {
       setApprovingAll(false);
     }
@@ -541,13 +541,13 @@ function ApproveDialog({
       );
       const json = await res.json();
       if (!res.ok) {
-        throw new Error(json?.error ?? "Failed to search user profiles.");
+        throw apiErrorFrom(res, json, "사용자를 검색하지 못했습니다.");
       }
       setUserResults((json.users ?? []) as UserProfileCandidate[]);
       setHasSearched(true);
     } catch (err) {
-      console.error(err);
-      t.raw("error", "검색하지 못했습니다. 잠시 후 다시 시도해주세요.");
+      console.error("[applicants] user search failed", err);
+      t.apiError("submit", err, "검색하지 못했습니다. 잠시 후 다시 시도해주세요.");
     } finally {
       setSearching(false);
     }
@@ -572,7 +572,7 @@ function ApproveDialog({
       );
       const json = await res.json();
       if (!res.ok) {
-        throw new Error(json?.error ?? "Failed to approve applicant.");
+        throw apiErrorFrom(res, json, "가입 요청을 승인하지 못했습니다.");
       }
       onApproved(
         selectedUser.displayName ??
@@ -580,8 +580,8 @@ function ApproveDialog({
           selectedUser.userId,
       );
     } catch (err) {
-      console.error(err);
-      t.error("approve");
+      console.error("[applicants] approve-existing failed", err);
+      t.apiError("approve", err, "가입 요청을 승인하지 못했습니다.");
     } finally {
       setApproving(false);
     }
@@ -598,12 +598,12 @@ function ApproveDialog({
       );
       const json = await res.json();
       if (!res.ok) {
-        throw new Error(json?.error ?? "Failed to create user and approve.");
+        throw apiErrorFrom(res, json, "사용자를 생성하고 승인하지 못했습니다.");
       }
       onApproved(null);
     } catch (err) {
-      console.error(err);
-      t.error("approve");
+      console.error("[applicants] approve-new failed", err);
+      t.apiError("approve", err, "사용자를 생성하고 승인하지 못했습니다.");
     } finally {
       setApproving(false);
     }

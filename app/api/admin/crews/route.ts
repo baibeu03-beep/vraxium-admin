@@ -13,6 +13,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import type { OrganizationSlug } from "@/lib/organizations";
 import { isOrganizationSlug } from "@/lib/organizations";
 import { parseScopeMode } from "@/lib/userScopeShared";
+import { publicErrorMessage } from "@/lib/apiError";
 
 const LEGACY_TABLE = "legacy_crew_import";
 
@@ -72,7 +73,7 @@ export async function GET(request: NextRequest) {
     return Response.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to load crews",
+        error: publicErrorMessage(error, 500, "크루 목록을 불러오지 못했습니다."),
       },
       { status: 500 },
     );

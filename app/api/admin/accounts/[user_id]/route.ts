@@ -5,6 +5,7 @@ import {
   updateAccount,
   type UpdateAccountPayload,
 } from "@/lib/adminAccountsData";
+import { publicErrorMessage } from "@/lib/apiError";
 
 const SUPER_ADMIN_ROLES = ["owner"] as const;
 
@@ -33,14 +34,14 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
     body = await request.json();
   } catch {
     return Response.json(
-      { success: false, error: "Invalid JSON body" },
+      { success: false, error: "요청 형식이 올바르지 않습니다." },
       { status: 400 },
     );
   }
 
   if (!body || typeof body !== "object") {
     return Response.json(
-      { success: false, error: "Request body must be a JSON object" },
+      { success: false, error: "요청 형식이 올바르지 않습니다." },
       { status: 400 },
     );
   }
@@ -53,20 +54,14 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
     });
     return Response.json({ success: true, data: { account } });
   } catch (error) {
-    if (error instanceof AccountsError) {
-      return Response.json(
-        { success: false, error: error.message },
-        { status: error.status },
-      );
-    }
     console.error("[admin/accounts/:user_id PATCH]", error);
+    const status = error instanceof AccountsError ? error.status : 500;
     return Response.json(
       {
         success: false,
-        error:
-          error instanceof Error ? error.message : "Failed to update account",
+        error: publicErrorMessage(error, status, "계정 정보를 수정하지 못했습니다."),
       },
-      { status: 500 },
+      { status },
     );
   }
 }

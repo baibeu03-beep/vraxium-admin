@@ -9,6 +9,7 @@ import {
 } from "@/lib/adminMembersTypes";
 import { isOrganizationSlug } from "@/lib/organizations";
 import { parseScopeMode } from "@/lib/userScopeShared";
+import { publicErrorMessage } from "@/lib/apiError";
 
 function parseIntParam(
   raw: string | null,
@@ -105,7 +106,7 @@ export async function GET(request: NextRequest) {
       {
         success: false,
         error:
-          error instanceof Error ? error.message : "Failed to load members",
+          publicErrorMessage(error, 500, "회원 목록을 불러오지 못했습니다."),
       },
       { status: 500 },
     );

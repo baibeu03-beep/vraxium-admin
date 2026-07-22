@@ -65,6 +65,7 @@ import {
   type CreateAccountResult,
   type ListAccountsResult,
 } from "@/lib/adminAccountsTypes";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 // /admin/settings/accounts — 운영 계정 관리 UI.
 //   본 페이지는 어드민 페이지에 로그인할 수 있는 admin_users row 만 다룬다.
@@ -165,7 +166,7 @@ export default function AccountsManager() {
         });
         const json = await res.json();
         if (!res.ok || !json.success) {
-          throw new Error(json?.error ?? "Failed to load accounts");
+          throw apiErrorFrom(res, json, "계정 목록을 불러오지 못했습니다.");
         }
         if (cancelled) return;
         const data = json.data as ListAccountsResult;
@@ -174,7 +175,8 @@ export default function AccountsManager() {
         setIsSuperAdmin(data.isSuperAdmin);
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load");
+          console.error("[accounts] load failed", err);
+          setError(getApiErrorMessage(err, "계정 목록을 불러오지 못했습니다."));
           setAccounts([]);
           setTotal(0);
         }
@@ -233,14 +235,15 @@ export default function AccountsManager() {
         );
         const json = await res.json();
         if (!res.ok || !json.success) {
-          throw new Error(json?.error ?? "Failed to update role");
+          throw apiErrorFrom(res, json, "권한 등급을 변경하지 못했습니다.");
         }
         applyAccount(json.data.account as AccountDto);
         t.success("update");
       } catch (err) {
+        // ① 낙관적 UI 원복(기존 순서 유지) → ② 실패 원인 안내.
         applyAccount({ ...account, adminRole: prevRole });
-        console.error(err);
-        t.error("update");
+        console.error("[accounts] role update failed", err);
+        t.apiError("update", err, "권한 등급을 변경하지 못했습니다.");
       } finally {
         markPending(account.userId, false);
       }
@@ -268,14 +271,14 @@ export default function AccountsManager() {
         );
         const json = await res.json();
         if (!res.ok || !json.success) {
-          throw new Error(json?.error ?? "Failed to update active status");
+          throw apiErrorFrom(res, json, "활성 상태를 변경하지 못했습니다.");
         }
         applyAccount(json.data.account as AccountDto);
         t.success("update");
       } catch (err) {
         applyAccount({ ...account, isActive: prev });
-        console.error(err);
-        t.error("update");
+        console.error("[accounts] active toggle failed", err);
+        t.apiError("update", err, "활성 상태를 변경하지 못했습니다.");
       } finally {
         markPending(account.userId, false);
       }
@@ -303,14 +306,14 @@ export default function AccountsManager() {
         );
         const json = await res.json();
         if (!res.ok || !json.success) {
-          throw new Error(json?.error ?? "Failed to update organization");
+          throw apiErrorFrom(res, json, "소속 클럽을 변경하지 못했습니다.");
         }
         applyAccount(json.data.account as AccountDto);
         t.success("update");
       } catch (err) {
         applyAccount({ ...account, organizationSlug: current });
-        console.error(err);
-        t.error("update");
+        console.error("[accounts] organization update failed", err);
+        t.apiError("update", err, "소속 클럽을 변경하지 못했습니다.");
       } finally {
         markPending(account.userId, false);
       }
@@ -360,14 +363,14 @@ export default function AccountsManager() {
         );
         const json = await res.json();
         if (!res.ok || !json.success) {
-          throw new Error(json?.error ?? "Failed to update display name");
+          throw apiErrorFrom(res, json, "이름을 저장하지 못했습니다.");
         }
         applyAccount(json.data.account as AccountDto);
         cancelNameEdit();
         t.success("update");
       } catch (err) {
-        console.error(err);
-        t.error("update");
+        console.error("[accounts] display name update failed", err);
+        t.apiError("update", err, "이름을 저장하지 못했습니다.");
       } finally {
         markPending(account.userId, false);
       }
@@ -398,7 +401,7 @@ export default function AccountsManager() {
         );
         const json = await res.json();
         if (!res.ok || !json.success) {
-          throw new Error(json?.error ?? "Failed to reset password");
+          throw apiErrorFrom(res, json, "비밀번호를 초기화하지 못했습니다.");
         }
         setTempPassword({
           label: account.displayName ?? account.email ?? account.userId,
@@ -406,8 +409,8 @@ export default function AccountsManager() {
           password: json.data.temporary_password as string,
         });
       } catch (err) {
-        console.error(err);
-        t.error("reset");
+        console.error("[accounts] password reset failed", err);
+        t.apiError("reset", err, "비밀번호를 초기화하지 못했습니다.");
       } finally {
         markPending(account.userId, false);
       }
@@ -983,11 +986,12 @@ function CreateAccountDrawerInner({
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? "Failed to create account");
+        throw apiErrorFrom(res, json, "계정을 생성하지 못했습니다.");
       }
       onCreated(json.data as CreateAccountResult);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create account");
+      console.error("[accounts] create failed", err);
+      setError(getApiErrorMessage(err, "계정을 생성하지 못했습니다."));
     } finally {
       setSaving(false);
     }

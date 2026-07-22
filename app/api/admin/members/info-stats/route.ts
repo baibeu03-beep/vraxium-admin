@@ -7,6 +7,7 @@ import {
 import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
 import { parseScopeMode } from "@/lib/userScopeShared";
 import { loadMembersInfoStats } from "@/lib/adminMembersInfoStats";
+import { publicErrorMessage } from "@/lib/apiError";
 
 // GET /api/admin/members/info-stats?organization=<all|encre|oranke|phalanx>&mode=<operating|test>
 //   멤버 관리 > 크루 정보 [섹션.1] 집계(역대 누적 + 주차별 데이터). snapshot-only · 읽기 전용.
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
     return Response.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to load info stats",
+        error: publicErrorMessage(error, 500, "회원 통계를 불러오지 못했습니다."),
       },
       { status: 500 },
     );

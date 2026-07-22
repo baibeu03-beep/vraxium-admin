@@ -7,6 +7,7 @@ import {
   PermissionsError,
   getPermissionsMatrix,
 } from "@/lib/adminPermissionsData";
+import { publicErrorMessage } from "@/lib/apiError";
 
 // GET /api/admin/permissions
 // → 권한 매트릭스 페이지가 한 번에 렌더링하는 데 필요한 데이터를 모두 반환.
@@ -41,7 +42,7 @@ export async function GET() {
       {
         success: false,
         error:
-          error instanceof Error ? error.message : "Failed to load permissions",
+          publicErrorMessage(error, 500, "권한 정보를 불러오지 못했습니다."),
       },
       { status: 500 },
     );

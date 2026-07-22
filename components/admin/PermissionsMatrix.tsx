@@ -39,6 +39,7 @@ import {
   type RoleMatrix,
   type UserFacingRole,
 } from "@/lib/adminPermissionsTypes";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 // /admin/settings/permissions — 권한 설정 UI.
 //   GET /api/admin/permissions     로 카탈로그 + 매트릭스 일괄 조회
@@ -93,7 +94,7 @@ export default function PermissionsMatrix() {
         const res = await fetch("/api/admin/permissions", { cache: "no-store" });
         const json = await res.json();
         if (!res.ok || !json.success) {
-          throw new Error(json?.error ?? "Failed to load permissions");
+          throw apiErrorFrom(res, json, "권한 정보를 불러오지 못했습니다.");
         }
         if (cancelled) return;
         const data = json.data as PermissionsMatrixDto;
@@ -102,7 +103,8 @@ export default function PermissionsMatrix() {
         setIsSuperAdmin(data.isSuperAdmin);
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load");
+          console.error("[permissions] load failed", err);
+          setError(getApiErrorMessage(err, "권한 정보를 불러오지 못했습니다."));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -169,11 +171,11 @@ export default function PermissionsMatrix() {
         );
         const json = await res.json();
         if (!res.ok || !json.success) {
-          throw new Error(json?.error ?? "Failed to save");
+          throw apiErrorFrom(res, json, "권한을 저장하지 못했습니다.");
         }
         t.success("save");
-      } catch {
-        // revert
+      } catch (err) {
+        // ① 낙관적 UI revert(기존 순서 유지) → ② 실패 원인 안내.
         setMatrix((prev) => ({
           ...prev,
           [permission.key]: {
@@ -181,7 +183,8 @@ export default function PermissionsMatrix() {
             [role]: prevValue,
           },
         }));
-        t.error("save");
+        console.error("[permissions] toggle failed", err);
+        t.apiError("save", err, "권한을 저장하지 못했습니다.");
       } finally {
         setPending((prev) => {
           const next = new Set(prev);

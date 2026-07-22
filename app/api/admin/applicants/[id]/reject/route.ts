@@ -1,6 +1,7 @@
 import { ADMIN_WRITE_ROLES, requireAdmin, toAdminErrorResponse } from "@/lib/adminAuth";
 import { rejectApplicant } from "@/lib/adminApplicantData";
 import { parseScopeMode } from "@/lib/userScopeShared";
+import { publicErrorMessage } from "@/lib/apiError";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -23,7 +24,7 @@ async function handleReject(request: Request, { params }: Ctx) {
     return Response.json({ success: true, data });
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Failed to reject applicant";
+      publicErrorMessage(error, 500, "가입 요청을 거절하지 못했습니다.");
     const status =
       message.includes("not found") ? 404 : message.includes("Only pending") ? 409 : 400;
 

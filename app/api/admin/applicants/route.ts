@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { ADMIN_READ_ROLES, requireAdmin, toAdminErrorResponse } from "@/lib/adminAuth";
 import { isApplicantStatus, listApplicants } from "@/lib/adminApplicantData";
 import { parseScopeMode } from "@/lib/userScopeShared";
+import { publicErrorMessage } from "@/lib/apiError";
 
 export async function GET(request: NextRequest) {
   try {
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
       {
         success: false,
         error:
-          error instanceof Error ? error.message : "Failed to load applicants",
+          publicErrorMessage(error, 500, "가입 요청 목록을 불러오지 못했습니다."),
       },
       { status: 500 },
     );

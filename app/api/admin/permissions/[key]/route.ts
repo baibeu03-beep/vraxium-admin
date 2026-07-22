@@ -5,6 +5,7 @@ import {
   isUserFacingRole,
   setRolePermission,
 } from "@/lib/adminPermissionsData";
+import { publicErrorMessage } from "@/lib/apiError";
 
 // admin_users.role='owner' = logical super_admin.
 // 권한 매트릭스 수정은 super_admin 단독.
@@ -29,7 +30,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
   const { key } = await params;
   if (typeof key !== "string" || key.length === 0) {
     return Response.json(
-      { success: false, error: "permission key is required" },
+      { success: false, error: "권한 항목을 찾을 수 없습니다." },
       { status: 400 },
     );
   }
@@ -39,14 +40,14 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
     body = await request.json();
   } catch {
     return Response.json(
-      { success: false, error: "Invalid JSON body" },
+      { success: false, error: "요청 형식이 올바르지 않습니다." },
       { status: 400 },
     );
   }
 
   if (!body || typeof body !== "object") {
     return Response.json(
-      { success: false, error: "Request body must be a JSON object" },
+      { success: false, error: "요청 형식이 올바르지 않습니다." },
       { status: 400 },
     );
   }
@@ -64,7 +65,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
   const rawIsAllowed = input.is_allowed;
   if (typeof rawIsAllowed !== "boolean") {
     return Response.json(
-      { success: false, error: "is_allowed must be a boolean" },
+      { success: false, error: "허용 여부 값이 올바르지 않습니다." },
       { status: 400 },
     );
   }
@@ -78,7 +79,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
       reason = trimmed.length > 0 ? trimmed : null;
     } else {
       return Response.json(
-        { success: false, error: "reason must be a string or null" },
+        { success: false, error: "사유 형식이 올바르지 않습니다." },
         { status: 400 },
       );
     }

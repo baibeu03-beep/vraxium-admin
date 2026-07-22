@@ -25,6 +25,7 @@ import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { useActionToast } from "@/lib/actionToast";
 import { formatAdminDateTime } from "@/lib/adminDateTime";
+import { apiErrorFrom } from "@/lib/apiError";
 
 type Applicant = {
   id: string;
@@ -179,15 +180,15 @@ export default function ApplicantManager() {
       );
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? "Failed to reject applicant.");
+        throw apiErrorFrom(res, json, "가입 요청을 거절하지 못했습니다.");
       }
 
       t.success("reject", "가입을 거절했습니다.");
       setResults([]);
       await refreshApplicants(selected.id);
     } catch (error) {
-      console.error(error);
-      t.error("reject");
+      console.error("[applicants] reject failed", error);
+      t.apiError("reject", error, "가입 요청을 거절하지 못했습니다.");
     } finally {
       setActing(false);
     }

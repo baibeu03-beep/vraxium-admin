@@ -10,6 +10,7 @@ import {
   autoApproveApplicant,
 } from "@/lib/adminApplicantData";
 import { parseScopeMode } from "@/lib/userScopeShared";
+import { publicErrorMessage } from "@/lib/apiError";
 
 export async function POST(
   request: NextRequest,
@@ -41,12 +42,11 @@ export async function POST(
           : { error: error.message };
       return NextResponse.json(body, { status: error.status });
     }
+    const status = (error as { status?: number })?.status ?? 400;
+    if (status >= 500) console.error("[applicants/:id/approve-new]", error);
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error ? error.message : "Failed to approve applicant",
-      },
-      { status: (error as { status?: number })?.status ?? 400 },
+      { error: publicErrorMessage(error, status, "가입 요청을 승인하지 못했습니다.") },
+      { status },
     );
   }
 }

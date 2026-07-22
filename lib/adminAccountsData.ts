@@ -22,6 +22,7 @@ import {
   type UpdateAccountPayload,
   type UserFacingRole,
 } from "@/lib/adminAccountsTypes";
+import { fieldLabel, withJosa } from "@/lib/apiFieldLabels";
 
 // /admin/settings/accounts 전용 server-only 데이터 레이어.
 //
@@ -96,11 +97,11 @@ function normalizeEmail(value: string): string {
 
 function validateEmail(value: unknown): string {
   if (typeof value !== "string") {
-    throw new AccountsError(400, "email must be a string");
+    throw new AccountsError(400, "이메일을 입력해주세요.");
   }
   const normalized = normalizeEmail(value);
   if (!EMAIL_PATTERN.test(normalized)) {
-    throw new AccountsError(400, "email format is invalid");
+    throw new AccountsError(400, "이메일 형식이 올바르지 않습니다.");
   }
   return normalized;
 }
@@ -110,7 +111,7 @@ export const DISPLAY_NAME_MAX_LENGTH = 50;
 
 function validateDisplayName(value: unknown): string {
   if (typeof value !== "string") {
-    throw new AccountsError(400, "display_name must be a string");
+    throw new AccountsError(400, "이름을 입력해주세요.");
   }
   const trimmed = value.trim();
   if (trimmed.length === 0) {
@@ -131,23 +132,28 @@ function validateOrganizationSlug(value: unknown): OrganizationSlug | null {
     const trimmed = value.trim();
     if (trimmed.length === 0) return null;
     if (!isOrganizationSlug(trimmed)) {
-      throw new AccountsError(400, `Unknown organization_slug: ${trimmed}`);
+      throw new AccountsError(400, "선택할 수 없는 소속 클럽입니다.");
     }
     return trimmed;
   }
-  throw new AccountsError(400, "organization_slug must be a string or null");
+  throw new AccountsError(400, "소속 클럽 값이 올바르지 않습니다.");
 }
 
 function validateAdminRole(value: unknown): AdminUsersRole {
   if (!isAdminUsersRole(value)) {
-    throw new AccountsError(400, `Unknown admin_role: ${String(value)}`);
+    throw new AccountsError(400, "선택할 수 없는 권한 등급입니다.");
   }
   return value;
 }
 
 function validateBoolean(value: unknown, field: string): boolean {
   if (typeof value !== "boolean") {
-    throw new AccountsError(400, `${field} must be a boolean`);
+    // 필드명은 사용자 용어로 — 라벨이 없으면 범용 문구(내부 이름 노출 금지).
+    const label = fieldLabel(field);
+    throw new AccountsError(
+      400,
+      label ? `${withJosa(label, "이/가")} 올바르지 않습니다.` : "입력값이 올바르지 않습니다.",
+    );
   }
   return value;
 }
@@ -229,7 +235,10 @@ export async function listAccounts(
     .range(offset, offset + limit - 1);
 
   const { data, error, count } = await queryBuilder;
-  if (error) throw new AccountsError(500, error.message);
+  if (error) {
+    console.error("[accounts] list query failed", error);
+    throw new AccountsError(500, "계정 목록을 불러오지 못했습니다.");
+  }
 
   const adminRows = (data ?? []) as unknown as AdminUserRow[];
   const userIds = adminRows.map((r) => r.id);
@@ -240,7 +249,10 @@ export async function listAccounts(
       .from("user_profiles")
       .select(PROFILE_SELECT)
       .in("user_id", userIds);
-    if (profileError) throw new AccountsError(500, profileError.message);
+    if (profileError) {
+      console.error("[accounts] profile join failed", profileError);
+      throw new AccountsError(500, "계정 목록을 불러오지 못했습니다.");
+    }
     for (const row of (profileData ?? []) as unknown as UserProfileRow[]) {
       profileByUserId.set(row.user_id, row);
     }
@@ -264,7 +276,7 @@ export async function listAccounts(
 // ─────────────────────────────────────────────────────────────────────
 export async function getAccount(userId: string): Promise<AccountDto | null> {
   if (!isUuid(userId)) {
-    throw new AccountsError(400, "user_id must be a UUID");
+    throw new AccountsError(400, "대상 계정을 찾을 수 없습니다.");
   }
   const [adminRes, profileRes] = await Promise.all([
     supabaseAdmin
@@ -278,8 +290,10 @@ export async function getAccount(userId: string): Promise<AccountDto | null> {
       .eq("user_id", userId)
       .maybeSingle(),
   ]);
-  if (adminRes.error) throw new AccountsError(500, adminRes.error.message);
-  if (profileRes.error) throw new AccountsError(500, profileRes.error.message);
+  if (adminRes.error || profileRes.error) {
+    console.error("[accounts] load failed", adminRes.error ?? profileRes.error);
+    throw new AccountsError(500, "계정 정보를 불러오지 못했습니다.");
+  }
 
   if (!adminRes.data) return null;
   return toAccountDto(
@@ -339,7 +353,8 @@ export async function createAccount(
     .ilike("email", email)
     .maybeSingle();
   if (adminDupError && adminDupError.code !== "PGRST116") {
-    throw new AccountsError(500, adminDupError.message);
+    console.error("[accounts] admin dup check failed", adminDupError);
+    throw new AccountsError(500, "계정을 생성하지 못했습니다.");
   }
   if (existingAdmin) {
     throw new AccountsError(409, `이미 운영 계정으로 등록된 이메일입니다: ${email}`);
@@ -351,12 +366,13 @@ export async function createAccount(
     .ilike("auth_email", email)
     .maybeSingle();
   if (profileDupError && profileDupError.code !== "PGRST116") {
-    throw new AccountsError(500, profileDupError.message);
+    console.error("[accounts] profile dup check failed", profileDupError);
+    throw new AccountsError(500, "계정을 생성하지 못했습니다.");
   }
   if (existingProfile) {
     throw new AccountsError(
       409,
-      `이미 사용자로 등록된 이메일입니다 (auth_email 중복): ${email}`,
+      `이미 사용자로 등록된 이메일입니다: ${email}`,
     );
   }
 
@@ -374,9 +390,9 @@ export async function createAccount(
       });
 
   if (createAuthResult.error || !createAuthResult.data?.user) {
-    const msg =
-      createAuthResult.error?.message ?? "Failed to create Supabase auth user";
-    throw new AccountsError(500, msg);
+    // Supabase auth 원문은 사용자에게 노출하지 않는다(로그 전용).
+    console.error("[accounts] auth user create failed", createAuthResult.error);
+    throw new AccountsError(500, "계정을 생성하지 못했습니다.");
   }
 
   const newUserId = createAuthResult.data.user.id;
@@ -414,11 +430,10 @@ export async function createAccount(
     .from("users")
     .insert({ id: newUserId });
   if (usersInsert.error) {
+    // 롤백 순서 불변 — 원문은 로그로만, 사용자에게는 안전 문구.
     await rollback(["auth"]);
-    throw new AccountsError(
-      500,
-      `Failed to insert users row: ${usersInsert.error.message}`,
-    );
+    console.error("[accounts] users insert failed", usersInsert.error);
+    throw new AccountsError(500, "계정을 생성하지 못했습니다.");
   }
 
   // ── Step 3: user_profiles insert ─────────────────────────────────
@@ -441,9 +456,13 @@ export async function createAccount(
   });
   if (profileInsert.error) {
     await rollback(["users", "auth"]);
+    console.error("[accounts] user_profiles insert failed", profileInsert.error);
+    // 23505 = unique 위반 → 사용자가 고칠 수 있는 중복이므로 409 + 업무 문구.
     throw new AccountsError(
       profileInsert.error.code === "23505" ? 409 : 500,
-      `Failed to insert user_profiles row: ${profileInsert.error.message}`,
+      profileInsert.error.code === "23505"
+        ? "이미 등록된 이메일입니다. 다른 이메일을 사용해주세요."
+        : "계정을 생성하지 못했습니다.",
     );
   }
 
@@ -456,9 +475,12 @@ export async function createAccount(
   });
   if (adminInsert.error) {
     await rollback(["user_profiles", "users", "auth"]);
+    console.error("[accounts] admin_users insert failed", adminInsert.error);
     throw new AccountsError(
       adminInsert.error.code === "23505" ? 409 : 500,
-      `Failed to insert admin_users row: ${adminInsert.error.message}`,
+      adminInsert.error.code === "23505"
+        ? "이미 운영 계정으로 등록된 이메일입니다."
+        : "계정을 생성하지 못했습니다.",
     );
   }
 
@@ -492,7 +514,10 @@ export async function createAccount(
 
   const created = await getAccount(newUserId);
   if (!created) {
-    throw new AccountsError(500, "Account created but reload failed");
+    {
+      console.error("[accounts] created but reload failed", { newUserId });
+      throw new AccountsError(500, "계정은 생성됐지만 목록 새로고침에 실패했습니다. 목록을 다시 불러와주세요.");
+    }
   }
   return {
     account: created,
@@ -511,7 +536,10 @@ async function assertNotLastActiveOwner(targetUserId: string): Promise<void> {
     .eq("role", "owner")
     .eq("is_active", true)
     .neq("id", targetUserId);
-  if (error) throw new AccountsError(500, error.message);
+  if (error) {
+    console.error("[accounts] owner guard check failed", error);
+    throw new AccountsError(500, "계정 정보를 확인하지 못했습니다.");
+  }
   if (!data || data.length === 0) {
     throw new AccountsError(
       409,

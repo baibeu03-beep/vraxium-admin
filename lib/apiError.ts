@@ -168,6 +168,24 @@ const ANNOTATION_PAREN_RE =
 //   대문자로 시작하는 값(IFBS-NN0007 · Point.A)은 실제 코드/라벨이므로 통과시킨다.
 const LEFTOVER_DEV_TOKEN_RE = /(?:^|[^A-Za-z0-9_])[a-z][A-Za-z0-9_]+/;
 
+// 게이트 예외 — "사용자가 입력한 값"을 그대로 되돌려주는 부분은 개발 용어가 아니다.
+//   · 이메일 주소: "이미 등록된 이메일입니다: a.b@example.com"
+//   · 따옴표로 감싼 값: "'wisdom'은(는) 선택할 수 없습니다" (사용자가 고른 값의 에코)
+//   이 구간을 제외한 나머지에만 개발 토큰 검사를 적용한다.
+const USER_VALUE_SPANS: readonly RegExp[] = [
+  /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g,
+  /'[^']*'/g,
+  /"[^"]*"/g,
+  /‘[^’]*’/g, // ‘…’
+  /“[^”]*”/g, // “…”
+];
+
+function stripUserValues(text: string): string {
+  let out = text;
+  for (const re of USER_VALUE_SPANS) out = out.replace(re, " ");
+  return out;
+}
+
 // 사용자 문구일 수 없는 영문 validator 관용구.
 const DEV_ENGLISH_PATTERNS: readonly RegExp[] = [
   /\bis required\b/i,
@@ -259,7 +277,8 @@ export function humanizeFieldNames(message: string): string | null {
 
   // 4) 남은 개발 토큰 최종 차단 — 치환 여부와 무관하게 항상 검사한다.
   //    (org · info|experience 같은 enum · 미등록 camelCase 는 여기서 걸린다.)
-  return LEFTOVER_DEV_TOKEN_RE.test(out) ? null : out;
+  //    사용자 입력 에코(이메일·따옴표 값)는 검사 대상에서 뺀다.
+  return LEFTOVER_DEV_TOKEN_RE.test(stripUserValues(out)) ? null : out;
 }
 
 // 그 자체로는 정보가 없는 자리표시자 문구.

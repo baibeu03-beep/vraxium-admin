@@ -5,6 +5,7 @@ import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
 import { parseScopeMode } from "@/lib/userScopeShared";
 import { observeApiRoute } from "@/lib/apiObservability";
 import { isFilterValue, type SortEntry, type ColKey } from "@/lib/membersRosterView";
+import { publicErrorMessage } from "@/lib/apiError";
 
 // GET /api/admin/members/roster?organization=&mode=&page=&pageSize=&search=&filter=&sort=
 //
@@ -72,7 +73,7 @@ export async function GET(request: NextRequest) {
       return Response.json(
         {
           success: false,
-          error: error instanceof Error ? error.message : "Failed to load roster",
+          error: publicErrorMessage(error, 500, "회원 명부를 불러오지 못했습니다."),
         },
         { status: 500 },
       );

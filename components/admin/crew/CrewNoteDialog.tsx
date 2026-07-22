@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { dash } from "@/components/admin/crew/CrewIdentityCards";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 // 클럽 관리 기록(관리자 메모) 모달 — 회원 상세/주차 상세가 동일 모달·동일 API 를 공유한다.
 //   이름·크루 코드 표시 + 관리자 메모(취소/저장). autosave 없음. PUT /api/admin/members/[user_id]/note.
@@ -44,12 +45,13 @@ export function CrewNoteDialog({
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? "메모를 저장하지 못했습니다.");
+        throw apiErrorFrom(res, json, "메모를 저장하지 못했습니다.");
       }
       onSaved(json.data as CrewNote);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "메모를 저장하지 못했습니다.");
+      console.error("[crews] note save failed", err);
+      setError(getApiErrorMessage(err, "메모를 저장하지 못했습니다."));
     } finally {
       setSaving(false);
     }

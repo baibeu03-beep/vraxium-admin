@@ -6,6 +6,7 @@ import {
 } from "@/lib/adminAuth";
 import { searchUserProfiles } from "@/lib/adminApplicantData";
 import { parseScopeMode } from "@/lib/userScopeShared";
+import { publicErrorMessage } from "@/lib/apiError";
 
 export async function GET(request: NextRequest) {
   try {
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         error:
-          error instanceof Error ? error.message : "Failed to search user profiles",
+          publicErrorMessage(error, 500, "사용자를 검색하지 못했습니다."),
       },
       { status: 500 },
     );

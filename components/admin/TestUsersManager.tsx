@@ -23,6 +23,7 @@ import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 import { buildCustomerClusterUrl } from "@/lib/customerAppUrl";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 // GET /api/admin/test-users 응답 row (lib/testUsers.ts TestUserDto 와 동일 shape).
 type TestUser = {
@@ -78,13 +79,12 @@ export default function TestUsersManager() {
       const res = await fetch("/api/admin/test-users", { cache: "no-store" });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? "Failed to load test users.");
+        throw apiErrorFrom(res, json, "테스트 사용자 목록을 불러오지 못했습니다.");
       }
       setUsers((json.data ?? []) as TestUser[]);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to load test users.",
-      );
+      console.error("[test-users] load failed", err);
+      setError(getApiErrorMessage(err, "테스트 사용자 목록을 불러오지 못했습니다."));
     } finally {
       setLoading(false);
     }

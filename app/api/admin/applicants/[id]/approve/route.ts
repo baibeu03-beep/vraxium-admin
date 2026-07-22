@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { ADMIN_WRITE_ROLES, requireAdmin, toAdminErrorResponse } from "@/lib/adminAuth";
 import { approveApplicant } from "@/lib/adminApplicantData";
 import { parseScopeMode } from "@/lib/userScopeShared";
+import { publicErrorMessage } from "@/lib/apiError";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     return Response.json({ success: true, data });
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Failed to approve applicant";
+      publicErrorMessage(error, 500, "가입 요청을 승인하지 못했습니다.");
     const status =
       message.includes("not found")
         ? 404
