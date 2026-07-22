@@ -34,6 +34,7 @@ import { excludeAddedByUserId } from "@/lib/crewSearchExclude";
 import { formatLogPeriodLabel } from "@/lib/practicalInfoSection0Format";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { useToast } from "@/components/ui/toast";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 // 실무 역량 [라인 개설] — [해당 크루] 영역.
 //   상단: 요약(활동/신청/개설/반려/신청 라인/개설 라인) + 수동 추가(자동완성 + 추가).
@@ -374,28 +375,39 @@ export default function CompetencyApplicantSection({
   }, [fetchData, refreshKey]);
 
   // 개설 가능한 competency master line 목록(실무 역량 허브). 활성 + (org 일치 OR 공통)만.
-  // ⚠ 엔드포인트에 organization 을 넘기면 org 일치만 반환(공통 제외)되므로, 전체를 받아 클라이언트에서
-  //    (org 일치 OR 공통) 으로 필터한다 — 고객 가시성(common=전 org 노출)과 정합.
+  //   조회 원천 = listCompetencyLineMasters(= bridged line_registrations, id=bridged_master_id).
+  //   서버가 organization_slug ∈ {org, 'common'} 로 스코프하므로 org 를 넘긴다(2026-07-22).
+  //     · 종전에는 "org 를 넘기면 공통이 빠진다"는 이유로 전량을 받아 클라에서 걸렀는데,
+  //       서버가 org+common 으로 고쳐진 뒤로는 타 조직 마스터까지 내려받는 과다 조회일 뿐이다.
+  //     · 클라이언트 필터는 방어적으로 유지한다(서버 스코프와 이중 게이트).
+  //   cache: "no-store" — bridge 직후 돌아왔을 때 브라우저 캐시로 옛 목록이 재사용되지 않게 한다.
+  //   (state 를 직접 쓰지 않고 목록을 반환한다 — 호출부가 취소 여부를 판단해 반영.)
+  const loadMasters = useCallback(async (): Promise<MasterItem[]> => {
+    try {
+      const qs = org ? `?organization=${encodeURIComponent(org)}` : "";
+      const res = await fetch(`/api/admin/cluster4/competency-line-masters${qs}`, {
+        cache: "no-store",
+      });
+      const json = await res.json();
+      return (json?.success ? json.data ?? [] : []).filter(
+        (m: MasterItem) =>
+          m.isActive && (!m.organizationSlug || m.organizationSlug === "common" || m.organizationSlug === org),
+      );
+    } catch {
+      return [];
+    }
+  }, [org]);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        const res = await fetch(`/api/admin/cluster4/competency-line-masters`);
-        const json = await res.json();
-        if (cancelled) return;
-        const rows: MasterItem[] = (json?.success ? json.data ?? [] : []).filter(
-          (m: MasterItem) =>
-            m.isActive && (!m.organizationSlug || m.organizationSlug === "common" || m.organizationSlug === org),
-        );
-        setMasters(rows);
-      } catch {
-        if (!cancelled) setMasters([]);
-      }
+      const rows = await loadMasters();
+      if (!cancelled) setMasters(rows);
     })();
     return () => {
       cancelled = true;
     };
-  }, [org]);
+  }, [loadMasters, refreshKey]);
 
   // 주차 라벨 맵 — weeks-options(읽기 전용, 기존 엔드포인트)로 weekId→메타 resolve.
   //   신청 API 응답은 개설 대상 주차 1개(week_id)만 돌려주므로 그 주차 라벨만 있으면 되지만,
@@ -533,7 +545,10 @@ export default function CompetencyApplicantSection({
     setAddMasterId("");
     setAddLink("");
     setAddOpen(true);
-  }, [selectedCrew]);
+    // 팝업을 열 때마다 라인 옵션을 재조회한다 — 화면을 열어둔 채 다른 탭에서 [개설 연결]
+    //   (bridge) 한 신규 라인이 mount 시점 state 에 갇혀 누락되지 않게 한다.
+    void loadMasters().then(setMasters);
+  }, [selectedCrew, loadMasters]);
 
   const submitAdd = useCallback(async () => {
     if (!org || !selectedCrew) return;
@@ -560,18 +575,18 @@ export default function CompetencyApplicantSection({
           submission_link: addLink.trim() || null,
         }),
       });
-      const json = await res.json();
-      if (!json.success) {
-        toast("error", "수동 추가 실패");
-        return;
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        throw apiErrorFrom(res, json, "수동 추가에 실패했습니다");
       }
       toast("success", "승인 명단에 추가되었습니다");
       setAddOpen(false);
       setSelectedCrew(null);
       setQ("");
       await fetchData();
-    } catch {
-      toast("error", "수동 추가 중 오류");
+    } catch (err) {
+      console.error("[competency] manual add failed", err);
+      toast("error", getApiErrorMessage(err, "수동 추가에 실패했습니다"));
     } finally {
       setSaving(false);
     }
@@ -585,15 +600,15 @@ export default function CompetencyApplicantSection({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(patch),
         });
-        const json = await res.json();
-        if (!json.success) {
-          toast("error", "변경 실패");
-          return false;
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json.success) {
+          throw apiErrorFrom(res, json, "변경에 실패했습니다");
         }
         await fetchData();
         return true;
-      } catch {
-        toast("error", "변경 중 오류");
+      } catch (err) {
+        console.error("[competency] application patch failed", err);
+        toast("error", getApiErrorMessage(err, "변경에 실패했습니다"));
         return false;
       }
     },
@@ -607,15 +622,15 @@ export default function CompetencyApplicantSection({
       const res = await fetch(`/api/admin/cluster4/competency/applications/${app.id}`, {
         method: "DELETE",
       });
-      const json = await res.json();
-      if (!json.success) {
-        toast("error", "삭제 실패");
-        return;
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        throw apiErrorFrom(res, json, "삭제에 실패했습니다");
       }
       toast("success", "수동 추가 항목이 삭제되었습니다");
       await fetchData();
-    } catch {
-      toast("error", "삭제 중 오류");
+    } catch (err) {
+      console.error("[competency] application delete failed", err);
+      toast("error", getApiErrorMessage(err, "삭제에 실패했습니다"));
     } finally {
       setSaving(false);
     }

@@ -1010,6 +1010,11 @@ export default function LineRegistrationInfoManager({
                           </span>
                         ) : (
                           <div className="flex flex-col items-center gap-1">
+                            {/* 등록은 됐으나 개설 목록에 연결되지 않은 상태 — 자동 연결 실패분의
+                                복구 경로. 상태를 문구로 먼저 밝히고 재시도 버튼을 준다. */}
+                            <span className="text-[11px] leading-tight text-amber-700">
+                              등록 완료 · 개설 미연결
+                            </span>
                             <Button
                               type="button"
                               variant="outline"

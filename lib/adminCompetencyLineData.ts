@@ -54,10 +54,16 @@ export async function listCompetencyLineMasters(
         .from("line_registrations")
         .select(selectStr)
         .eq("hub", "competency")
+        // 비활성 라인은 개설 후보에서 제외 — 서버가 완성된 목록을 돌려준다(클라 필터는 이중 게이트).
+        .eq("is_active", true)
         .not("bridged_master_id", "is", null)
         .order("line_code", { ascending: true });
       if (organizationSlug) {
-        q = q.eq("organization_slug", organizationSlug);
+        // 조직 스코프 = 해당 조직 + 공통(common). 라인 등록 목록(listLineRegistrations)과 동일 기준.
+        //   · 종전 .eq() 는 common 라인을 통째로 누락시켰다 — 역량 라인은 현재 전량 common 이라
+        //     조직을 지정해 조회하면 후보가 0건이 됐다.
+        //   · organization_slug IS NULL 은 포함하지 않는다 — 소속 클럽은 필수라 null 은 이상 데이터다.
+        q = q.in("organization_slug", [organizationSlug, "common"]);
       }
       return q;
     },
@@ -131,7 +137,8 @@ export async function listCompetencyLineMasters(
     .order("line_code", { ascending: true });
 
   if (organizationSlug) {
-    query = query.eq("organization_slug", organizationSlug);
+    // registrations 경로와 동일 스코프(org + common) — fallback 이 발동해도 노출 집합이 바뀌지 않게.
+    query = query.in("organization_slug", [organizationSlug, "common"]);
   }
 
   const { data, error } = await query;

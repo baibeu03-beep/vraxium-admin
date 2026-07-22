@@ -69,6 +69,7 @@ import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 import { useToast } from "@/components/ui/toast";
 import { useActionToast } from "@/lib/actionToast";
 import { LINE_OPENING_RESULT } from "@/lib/lineOpeningResultMessages";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 // ──────────────────────────────────────────────────────────────
 // Types
@@ -129,6 +130,10 @@ type ActivityType = {
   description: string | null;
   isActive: boolean;
   hasActiveLine: boolean;
+  // 라인 등록 원장(line_registrations, hub=info)이 이 활동유형에 부여한 정식 라인명/코드.
+  //   /admin/lines/register 등록 결과가 개설 화면에 반영되는 연결점. 미등록이면 null.
+  registeredLineName?: string | null;
+  registeredLineCode?: string | null;
 };
 
 type UserItem = {
@@ -254,16 +259,19 @@ function ImageUploadSlot({
           method: "POST",
           body: formData,
         });
-        const json = await res.json();
-
-        if (!json.success) {
-          void adminDialog.alert({ variant: "danger", title: "업로드 실패", description: json.error || "업로드에 실패했습니다" });
-          return;
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json.success) {
+          throw apiErrorFrom(res, json, "업로드에 실패했습니다");
         }
 
         onUpload({ url: json.data.url, name: file.name });
-      } catch {
-        void adminDialog.alert({ variant: "danger", title: "업로드 오류", description: "업로드 중 오류가 발생했습니다" });
+      } catch (err) {
+        console.error("[info] image upload failed", err);
+        void adminDialog.alert({
+          variant: "danger",
+          title: "업로드 실패",
+          description: getApiErrorMessage(err, "업로드에 실패했습니다"),
+        });
       } finally {
         setUploading(false);
         if (fileRef.current) fileRef.current.value = "";
@@ -528,14 +536,14 @@ function LineDetailModal({
           is_active: isActive,
         }),
       });
-      const json = await res.json();
-      if (!json.success) {
-        setError(json.error ?? "저장에 실패했습니다");
-        return;
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        throw apiErrorFrom(res, json, "저장에 실패했습니다");
       }
       onSaved("라인 정보가 수정되었습니다");
-    } catch {
-      setError("저장 중 오류가 발생했습니다");
+    } catch (err) {
+      console.error("[info] line edit save failed", err);
+      setError(getApiErrorMessage(err, "저장에 실패했습니다"));
     } finally {
       setSaving(false);
     }
@@ -975,7 +983,13 @@ export default function PracticalInfoManager() {
             readScopeMode(new URLSearchParams(window.location.search)),
           ),
         ),
-        fetch("/api/admin/cluster4/activity-types?cluster=practical_info"),
+        // organization 전달 — 서버가 라인 등록 원장(hub=info)의 정식 라인명/코드를 org 우선으로
+        //   병합해 돌려준다(등록 결과가 개설 화면에 반영되는 연결점). 미지정이면 공통 기준.
+        fetch(
+          `/api/admin/cluster4/activity-types?cluster=practical_info${
+            metaOrg ? `&organization=${encodeURIComponent(metaOrg)}` : ""
+          }`,
+        ),
         // ⚠ QA 누수 차단: 개설 대상 크루(users)는 mode 를 전달해야 백엔드 scope(테스트 유저만)와 정합.
         //   미전달 시 operating 기본 → 테스트 모드 화면에 실사용자 노출.
         fetch(
@@ -1023,8 +1037,8 @@ export default function PracticalInfoManager() {
       const usersJson = await usersRes.json();
       if (usersJson.success) setUsers(usersJson.data);
     } catch (error) {
-      console.error("Failed to fetch meta", error);
-      toast("error", "데이터를 불러오는데 실패했습니다");
+      console.error("[info] meta load failed", error);
+      toast("error", getApiErrorMessage(error, "데이터를 불러오는데 실패했습니다"));
     }
   }, []);
 
@@ -1286,8 +1300,8 @@ export default function PracticalInfoManager() {
       await fetchLines(activeTypeId, selectedWeekId);
       await fetchWeekLines(selectedWeekId);
     } catch (error) {
-      console.error("Save failed", error);
-      toast("error", "저장 중 오류가 발생했습니다");
+      console.error("[info] open save failed", error);
+      toast("error", getApiErrorMessage(error, "저장 중 오류가 발생했습니다"));
     } finally {
       setSaving(false);
     }
@@ -1886,13 +1900,19 @@ export default function PracticalInfoManager() {
                   role="tab"
                   aria-selected={selected}
                   onClick={() => switchTab(t.id)}
-                  title={
+                  title={[
+                    // 등록 원장이 부여한 정식 라인명/코드(있으면) — 등록 결과가 이 화면에 반영되는 지점.
+                    t.registeredLineCode
+                      ? `정식 라인: ${t.registeredLineName ?? t.name} (${t.registeredLineCode})`
+                      : null,
                     status === "notOpen"
                       ? "이번 주 개설 대상이 아닙니다(미오픈)"
                       : status === "created"
                         ? "선택 주차에 개설 완료된 라인입니다"
-                        : undefined
-                  }
+                        : null,
+                  ]
+                    .filter(Boolean)
+                    .join("\n") || undefined}
                   className={cn(
                     // 캡슐형 — 둥근 pill + 테두리. 선택 여부만 "전체 색"을 좌우, 상태는 우측 배지로.
                     "relative inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm transition-colors",

@@ -21,8 +21,10 @@ import {
 import {
   LineRegistrationError,
   createLineRegistration,
+  getLineRegistration,
   listLineRegistrations,
 } from "@/lib/adminLineRegistrationsData";
+import { LineBridgeError, bridgeLineRegistration } from "@/lib/adminLineBridgeData";
 import {
   deriveLineConfigKey,
   upsertLinePointConfig,
@@ -193,5 +195,55 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  return Response.json({ success: true, data: registration, pointConfig }, { status: 201 });
+  // ── 개설 연결(bridge) 자동 실행 — 경험/역량 전용 ──────────────────────────────
+  //   목적: "정상 등록 = 관련 개설 목록에서 바로 쓸 수 있음" 계약을 서버에서 완결한다.
+  //     경험/역량 개설 목록은 bridged_master_id IS NOT NULL 인 행만 반환하고 DTO 의 id 도
+  //     bridged_master_id 라, 연결 전에는 등록 라인이 개설 후보/저장 FK 어디에도 등장할 수 없다.
+  //
+  //   ⚠ 새 로직을 만들지 않는다 — 기존 bridgeLineRegistration() 을 그대로 호출한다.
+  //     (마스터 find-or-create·무덮어쓰기·멱등(already_bridged)·info 400 거부·org 미지정 400 ·
+  //      마스터 UUID 체계가 전부 그 함수의 기존 계약이다.)
+  //   · info: 적용하지 않는다 — 개설 단위가 activity_types 이며 마스터가 없다(함수도 400 으로 거부).
+  //   · career: 이번 단계 대상 아님(등록 화면의 라인 정보 탭에서도 제외되는 허브).
+  //   · 조직 권한은 위 createAccess 게이트에서 이미 통과했다(추가 검사 불필요·중복 금지).
+  //
+  //   부분 성공 정책: 등록(위)은 이미 성공했다. 연결만 실패하면 롤백하지 않고 registration 을
+  //     유지한 채 bridge.linked=false + reason 을 실어 보낸다 → 클라이언트가 "등록 완료 · 개설
+  //     미연결" 로 안내하고, /admin/lines/info 의 [개설 연결] 버튼이 재시도 경로가 된다.
+  const AUTO_BRIDGE_HUBS: ReadonlyArray<LineRegistrationHub> = ["experience", "competency"];
+  let bridge: {
+    linked: boolean;
+    action?: "created" | "found" | "already_bridged";
+    reason?: string;
+  } = { linked: false };
+  let finalRegistration = registration;
+
+  if (AUTO_BRIDGE_HUBS.includes(registration.hub)) {
+    try {
+      const result = await bridgeLineRegistration(registration.id);
+      bridge = { linked: true, action: result.action };
+      // 연결 결과(bridgedMasterId/bridgedAt)를 응답 DTO 에 반영 — 클라이언트가 재조회 없이
+      //   최종 상태를 그대로 쓰도록. DTO 모양/키는 불변(값만 채워진다).
+      try {
+        finalRegistration = await getLineRegistration(registration.id);
+      } catch {
+        /* 재조회 실패는 치명적이지 않다 — 연결 자체는 성공했고 목록 조회로 확인된다. */
+      }
+    } catch (error) {
+      console.warn("[lines/registrations POST] auto bridge failed:", error);
+      const status = error instanceof LineBridgeError ? error.status : 500;
+      bridge = {
+        linked: false,
+        reason: publicErrorMessage(error, status, "개설 목록 연결에 실패했습니다."),
+      };
+    }
+  } else {
+    // info/career — 연결 대상 아님. linked=false 지만 reason 없음(실패가 아니라 "해당 없음").
+    bridge = { linked: false };
+  }
+
+  return Response.json(
+    { success: true, data: finalRegistration, pointConfig, bridge },
+    { status: 201 },
+  );
 }

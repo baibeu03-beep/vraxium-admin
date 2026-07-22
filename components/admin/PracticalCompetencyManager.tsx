@@ -42,6 +42,7 @@ import { OUTPUT_IMAGE_CAPTION_MAX_LENGTH } from "@/lib/cluster4OutputImages";
 import { useToast } from "@/components/ui/toast";
 import { useActionToast } from "@/lib/actionToast";
 import { LINE_OPENING_RESULT } from "@/lib/lineOpeningResultMessages";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 const ORG_OPTIONS: Array<{ value: string; label: string }> = [
   ...organizationSelectOptions(),
@@ -142,10 +143,19 @@ function ImageUploadSlot({ label, image, caption, onUpload, onRemove, onCaptionC
     try {
       const fd = new FormData(); fd.append("file", file);
       const res = await fetch("/api/admin/cluster4/upload-image", { method: "POST", body: fd });
-      const json = await res.json();
-      if (!json.success) { void adminDialog.alert({ variant: "danger", title: "업로드 실패", description: json.error || "업로드에 실패했습니다." }); return; }
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        throw apiErrorFrom(res, json, "업로드에 실패했습니다.");
+      }
       onUpload({ url: json.data.url, name: file.name });
-    } catch { void adminDialog.alert({ variant: "danger", title: "업로드 오류", description: "업로드 중 오류가 발생했습니다." }); } finally { setUploading(false); if (fileRef.current) fileRef.current.value = ""; }
+    } catch (err) {
+      console.error("[competency] image upload failed", err);
+      void adminDialog.alert({
+        variant: "danger",
+        title: "업로드 실패",
+        description: getApiErrorMessage(err, "업로드에 실패했습니다."),
+      });
+    } finally { setUploading(false); if (fileRef.current) fileRef.current.value = ""; }
   }, [onUpload]);
 
   return (
@@ -298,11 +308,15 @@ export default function PracticalCompetencyManager() {
       const linesQs = new URLSearchParams({ partType: "competency", limit: "100" });
       const urlOrg = readOrgParam(new URLSearchParams(window.location.search));
       if (urlOrg) linesQs.set("organization", urlOrg);
+      // 라인 master 조회 스코프 — URL ?org(조직 분기 진입) 우선, 없으면 관리자 소속 org.
+      //   서버는 organization_slug ∈ {org, 'common'} 로 조회한다(라인 등록 목록과 동일 기준).
+      //   둘 다 없으면(통합 컨텍스트) 미전달 → 전체 조직(기존 동작 유지).
+      const masterOrg = urlOrg ?? org;
+      const masterOrgParam = masterOrg ? `?organization=${masterOrg}` : "";
       // 팀/라인/크루 모집단 = 서버 QA_HIDE_REAL_USERS 스위치 기준(QA=테스트 / 종료 후 실사용자). 클라 강제 없음.
       const [teamsRes, mastersRes, linesRes, crewsRes] = await Promise.all([
         fetch(`/api/admin/cluster4/teams${orgParam ?? ""}`),
-        // 라인 등록 데이터는 조직별 권한 분리 전 단계라 전체 조직을 조회한다.
-        fetch(`/api/admin/cluster4/competency-line-masters`),
+        fetch(`/api/admin/cluster4/competency-line-masters${masterOrgParam}`),
         fetch(`/api/admin/cluster4/lines?${linesQs.toString()}`),
         fetch(`/api/admin/cluster4/crews${orgParam ? orgParam + "&" : "?"}status=active`),
       ]);
@@ -310,7 +324,10 @@ export default function PracticalCompetencyManager() {
       const mastersJson = await mastersRes.json(); if (mastersJson.success) setMasters(mastersJson.data);
       const linesJson = await linesRes.json(); if (linesJson.success) setExistingLines(linesJson.data?.rows ?? linesJson.data ?? []);
       const crewsJson = await crewsRes.json(); if (crewsJson.success) setCrews(crewsJson.data);
-    } catch { toast("error", "데이터를 불러오는데 실패했습니다"); } finally { setLoading(false); }
+    } catch (err) {
+      console.error("[competency] initial data load failed", err);
+      toast("error", getApiErrorMessage(err, "데이터를 불러오는데 실패했습니다"));
+    } finally { setLoading(false); }
   }, []);
 
   // 레거시 3섹션 전용 초기 데이터(admin-org·teams·masters·lines·crews 등) — 숨김 phase 에선 호출 중단.
@@ -341,16 +358,32 @@ export default function PracticalCompetencyManager() {
       const payload: Record<string, unknown> = { organization_slug: orgSlug, line_code: mfLineCode.trim(), line_name: mfLineName.trim(), main_title: mfMainTitle.trim() || null, source_file_name: mfSourceFile.trim() || null };
       const url = editingMasterId ? `/api/admin/cluster4/competency-line-masters/${editingMasterId}` : "/api/admin/cluster4/competency-line-masters";
       const res = await fetch(url, { method: editingMasterId ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-      const json = await res.json();
-      if (!json.success) { console.error("[competency] save failed", json?.error); t.error("save", { status: res.status }); return; }
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        throw apiErrorFrom(res, json, "저장에 실패했습니다");
+      }
       toast("success", editingMasterId ? "라인이 수정되었습니다" : "라인이 등록되었습니다");
       resetMasterForm(); await fetchInitialData();
-    } catch { toast("error", "저장 중 오류가 발생했습니다"); } finally { setSaving(false); }
+    } catch (err) {
+      console.error("[competency] master save failed", err);
+      toast("error", getApiErrorMessage(err, "저장에 실패했습니다"));
+    } finally { setSaving(false); }
   }, [mfOrgSlug, mfLineCode, mfLineName, mfMainTitle, mfSourceFile, adminOrg, editingMasterId, resetMasterForm, fetchInitialData]);
 
   const handleDeleteMaster = useCallback(async (id: string) => {
     if (!(await adminDialog.confirm({ variant: "danger", title: "라인 삭제", description: "이 라인을 삭제하시겠습니까?", confirmLabel: "삭제" }))) return;
-    try { const res = await fetch(`/api/admin/cluster4/competency-line-masters/${id}`, { method: "DELETE" }); const json = await res.json(); if (!json.success) { console.error("[competency] delete failed", json?.error); t.error("delete", { status: res.status }); return; } toast("success", "삭제되었습니다"); await fetchInitialData(); } catch { toast("error", "삭제 중 오류"); }
+    try {
+      const res = await fetch(`/api/admin/cluster4/competency-line-masters/${id}`, { method: "DELETE" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        throw apiErrorFrom(res, json, "삭제에 실패했습니다");
+      }
+      toast("success", "삭제되었습니다");
+      await fetchInitialData();
+    } catch (err) {
+      console.error("[competency] master delete failed", err);
+      toast("error", getApiErrorMessage(err, "삭제에 실패했습니다"));
+    }
   }, [fetchInitialData]);
 
   // Line opening
@@ -417,12 +450,17 @@ export default function PracticalCompetencyManager() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const json = await res.json();
-      if (!json.success) { console.error("[competency] open failed", json?.error); t.error("open", { status: res.status }); return; }
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        throw apiErrorFrom(res, json, "개설에 실패했습니다");
+      }
       console.warn("[line-opening] competency create", { targetCount: json.data?.targetCount ?? 0 });
       toast("success", LINE_OPENING_RESULT.openSuccess);
       resetLineForm(); setLineRefreshKey((k) => k + 1); await fetchInitialData();
-    } catch { toast("error", "저장 중 오류"); } finally { setSaving(false); }
+    } catch (err) {
+      console.error("[competency] open failed", err);
+      toast("error", getApiErrorMessage(err, "개설에 실패했습니다"));
+    } finally { setSaving(false); }
   }, [selectedWeek, selectedWeekId, canOpenSelected, selectedMaster, lineAssetValid, lineAssetCount, lineLink1, lineLabel1, lineLink2, lineLabel2, lineImage1, lineImage2, lineCaption1, lineCaption2, selectedUserIds, resetLineForm, fetchInitialData]);
 
   // 카페 댓글 닉네임 수집 (Phase 1 — read-only, DB/snapshot 미관여)

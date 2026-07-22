@@ -81,9 +81,14 @@ export async function listExperienceLineOptionsForCategory(
     .eq("line_type", koLineType)
     .not("bridged_master_id", "is", null)
     .order("line_code", { ascending: true });
-  query = org
-    ? query.or(`organization_slug.is.null,organization_slug.eq.${org}`)
-    : query.is("organization_slug", null);
+  // 조직 스코프 = 그 조직 + 공통('common'). 라인 등록 목록·개설 후보와 동일 기준.
+  //   ⚠ 종전에는 "공통 = organization_slug IS NULL" 로 봐서 'common' 슬러그 행을 제외했다.
+  //     소속 클럽 필수화(2026-07-13) 이후 NULL 행은 0건이라 공통 라인만 통째로 누락됐다.
+  //   org 미상이면 옵션을 만들지 않는다(교차 조직 노출 방지 — 종전 `.is(null)` 과 동일 결과).
+  if (!org) {
+    return { ok: true, category, label: resolveExperienceTypeLabel(category) ?? category, options: [] };
+  }
+  query = query.in("organization_slug", [org, "common"]);
 
   const { data, error } = await query;
   if (error) {

@@ -50,6 +50,20 @@ export function useAdminOrgAccess(): AdminOrgAccessValue {
   return useContext(AdminOrgAccessContext);
 }
 
+// 행의 org(공통 "common" · 미지정 null 포함)에 대한 쓰기 허용 여부 — UI 게이트용.
+//   서버 SoT lib/adminOrgAccess.isRowOrgAllowed 와 **동일 규칙**을 그대로 미러한다
+//   (전체 허용이면 true · 그 외 common/미지정은 교차 조직이라 차단 · 나머지는 허용 목록 포함 여부).
+//   서버 모듈은 supabaseAdmin(server-only)을 import 하므로 클라이언트에서 직접 쓸 수 없어 여기 둔다.
+//   ⚠ 방어의 한 겹일 뿐이다 — 실제 차단은 API 가 재검증한다(bridge 라우트의 403).
+export function rowOrgAllowed(
+  access: AdminOrgAccessValue,
+  org: string | null | undefined,
+): boolean {
+  if (access.isAllOrgs) return true;
+  if (org == null || org === "common") return false;
+  return (access.allowedOrgs as readonly string[]).includes(org);
+}
+
 export type GatedOrgResult = {
   allowedOrgs: OrganizationSlug[];
   isAllOrgs: boolean;

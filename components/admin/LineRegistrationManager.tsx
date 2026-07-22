@@ -424,16 +424,37 @@ export default function LineRegistrationManager() {
         throw apiErrorFrom(res, json, "라인 등록에 실패했습니다.");
       }
       const pc = json.pointConfig as { saved: boolean; reason?: string } | undefined;
+      // 개설 연결(bridge) 결과 — 경험/역량만 자동 연결 대상. info 는 linked=false·reason 없음.
+      const br = json.bridge as
+        | { linked: boolean; action?: string; reason?: string }
+        | undefined;
+      const autoBridgeHub = hub === "experience" || hub === "competency";
+      // 어떤 허브로 등록됐는지 결과 문구에 명시한다 — 허브를 잘못 고른 채 등록하고
+      //   "다른 허브 목록에 왜 안 보이지"로 이어지는 오인을 결과 시점에 차단한다.
+      //   (허브를 고르면 라인 종류가 그 허브의 첫 값으로 자동 지정되므로 오선택을 눈치채기 어렵다.)
+      //   (이 시점 hub 는 위 검증을 통과해 이미 실제 허브로 좁혀져 있다.)
+      const registeredAs = `[${LINE_REGISTRATION_HUB_LABEL[hub]}] ${lineCode.trim()} `;
       // 포인트 입력 여부는 리셋 전에 판단(handleReset 이 상태를 비움).
       const enteredPoints = pointA !== "" || pointB !== "";
       // handleReset 이 인라인 검증 banner 를 지우므로 리셋 후에 결과 토스트를 띄운다.
       handleReset();
-      if (enteredPoints && !pc?.saved) {
+      if (autoBridgeHub && !br?.linked) {
+        // 등록 완료 · 개설 미연결 — registration 은 유지된다. 복구 경로를 함께 안내한다.
+        console.warn("line registered but bridge failed", br?.reason);
+        t.raw(
+          "warning",
+          `${registeredAs}라인은 등록되었지만 개설 목록 연결에 실패했습니다. 라인 정보에서 다시 연결해주세요.${
+            br?.reason ? ` (${br.reason})` : ""
+          }`,
+        );
+      } else if (enteredPoints && !pc?.saved) {
         // 라인은 등록됐지만 강화 포인트 저장은 실패 — 상세 사유는 콘솔에만.
         console.warn("line registered but point config not saved", pc?.reason);
         t.raw("warning", "라인은 등록되었지만 강화 포인트는 저장되지 않았습니다. 다시 시도해주세요.");
+      } else if (autoBridgeHub) {
+        t.success("create", `${registeredAs}라인이 등록되어 관련 개설 목록에 반영되었습니다.`);
       } else {
-        t.success("create", "라인이 등록되었습니다. 목록은 라인 정보 페이지에서 확인하세요.");
+        t.success("create", `${registeredAs}라인이 등록되었습니다. 목록은 라인 정보 페이지에서 확인하세요.`);
       }
     } catch (err) {
       // 개발자용 상세(stack·원본 payload)는 console 로만. 사용자 toast 는 안전 문구만.

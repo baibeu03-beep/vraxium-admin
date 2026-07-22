@@ -81,6 +81,7 @@ import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { useToast } from "@/components/ui/toast";
 import { useActionToast } from "@/lib/actionToast";
 import { lineOpenSuccessMessage } from "@/lib/lineOpeningResultMessages";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 const ORG_OPTIONS: Array<{ value: string; label: string }> = [
   ...organizationSelectOptions(),
@@ -298,14 +299,18 @@ function ImageUploadSlot({
           method: "POST",
           body: formData,
         });
-        const json = await res.json();
-        if (!json.success) {
-          void adminDialog.alert({ variant: "danger", title: "업로드 실패", description: json.error || "업로드에 실패했습니다" });
-          return;
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json.success) {
+          throw apiErrorFrom(res, json, "업로드에 실패했습니다");
         }
         onUpload({ url: json.data.url, name: file.name });
-      } catch {
-        void adminDialog.alert({ variant: "danger", title: "업로드 오류", description: "업로드 중 오류가 발생했습니다" });
+      } catch (err) {
+        console.error("[experience] image upload failed", err);
+        void adminDialog.alert({
+          variant: "danger",
+          title: "업로드 실패",
+          description: getApiErrorMessage(err, "업로드에 실패했습니다"),
+        });
       } finally {
         setUploading(false);
         if (fileRef.current) fileRef.current.value = "";
@@ -841,11 +846,15 @@ export default function PracticalExperienceManager() {
       if (initialWeekId && !selectedWeekId) setSelectedWeekId(initialWeekId);
 
       const orgParam = org ? `?organization=${org}` : "";
+      // 라인 master 조회 스코프 — URL ?org(조직 분기 진입) 우선, 없으면 관리자 소속 org.
+      //   서버는 organization_slug ∈ {org, 'common'} 로 조회한다(라인 등록 목록과 동일 기준).
+      //   둘 다 없으면(통합 컨텍스트) 미전달 → 전체 조직(기존 동작 유지).
+      const masterOrg = readOrgParam(new URLSearchParams(window.location.search)) ?? org;
+      const masterOrgParam = masterOrg ? `?organization=${masterOrg}` : "";
       // 팀/크루 모집단 = 서버 QA_HIDE_REAL_USERS 스위치 기준(QA=테스트 / 종료 후 실사용자). 클라 강제 없음.
       const [teamsRes, mastersRes, crewsRes] = await Promise.all([
         fetch(`/api/admin/cluster4/teams${orgParam}`),
-        // 라인 등록 데이터는 조직별 권한 분리 전 단계라 전체 조직을 조회한다.
-        fetch(`/api/admin/cluster4/experience-line-masters`),
+        fetch(`/api/admin/cluster4/experience-line-masters${masterOrgParam}`),
         fetch(
           `/api/admin/cluster4/crews${orgParam ? orgParam + "&" : "?"}status=active`,
         ),
@@ -874,8 +883,8 @@ export default function PracticalExperienceManager() {
         if (summaryJson.success) setSummary(summaryJson.data);
       }
     } catch (error) {
-      console.error("Failed to fetch data", error);
-      toast("error", "데이터를 불러오는데 실패했습니다");
+      console.error("[experience] initial data load failed", error);
+      toast("error", getApiErrorMessage(error, "데이터를 불러오는데 실패했습니다"));
     } finally {
       setLoading(false);
     }
@@ -973,9 +982,7 @@ export default function PracticalExperienceManager() {
       });
       const json = await res.json();
       if (!json.success) {
-        console.error("[experience] save failed", json?.error);
-        t.error("save", { status: res.status });
-        return;
+        throw apiErrorFrom(res, json, "저장에 실패했습니다");
       }
       toast(
         "success",
@@ -983,8 +990,9 @@ export default function PracticalExperienceManager() {
       );
       resetMasterForm();
       await fetchInitialData();
-    } catch {
-      toast("error", "저장 중 오류가 발생했습니다");
+    } catch (err) {
+      console.error("[experience] master save failed", err);
+      toast("error", getApiErrorMessage(err, "저장에 실패했습니다"));
     } finally {
       setSaving(false);
     }
@@ -1009,16 +1017,15 @@ export default function PracticalExperienceManager() {
         const res = await fetch(`/api/admin/cluster4/experience-line-masters/${id}`, {
           method: "DELETE",
         });
-        const json = await res.json();
-        if (!json.success) {
-          console.error("[experience] delete failed", json?.error);
-          t.error("delete", { status: res.status });
-          return;
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json.success) {
+          throw apiErrorFrom(res, json, "삭제에 실패했습니다");
         }
         toast("success", "삭제되었습니다");
         await fetchInitialData();
-      } catch {
-        toast("error", "삭제 중 오류가 발생했습니다");
+      } catch (err) {
+        console.error("[experience] master delete failed", err);
+        toast("error", getApiErrorMessage(err, "삭제에 실패했습니다"));
       }
     },
     [fetchInitialData, confirm, toast],
@@ -1209,18 +1216,17 @@ export default function PracticalExperienceManager() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
           });
-          const json = await res.json();
-          if (!json.success) {
-            console.error("[experience] save failed", json?.error);
-            t.error("save", { status: res.status });
-            return;
+          const json = await res.json().catch(() => ({}));
+          if (!res.ok || !json.success) {
+            throw apiErrorFrom(res, json, "저장에 실패했습니다");
           }
           toast("success", asSubmit ? "제출되었습니다" : "임시 저장되었습니다");
         }
         resetDraftForm();
         await refetchDrafts();
-      } catch {
-        toast("error", "저장 중 오류가 발생했습니다");
+      } catch (err) {
+        console.error("[experience] draft save failed", err);
+        toast("error", getApiErrorMessage(err, "저장에 실패했습니다"));
       } finally {
         setSaving(false);
       }
@@ -1293,17 +1299,16 @@ export default function PracticalExperienceManager() {
             }),
           },
         );
-        const json = await res.json();
-        if (!json.success) {
-          console.error("[experience] review failed", json?.error);
-          t.error("review", { status: res.status });
-          return;
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json.success) {
+          throw apiErrorFrom(res, json, "검수에 실패했습니다");
         }
         toast("success", decision === "approved" ? "승인되었습니다" : "반려되었습니다");
         closeReviewDetail();
         await refetchDrafts();
-      } catch {
-        toast("error", "검수 중 오류가 발생했습니다");
+      } catch (err) {
+        console.error("[experience] review failed", err);
+        toast("error", getApiErrorMessage(err, "검수에 실패했습니다"));
       } finally {
         setSaving(false);
       }
@@ -1341,11 +1346,9 @@ export default function PracticalExperienceManager() {
           body: JSON.stringify({ draft_ids: Array.from(openSelectedIds) }),
         },
       );
-      const json = await res.json();
-      if (!json.success) {
-        console.error("[experience] open failed", json?.error);
-        t.error("open", { status: res.status });
-        return;
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        throw apiErrorFrom(res, json, "개설에 실패했습니다");
       }
       const data = json.data;
       const warnings: string[] = json.warnings ?? data?.warnings ?? [];
@@ -1359,8 +1362,9 @@ export default function PracticalExperienceManager() {
       toast("success", lineOpenSuccessMessage(warnings.length > 0));
       setOpenSelectedIds(new Set());
       await refetchDrafts();
-    } catch {
-      toast("error", "개설 중 오류가 발생했습니다");
+    } catch (err) {
+      console.error("[experience] open failed", err);
+      toast("error", getApiErrorMessage(err, "개설에 실패했습니다"));
     } finally {
       setSaving(false);
     }

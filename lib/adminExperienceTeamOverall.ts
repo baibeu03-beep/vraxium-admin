@@ -977,7 +977,9 @@ async function loadRegLinesByCategory(
   organization: string,
 ): Promise<{ byCategory: Map<ExperienceOverallCategory, RegLine[]>; }> {
   const byCategory = new Map<ExperienceOverallCategory, RegLine[]>();
-  // org 전용 + 공통(org NULL) 둘 다.
+  // org 전용 + 공통('common') 둘 다. 라인 등록 목록·개설 후보와 동일 기준.
+  //   ⚠ 종전 `.or(org.is.null, org.eq.X)` 는 "공통 = NULL" 가정이라 'common' 행을 제외했다
+  //     (소속 클럽 필수화 이후 NULL 행 0건 → 공통 라인만 누락).
   const { data, error } = await supabaseAdmin
     .from("line_registrations")
     .select(
@@ -986,7 +988,7 @@ async function loadRegLinesByCategory(
     .eq("hub", "experience")
     .eq("is_active", true)
     .not("bridged_master_id", "is", null)
-    .or(`organization_slug.is.null,organization_slug.eq.${organization}`)
+    .in("organization_slug", [organization, "common"])
     .order("line_code", { ascending: true });
   if (error) {
     console.warn("[team-overall reflect] line_registrations 조회 실패", error.message);

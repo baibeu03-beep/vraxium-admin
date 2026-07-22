@@ -91,10 +91,15 @@ export async function listExperienceLineMasters(
         .from("line_registrations")
         .select(selectStr)
         .eq("hub", "experience")
+        // 비활성 라인은 개설 후보에서 제외 — 서버가 완성된 목록을 돌려준다(클라 필터는 이중 게이트).
+        .eq("is_active", true)
         .not("bridged_master_id", "is", null)
         .order("line_code", { ascending: true });
       if (organizationSlug) {
-        q = q.eq("organization_slug", organizationSlug);
+        // 조직 스코프 = 해당 조직 + 공통(common). 라인 등록 목록(listLineRegistrations)과 동일 기준.
+        //   · 종전 .eq() 는 common 라인을 통째로 누락시켰다(조직 화면에서 공통 라인 미노출).
+        //   · organization_slug IS NULL 은 포함하지 않는다 — 소속 클럽은 필수라 null 은 이상 데이터다.
+        q = q.in("organization_slug", [organizationSlug, "common"]);
       }
       return q;
     },
@@ -186,7 +191,8 @@ export async function listExperienceLineMasters(
     .order("line_code", { ascending: true });
 
   if (organizationSlug) {
-    query = query.eq("organization_slug", organizationSlug);
+    // registrations 경로와 동일 스코프(org + common) — fallback 이 발동해도 노출 집합이 바뀌지 않게.
+    query = query.in("organization_slug", [organizationSlug, "common"]);
   }
 
   const { data, error } = await query;
@@ -198,7 +204,10 @@ export async function listExperienceLineMasters(
 // ── 라인명 드롭다운 옵션(유형별) — 개설 신청/검수/서버 검증 공용 단일 원천 ─────────
 // /admin/lines/register 원장(line_registrations, hub=experience)에서 유형이 일치하는
 // 활성 라인만 5카테고리(도출/분석/견문/확장/관리)별로 그룹핑한다. value=bridged_master_id.
-//   · org 전용 + 공통(org NULL) 둘 다 포함(개설 완료 loadRegLinesByCategory 와 동일 스코프).
+//   · org 전용 + 공통(organization_slug='common') 둘 다 포함 — 라인 등록 목록과 동일 기준.
+//     ⚠ 종전에는 "공통 = organization_slug IS NULL" 로 보고 'common' 슬러그 행을 제외했다.
+//     소속 클럽 필수화(2026-07-13) 이후 NULL 행은 0건이라 그 규칙은 공통 라인을 통째로
+//     누락시키기만 했다. NULL 은 이제 이상 데이터로 보고 포함하지 않는다.
 //   · 화면 텍스트가 아닌 실제 line_type 코드로 매칭(요구사항 §2).
 //   · 반환 구조/필드는 org·mode 무관 동일(모든 경로가 이 함수만 사용 → DTO 이원화 금지).
 const KO_LINE_TYPE_TO_CATEGORY: Record<string, ExperienceOverallCategory> = {
@@ -228,9 +237,10 @@ async function loadExperienceLineOptionsAllCategories(
     .eq("is_active", true)
     .not("bridged_master_id", "is", null)
     .order("line_code", { ascending: true });
-  query = organizationSlug
-    ? query.or(`organization_slug.is.null,organization_slug.eq.${organizationSlug}`)
-    : query.is("organization_slug", null);
+  // org 미지정이면 옵션을 만들지 않는다 — 종전 `.is("organization_slug", null)` 이 (NULL 행 0건이라)
+  //   항상 빈 결과였던 것과 동일하게 유지한다. 교차 조직 라인이 새로 노출되지 않게 하는 게이트.
+  if (!organizationSlug) return out;
+  query = query.in("organization_slug", [organizationSlug, "common"]);
 
   const { data, error } = await query;
   if (error) {
