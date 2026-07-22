@@ -81,6 +81,29 @@ export async function GET(request: NextRequest, { params }: Params) {
 
   const action = request.nextUrl.searchParams.get("action");
   try {
+    if (action === "base") {
+      // base row 만 — 예비 전에도 크루 전원이 보여야 한다. 결과 overlay 는 비운다(전부 null).
+      //   ⚠ 지표 계산 자체는 preview 와 같은 경로를 타지만, 응답에서 결과 컬럼을 제거해
+      //     "예비 전에는 결과를 보여주지 않는다"는 계약을 서버가 강제한다.
+      const p0 = await computeCrewWeekPreview({
+        organization: t.organization,
+        weekId: t.weekId,
+        scope: t.scope,
+      });
+      const baseRows = p0.crewResults.map((c) => ({
+        ...c,
+        rank: null,
+        pointB: null,
+        pointC: null,
+        earnedPointA: null,
+        actCompletionRatePercent: null,
+        actTotalCount: null,
+        actSuccessCount: null,
+        weeklyGrowthRatePercent: null,
+        cumulativeSuccessWeeks: null,
+      }));
+      return Response.json({ success: true, data: { baseRows, scope: t.scope } });
+    }
     if (action === "preview") {
       // [3] 예비 검수 — 저장하지 않는다. 응답 자체가 결과다.
       const preview = await computeCrewWeekPreview({

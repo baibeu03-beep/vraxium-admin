@@ -12,6 +12,14 @@
 //   legacy run(snapshot_captured=false, 2026-07-22 이전 12행)은 snapshot 미지원으로 취급한다.
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { seasonKeyToHalfKey } from "@/lib/teamHalf";
+import { resolvePositionAtBatch } from "@/lib/positionResolver";
+import {
+  loadCrewShowcaseInputs,
+  computeRanks,
+  sortShowcaseRows,
+  assertActRateInvariants,
+} from "@/lib/crewWeekShowcase";
 import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import { organizationLabelKo, type OrganizationSlug } from "@/lib/organizations";
 import {
@@ -25,6 +33,13 @@ import {
   type CrewWeeklyMetricsInputs,
 } from "@/lib/crewWeeklyMetricsAggregation";
 import type { CrewWeeklyMetrics } from "@/lib/crewWeeklyMetricsAggregation";
+import {
+  loadCrewWeekTeamContext,
+  buildCrewWeekTeamResults,
+  assertTeamInvariants,
+  type CrewWeekTeamResultDto,
+  type TeamVerdict,
+} from "@/lib/crewWeekTeamProjection";
 
 // ── scope 어휘 변환 ─────────────────────────────────────────────────────────
 // DB(cluster4_week_finalize_runs.scope)는 StateScope 어휘 'operating' | 'qa' 를 쓰고,
@@ -64,6 +79,24 @@ export type CrewWeekCrewResultDto = {
   criterionPointA: number | null;
   earnedPointA: number | null;
   reasonCode: string;
+
+  // ── 크루 표 14컬럼 base row(예비 전에도 표시) ──────────────────────────
+  schoolName: string | null;
+  majorName: string | null;
+  /** week-effective 클래스 — team/part 와 같은 resolver 산출. */
+  classLabel: string | null;
+  grade: number | null;
+  gradeLabel: string | null;
+
+  // ── 결과 overlay(예비/공표에서만 채워짐. null = "-") ────────────────────
+  rank: number | null;
+  pointB: number | null;
+  pointC: number | null;
+  actCompletionRatePercent: number | null;
+  actTotalCount: number | null;
+  actSuccessCount: number | null;
+  weeklyGrowthRatePercent: number | null;
+  cumulativeSuccessWeeks: number | null;
 };
 
 // 지표별 집계 준비 상태 — "-"(미집계)와 0(실제 0)을 구분하기 위한 근거.
@@ -88,6 +121,8 @@ export type CrewWeekResultPayload = CrewWeeklyMetrics & {
   weekId: string;
   criterionPointA: number | null;
   crewResults: CrewWeekCrewResultDto[];
+  /** 팀 활동 결과 — 크루 결과와 **같은 시점·같은 verdict** 에서 파생(재계산 없음). */
+  teamResults: CrewWeekTeamResultDto[];
   calculatedAt: string;
   calculationVersion: number;
   sourceActivityDate: string;
@@ -117,12 +152,14 @@ type WeekMeta = {
   start_date: string;
   end_date: string;
   is_official_rest: boolean | null;
+  iso_year: number | null;
+  iso_week: number | null;
 };
 
 async function loadWeekMeta(weekId: string): Promise<WeekMeta | null> {
   const { data } = await supabaseAdmin
     .from("weeks")
-    .select("id,season_key,start_date,end_date,is_official_rest")
+    .select("id,season_key,start_date,end_date,is_official_rest,iso_year,iso_week")
     .eq("id", weekId)
     .maybeSingle();
   return (data as WeekMeta | null) ?? null;
@@ -176,6 +213,21 @@ function buildCrewResults(opts: {
       uwsStatus: inputs.statusByUserWeek.get(`${p.user_id}|${week.start_date}`) ?? null,
       criterionPointA,
       earnedPointA: pointsByUser.get(p.user_id) ?? null,
+      // base row 기본 정보 — showcase 로더가 이후 단계에서 채운다(여기선 null 초기화).
+      schoolName: null,
+      majorName: null,
+      classLabel: null,
+      grade: null,
+      gradeLabel: null,
+      // 결과 overlay — null = "-". 예비/공표에서만 채워진다.
+      rank: null,
+      pointB: null,
+      pointC: null,
+      actCompletionRatePercent: null,
+      actTotalCount: null,
+      actSuccessCount: null,
+      weeklyGrowthRatePercent: null,
+      cumulativeSuccessWeeks: null,
     };
 
     // 공식 휴식 주차 = 전원 판정 대상 아님(집계도 하드 0).
@@ -300,6 +352,112 @@ export async function computeCrewWeekPreview(opts: {
     growthChallengeRatePercent: gated("growthChallengeRatePercent", metrics.growthChallengeRatePercent),
   };
 
+  // 팀 판정 verdicts — **크루 결과에서 파생**한다(같은 판정을 두 번 계산하지 않는다).
+  //   not_applicable(미시작/공식휴식)은 팀 집계 대상이 아니므로 제외한다.
+  const crewResults = buildCrewResults({ inputs, organization, week, criterionPointA, pointsByUser });
+  // ── 크루 표 base row + 결과 overlay 결합 ──────────────────────────────────
+  //   base(크루명·학적·클래스·팀·파트·품계)는 예비 전에도 보여야 하므로 항상 채운다.
+  //   overlay(등수·포인트·완료율·성장률·누적)는 여기서 계산해 **같은 행**에 얹는다(행 재생성 없음).
+  {
+    const ids = crewResults.map((c) => c.userId);
+    // week-effective 위치(팀·파트·클래스) — 조직 전체 배치 1회. 기존 공통 resolver 그대로 사용.
+    const positions = await resolvePositionAtBatch({
+      userIds: ids,
+      targetWeekStart: week.start_date,
+      organization,
+    });
+    const showcase = await loadCrewShowcaseInputs({
+      organization,
+      userIds: ids,
+      weekStartDate: week.start_date,
+      weekId,
+      isoYear: week.iso_year,
+      isoWeek: week.iso_week,
+      // ⚠ 클래스·팀·파트는 **한 번의 resolver 호출 결과**에서 함께 가져온다.
+      //   (override ≤W 최신 → UPH(W) → 당시 멤버십). 팀만 history·파트만 현재 같은 혼입을 막는다.
+      positionByUser: new Map(
+        [...positions.entries()].map(([uid, r]) => [
+          uid,
+          { classLabel: r.classLabel, teamName: r.rawTeam, partName: r.rawPart },
+        ]),
+      ),
+      displayByUser: new Map(
+        crewResults.map((c) => [
+          c.userId,
+          { displayName: c.crewDisplayName, crewCode: c.crewCode },
+        ]),
+      ),
+    });
+    const ranks = computeRanks(
+      crewResults.map((c) => ({
+        userId: c.userId,
+        pointA: showcase.points.get(c.userId)?.a ?? null,
+      })),
+    );
+    for (const c of crewResults) {
+      const b = showcase.base.get(c.userId);
+      const ar = showcase.actRates.get(c.userId) ?? null;
+      const pt = showcase.points.get(c.userId) ?? null;
+      c.schoolName = b?.schoolName ?? null;
+      c.majorName = b?.majorName ?? null;
+      c.grade = b?.grade ?? null;
+      c.gradeLabel = b?.gradeLabel ?? null;
+      // 팀·파트·클래스를 같은 resolver 산출로 덮어쓴다(시점 통일).
+      const pos = positions.get(c.userId) ?? null;
+      c.classLabel = pos?.classLabel ?? null;
+      c.teamName = pos?.rawTeam ?? c.teamName;
+      c.partName = pos?.rawPart ?? c.partName;
+      c.rank = ranks.get(c.userId) ?? null;
+      c.earnedPointA = pt?.a ?? c.earnedPointA;
+      c.pointB = pt?.b ?? null;
+      c.pointC = pt?.c ?? null;
+      c.actCompletionRatePercent = ar?.ratePercent ?? null;
+      c.actTotalCount = ar?.total ?? null;
+      c.actSuccessCount = ar?.success ?? null;
+      // 주차 성장률·누적 성장성공 = weekly-cards snapshot(고객 앱과 동일 SoT). 없으면 null 유지.
+      const gr = showcase.growth.get(c.userId) ?? null;
+      c.weeklyGrowthRatePercent = gr?.weeklyGrowthRatePercent ?? null;
+      c.cumulativeSuccessWeeks = gr?.cumulativeSuccessWeeks ?? null;
+    }
+    // 표시 정렬 = 등수 → 품계 → 성장률 desc → 이름 ko-KR → userId (고객 앱과 동일 키).
+    const sorted = sortShowcaseRows(
+      crewResults.map((c) => ({
+        userId: c.userId,
+        crewDisplayName: c.crewDisplayName,
+        rank: c.rank,
+        grade: c.grade,
+        weeklyGrowthRatePercent: c.weeklyGrowthRatePercent,
+      })),
+    );
+    const order = new Map(sorted.map((r, i) => [r.userId, i]));
+    crewResults.sort((a, b2) => (order.get(a.userId) ?? 0) - (order.get(b2.userId) ?? 0));
+  }
+
+  const verdicts = new Map<string, TeamVerdict>();
+  const seasonRestUserIds = new Set<string>();
+  for (const c of crewResults) {
+    if (c.result === "not_applicable") continue;
+    if (c.result === "success") verdicts.set(c.userId, "success");
+    else if (c.result === "failure") verdicts.set(c.userId, "fail");
+    else if (c.result === "rest") {
+      verdicts.set(c.userId, "rest");
+      if (c.isSeasonRest) seasonRestUserIds.add(c.userId);
+    }
+  }
+  // 공식 휴식 주차는 팀 대전이 없다 → 빈 배열(가짜 0 팀 행 생성 금지).
+  const teamResults =
+    week.is_official_rest === true || verdicts.size === 0
+      ? []
+      : buildCrewWeekTeamResults({
+          ctx: await loadCrewWeekTeamContext({
+            organization,
+            userIds: [...verdicts.keys()],
+            halfKey: week.season_key ? seasonKeyToHalfKey(week.season_key) : null,
+          }),
+          verdicts,
+          seasonRestUserIds,
+        });
+
   return {
     kind: "preview",
     published: false,
@@ -308,7 +466,8 @@ export async function computeCrewWeekPreview(opts: {
     criterionPointA,
     metricsReadiness: readiness,
     ...gatedMetrics,
-    crewResults: buildCrewResults({ inputs, organization, week, criterionPointA, pointsByUser }),
+    crewResults,
+    teamResults,
     calculatedAt: new Date().toISOString(),
     calculationVersion: CREW_METRICS_CALC_VERSION,
     sourceActivityDate: opts.today ?? getCurrentActivityDateIso(),
@@ -413,6 +572,7 @@ export async function loadPublishedCrewWeekResult(opts: {
       growthSuccessRatePercent: null,
       growthChallengeRatePercent: null,
       crewResults: [],
+      teamResults: [],
       calculatedAt: run.created_at,
       calculationVersion: 0,
       sourceActivityDate: run.source_activity_date ?? "",
@@ -424,7 +584,10 @@ export async function loadPublishedCrewWeekResult(opts: {
     .select(
       "user_id,crew_display_name,crew_code,organization_slug,team_name,part_name," +
         "is_season_rest,is_personal_rest,is_growth_challenge,result,uws_status," +
-        "criterion_point_a,earned_point_a,reason_code",
+        "criterion_point_a,earned_point_a,reason_code," +
+        "school_name,major_name,class_label,grade,grade_label," +
+        "rank,point_b,point_c,act_completion_rate_percent,act_total_count," +
+        "act_success_count,weekly_growth_rate_percent,cumulative_success_weeks",
     )
     .eq("run_id", run.id)
     .order("crew_display_name", { ascending: true });
@@ -446,12 +609,69 @@ export async function loadPublishedCrewWeekResult(opts: {
     criterionPointA: (r.criterion_point_a as number | null) ?? null,
     earnedPointA: (r.earned_point_a as number | null) ?? null,
     reasonCode: r.reason_code as string,
+    // 공표 후에는 **snapshot 값만** 쓴다(현재 프로필/live 혼입 금지).
+    schoolName: (r.school_name as string | null) ?? null,
+    majorName: (r.major_name as string | null) ?? null,
+    classLabel: (r.class_label as string | null) ?? null,
+    grade: (r.grade as number | null) ?? null,
+    gradeLabel: (r.grade_label as string | null) ?? null,
+    rank: (r.rank as number | null) ?? null,
+    pointB: (r.point_b as number | null) ?? null,
+    pointC: (r.point_c as number | null) ?? null,
+    actCompletionRatePercent: (r.act_completion_rate_percent as number | null) ?? null,
+    actTotalCount: (r.act_total_count as number | null) ?? null,
+    actSuccessCount: (r.act_success_count as number | null) ?? null,
+    weeklyGrowthRatePercent: (r.weekly_growth_rate_percent as number | null) ?? null,
+    cumulativeSuccessWeeks: (r.cumulative_success_weeks as number | null) ?? null,
+  }));
+
+  // 팀 결과 snapshot — 공표 당시 값. live 재계산하지 않는다.
+  const { data: teamRows } = await supabaseAdmin
+    .from("cluster4_week_finalize_run_team_results")
+    .select(
+      "team_id,team_name,team_snapshot_key,display_order,battle_result,leader_user_id," +
+        "leader_display_name,leader_school_name,leader_major_name,part_count,total_crew," +
+        "advanced_crew,regular_crew,challenge_crew,rest_crew,season_rest_crew,personal_rest_crew," +
+        "success_crew,fail_crew,match_count,win_count,loss_count,win_rate_percent",
+    )
+    .eq("run_id", run.id)
+    .order("display_order", { ascending: true });
+
+  const teamResults: CrewWeekTeamResultDto[] = (
+    (teamRows ?? []) as unknown as Array<Record<string, unknown>>
+  ).map((r) => ({
+    teamId: (r.team_id as string | null) ?? null,
+    teamName: r.team_name as string,
+    teamSnapshotKey: r.team_snapshot_key as string,
+    displayOrder: (r.display_order as number | null) ?? 9999,
+    battleResult: r.battle_result as CrewWeekTeamResultDto["battleResult"],
+    leader: {
+      userId: (r.leader_user_id as string | null) ?? null,
+      displayName: (r.leader_display_name as string | null) ?? null,
+      schoolName: (r.leader_school_name as string | null) ?? null,
+      majorName: (r.leader_major_name as string | null) ?? null,
+    },
+    partCount: (r.part_count as number | null) ?? 0,
+    totalCrew: (r.total_crew as number | null) ?? 0,
+    advancedCrew: (r.advanced_crew as number | null) ?? 0,
+    regularCrew: (r.regular_crew as number | null) ?? 0,
+    challengeCrew: (r.challenge_crew as number | null) ?? 0,
+    restCrew: (r.rest_crew as number | null) ?? 0,
+    seasonRestCrew: (r.season_rest_crew as number | null) ?? 0,
+    personalRestCrew: (r.personal_rest_crew as number | null) ?? 0,
+    successCrew: (r.success_crew as number | null) ?? 0,
+    failCrew: (r.fail_crew as number | null) ?? 0,
+    matchCount: (r.match_count as number | null) ?? 0,
+    winCount: (r.win_count as number | null) ?? 0,
+    lossCount: (r.loss_count as number | null) ?? 0,
+    winRatePercent: (r.win_rate_percent as number | null) ?? 0,
   }));
 
   return {
     kind: "published",
     published: true,
     snapshotUnavailable: false,
+    teamResults,
     runId: run.id,
     publishedAt: run.created_at,
     publishedBy: run.actor_id,
@@ -511,6 +731,23 @@ export async function publishCrewWeekResult(opts: {
 
   // ⚠ 클라이언트가 보낸 숫자를 신뢰하지 않는다 — 서버가 최신 원천으로 다시 계산한다.
   const preview = await computeCrewWeekPreview({ organization, weekId, scope, today: opts.today });
+
+  // 불변식 위반은 **저장을 시작하기 전에** 차단한다(부분 저장 금지 · DB CHECK 와 같은 규칙).
+  // 완료율 ↔ count 관계 검증(DB CHECK 로 표현 불가) — 위반 시 부분 저장 없이 전체 차단.
+  const actViolation = assertActRateInvariants(preview.crewResults);
+  if (actViolation) {
+    throw new CrewWeekPublishError(
+      422,
+      `활동 완료율 정합성 오류로 공표를 중단했습니다: ${actViolation}`,
+    );
+  }
+  const teamViolation = assertTeamInvariants(preview.teamResults);
+  if (teamViolation) {
+    throw new CrewWeekPublishError(
+      422,
+      `팀 결과 정합성 오류로 공표를 중단했습니다: ${teamViolation}`,
+    );
+  }
 
   const prev = await loadActiveRun(weekId, organization, scope);
   const nowIso = new Date().toISOString();
@@ -589,6 +826,19 @@ export async function publishCrewWeekResult(opts: {
       criterion_point_a: c.criterionPointA,
       earned_point_a: c.earnedPointA,
       reason_code: c.reasonCode,
+      school_name: c.schoolName,
+      major_name: c.majorName,
+      class_label: c.classLabel,
+      grade: c.grade,
+      grade_label: c.gradeLabel,
+      rank: c.rank,
+      point_b: c.pointB,
+      point_c: c.pointC,
+      act_completion_rate_percent: c.actCompletionRatePercent,
+      act_total_count: c.actTotalCount,
+      act_success_count: c.actSuccessCount,
+      weekly_growth_rate_percent: c.weeklyGrowthRatePercent,
+      cumulative_success_weeks: c.cumulativeSuccessWeeks,
     }));
     for (let i = 0; i < rows.length; i += 500) {
       const { error } = await supabaseAdmin
@@ -605,6 +855,50 @@ export async function publishCrewWeekResult(opts: {
         }
         throw new CrewWeekPublishError(500, `크루 결과 저장 실패: ${error.message}`);
       }
+    }
+  }
+
+  // 3-2) 팀별 결과 저장 — crew 와 **같은 run** 에 담긴다.
+  if (preview.teamResults.length > 0) {
+    const teamRows = preview.teamResults.map((t) => ({
+      run_id: runId,
+      team_id: t.teamId,
+      team_name: t.teamName,
+      team_snapshot_key: t.teamSnapshotKey,
+      display_order: t.displayOrder,
+      battle_result: t.battleResult,
+      leader_user_id: t.leader.userId,
+      leader_display_name: t.leader.displayName,
+      leader_school_name: t.leader.schoolName,
+      leader_major_name: t.leader.majorName,
+      part_count: t.partCount,
+      total_crew: t.totalCrew,
+      advanced_crew: t.advancedCrew,
+      regular_crew: t.regularCrew,
+      challenge_crew: t.challengeCrew,
+      rest_crew: t.restCrew,
+      season_rest_crew: t.seasonRestCrew,
+      personal_rest_crew: t.personalRestCrew,
+      success_crew: t.successCrew,
+      fail_crew: t.failCrew,
+      match_count: t.matchCount,
+      win_count: t.winCount,
+      loss_count: t.lossCount,
+      win_rate_percent: t.winRatePercent,
+    }));
+    const { error } = await supabaseAdmin
+      .from("cluster4_week_finalize_run_team_results")
+      .insert(teamRows);
+    if (error) {
+      // 부분 반영 금지 — 새 run 을 통째로 되돌린다(crew rows 는 FK CASCADE 로 함께 삭제).
+      await supabaseAdmin.from("cluster4_week_finalize_runs").delete().eq("id", runId);
+      if (prev) {
+        await supabaseAdmin
+          .from("cluster4_week_finalize_runs")
+          .update({ reverted_at: null })
+          .eq("id", prev.id);
+      }
+      throw new CrewWeekPublishError(500, `팀 결과 저장 실패: ${error.message}`);
     }
   }
 
