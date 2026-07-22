@@ -136,7 +136,8 @@ async function main() {
     console.log("\n[D] 활동유형 미선택 → 422 · 행 생성 없음");
     const noType = await api("/api/admin/lines/registrations", {
       method: "POST",
-      body: JSON.stringify(infoPayload({ line_code: `IFHT-D${STAMP}` })),
+      // 미만석 범위(encre)로 검증한다 — common 은 9종 만석이라 만석 사유가 먼저 나온다.
+      body: JSON.stringify(infoPayload({ line_code: `IFHT-D${STAMP}`, organization_slug: "encre" })),
     });
     ck("422", noType.status === 422, `status=${noType.status}`);
     ck("code=INFO_ACTIVITY_TYPE_REQUIRED", noType.json?.code === "INFO_ACTIVITY_TYPE_REQUIRED", String(noType.json?.code));
@@ -150,7 +151,11 @@ async function main() {
     const badType = await api("/api/admin/lines/registrations", {
       method: "POST",
       body: JSON.stringify(
-        infoPayload({ line_code: `IFHT-D2${STAMP}`, point_activity_type_id: "info_made_up" }),
+        infoPayload({
+          line_code: `IFHT-D2${STAMP}`,
+          organization_slug: "encre",
+          point_activity_type_id: "info_made_up",
+        }),
       ),
     });
     ck("9종 외 값도 422", badType.status === 422 && badType.json?.code === "INFO_ACTIVITY_TYPE_REQUIRED", `status=${badType.status}`);
@@ -166,16 +171,29 @@ async function main() {
     });
     ck("409", allTaken.status === 409, `status=${allTaken.status}`);
     ck(
-      "code=INFO_ACTIVITY_TYPE_ALREADY_REGISTERED",
-      allTaken.json?.code === "INFO_ACTIVITY_TYPE_ALREADY_REGISTERED",
+      "code=INFO_ALL_ACTIVITY_TYPES_REGISTERED",
+      allTaken.json?.code === "INFO_ALL_ACTIVITY_TYPES_REGISTERED",
       String(allTaken.json?.code),
     );
     ck(
-      "문구",
-      allTaken.json?.error === "선택한 활동유형에는 이미 정식 라인이 등록되어 있습니다. 기존 라인을 수정해주세요.",
+      "문구 = 사유만(팝업과 동일 SoT)",
+      allTaken.json?.error ===
+        "실무 정보 라인은 이미 9개 모두 등록되어 있습니다. 새로운 실무 정보 라인은 추가할 수 없습니다.",
       String(allTaken.json?.error),
     );
+    ck("대안 안내 문구 없음", !String(allTaken.json?.error ?? "").includes("수정해주세요"));
     ck("행 생성 없음", (await infoRegCount()) === regBefore);
+    // 만석 범위에서는 활동유형을 아예 안 골라도 같은 사유로 막힌다(만석 → 미선택 순서).
+    const allTakenNoType = await api("/api/admin/lines/registrations", {
+      method: "POST",
+      body: JSON.stringify(infoPayload({ line_code: `IFHT-A2${STAMP}` })),
+    });
+    ck(
+      "만석 + 미선택도 만석 사유로 409",
+      allTakenNoType.status === 409 &&
+        allTakenNoType.json?.code === "INFO_ALL_ACTIVITY_TYPES_REGISTERED",
+      `status=${allTakenNoType.status} code=${allTakenNoType.json?.code}`,
+    );
 
     // ── [B] 미등록 슬롯 있는 범위(encre) 정상 등록 → 201, 탭은 9개 ─────────
     console.log("\n[B] 미등록 슬롯 정상 등록");
@@ -322,11 +340,28 @@ async function main() {
     ck("practical-info == weeks ID 집합", JSON.stringify(base) === JSON.stringify(weekLines.map((l) => l.lineId)));
     // 등록 검증 규칙도 모드 무관 — 테스트 모드 전용 예외 없음.
     for (const q of ["mode=test", "actAsTestUserId=1", "demoUserId=1"]) {
+      // 미선택(미만석 범위) → 422, 만석 범위 → 409. 두 판정 모두 모드 무관해야 한다.
       const r = await api(`/api/admin/lines/registrations?${q}`, {
         method: "POST",
-        body: JSON.stringify(infoPayload({ line_code: `IFHT-F${STAMP}` })),
+        body: JSON.stringify(
+          infoPayload({ line_code: `IFHT-F${STAMP}`, organization_slug: "phalanx" }),
+        ),
       });
       ck(`활동유형 미선택 → 422 (${q})`, r.status === 422 && r.json?.code === "INFO_ACTIVITY_TYPE_REQUIRED", `status=${r.status}`);
+      const rFull = await api(`/api/admin/lines/registrations?${q}`, {
+        method: "POST",
+        body: JSON.stringify(
+          infoPayload({ line_code: `IFHT-F2${STAMP}`, point_activity_type_id: "essay" }),
+        ),
+      });
+      ck(
+        `만석(common) → 409 · 동일 문구 (${q})`,
+        rFull.status === 409 &&
+          rFull.json?.code === "INFO_ALL_ACTIVITY_TYPES_REGISTERED" &&
+          rFull.json?.error ===
+            "실무 정보 라인은 이미 9개 모두 등록되어 있습니다. 새로운 실무 정보 라인은 추가할 수 없습니다.",
+        `status=${rFull.status} code=${rFull.json?.code}`,
+      );
     }
 
     // ── [G] 비회귀 ────────────────────────────────────────────────────────

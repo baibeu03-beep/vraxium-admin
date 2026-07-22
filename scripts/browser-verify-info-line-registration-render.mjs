@@ -173,22 +173,34 @@ async function main() {
       .innerText()
       .catch(() => "");
     ck(
-      "팝업 제목",
-      dialogText.includes("실무 정보 라인은 이미 9개 모두 등록되어 있습니다"),
+      "팝업 제목 = 실무 정보 라인 추가 불가",
+      dialogText.includes("실무 정보 라인 추가 불가"),
       dialogText.split("\n")[0],
     );
-    ck("팝업 본문", dialogText.includes("새로운 실무 정보 라인을 추가할 수 없습니다"));
+    ck("본문 1행", dialogText.includes("실무 정보 라인은 이미 9개 모두 등록되어 있습니다."));
+    ck("본문 2행", dialogText.includes("새로운 실무 정보 라인은 추가할 수 없습니다."));
     ck(
-      "버튼: 확인 / 라인 정보로 이동",
-      dialogText.includes("확인") && dialogText.includes("라인 정보로 이동"),
+      "대안 안내 없음(수정 유도·이동 CTA 미표시)",
+      !dialogText.includes("수정해주세요") && !dialogText.includes("라인 정보로 이동"),
+      dialogText.replace(/\n/g, " / "),
     );
     ck("POST 요청 미발생", postCount === 0, `${postCount}건`);
-    await page.locator('[data-admin-dialog] [data-admin-dialog-confirm]').first().click();
-    await page.waitForTimeout(4000);
-    ck("라인 정보로 이동", page.url().includes("/admin/lines/info"), page.url());
+    // 확인 버튼 1개로 닫힌다(이동 CTA 없음 · 페이지 이동 없음).
+    await page.locator("[data-admin-dialog] [data-admin-dialog-confirm]").first().click();
+    await page.waitForTimeout(1200);
+    const dialogGone = (await page.locator("[data-admin-dialog]").count()) === 0;
+    ck(
+      "확인 → 팝업 닫힘 · 페이지 이동 없음",
+      dialogGone && page.url().includes("/admin/lines/register"),
+      page.url(),
+    );
 
     // ── [E] 활동유형 미연결 등록행 상태 표시 ──────────────────────────────
     console.log("\n[E] 활동유형 미연결 상태 표시");
+    await page.goto(`${BASE}/admin/lines/info`, {
+      waitUntil: "domcontentloaded",
+      timeout: NAV_TIMEOUT,
+    });
     await page.waitForSelector("table tbody tr", { timeout: SEL_TIMEOUT });
     // 허브 필터를 실무 정보로 좁힌다 — 전체 목록은 페이지네이션되어 info 행이 1페이지에 없을 수 있다.
     await page.locator('button[aria-label="허브 필터"]').first().click();

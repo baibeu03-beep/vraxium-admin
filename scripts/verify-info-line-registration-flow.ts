@@ -20,7 +20,10 @@ import {
 import {
   INFO_ACTIVITY_TYPE_ALREADY_REGISTERED,
   INFO_ACTIVITY_TYPE_REQUIRED,
+  INFO_ALL_ACTIVITY_TYPES_REGISTERED,
+  INFO_ALL_REGISTERED_MESSAGE,
   assertInfoRegistrationPolicy,
+  isInfoScopeFullyRegistered,
   listInfoRegistrationSlots,
 } from "@/lib/adminInfoLineRegistrationPolicy";
 import { createLineRegistration } from "@/lib/adminLineRegistrationsData";
@@ -89,9 +92,10 @@ async function main() {
       ["9종 외 값", "info_made_up"],
       ["다른 클러스터 값", "comp-1"],
     ] as Array<[string, string | null]>) {
+      // 미만석 범위(encre)로 검증한다 — common 은 9종 만석이라 만석 판정이 먼저 나온다.
       const v = await assertInfoRegistrationPolicy({
         pointActivityTypeId: value,
-        organizationSlug: "common",
+        organizationSlug: "encre",
       });
       ck(
         `${label} → 422 ${INFO_ACTIVITY_TYPE_REQUIRED}`,
@@ -100,14 +104,35 @@ async function main() {
       );
     }
 
-    // ── 4. 활동유형 × 조직 중복 검증 ────────────────────────────────────────
-    console.log("\n[4] 활동유형×조직 중복(409)");
-    const dup = await assertInfoRegistrationPolicy({
+    // ── 4. 만석(409) · 활동유형 × 조직 중복(409) ────────────────────────────
+    console.log("\n[4] 만석 · 활동유형×조직 중복");
+    ck("common = 9종 만석", await isInfoScopeFullyRegistered("common"));
+    ck("encre = 만석 아님", !(await isInfoScopeFullyRegistered("encre")));
+    const full = await assertInfoRegistrationPolicy({
       pointActivityTypeId: "wisdom",
-      organizationSlug: "common", // 기존 IFBS-NN0001 이 common/wisdom 을 점유 중
+      organizationSlug: "common", // 9종 만석 범위
     });
     ck(
-      "common/wisdom 재등록 → 409",
+      `common 신규 등록 → 409 ${INFO_ALL_ACTIVITY_TYPES_REGISTERED}`,
+      full?.status === 409 && full.code === INFO_ALL_ACTIVITY_TYPES_REGISTERED,
+      JSON.stringify(full),
+    );
+    ck(
+      "만석 문구 = 사유만",
+      full?.message === INFO_ALL_REGISTERED_MESSAGE &&
+        full.message ===
+          "실무 정보 라인은 이미 9개 모두 등록되어 있습니다. 새로운 실무 정보 라인은 추가할 수 없습니다.",
+      String(full?.message),
+    );
+    ck("만석 문구에 대안 안내 없음", !(full?.message ?? "").includes("수정해주세요"));
+    // 수정(PATCH) 경로는 만석이어도 통과해야 한다 — 개별 중복만 판정한다.
+    const dup = await assertInfoRegistrationPolicy({
+      pointActivityTypeId: "wisdom",
+      organizationSlug: "common",
+      excludeRegistrationId: "00000000-0000-0000-0000-000000000000",
+    });
+    ck(
+      "수정 경로(excludeId): 만석 통과 → 개별 중복 409",
       dup?.status === 409 && dup.code === INFO_ACTIVITY_TYPE_ALREADY_REGISTERED,
       JSON.stringify(dup),
     );
