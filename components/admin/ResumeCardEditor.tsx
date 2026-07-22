@@ -30,6 +30,7 @@ import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import type { Cluster1ResumeDto } from "@/lib/cluster1ResumeTypes";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 // 라벨 끝의 영문 column-name 괄호 제거 — "이름 (display_name)" → "이름".
 function operatorLabel(label: string): string {
@@ -404,7 +405,7 @@ export default function ResumeCardEditor({
     } catch (err) {
       setBanner({
         kind: "error",
-        message: err instanceof Error ? err.message : "Failed to load.",
+        message: getApiErrorMessage(err, "불러오지 못했습니다."),
       });
     } finally {
       setLoading(false);
@@ -434,7 +435,7 @@ export default function ResumeCardEditor({
       );
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? "Failed to save.");
+        throw apiErrorFrom(res, json, "저장에 실패했습니다.");
       }
       const next = json.data as Bundle;
       setBundle(next);
@@ -450,7 +451,7 @@ export default function ResumeCardEditor({
       t.success("save");
     } catch (err) {
       console.error("[ResumeCardEditor] save failed", err);
-      t.error("save");
+      t.apiError("save", err, "저장에 실패했습니다.");
     } finally {
       setSaving(false);
     }

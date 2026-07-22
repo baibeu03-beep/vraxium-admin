@@ -17,6 +17,7 @@ import type {
   Cluster4EnhancementStatus,
   Cluster4LinePartType,
 } from "@/shared/cluster4.contracts";
+import { apiErrorFrom } from "@/lib/apiError";
 
 type FlatLine = {
   weekId: string;
@@ -167,7 +168,7 @@ export default function EnhancementStatusEditModal({
       );
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? "불러오기에 실패했습니다.");
+        throw apiErrorFrom(res, json, "불러오기에 실패했습니다.");
       }
       const allLines = (json.data?.lines ?? []) as FlatLine[];
       const weekLines = allLines.filter((l) => l.weekId === weekId);
@@ -228,7 +229,7 @@ export default function EnhancementStatusEditModal({
             );
             status = res.status;
             const json = await res.json();
-            if (!res.ok || !json.success) throw new Error(json?.error ?? "해제에 실패했습니다.");
+            if (!res.ok || !json.success) throw apiErrorFrom(res, json, "해제에 실패했습니다.");
           }
           t.success("reset", "자동 계산값으로 되돌렸습니다.");
         } else {
@@ -253,13 +254,13 @@ export default function EnhancementStatusEditModal({
           });
           status = res.status;
           const json = await res.json();
-          if (!res.ok || !json.success) throw new Error(json?.error ?? "저장에 실패했습니다.");
+          if (!res.ok || !json.success) throw apiErrorFrom(res, json, "저장에 실패했습니다.");
           t.success("save");
         }
         await load();
       } catch (error) {
         console.error("enhancement-override save failed", error);
-        t.error("save", status ? { status } : undefined);
+        t.apiError("save", error, "저장에 실패했습니다.");
       } finally {
         setBusyKey(null);
       }

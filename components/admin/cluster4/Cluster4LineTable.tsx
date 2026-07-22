@@ -51,6 +51,7 @@ import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 type StatusFilter = "all" | "active" | "inactive";
 
@@ -321,14 +322,18 @@ function MetaImageUploadField({
           method: "POST",
           body: formData,
         });
-        const json = await res.json();
-        if (!json.success) {
-          void adminDialog.alert({ variant: "danger", title: "업로드 실패", description: json.error || "업로드에 실패했습니다" });
-          return;
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json.success) {
+          throw apiErrorFrom(res, json, "업로드에 실패했습니다");
         }
         onChange(json.data.url);
-      } catch {
-        void adminDialog.alert({ variant: "danger", title: "업로드 오류", description: "업로드 중 오류가 발생했습니다" });
+      } catch (err) {
+        console.error("[cluster4] image upload failed", err);
+        void adminDialog.alert({
+          variant: "danger",
+          title: "업로드 실패",
+          description: getApiErrorMessage(err, "업로드에 실패했습니다"),
+        });
       } finally {
         setUploading(false);
         if (fileRef.current) fileRef.current.value = "";
@@ -459,15 +464,15 @@ function LineWorkflowSection({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action }),
         });
-        const json = await res.json();
-        if (!json.success) {
-          setError(json.error ?? "처리에 실패했습니다");
-          return;
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json.success) {
+          throw apiErrorFrom(res, json, "처리에 실패했습니다");
         }
         // 목록 재조회 → detailId 유지로 모달의 line prop 이 최신 상태/담당자로 갱신된다.
         onRefresh();
-      } catch {
-        setError("처리 중 오류가 발생했습니다");
+      } catch (err) {
+        console.error("[cluster4] line action failed", err);
+        setError(getApiErrorMessage(err, "처리에 실패했습니다"));
       } finally {
         setBusy(null);
       }
@@ -672,10 +677,14 @@ function LineDetailModal({
             }),
           },
         );
-        const metaJson = await metaRes.json();
-        if (!metaJson.success) {
-          setError(metaJson.error ?? "기업/감독자 정보 저장에 실패했습니다");
-          return;
+        const metaJson = await metaRes.json().catch(() => ({}));
+        if (!metaRes.ok || !metaJson.success) {
+          // 라인 정보는 이미 저장된 상태 → 무엇이 남았는지 분명히 알린다(전체 실패로 뭉개지 않음).
+          throw apiErrorFrom(
+            metaRes,
+            metaJson,
+            "라인 정보는 저장됐지만 기업/감독자 정보는 저장되지 않았습니다. 기업/감독자 항목만 다시 저장해주세요.",
+          );
         }
       }
 
@@ -684,8 +693,9 @@ function LineDetailModal({
           ? "라인 정보 및 기업/감독자 정보가 수정되었습니다"
           : "라인 정보가 수정되었습니다",
       );
-    } catch {
-      setError("저장 중 오류가 발생했습니다");
+    } catch (err) {
+      console.error("[cluster4] line detail save failed", err);
+      setError(getApiErrorMessage(err, "저장 중 오류가 발생했습니다"));
     } finally {
       setSaving(false);
     }
@@ -1268,11 +1278,16 @@ export default function Cluster4LineTable({
         setRows(json.data.rows ?? []);
       } else {
         setRows([]);
-        setError(json.error ?? "라인 목록을 불러오지 못했습니다");
+        setError(
+          getApiErrorMessage(
+            apiErrorFrom(res, json, "라인 목록을 불러오지 못했습니다"),
+            "라인 목록을 불러오지 못했습니다",
+          ),
+        );
       }
     } catch (e) {
       console.error("[Cluster4LineTable] fetch failed", e);
-      setError("라인 목록을 불러오지 못했습니다");
+      setError(getApiErrorMessage(e, "라인 목록을 불러오지 못했습니다"));
       setRows([]);
     } finally {
       setLoading(false);

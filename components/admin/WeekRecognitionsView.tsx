@@ -272,7 +272,7 @@ export default function WeekRecognitionsView() {
         );
         const json = await res.json();
         if (!res.ok || !json.success) {
-          throw apiErrorFrom(res, json, "Failed to load week recognitions.");
+          throw apiErrorFrom(res, json, "주차 인정 목록을 불러오지 못했습니다.");
         }
         if (!cancelled) setData(json.data as WeekRecognitionsDto);
       } catch (err) {

@@ -34,6 +34,7 @@ import {
   type OperationHealthCheckDto,
   type RecalcGrowthStatsResult,
 } from "@/lib/adminOperationHealthCheckTypes";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 // 성장 통계 캐시(user_growth_stats)만 복구 가능한 이슈 유형.
 const GROWTH_RECALC_ISSUE_TYPES = new Set<HealthIssue["issue_type"]>([
@@ -142,16 +143,13 @@ export default function OperationHealthCheckView() {
         });
         const json = await res.json();
         if (!res.ok || !json.success) {
-          throw new Error(json?.error ?? "Failed to run operation health check.");
+          throw apiErrorFrom(res, json, "운영 점검을 실행하지 못했습니다.");
         }
         if (!cancelled) setData(json.data as OperationHealthCheckDto);
       } catch (err) {
         if (!cancelled) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : "Failed to run operation health check.",
-          );
+          console.error("[operation-health-check] run failed", err);
+          setError(getApiErrorMessage(err, "운영 점검을 실행하지 못했습니다."));
           setData(null);
         }
       } finally {
@@ -181,7 +179,7 @@ export default function OperationHealthCheckView() {
         });
         const json = await res.json();
         if (!res.ok || !json.success) {
-          throw new Error(json?.error ?? "Failed to recalculate growth stats.");
+          throw apiErrorFrom(res, json, "성장 통계를 다시 계산하지 못했습니다.");
         }
         const result = json.data as RecalcGrowthStatsResult;
         const hadIssue = result.failed_count > 0 || result.skipped_count > 0;

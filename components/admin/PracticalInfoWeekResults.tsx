@@ -44,6 +44,7 @@ import {
 } from "@/lib/cluster4InfoCrewEditWindow";
 import PracticalInfoCrewEditModal from "@/components/admin/PracticalInfoCrewEditModal";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 // 실무 정보 — "주차별 개설 결과" (표시 전용 · read-only API).
 //   주차 드롭다운(미래 주차 제외, 기본값=개설 필요 기간) + 요약 카운트 + 라인별 개설 상황 카드.
@@ -183,15 +184,13 @@ export default function PracticalInfoWeekResults({
           readScopeMode(new URLSearchParams(window.location.search)),
         ),
       );
-      const json = await res.json();
-      if (json?.success) setResults(json.data as Results);
-      else {
-        setResults(null);
-        setError(json?.error ?? "개설 결과를 불러오지 못했습니다");
-      }
-    } catch {
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json?.success) setResults(json.data as Results);
+      else throw apiErrorFrom(res, json, "개설 결과를 불러오지 못했습니다");
+    } catch (err) {
+      console.error("[info] week results load failed", err);
       setResults(null);
-      setError("개설 결과를 불러오지 못했습니다");
+      setError(getApiErrorMessage(err, "개설 결과를 불러오지 못했습니다"));
     } finally {
       setLoading(false);
     }

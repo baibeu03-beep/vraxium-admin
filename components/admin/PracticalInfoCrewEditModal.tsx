@@ -13,6 +13,7 @@ import CafeCrewPicker, {
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 // 실무 정보 — "개설 대상 크루 수정" 모달.
 //   이미 개설된 (과거) 라인의 개설 대상 크루를 카페 검수 UI(CafeCrewPicker)로 사후 수정한다.
@@ -71,13 +72,16 @@ export default function PracticalInfoCrewEditModal({
         const res = await fetch(
           `/api/admin/cluster4/info-lines/crew?${qs.toString()}`,
         );
-        const json = await res.json();
+        const json = await res.json().catch(() => ({}));
         if (cancelled) return;
         const rows: CafeCrew[] = json?.success ? (json.data?.targets ?? []) : [];
         setExisting(rows);
-        if (!json?.success) setError(json?.error ?? "기존 대상자를 불러오지 못했습니다");
-      } catch {
-        if (!cancelled) setError("기존 대상자를 불러오지 못했습니다");
+        if (!res.ok || !json?.success) {
+          throw apiErrorFrom(res, json, "기존 대상자를 불러오지 못했습니다");
+        }
+      } catch (err) {
+        console.error("[info] crew edit existing load failed", err);
+        if (!cancelled) setError(getApiErrorMessage(err, "기존 대상자를 불러오지 못했습니다"));
       } finally {
         if (!cancelled) setLoadingExisting(false);
       }
@@ -190,8 +194,9 @@ export default function PracticalInfoCrewEditModal({
       if (parts.length === 0) parts.push("변경 없음");
       parts.push(`현재 대상 ${d.finalUserCount}명`);
       onSaved(`개설 대상 크루가 수정되었습니다 (${parts.join(" · ")})`);
-    } catch {
-      setError("수정 중 오류가 발생했습니다");
+    } catch (err) {
+      console.error("[info] crew edit save failed", err);
+      setError(getApiErrorMessage(err, "수정에 실패했습니다"));
     } finally {
       setSaving(false);
     }

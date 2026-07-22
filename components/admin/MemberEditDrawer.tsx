@@ -268,7 +268,7 @@ function MemberEditDrawerInner({
       );
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? "Failed to save");
+        throw new Error(json?.error ?? "저장에 실패했습니다.");
       }
       const updated = json.data as {
         userId: string;

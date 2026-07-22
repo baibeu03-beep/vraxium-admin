@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { formatAdminDateTime } from "@/lib/adminDateTime";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 export type RunOutcome = "success" | "partial" | "failed";
 
@@ -35,13 +36,13 @@ export function useRunNow<T = unknown>(endpoint: string) {
         });
         const json = (await res.json()) as ApiEnvelope<T>;
         if (!res.ok || !json.success) {
-          throw new Error(json?.error ?? "실행에 실패했습니다.");
+          throw apiErrorFrom(res, json, "실행에 실패했습니다.");
         }
         setResult((json.data ?? null) as T | null);
         setRanAt(Date.now());
         return true;
       } catch (e) {
-        setError(e instanceof Error ? e.message : "실행에 실패했습니다.");
+        setError(getApiErrorMessage(e, "실행에 실패했습니다."));
         return false;
       } finally {
         inFlight.current = false;

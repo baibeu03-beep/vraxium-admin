@@ -17,6 +17,7 @@ import {
 } from "@/lib/cluster4OutputImages";
 import type { Cluster4EnhancementStatus } from "@/shared/cluster4.contracts";
 import type { CareerGrade } from "@/lib/careerGrade";
+import { ApiRequestError, apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 // ─────────────────────────────────────────────────────────────────────
 // 관리자 라인 상세·수정 팝업. 크루 카드 라인 SoT(GET .../lines/[lineId])를 표시하고,
@@ -259,7 +260,8 @@ export default function CrewWeekLineDetailDialog({
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "라인 상세를 불러오지 못했습니다.");
+      console.error("[crew-week-line-detail] load failed", err);
+      setError(getApiErrorMessage(err, "라인 상세를 불러오지 못했습니다."));
     } finally {
       setLoading(false);
     }
@@ -490,14 +492,18 @@ export default function CrewWeekLineDetailDialog({
         r = await submit(true);
       }
       if (!r.ok || !r.json?.success) {
-        t.error("save", { status: r.status, message: r.json?.error });
-        return;
+        throw new ApiRequestError({
+          status: r.status,
+          payload: r.json,
+          fallback: "저장에 실패했습니다.",
+        });
       }
       t.success("save");
       onSaved();
       onClose(); // 서버 결과 반영(optimistic 금지) — 부모가 재조회.
-    } catch {
-      t.error("save", "network");
+    } catch (err) {
+      console.error("[crew-week-line-detail] save failed", err);
+      t.apiError("save", err, "저장에 실패했습니다.");
     } finally {
       setSaving(false);
     }
@@ -1091,12 +1097,12 @@ function ImagesEditor({
       );
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) {
-        t.error("update", { status: res.status, message: json?.error });
-        return;
+        throw apiErrorFrom(res, json, "이미지 업로드에 실패했습니다.");
       }
       setImages(slots.map((s, idx) => (idx === slotIndex ? { url: json.url as string, caption: s.caption } : s)));
-    } catch {
-      t.error("update", "network");
+    } catch (err) {
+      console.error("[crew-week-line-detail] image upload failed", err);
+      t.apiError("update", err, "이미지 업로드에 실패했습니다.");
     } finally {
       setBusySlot(null);
     }

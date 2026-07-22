@@ -30,6 +30,7 @@ import type {
   CrewWeekLineSummaryDto,
 } from "@/lib/adminCrewWeekLineSummary";
 import type { Cluster4LinePartType } from "@/shared/cluster4.contracts";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 // ─────────────────────────────────────────────────────────────────────
 // "라인 강화 내역" 탭 — 상단 요약 + 하단 라인 상세 표 + 2차 기입 제어(마감 / 허용·회수).
@@ -181,11 +182,12 @@ export default function CrewWeekLineHistory({
       );
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? "라인 강화 내역을 불러오지 못했습니다.");
+        throw apiErrorFrom(res, json, "라인 강화 내역을 불러오지 못했습니다.");
       }
       setSummary(json.data as CrewWeekLineSummaryDto);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "라인 강화 내역을 불러오지 못했습니다.");
+      console.error("[crew-week-lines] load failed", err);
+      setError(getApiErrorMessage(err, "라인 강화 내역을 불러오지 못했습니다."));
     } finally {
       setLoading(false);
     }
@@ -250,15 +252,15 @@ export default function CrewWeekLineHistory({
             body: JSON.stringify({ allowed: nextAllowed, mode }),
           },
         );
-        const json = await res.json();
+        const json = await res.json().catch(() => ({}));
         if (!res.ok || !json.success) {
-          t.error("update", { status: res.status, message: json?.error });
-          return;
+          throw apiErrorFrom(res, json, "2차 기입 허용을 변경하지 못했습니다.");
         }
         t.success("update", nextAllowed ? "2차 기입을 허용했습니다." : "2차 기입 허용을 회수했습니다.");
         await load(); // 서버 상태 재조회(optimistic 금지)
-      } catch {
-        t.error("update", "network");
+      } catch (err) {
+        console.error("[crew-week-lines] allow toggle failed", err);
+        t.apiError("update", err, "2차 기입 허용을 변경하지 못했습니다.");
       } finally {
         setLineBusy(row.lineId, false);
       }
@@ -294,15 +296,15 @@ export default function CrewWeekLineHistory({
           body: JSON.stringify({ action: "allow", mode }),
         },
       );
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) {
-        t.error("update", { status: res.status, message: json?.error });
-        return;
+        throw apiErrorFrom(res, json, "2차 기입 일괄 허용에 실패했습니다.");
       }
       t.success("update", `${json.data.changedCount}개 라인의 2차 기입을 허용했습니다.`);
       await load();
-    } catch {
-      t.error("update", "network");
+    } catch (err) {
+      console.error("[crew-week-lines] bulk allow failed", err);
+      t.apiError("update", err, "2차 기입 일괄 허용에 실패했습니다.");
     } finally {
       setBulkBusy(false);
     }
@@ -336,15 +338,15 @@ export default function CrewWeekLineHistory({
           body: JSON.stringify({ action: "deny", mode }),
         },
       );
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) {
-        t.error("update", { status: res.status, message: json?.error });
-        return;
+        throw apiErrorFrom(res, json, "2차 기입 일괄 회수에 실패했습니다.");
       }
       t.success("update", `${json.data.changedCount}개 라인의 2차 기입 허용을 회수했습니다.`);
       await load();
-    } catch {
-      t.error("update", "network");
+    } catch (err) {
+      console.error("[crew-week-lines] bulk deny failed", err);
+      t.apiError("update", err, "2차 기입 일괄 회수에 실패했습니다.");
     } finally {
       setBulkBusy(false);
     }
@@ -377,15 +379,15 @@ export default function CrewWeekLineHistory({
             body: JSON.stringify({ mode }),
           },
         );
-        const json = await res.json();
+        const json = await res.json().catch(() => ({}));
         if (!res.ok || !json.success) {
-          t.error("update", { status: res.status, message: json?.error });
-          return;
+          throw apiErrorFrom(res, json, "2차 기입 마감에 실패했습니다.");
         }
         t.success("update", "2차 기입을 마감했습니다.");
         await load();
-      } catch {
-        t.error("update", "network");
+      } catch (err) {
+        console.error("[crew-week-lines] close failed", err);
+        t.apiError("update", err, "2차 기입 마감에 실패했습니다.");
       } finally {
         setLineBusy(row.lineId, false);
       }

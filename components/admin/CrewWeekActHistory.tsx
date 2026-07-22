@@ -23,6 +23,7 @@ import {
 } from "@/shared/detailLogSort";
 import type { CrewWeekActDetailDto, CrewWeekActRow } from "@/lib/adminCrewWeekActDetail";
 import type { CrewActSummary } from "@/shared/crewActSummary";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 // 성장 결과 변경 미리보기(서버 409 impact) — 취소 시 성공→실패 확인 팝업에 표시할 전후 값.
 type ImpactSide = { growthStatus: string; growthStatusLabel: string; pointA: number };
@@ -93,12 +94,12 @@ export default function CrewWeekActHistory({
       );
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? "액트 내역을 불러오지 못했습니다.");
+        throw apiErrorFrom(res, json, "액트 내역을 불러오지 못했습니다.");
       }
       setDetail(json.data as CrewWeekActDetailDto);
       setSelected(new Set());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "액트 내역을 불러오지 못했습니다.");
+      setError(getApiErrorMessage(err, "액트 내역을 불러오지 못했습니다."));
     } finally {
       setLoading(false);
     }
@@ -178,7 +179,7 @@ export default function CrewWeekActHistory({
           return;
         }
         if (!res.ok || !json.success) {
-          throw new Error(json?.error ?? "액트 취소에 실패했습니다.");
+          throw apiErrorFrom(res, json, "액트 취소에 실패했습니다.");
         }
         const d = json.data as {
           weekDetail?: CrewWeekActDetailDto;
@@ -202,7 +203,7 @@ export default function CrewWeekActHistory({
         }
         onChanged(); // 상위 주차 요약(별/방패/번개/성장률) + 타 표면 갱신
       } catch (err) {
-        setActionError(err instanceof Error ? err.message : "액트 취소에 실패했습니다.");
+        setActionError(getApiErrorMessage(err, "액트 취소에 실패했습니다."));
       } finally {
         setCancelling(false);
       }

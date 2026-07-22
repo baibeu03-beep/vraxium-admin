@@ -19,7 +19,7 @@ import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
-import { apiErrorFrom } from "@/lib/apiError";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 import { useActionToast } from "@/lib/actionToast";
 import { formatClubDate } from "@/lib/clubDate";
 
@@ -170,8 +170,9 @@ export default function LineOpeningWindowsManager() {
       setLoading(true);
       try {
         await Promise.all([fetchMeta(), fetchWindows()]);
-      } catch {
-        setBanner({ kind: "error", message: "데이터를 불러오지 못했습니다" });
+      } catch (err) {
+        console.error("[line-opening-windows] boot load failed", err);
+        setBanner({ kind: "error", message: getApiErrorMessage(err, "데이터를 불러오지 못했습니다") });
       } finally {
         setLoading(false);
       }

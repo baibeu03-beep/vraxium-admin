@@ -1309,7 +1309,10 @@ export default function TeamPartsInfoWeekDetailManager({
             },
           );
           const json = await res.json();
-          if (!res.ok || !json.success) return; // 무음: 실패 시 기존 표시 유지
+          // [P2 무음 유지] 인정 개수 N 미리보기는 오픈 설정 입력 중 300ms 디바운스로 계속 재요청되는
+          //   보조 계산이다. 실패해도 저장/오픈 확인 자체에는 영향이 없고, 토스트를 띄우면 입력 중
+          //   반복 노출로 방해만 된다. 기존 표시를 유지하고 다음 변경에서 자연히 재시도한다.
+          if (!res.ok || !json.success) return;
           if (seq !== recognitionPreviewSeq.current) return; // 최신 요청만 반영(경합 방지)
           setRecognitionPreview({
             recognitionCountN: (json.data?.recognitionCountN ?? null) as number | null,

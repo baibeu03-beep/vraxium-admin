@@ -11,6 +11,7 @@ import LineOpeningCurrentSituationCard, {
   CurrentSituationWeekValue,
   type CurrentSituationItem,
 } from "@/components/admin/LineOpeningCurrentSituationCard";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 // 실무 정보 라인 개설 — 상단 "현재 상황" 안내(표시 전용).
 //   오늘 날짜/요일 + 개설 필요 기간 + 개설 이행 기간 (금요일 경계, lib/practicalInfoSeasonWeeks).
@@ -25,12 +26,13 @@ export default function PracticalInfoCurrentSituation() {
     (async () => {
       try {
         const res = await fetch("/api/admin/season-weeks");
-        const json = await res.json();
+        const json = await res.json().catch(() => ({}));
         if (cancelled) return;
-        if (json?.success) setRows((json.data?.rows ?? []) as SeasonWeekRow[]);
-        else setError(json?.error ?? "주차 정보를 불러오지 못했습니다");
-      } catch {
-        if (!cancelled) setError("주차 정보를 불러오지 못했습니다");
+        if (res.ok && json?.success) setRows((json.data?.rows ?? []) as SeasonWeekRow[]);
+        else throw apiErrorFrom(res, json, "주차 정보를 불러오지 못했습니다");
+      } catch (err) {
+        console.error("[info] season weeks load failed", err);
+        if (!cancelled) setError(getApiErrorMessage(err, "주차 정보를 불러오지 못했습니다"));
       }
     })();
     return () => {

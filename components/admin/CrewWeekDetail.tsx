@@ -24,6 +24,7 @@ import { CrewNoteDialog, type CrewNote } from "@/components/admin/crew/CrewNoteD
 import CrewWeekActHistory from "@/components/admin/CrewWeekActHistory";
 import CrewWeekLineHistory from "@/components/admin/CrewWeekLineHistory";
 import type { CrewWeekDetailDto } from "@/lib/adminCrewWeekDetail";
+import { getApiErrorMessage } from "@/lib/apiError";
 
 // ─────────────────────────────────────────────────────────────────────
 // 회원별 · 주차별 상세(관리) 페이지 본문.
@@ -96,7 +97,7 @@ export default function CrewWeekDetail({
       setMember(memberJson.data as MemberHeaderDto);
       setWeek(weekJson.data as CrewWeekDetailDto);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "상세를 불러오지 못했습니다.");
+      setError(getApiErrorMessage(err, "상세를 불러오지 못했습니다."));
     } finally {
       setLoading(false);
     }

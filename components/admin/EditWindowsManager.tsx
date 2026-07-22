@@ -58,6 +58,7 @@ import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { formatClubDateTime } from "@/lib/clubDate";
 import { formatAdminDateTime } from "@/lib/adminDateTime";
 import { useActionToast } from "@/lib/actionToast";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 const PAGE_SIZE = 50;
 const RESOURCE_OPTIONS = [...EDITABLE_RESOURCES].sort((a, b) => a.order - b.order);
@@ -207,7 +208,7 @@ export default function EditWindowsManager() {
         });
         const json = await res.json();
         if (!res.ok || !json.success) {
-          throw new Error(json?.error ?? "Failed to load edit windows.");
+          throw apiErrorFrom(res, json, "수정 기간 목록을 불러오지 못했습니다.");
         }
         if (!cancelled) {
           setRows((json.data?.rows ?? []) as EditWindowUserRow[]);
@@ -215,7 +216,7 @@ export default function EditWindowsManager() {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load.");
+          setError(getApiErrorMessage(err, "불러오지 못했습니다."));
           setRows([]);
           setTotal(0);
         }
@@ -956,7 +957,7 @@ async function patchWindow(
   );
   const json = await res.json();
   if (!res.ok || !json.success) {
-    throw new Error(json?.error ?? "Failed to save");
+    throw apiErrorFrom(res, json, "저장에 실패했습니다.");
   }
   return (json.data?.window ?? null) as EditWindowDto | null;
 }
@@ -987,7 +988,7 @@ async function bulkWindow(
   );
   const json = await res.json();
   if (!res.ok || !json.success) {
-    throw new Error(json?.error ?? "Failed to save selected users");
+    throw apiErrorFrom(res, json, "선택한 사용자를 저장하지 못했습니다.");
   }
   return Number(json.data?.count ?? 0);
 }
@@ -1110,7 +1111,7 @@ function EditWindowDrawerInner({
       );
       onSaved(row.userId, window);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save");
+      setError(getApiErrorMessage(err, "저장에 실패했습니다."));
     } finally {
       setSaving(false);
     }
@@ -1375,7 +1376,7 @@ function BulkEditWindowDrawerInner({
       );
       onSaved(count);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save");
+      setError(getApiErrorMessage(err, "저장에 실패했습니다."));
     } finally {
       setSaving(false);
     }

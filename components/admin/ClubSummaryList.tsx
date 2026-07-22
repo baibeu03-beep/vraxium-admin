@@ -10,6 +10,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { readOrgParam, buildAdminContextHref } from "@/lib/adminOrgContext";
 import { readScopeMode } from "@/lib/userScopeShared";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 // ── 클럽 목록(상위 페이지) — 각 클럽을 한 행으로 표시하고, 클럽명을 누르면 상세 하위 페이지로 이동 ──
 //   · 모든 값 = 현재 접속 시점(asOf) 기준(상세의 `해당 시기` select 와 무관).
@@ -93,12 +94,12 @@ export default function ClubSummaryList() {
       );
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? `조회 실패 (${res.status})`);
+        throw apiErrorFrom(res, json, `조회 실패 (${res.status})`);
       }
       setData(json.data as SummaryResponse);
     } catch (e) {
       setData(null);
-      setError(e instanceof Error ? e.message : "조회 실패");
+      setError(getApiErrorMessage(e, "조회 실패"));
     } finally {
       setLoading(false);
     }

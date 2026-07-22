@@ -29,6 +29,7 @@ import type {
   UserWeeklyStatusRow,
 } from "@/lib/adminUserWeeklyStatusTypes";
 import { formatClubDate } from "@/lib/clubDate";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 function formatDate(value: string | null | undefined) {
   if (!value) return "-";
@@ -147,13 +148,13 @@ export default function UserWeeklyStatusView({
         );
         const json = await res.json();
         if (!res.ok || !json.success) {
-          throw new Error(json?.error ?? "Failed to load weekly status.");
+          throw apiErrorFrom(res, json, "주차 상태를 불러오지 못했습니다.");
         }
         if (!cancelled) setData(json.data as UserWeeklyStatusDto);
       } catch (err) {
         if (!cancelled) {
           setError(
-            err instanceof Error ? err.message : "Failed to load weekly status.",
+            getApiErrorMessage(err, "주차 상태를 불러오지 못했습니다."),
           );
           setData(null);
         }

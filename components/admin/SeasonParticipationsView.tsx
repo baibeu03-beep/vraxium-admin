@@ -49,6 +49,7 @@ import {
 import { formatClubDate } from "@/lib/clubDate";
 import { formatAdminDateTime } from "@/lib/adminDateTime";
 import { useActionToast } from "@/lib/actionToast";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 const ALL = "__all__";
 
@@ -206,16 +207,13 @@ export default function SeasonParticipationsView() {
         );
         const json = await res.json();
         if (!res.ok || !json.success) {
-          throw new Error(json?.error ?? "Failed to load season participations.");
+          throw apiErrorFrom(res, json, "시즌 참여 정보를 불러오지 못했습니다.");
         }
         if (!cancelled) setData(json.data as SeasonParticipationsDto);
       } catch (err) {
         if (!cancelled) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : "Failed to load season participations.",
-          );
+          console.error("[season-participations] load failed", err);
+          setError(getApiErrorMessage(err, "시즌 참여 정보를 불러오지 못했습니다."));
           setData(null);
         }
       } finally {
@@ -584,15 +582,12 @@ function SeasonParticipationEditModal({
       );
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? "Failed to update season participation.");
+        throw apiErrorFrom(res, json, "시즌 참여 정보를 저장하지 못했습니다.");
       }
       onSaved(row.user_name);
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to update season participation.",
-      );
+      console.error("[season-participations] save failed", err);
+      setError(getApiErrorMessage(err, "시즌 참여 정보를 저장하지 못했습니다."));
     } finally {
       setSaving(false);
     }

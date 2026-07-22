@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { fetchHelpMeta, hasHelpContent, updateHelpMeta } from "@/lib/adminHelpEmphasis";
 import { cn } from "@/lib/utils";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 // 어드민 "관련 도움말" 편집/저장 모달(단일 SoT = /api/admin/help, 테이블 admin_page_help_contents).
 //   · 페이지 단위(AdminHelp: storageKey=usePathname)와 요소 단위(AdminHelpIconButton: storageKey=helpKey)가
@@ -54,7 +55,7 @@ export default function AdminHelpModal({ open, onClose, storageKey, title = "관
       setContent(meta.content);
       setCanEdit(meta.canEdit);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "도움말을 불러오지 못했습니다.");
+      setError(getApiErrorMessage(e, "도움말을 불러오지 못했습니다."));
       setContent("");
     } finally {
       setLoading(false);
@@ -85,14 +86,14 @@ export default function AdminHelpModal({ open, onClose, storageKey, title = "관
       });
       const json = await res.json();
       if (!res.ok || !json?.success) {
-        throw new Error(json?.error ?? `저장 실패 (${res.status})`);
+        throw apiErrorFrom(res, json, `저장 실패 (${res.status})`);
       }
       const saved = typeof json.data?.content === "string" ? json.data.content : draft;
       setContent(saved);
       updateHelpMeta(storageKey, saved, canEdit);
       setEditing(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "저장하지 못했습니다.");
+      setError(getApiErrorMessage(e, "저장하지 못했습니다."));
     } finally {
       setSaving(false);
     }

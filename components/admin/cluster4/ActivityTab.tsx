@@ -43,6 +43,7 @@ import {
   type Cluster4OutputImage,
   OUTPUT_IMAGE_CAPTION_MAX_LENGTH,
 } from "@/lib/cluster4OutputImages";
+import { apiErrorFrom } from "@/lib/apiError";
 
 // Cluster4 4허브(Work Info / Ability / Exp / Career)의 운영 편집 영역.
 //
@@ -394,14 +395,14 @@ export default function ActivityTab({
       );
       const json = await response.json();
       if (!response.ok || !json.success) {
-        throw new Error(json?.error ?? "Failed to save.");
+        throw apiErrorFrom(response, json, "저장에 실패했습니다.");
       }
       onBundleUpdate(json.data as Cluster4Bundle);
       clearSubmissionEdits(lineTargetId);
       t.success("save");
     } catch (error) {
       console.error("[cluster4 activity] submission save failed", error);
-      t.error("save");
+      t.apiError("save", error, "저장에 실패했습니다.");
     } finally {
       setSavingRowId(null);
     }
@@ -445,7 +446,7 @@ export default function ActivityTab({
       );
       const json = await response.json();
       if (!response.ok || !json.success) {
-        throw new Error(json?.error ?? "Failed to save.");
+        throw apiErrorFrom(response, json, "저장에 실패했습니다.");
       }
       onBundleUpdate(json.data as Cluster4Bundle);
       if (isDraft) {
@@ -456,7 +457,7 @@ export default function ActivityTab({
       t.success(isDraft ? "create" : "save");
     } catch (error) {
       console.error("[cluster4 activity] career save failed", error);
-      t.error("save");
+      t.apiError("save", error, "저장에 실패했습니다.");
     } finally {
       setSavingRowId(null);
     }
@@ -494,13 +495,13 @@ export default function ActivityTab({
       );
       const json = await response.json();
       if (!response.ok || !json.success) {
-        throw new Error(json?.error ?? "Failed to delete.");
+        throw apiErrorFrom(response, json, "삭제에 실패했습니다.");
       }
       onBundleUpdate(json.data as Cluster4Bundle);
       t.success("delete");
     } catch (error) {
       console.error("[cluster4 activity] delete failed", error);
-      t.error("delete");
+      t.apiError("delete", error, "삭제에 실패했습니다.");
     } finally {
       setSavingRowId(null);
     }

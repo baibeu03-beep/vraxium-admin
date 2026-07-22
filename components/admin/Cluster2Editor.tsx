@@ -57,6 +57,7 @@ import {
   useAdminDevMode,
   useWithDevQuery,
 } from "@/components/admin/useAdminDevMode";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 // Cluster2 admin editor.
 // resume-card editor 와 동일한 패턴:
@@ -510,7 +511,7 @@ export default function Cluster2Editor({
       );
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? "Failed to load cluster2.");
+        throw apiErrorFrom(res, json, "클러스터2 정보를 불러오지 못했습니다.");
       }
       const b = json.data as Bundle;
       setBundle(b);
@@ -518,7 +519,7 @@ export default function Cluster2Editor({
     } catch (err) {
       setBanner({
         kind: "error",
-        message: err instanceof Error ? err.message : "Failed to load.",
+        message: getApiErrorMessage(err, "불러오지 못했습니다."),
       });
     } finally {
       setLoading(false);
@@ -565,7 +566,7 @@ export default function Cluster2Editor({
       );
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? "Failed to save.");
+        throw apiErrorFrom(res, json, "저장에 실패했습니다.");
       }
       const next = json.data as Bundle;
       setBundle(next);
@@ -576,7 +577,7 @@ export default function Cluster2Editor({
       t.success("save");
     } catch (err) {
       console.error("[Cluster2Editor] save failed", err);
-      t.error("save");
+      t.apiError("save", err, "저장에 실패했습니다.");
     } finally {
       setSaving(false);
     }

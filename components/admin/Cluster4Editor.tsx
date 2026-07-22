@@ -56,6 +56,7 @@ import {
   type EditWindowStatus,
   type QuickActionKey,
 } from "@/lib/adminEditWindowsTypes";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 type TabKey =
   | "weekly_growth"
@@ -1140,7 +1141,7 @@ export default function Cluster4Editor({
         growthRes.json(),
       ]);
       if (!response.ok || !json.success) {
-        throw new Error(json?.error ?? "Failed to load cluster4.");
+        throw apiErrorFrom(response, json, "클러스터4 정보를 불러오지 못했습니다.");
       }
       const nextBundle = json.data as Cluster4Bundle;
       setBundle(nextBundle);
@@ -1155,7 +1156,7 @@ export default function Cluster4Editor({
     } catch (error) {
       setBanner({
         kind: "error",
-        message: error instanceof Error ? error.message : "Failed to load.",
+        message: getApiErrorMessage(error, "불러오지 못했습니다."),
       });
     } finally {
       setLoading(false);
@@ -1248,7 +1249,7 @@ export default function Cluster4Editor({
         );
         const json = await res.json();
         if (!res.ok || !json.success) {
-          throw new Error(json?.error ?? "작성 기간 변경에 실패했습니다.");
+          throw apiErrorFrom(res, json, "작성 기간 변경에 실패했습니다.");
         }
         t.raw(
           "success",
@@ -1259,7 +1260,7 @@ export default function Cluster4Editor({
         await loadAll();
       } catch (error) {
         console.error("[Cluster4Editor] edit-window change failed", error);
-        t.error("update", { message: "작성 기간 변경에 실패했습니다." });
+        t.apiError("update", error, "작성 기간 변경에 실패했습니다.");
       } finally {
         setWindowBusyWeek(null);
       }
@@ -1347,7 +1348,7 @@ export default function Cluster4Editor({
       );
       const json = await response.json();
       if (!response.ok || !json.success) {
-        throw new Error(json?.error ?? "Failed to save cluster4.");
+        throw apiErrorFrom(response, json, "저장에 실패했습니다.");
       }
 
       const nextBundle = json.data as Cluster4Bundle;
@@ -1359,7 +1360,7 @@ export default function Cluster4Editor({
       t.success("save");
     } catch (error) {
       console.error("[Cluster4Editor] save failed", error);
-      t.error("save");
+      t.apiError("save", error, "저장에 실패했습니다.");
     } finally {
       setSaving(false);
     }
@@ -1398,7 +1399,7 @@ export default function Cluster4Editor({
       );
       const json = await response.json();
       if (!response.ok || !json.success) {
-        throw new Error(json?.error ?? "Failed to delete.");
+        throw apiErrorFrom(response, json, "삭제에 실패했습니다.");
       }
       const nextBundle = json.data as Cluster4Bundle;
       setBundle(nextBundle);
@@ -1408,7 +1409,7 @@ export default function Cluster4Editor({
       t.success("delete");
     } catch (error) {
       console.error("[Cluster4Editor] delete failed", error);
-      t.error("delete");
+      t.apiError("delete", error, "삭제에 실패했습니다.");
     } finally {
       setSaving(false);
     }

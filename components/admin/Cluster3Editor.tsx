@@ -48,6 +48,7 @@ import {
   type TopCardSlot,
 } from "@/lib/adminCluster3Types";
 import type { GrowthIndicatorsDto, ClubRankDto } from "@/lib/cluster3GrowthTypes";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 // Cluster3 admin editor — Phase 4.
 //   Section 3 Channel Cards: editable (portfolio_channel_cards write)
@@ -400,7 +401,7 @@ export default function Cluster3Editor({
       ]);
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? "Failed to load cluster3.");
+        throw apiErrorFrom(res, json, "클러스터3 정보를 불러오지 못했습니다.");
       }
       const b = json.data as Cluster3Bundle;
       setBundle(b);
@@ -428,7 +429,7 @@ export default function Cluster3Editor({
     } catch (err) {
       setBanner({
         kind: "error",
-        message: err instanceof Error ? err.message : "Failed to load.",
+        message: getApiErrorMessage(err, "불러오지 못했습니다."),
       });
     } finally {
       setLoading(false);
@@ -458,7 +459,7 @@ export default function Cluster3Editor({
       );
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? "Failed to save.");
+        throw apiErrorFrom(res, json, "저장에 실패했습니다.");
       }
       const next = json.data as Cluster3Bundle;
       setBundle(next);
@@ -471,7 +472,7 @@ export default function Cluster3Editor({
       t.success("save");
     } catch (err) {
       console.error("[Cluster3Editor] save failed", err);
-      t.error("save");
+      t.apiError("save", err, "저장에 실패했습니다.");
     } finally {
       setSaving(false);
     }
