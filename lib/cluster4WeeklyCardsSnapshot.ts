@@ -423,7 +423,18 @@ async function writeRosterCardStats(
 //   2번 슬롯으로 해석된다. 값(내용)이 바뀌므로 boundary-stale 로는 부족 — v46 전량 stale(version_mismatch)로
 //   재계산해 adminOutputImageCount 가 예약값(1)로 baking 되게 한다(field 를 API 계약상 권위값으로 확정).
 //   [[project_cluster4-reserved-image-slots]]
-export const WEEKLY_CARDS_DTO_VERSION = 47;
+// v48 (2026-07-22): 주차 파트/클래스 override 적용 규칙을 **carry-forward + 시즌대표 분리** 로 확정.
+//   · effective(W) = (W 이하 최근 override) ?? (그 주차 UPH) ?? 현재 role/level freeze.
+//     4주차에 저장하면 4주차부터 이후 카드가 그 값이 되고 3주차 이전은 불변이다(미래 override 소급 금지).
+//   · 시즌 대표(tier②) 계산에서 override 를 제외 — UPH 원본만 집계한다. 종전에는 override 가 시즌 대표로
+//     승격돼, UPH 행이 없는 시즌에서 W4 편집 1건이 그 시즌 0~3주차 카드까지 덮었다(실측 2026-07-22:
+//     여름 UPH 0건 + W4 override → 여름 전 주차 심화(파트장)). /cluster-4-card 는 주차별 **이력** 화면이라
+//     과거 카드가 바뀌면 안 된다.
+//   · 영향 필드: roleLabel · crewClassPositionCode · teamName · partName (shape 불변, **값**이 바뀜).
+//   ⚠ **bump 필수** — 기존 v47 snapshot 에 잘못된 값이 baking 되어 있어 boundary-stale 로는 부족.
+//     v47 전량 stale(version_mismatch) → cron/lazy 재계산으로 교정된다.
+//   [[project_cluster4-week-position-override-sot]]
+export const WEEKLY_CARDS_DTO_VERSION = 48;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 
