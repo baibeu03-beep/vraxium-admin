@@ -19,6 +19,7 @@ import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
+import { apiErrorFrom } from "@/lib/apiError";
 import { useActionToast } from "@/lib/actionToast";
 import { formatClubDate } from "@/lib/clubDate";
 
@@ -130,9 +131,13 @@ export default function LineOpeningWindowsManager() {
 
   const fetchWindows = useCallback(async () => {
     const res = await fetch("/api/admin/line-opening-windows");
-    const json = await res.json();
-    if (json.success) setWindows(json.data.windows ?? []);
-    else setBanner({ kind: "error", message: json.error ?? "예외 목록 조회 실패" });
+    const json = await res.json().catch(() => ({}));
+    if (res.ok && json.success) setWindows(json.data.windows ?? []);
+    else {
+      const err = apiErrorFrom(res, json, "예외 목록을 불러오지 못했습니다");
+      console.error("[line-opening-windows] list failed", err);
+      setBanner({ kind: "error", message: err.userMessage });
+    }
   }, []);
 
   const fetchMeta = useCallback(async () => {
@@ -190,15 +195,15 @@ export default function LineOpeningWindowsManager() {
           hub: formHub, // "all" = 전체 라인 종류
         }),
       });
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) {
-        t.error("create", { status: res.status });
-        return;
+        throw apiErrorFrom(res, json, "예외 등록에 실패했습니다.");
       }
       t.success("create", "예외가 등록되었습니다.");
       await fetchWindows();
-    } catch {
-      t.error("create");
+    } catch (err) {
+      console.error("[line-opening-windows] create failed", err);
+      t.apiError("create", err, "예외 등록에 실패했습니다.");
     } finally {
       setSubmitting(false);
     }
@@ -213,14 +218,14 @@ export default function LineOpeningWindowsManager() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ is_active: !w.isActive }),
         });
-        const json = await res.json();
+        const json = await res.json().catch(() => ({}));
         if (!res.ok || !json.success) {
-          t.error("update", { status: res.status });
-          return;
+          throw apiErrorFrom(res, json, "예외 상태 변경에 실패했습니다.");
         }
         await fetchWindows();
-      } catch {
-        t.error("update");
+      } catch (err) {
+        console.error("[line-opening-windows] toggle failed", err);
+        t.apiError("update", err, "예외 상태 변경에 실패했습니다.");
       } finally {
         setBusyId(null);
       }
@@ -243,15 +248,15 @@ export default function LineOpeningWindowsManager() {
         const res = await fetch(`/api/admin/line-opening-windows/${w.id}`, {
           method: "DELETE",
         });
-        const json = await res.json();
+        const json = await res.json().catch(() => ({}));
         if (!res.ok || !json.success) {
-          t.error("delete", { status: res.status });
-          return;
+          throw apiErrorFrom(res, json, "예외 삭제에 실패했습니다.");
         }
         t.success("delete", "예외가 삭제되었습니다.");
         await fetchWindows();
-      } catch {
-        t.error("delete");
+      } catch (err) {
+        console.error("[line-opening-windows] delete failed", err);
+        t.apiError("delete", err, "예외 삭제에 실패했습니다.");
       } finally {
         setBusyId(null);
       }

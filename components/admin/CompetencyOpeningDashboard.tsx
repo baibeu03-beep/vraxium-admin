@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { adminDialog } from "@/components/ui/admin-dialog";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 import { cn } from "@/lib/utils";
 import { CUSTOM_DROPDOWN_POPUP_CLASS } from "@/lib/customDropdownStyles";
 import { readOrgParam } from "@/lib/adminOrgContext";
@@ -23,7 +24,6 @@ import CompetencyOpeningLogPanel from "@/components/admin/CompetencyOpeningLogPa
 import CompetencyApplicantSection from "@/components/admin/CompetencyApplicantSection";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { useToast } from "@/components/ui/toast";
-import { useActionToast } from "@/lib/actionToast";
 import { LINE_OPENING_RESULT } from "@/lib/lineOpeningResultMessages";
 import {
   validateCompetencyOutput,
@@ -74,7 +74,6 @@ export default function CompetencyOpeningDashboard() {
   // 운영/테스트 모드 — 읽기(상태창/신청/개설상태)와 동일 모드를 쓰기(개설/취소)에도 전달한다.
   const mode = readScopeMode(searchParams);
   const { toast } = useToast();
-  const t = useActionToast();
   // 운영/테스트 모드 — 개설 완료 시 라인 타깃 생성 가드(서버)와 같은 모드로 판정되도록 보존.
 
   const [opened, setOpened] = useState<boolean | null>(null);
@@ -334,11 +333,9 @@ export default function CompetencyOpeningDashboard() {
             body: JSON.stringify(body),
           },
         );
-        const json = await res.json();
-        if (!json.success) {
-          console.error("[competency] open/cancel failed", json?.error);
-          t.error(action === "cancel" ? "cancel" : "open", { status: res.status });
-          return;
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json.success) {
+          throw apiErrorFrom(res, json, "처리에 실패했습니다");
         }
         const d = json.data ?? {};
         // 실제 반영 수(reflectedLines/reflectedCrews) = 사전 토글 + 신청 반영/삭제 합산.
@@ -362,13 +359,14 @@ export default function CompetencyOpeningDashboard() {
         );
         setRefreshKey((k) => k + 1);
         await fetchStatus();
-      } catch {
-        toast("error", "처리 중 오류가 발생했습니다");
+      } catch (err) {
+        console.error("[competency] open/cancel failed", err);
+        toast("error", getApiErrorMessage(err, "처리 중 오류가 발생했습니다"));
       } finally {
         setActing(false);
       }
     },
-    [org, mode, linkUrl, linkDesc, fetchStatus, openTargetWeek, toast, t, canOpen],
+    [org, mode, linkUrl, linkDesc, fetchStatus, openTargetWeek, toast, canOpen],
   );
 
   return (

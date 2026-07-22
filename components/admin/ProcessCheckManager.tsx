@@ -13,6 +13,7 @@ import { useSearchParams } from "next/navigation";
 import { X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 import { cn } from "@/lib/utils";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
@@ -155,13 +156,13 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
       const res = await fetch(appendModeQuery(url, mode), { cache: "no-store" });
       const json = await res.json().catch(() => ({}));
       if (myReq !== reqRef.current) return;
-      if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
+      if (!res.ok || !json.success) throw apiErrorFrom(res, json);
       setBoard(json.data as ProcessCheckBoardDto);
       setError(null);
     } catch (err) {
       if (myReq !== reqRef.current) return;
       setBoard(emptyProcessCheckBoard(hub, org));
-      setError(err instanceof Error ? err.message : "조회에 실패했습니다");
+      setError(getApiErrorMessage(err, "조회에 실패했습니다"));
     } finally {
       if (myReq === reqRef.current) setLoading(false);
     }
@@ -181,7 +182,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
         const res = await fetch(appendModeQuery(url, mode), { cache: "no-store" });
         const json = await res.json().catch(() => ({}));
         if (myReq !== teamReqRef.current) return;
-        if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
+        if (!res.ok || !json.success) throw apiErrorFrom(res, json);
         setTeamBoard(json.data as ProcessCheckBoardDto);
       } catch {
         if (myReq !== teamReqRef.current) return;

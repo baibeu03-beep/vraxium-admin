@@ -19,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 import { cn } from "@/lib/utils";
 import { formatClubDate } from "@/lib/clubDate";
 import { formatAdminDate } from "@/lib/adminDateTime";
@@ -107,19 +108,17 @@ export default function LineHistoryManager() {
       qs.set("offset", String(offset));
 
       const res = await fetch(`/api/admin/cluster4/lines/history?${qs.toString()}`);
-      const json = await res.json();
-      if (!json.success) {
-        setRows([]);
-        setTotal(0);
-        setError(json.error ?? "개설 이력을 불러오지 못했습니다");
-        return;
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        throw apiErrorFrom(res, json, "개설 이력을 불러오지 못했습니다");
       }
       setRows(json.data.rows ?? []);
       setTotal(json.data.total ?? 0);
     } catch (e) {
+      console.error("[line-history] load failed", e);
       setRows([]);
       setTotal(0);
-      setError(e instanceof Error ? e.message : "개설 이력을 불러오지 못했습니다");
+      setError(getApiErrorMessage(e, "개설 이력을 불러오지 못했습니다"));
     } finally {
       setLoading(false);
     }

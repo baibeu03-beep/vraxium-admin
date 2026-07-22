@@ -11,6 +11,7 @@ import {
   toAdminErrorResponse,
   type AdminContext,
 } from "@/lib/adminAuth";
+import { publicErrorMessage } from "@/lib/apiError";
 import { resolveAdminOrgAccess, isRowOrgAllowed } from "@/lib/adminOrgAccess";
 import { isUuid } from "@/lib/isUuid";
 import { parseLineRegistrationPatchBody } from "@/lib/adminLineRegistrationsTypes";
@@ -33,7 +34,7 @@ export async function GET(_request: NextRequest, { params }: Ctx) {
   }
   const { id } = await params;
   if (!isUuid(id)) {
-    return Response.json({ success: false, error: "id must be a UUID" }, { status: 400 });
+    return Response.json({ success: false, error: "대상 라인을 찾을 수 없습니다." }, { status: 400 });
   }
   try {
     const registration = await getLineRegistrationDetail(id);
@@ -50,7 +51,7 @@ export async function GET(_request: NextRequest, { params }: Ctx) {
     const status = error instanceof LineRegistrationError ? error.status : 500;
     console.error("[lines/registrations/[id] GET]", error);
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed" },
+      { success: false, error: publicErrorMessage(error, status, "라인 정보를 불러오지 못했습니다") },
       { status },
     );
   }
@@ -67,14 +68,14 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
   }
   const { id } = await params;
   if (!isUuid(id)) {
-    return Response.json({ success: false, error: "id must be a UUID" }, { status: 400 });
+    return Response.json({ success: false, error: "대상 라인을 찾을 수 없습니다." }, { status: 400 });
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return Response.json({ success: false, error: "Invalid JSON body" }, { status: 400 });
+    return Response.json({ success: false, error: "요청 형식이 올바르지 않습니다." }, { status: 400 });
   }
   const parsed = parseLineRegistrationPatchBody(body);
   if (!parsed.ok) {
@@ -111,7 +112,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
     const status = error instanceof LineRegistrationError ? error.status : 500;
     console.error("[lines/registrations/[id] PATCH]", error);
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed" },
+      { success: false, error: publicErrorMessage(error, status, "라인 수정에 실패했습니다") },
       { status },
     );
   }

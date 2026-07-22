@@ -66,13 +66,13 @@ export async function POST(request: NextRequest) {
     body = await request.json();
   } catch {
     return Response.json(
-      { success: false, error: "Invalid JSON body" },
+      { success: false, error: "요청 형식이 올바르지 않습니다." },
       { status: 400 },
     );
   }
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return Response.json(
-      { success: false, error: "Request body must be a JSON object" },
+      { success: false, error: "요청 형식이 올바르지 않습니다." },
       { status: 400 },
     );
   }
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
   const weekId = typeof input.week_id === "string" ? input.week_id.trim() : "";
   if (!weekId) {
     return Response.json(
-      { success: false, error: "week_id is required" },
+      { success: false, error: "주차를 선택해주세요." },
       { status: 400 },
     );
   }
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
   if (orgRaw && orgRaw !== "all") {
     if (!isOrganizationSlug(orgRaw)) {
       return Response.json(
-        { success: false, error: "organization_slug 은 유효한 클럽(encre|oranke|phalanx)이어야 합니다" },
+        { success: false, error: "소속 클럽을 다시 선택해주세요." },
         { status: 400 },
       );
     }
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
   if (hubRaw && hubRaw !== "all") {
     if (!isLineOpeningWindowHub(hubRaw)) {
       return Response.json(
-        { success: false, error: "hub 은 info|experience|competency 중 하나여야 합니다" },
+        { success: false, error: "소속 허브를 다시 선택해주세요." },
         { status: 400 },
       );
     }
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
   if (scope === "lines") {
     if (!Array.isArray(input.activity_type_ids)) {
       return Response.json(
-        { success: false, error: "activity_type_ids must be an array" },
+        { success: false, error: "허용할 라인을 다시 선택해주세요." },
         { status: 400 },
       );
     }

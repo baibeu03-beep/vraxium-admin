@@ -19,6 +19,7 @@ import {
   ArrowUpDown,
   ChevronDown,
   ExternalLink,
+  Link2,
   RefreshCw,
   RotateCcw,
 } from "lucide-react";
@@ -29,6 +30,13 @@ import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import LineRegistrationEditModal from "@/components/admin/LineRegistrationEditModal";
 import { ClubBadge, HubBadge } from "@/components/admin/LineRegistrationBadges";
+import {
+  rowOrgAllowed,
+  useAdminOrgAccess,
+} from "@/components/admin/AdminOrgAccessProvider";
+import { formatAdminDateTime } from "@/lib/adminDateTime";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
+import { useActionToast } from "@/lib/actionToast";
 import {
   Table,
   TableBody,
@@ -175,6 +183,7 @@ type InfoColKey =
   | "pointB"
   | "mainTitle"
   | "unit"
+  | "bridge"
   | "edit";
 type InfoSortValue = number | string | null;
 
@@ -273,6 +282,16 @@ const INFO_COLUMNS: InfoColumnDef[] = [
     key: "unit",
     label: "유닛",
     helpKey: "admin.lines.info.column.unit",
+    center: true,
+    sortable: false,
+    sortValue: () => null,
+  },
+  // 개설 연결(브리지) — 경험/역량 라인을 허브 마스터에 연결해 개설 드롭다운에 노출시킨다.
+  //   (2026-06-27 탭 통합 때 컬럼이 누락돼 신규 등록 라인을 개설할 경로가 끊겼던 것을 복원.)
+  {
+    key: "bridge",
+    label: "개설 연결",
+    helpKey: "admin.lines.info.column.bridge",
     center: true,
     sortable: false,
     sortValue: () => null,
@@ -392,6 +411,14 @@ export default function LineRegistrationInfoManager({
   const [editingRow, setEditingRow] = useState<LineRegistrationDto | null>(null);
   useReportLoading(loading);
 
+  // ── 개설 연결(브리지) ──────────────────────────────────────────────
+  //   요청 중인 행 id(중복 클릭 차단·버튼 비활성화) + 행별 실패 사유(행 내 인라인 표시).
+  //   성공은 전역 toast, 실패 원인은 해당 행에만 남긴다(다른 행 상태 무영향).
+  const [bridgingId, setBridgingId] = useState<string | null>(null);
+  const [bridgeErrors, setBridgeErrors] = useState<Record<string, string>>({});
+  const orgAccess = useAdminOrgAccess();
+  const t = useActionToast();
+
   // 클럽 필터(즉시 적용) · 허브 필터(보류 → [확인] 시 적용).
   const [clubFilter, setClubFilter] = useState<ClubFilter>("-");
   const [pendingHubs, setPendingHubs] = useState<Set<LineRegistrationHub>>(new Set());
@@ -484,10 +511,7 @@ export default function LineRegistrationInfoManager({
             );
             const json = await res.json();
             if (!res.ok || !json.success) {
-              throw new Error(
-                (json && typeof json.error === "string" && json.error) ||
-                  `HTTP ${res.status}`,
-              );
+              throw apiErrorFrom(res, json);
             }
             return (json.data as ListLineRegistrationsResult).rows;
           }),
@@ -497,7 +521,7 @@ export default function LineRegistrationInfoManager({
         setRows(results.flat().filter((r) => r.hub !== "career"));
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "목록을 불러오지 못했습니다");
+          setError(getApiErrorMessage(err, "목록을 불러오지 못했습니다"));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -508,6 +532,70 @@ export default function LineRegistrationInfoManager({
       cancelled = true;
     };
   }, [refreshTick, org]);
+
+  // ── 개설 연결 실행 — 기존 API/기존 bridgeLineRegistration() 재사용(로직 중복 구현 없음) ──
+  //   POST /api/admin/lines/registrations/[id]/bridge → { action, masterTable, masterId, bridgedAt }
+  //   · action: created(마스터 신규) · found(기존 마스터 연결·무수정) · already_bridged(멱등 재호출)
+  //   · 세 경우 모두 "연결 완료"로 수렴한다 — 이미 연결된 행의 재호출도 오류가 아니다(멱등 계약).
+  //   · 성공 시 목록 전체를 재조회하지 않고 **해당 행만** 응답값으로 패치한다
+  //     (다른 행 상태·필터·정렬·스크롤 위치 무영향).
+  const handleBridge = useCallback(
+    async (row: LineRegistrationDto) => {
+      if (bridgingId) return; // 다른 행 처리 중 — 중복 실행 차단
+      setBridgingId(row.id);
+      setBridgeErrors((prev) => {
+        if (!(row.id in prev)) return prev;
+        const next = { ...prev };
+        delete next[row.id];
+        return next;
+      });
+      try {
+        const res = await fetch(
+          `/api/admin/lines/registrations/${encodeURIComponent(row.id)}/bridge`,
+          { method: "POST" },
+        );
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json.success) {
+          throw apiErrorFrom(res, json, "개설 연결에 실패했습니다");
+        }
+        const result = json.data as {
+          action: "created" | "found" | "already_bridged";
+          masterId: string;
+          bridgedAt: string;
+        };
+        // 행 단위 즉시 반영 — bridgedMasterId/bridgedAt 이 채워지면 셀이 "연결 완료"로 바뀐다.
+        setRows((prev) =>
+          prev
+            ? prev.map((r) =>
+                r.id === row.id
+                  ? { ...r, bridgedMasterId: result.masterId, bridgedAt: result.bridgedAt }
+                  : r,
+              )
+            : prev,
+        );
+        t.success(
+          "save",
+          result.action === "created"
+            ? `개설 연결 완료 — ${row.lineName}: 마스터를 새로 생성해 연결했습니다.`
+            : result.action === "found"
+              ? `개설 연결 완료 — ${row.lineName}: 기존 마스터에 연결했습니다(마스터 무수정).`
+              : `이미 연결된 라인입니다 — ${row.lineName}: 기존 연결을 그대로 유지합니다.`,
+        );
+      } catch (err) {
+        // 실패 사유(서버 4xx 업무 문구)는 해당 행 인라인 + 토스트 모두 같은 파서 결과를 쓴다.
+        //   5xx·네트워크는 파서가 안전 문구로 치환하므로 내부 원문이 새지 않는다.
+        console.error("[lines/info] bridge failed", err);
+        setBridgeErrors((prev) => ({
+          ...prev,
+          [row.id]: getApiErrorMessage(err, "개설 연결에 실패했습니다"),
+        }));
+        t.apiError("save", err, "개설 연결에 실패했습니다");
+      } finally {
+        setBridgingId(null);
+      }
+    },
+    [bridgingId, t],
+  );
 
   // 통계 — 전체 허브 갯수(데이터에 존재하는 비-career 허브 종류 수) · 전체 라인 갯수.
   //   전체 라인 갯수는 공통 라인 중복을 제거한 "구분되는 라인 수"로 센다(클럽별 복제 제외).
@@ -881,6 +969,65 @@ export default function LineRegistrationInfoManager({
                           >
                             유닛
                           </Button>
+                        )}
+                      </TableCell>
+                      {/* 개설 연결 — 경험/역량 전용. 연결 전이면 버튼, 연결 후면 "연결 완료" 배지.
+                          실무 정보(info)는 마스터가 없어 브리지 대상이 아니다(서버도 400 거부). */}
+                      <TableCell className="text-center">
+                        {row.bridgedMasterId ? (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700"
+                            // master UUID 는 노출하지 않는다 — 연결 시각만 보조 정보로.
+                            title={
+                              row.bridgedAt
+                                ? `연결 시각: ${formatAdminDateTime(row.bridgedAt)}`
+                                : "개설 마스터에 연결됨"
+                            }
+                          >
+                            <Link2 className="h-3 w-3" />
+                            연결 완료
+                          </span>
+                        ) : row.hub === "info" ? (
+                          <span
+                            className="text-xs text-muted-foreground"
+                            title="실무 정보는 개설 마스터가 없어 연결 대상이 아닙니다 — 개설 화면에서 활동유형별로 직접 개설합니다."
+                          >
+                            —
+                          </span>
+                        ) : !row.isActive ? (
+                          <span
+                            className="text-xs text-muted-foreground"
+                            title="비활성 라인은 개설 연결을 할 수 없습니다 — 수정에서 활성으로 전환하세요."
+                          >
+                            비활성
+                          </span>
+                        ) : !rowOrgAllowed(orgAccess, row.organizationSlug) ? (
+                          <span
+                            className="text-xs text-muted-foreground"
+                            title="이 클럽의 라인을 연결할 권한이 없습니다."
+                          >
+                            권한 없음
+                          </span>
+                        ) : (
+                          <div className="flex flex-col items-center gap-1">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              loading={bridgingId === row.id}
+                              disabled={bridgingId !== null && bridgingId !== row.id}
+                              onClick={() => void handleBridge(row)}
+                              title="개설 마스터에 연결해 개설 화면 드롭다운에 노출시킵니다"
+                            >
+                              <Link2 className="mr-1 h-3.5 w-3.5" />
+                              개설 연결
+                            </Button>
+                            {bridgeErrors[row.id] && (
+                              <span className="max-w-48 text-left text-[11px] leading-tight text-rose-600">
+                                {bridgeErrors[row.id]}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </TableCell>
                       {/* 수정 — 기존 편집 흐름(모달) 진입. 공용 outline/sm 버튼 스타일 재사용. */}

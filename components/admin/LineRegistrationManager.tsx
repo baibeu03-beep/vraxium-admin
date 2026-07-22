@@ -30,6 +30,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { useActionToast } from "@/lib/actionToast";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 import { cn } from "@/lib/utils";
 import {
   experienceActivityTypeForLineType,
@@ -163,14 +164,19 @@ function LogoUploadField({
           method: "POST",
           body: formData,
         });
-        const json = await res.json();
-        if (!json.success) {
-          void adminDialog.alert({ variant: "danger", title: "업로드 실패", description: json.error || "업로드에 실패했습니다" });
-          return;
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json.success) {
+          // 서버 4xx(용량/확장자 등) 문구는 그대로, 5xx·네트워크는 안전 문구로 치환된다.
+          throw apiErrorFrom(res, json, "업로드에 실패했습니다");
         }
         onChange(json.data.url);
-      } catch {
-        void adminDialog.alert({ variant: "danger", title: "업로드 오류", description: "업로드 중 오류가 발생했습니다" });
+      } catch (err) {
+        console.error("[lines/register] logo upload failed", err);
+        void adminDialog.alert({
+          variant: "danger",
+          title: "업로드 실패",
+          description: getApiErrorMessage(err, "업로드에 실패했습니다"),
+        });
       } finally {
         setUploading(false);
         if (fileRef.current) fileRef.current.value = "";
@@ -413,9 +419,9 @@ export default function LineRegistrationManager() {
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) {
-        const message =
-          (json && typeof json.error === "string" && json.error) || `HTTP ${res.status}`;
-        throw new Error(message);
+        // 서버 400 검증 문구(예: "line_code 는 영문/숫자/하이픈(-)만 허용합니다 …")를
+        // 유실하지 않고 catch 까지 그대로 전달한다. 노출 여부 판정은 lib/apiError SoT.
+        throw apiErrorFrom(res, json, "라인 등록에 실패했습니다.");
       }
       const pc = json.pointConfig as { saved: boolean; reason?: string } | undefined;
       // 포인트 입력 여부는 리셋 전에 판단(handleReset 이 상태를 비움).
@@ -430,8 +436,9 @@ export default function LineRegistrationManager() {
         t.success("create", "라인이 등록되었습니다. 목록은 라인 정보 페이지에서 확인하세요.");
       }
     } catch (err) {
-      console.error(err);
-      t.error("create");
+      // 개발자용 상세(stack·원본 payload)는 console 로만. 사용자 toast 는 안전 문구만.
+      console.error("[lines/register] create failed", err);
+      t.apiError("create", err, "라인 등록에 실패했습니다.");
     } finally {
       setSaving(false);
     }

@@ -17,6 +17,7 @@ import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import { readOrgParam } from "@/lib/adminOrgContext";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 import {
   ORGANIZATIONS,
   isOrganizationSlug,
@@ -241,12 +242,12 @@ export default function TeamPartsInfoWeeksManager({
         );
         const json = await res.json();
         if (!res.ok || !json.success) {
-          throw new Error(json?.error ?? `조회 실패 (${res.status})`);
+          throw apiErrorFrom(res, json, `조회 실패 (${res.status})`);
         }
         setData(json.data as TeamPartsInfoWeeksData);
       } catch (e) {
         setData(null);
-        setError(e instanceof Error ? e.message : "조회 실패");
+        setError(getApiErrorMessage(e, "조회 실패"));
       } finally {
         setLoading(false);
       }

@@ -17,6 +17,7 @@ import {
 } from "@/components/admin/lineOpeningStatusUi";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 import {
   buildHubOpenStatusLine,
   buildLineOpeningStatus,
@@ -179,7 +180,7 @@ export default function LineOpeningStatusBoard({
         );
         const json = await res.json();
         if (!json?.success) {
-          throw new Error(json?.error ?? "상태창 데이터를 불러오지 못했습니다");
+          throw apiErrorFrom(res, json, "상태창 데이터를 불러오지 못했습니다");
         }
         return json.data as StatusResponse;
       };
@@ -194,8 +195,11 @@ export default function LineOpeningStatusBoard({
         if (cancelled) return;
         setOperating(op);
         setSelected(sel);
-      } catch {
-        if (!cancelled) setError("상태창 데이터를 불러오지 못했습니다");
+      } catch (err) {
+        if (!cancelled) {
+          console.error("[line-opening] status board load failed", err);
+          setError(getApiErrorMessage(err, "상태창 데이터를 불러오지 못했습니다"));
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }

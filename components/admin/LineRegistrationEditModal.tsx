@@ -14,6 +14,7 @@ import { Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 import { cn } from "@/lib/utils";
 import { Checkbox, checkedTextClass } from "@/components/ui/checkbox";
 import {
@@ -116,11 +117,11 @@ export default function LineRegistrationEditModal({
         const res = await fetch(`/api/admin/lines/registrations/${row.id}`, { cache: "no-store" });
         const json = await res.json().catch(() => ({}));
         if (!res.ok || !json.success) {
-          throw new Error((json && typeof json.error === "string" && json.error) || `HTTP ${res.status}`);
+          throw apiErrorFrom(res, json);
         }
         if (!cancelled) setDetail(json.data as DetailDto);
       } catch (err) {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : "상세를 불러오지 못했습니다");
+        if (!cancelled) setLoadError(getApiErrorMessage(err, "상세를 불러오지 못했습니다"));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -204,7 +205,7 @@ export default function LineRegistrationEditModal({
         });
         const json = await res.json().catch(() => ({}));
         if (!res.ok || !json.success) {
-          throw new Error((json && typeof json.error === "string" && json.error) || `HTTP ${res.status}`);
+          throw apiErrorFrom(res, json);
         }
         if (json.driftSync?.warning) warning = ` (동기화 경고: ${json.driftSync.warning})`;
       }
@@ -230,12 +231,12 @@ export default function LineRegistrationEditModal({
         });
         const json = await res.json().catch(() => ({}));
         if (!res.ok || !json.success) {
-          throw new Error((json && typeof json.error === "string" && json.error) || `HTTP ${res.status}`);
+          throw apiErrorFrom(res, json);
         }
       }
       onSaved(`수정되었습니다 (${row.lineName})${warning}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "저장에 실패했습니다");
+      setError(getApiErrorMessage(err, "저장에 실패했습니다"));
     } finally {
       setSaving(false);
     }

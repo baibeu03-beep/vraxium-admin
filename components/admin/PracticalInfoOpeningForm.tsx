@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Upload, Trash2, X, Lock, Unlock, CheckCircle2 } from "lucide-react";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 import type { Cluster4InfoLineDetail } from "@/lib/adminCluster4LinesTypes";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import {
@@ -25,7 +26,6 @@ import CafeCrewPicker, {
 } from "@/components/admin/CafeCrewPicker";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { useToast } from "@/components/ui/toast";
-import { useActionToast } from "@/lib/actionToast";
 import { LINE_OPENING_RESULT, lineOpenSuccessMessage } from "@/lib/lineOpeningResultMessages";
 import {
   OPENING_INVALID_HIGHLIGHT,
@@ -162,14 +162,18 @@ function OpeningImageSlot({
           method: "POST",
           body: formData,
         });
-        const json = await res.json();
-        if (!json.success) {
-          void adminDialog.alert({ variant: "danger", title: "업로드 실패", description: json.error || "업로드에 실패했습니다" });
-          return;
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json.success) {
+          throw apiErrorFrom(res, json, "업로드에 실패했습니다");
         }
         onUpload({ url: json.data.url, name: file.name });
-      } catch {
-        void adminDialog.alert({ variant: "danger", title: "업로드 오류", description: "업로드 중 오류가 발생했습니다" });
+      } catch (err) {
+        console.error("[info] image upload failed", err);
+        void adminDialog.alert({
+          variant: "danger",
+          title: "업로드 실패",
+          description: getApiErrorMessage(err, "업로드에 실패했습니다"),
+        });
       } finally {
         setUploading(false);
         if (fileRef.current) fileRef.current.value = "";
@@ -290,7 +294,6 @@ export default function PracticalInfoOpeningForm({
 }) {
   const devMode = useAdminDevMode();
   const { toast } = useToast();
-  const t = useActionToast();
 
   // dev(?dev=true) 관리자 강제 개설 토글 — 저장 시 dev=true 를 붙여 서버 통합/휴식 fail-closed 게이트까지
   //   우회한다(테스트용). org-scoped 관리자 수동 개설은 dev 없이도 선택 주차를 서버가 허용(활동 관리 오픈 재검증).
@@ -685,18 +688,17 @@ export default function PracticalInfoOpeningForm({
         `/api/admin/cluster4/info-lines?${qs.toString()}`,
         { method: "DELETE" },
       );
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) {
-        console.error("[info] open-cancel failed", json?.error);
-        t.error("cancel", { status: res.status });
-        return;
+        throw apiErrorFrom(res, json, "개설 취소에 실패했습니다");
       }
       toast("success", LINE_OPENING_RESULT.cancelSuccess);
       setOpenedLine(null);
       setRefreshTick((t) => t + 1);
       onOpened();
-    } catch {
-      toast("error", "개설 취소 중 오류가 발생했습니다");
+    } catch (err) {
+      console.error("[info] open-cancel failed", err);
+      toast("error", getApiErrorMessage(err, "개설 취소에 실패했습니다"));
     } finally {
       setSaving(false);
       setConfirmCancel(false);
@@ -742,11 +744,9 @@ export default function PracticalInfoOpeningForm({
           body: JSON.stringify(payload),
         },
       );
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) {
-        console.error("[info] open failed", json?.error);
-        t.error("open", { status: res.status });
-        return;
+        throw apiErrorFrom(res, json, "개설에 실패했습니다");
       }
       console.warn("[line-opening] info form open result", {
         targetCount: json.data?.targetCount ?? candidates.length,
@@ -755,8 +755,9 @@ export default function PracticalInfoOpeningForm({
       // 폼을 비우지 않는다 — 재조회로 openedLine 이 채워지면 hydrate 가 저장값을 주입하고 잠근다.
       setRefreshTick((t) => t + 1);
       onOpened();
-    } catch {
-      toast("error", "개설 중 오류가 발생했습니다");
+    } catch (err) {
+      console.error("[info] open failed", err);
+      toast("error", getApiErrorMessage(err, "개설에 실패했습니다"));
     } finally {
       setSaving(false);
       // 성공·실패·오류 어느 경우든 확인 모달은 닫는다(결과는 상단 배너로 노출).

@@ -29,18 +29,18 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
   try {
     body = await request.json();
   } catch {
-    return Response.json({ success: false, error: "Invalid JSON body" }, { status: 400 });
+    return Response.json({ success: false, error: "요청 형식이 올바르지 않습니다." }, { status: 400 });
   }
   if (!body || typeof body !== "object") {
     return Response.json(
-      { success: false, error: "Request body must be a JSON object" },
+      { success: false, error: "요청 형식이 올바르지 않습니다." },
       { status: 400 },
     );
   }
   const isActive = (body as Record<string, unknown>).is_active;
   if (typeof isActive !== "boolean") {
     return Response.json(
-      { success: false, error: "is_active (boolean) is required" },
+      { success: false, error: "사용 여부 값이 올바르지 않습니다." },
       { status: 400 },
     );
   }

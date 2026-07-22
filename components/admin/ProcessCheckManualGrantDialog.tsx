@@ -31,6 +31,7 @@ import {
 } from "@/lib/adminProcessCheckTypes";
 import ProcessCheckCompletedCrewList from "@/components/admin/ProcessCheckCompletedCrewList";
 import { getProcessPointLabels } from "@/lib/pointLabels";
+import { apiErrorFrom } from "@/lib/apiError";
 import { useActionToast } from "@/lib/actionToast";
 import { excludeAddedByUserId } from "@/lib/crewSearchExclude";
 
@@ -217,13 +218,13 @@ export default function ProcessCheckManualGrantDialog({
         }),
       });
       const json = await res.json().catch(() => ({}));
-      if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
+      if (!res.ok || !json.success) throw apiErrorFrom(res, json);
       t.success("review");
       onDone();
       onClose();
     } catch (err) {
       console.error("[ProcessCheckManualGrantDialog] manual grant failed", err);
-      t.error("review");
+      t.apiError("review", err);
     } finally {
       setSubmitting(false);
     }

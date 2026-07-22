@@ -12,6 +12,7 @@ import {
   toAdminErrorResponse,
   type AdminContext,
 } from "@/lib/adminAuth";
+import { publicErrorMessage } from "@/lib/apiError";
 import { resolveAdminOrgAccess, isRowOrgAllowed } from "@/lib/adminOrgAccess";
 import { isUuid } from "@/lib/isUuid";
 import { getLineRegistration } from "@/lib/adminLineRegistrationsData";
@@ -33,7 +34,7 @@ export async function POST(
   const { id } = await context.params;
   if (!isUuid(id)) {
     return Response.json(
-      { success: false, error: "registration id must be a UUID" },
+      { success: false, error: "대상 라인을 찾을 수 없습니다." },
       { status: 400 },
     );
   }
@@ -54,7 +55,7 @@ export async function POST(
     const status = error instanceof LineBridgeError ? error.status : 500;
     console.error("[lines/registrations bridge POST]", error);
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed" },
+      { success: false, error: publicErrorMessage(error, status, "라인 연결에 실패했습니다") },
       { status },
     );
   }

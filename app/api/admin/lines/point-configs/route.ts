@@ -11,6 +11,7 @@ import {
   toAdminErrorResponse,
   type AdminContext,
 } from "@/lib/adminAuth";
+import { publicErrorMessage } from "@/lib/apiError";
 import { resolveAdminOrgAccess } from "@/lib/adminOrgAccess";
 import { isOrganizationSlug } from "@/lib/organizations";
 import {
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
     return Response.json({ success: true, data });
   } catch (error) {
     console.error("[lines/point-configs GET]", error);
-    return Response.json({ success: false, error: error instanceof Error ? error.message : "Failed" }, { status: 500 });
+    return Response.json({ success: false, error: publicErrorMessage(error, 500, "포인트 설정을 불러오지 못했습니다") }, { status: 500 });
   }
 }
 
@@ -66,13 +67,13 @@ export async function PUT(request: NextRequest) {
   try {
     body = await request.json();
   } catch {
-    return Response.json({ success: false, error: "Invalid JSON body" }, { status: 400 });
+    return Response.json({ success: false, error: "요청 형식이 올바르지 않습니다." }, { status: 400 });
   }
   const b = (body ?? {}) as Record<string, unknown>;
   const orgRaw = typeof b.organization === "string" ? b.organization.trim() : null;
   const organization = orgRaw === "common" ? "common" : isOrganizationSlug(orgRaw) ? orgRaw : null;
-  if (!organization) return Response.json({ success: false, error: "organization required (org slug or 'common')" }, { status: 400 });
-  if (!isLinePointHub(b.hub)) return Response.json({ success: false, error: "hub must be info|experience|competency|career" }, { status: 400 });
+  if (!organization) return Response.json({ success: false, error: "소속 클럽을 선택해주세요." }, { status: 400 });
+  if (!isLinePointHub(b.hub)) return Response.json({ success: false, error: "소속 허브를 다시 선택해주세요." }, { status: 400 });
 
   // 허용 조직 검증 — 전체 허용이 아니면 common/타org 쓰기 차단.
   const access = await resolveAdminOrgAccess(admin);
@@ -97,6 +98,6 @@ export async function PUT(request: NextRequest) {
   } catch (error) {
     const status = error instanceof LinePointConfigError ? error.status : 500;
     console.error("[lines/point-configs PUT]", error);
-    return Response.json({ success: false, error: error instanceof Error ? error.message : "Failed" }, { status });
+    return Response.json({ success: false, error: publicErrorMessage(error, status, "포인트 설정 저장에 실패했습니다") }, { status });
   }
 }

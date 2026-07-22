@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { CalendarPlus, RotateCcw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 import { adminDialog } from "@/components/ui/admin-dialog";
 import { Button } from "@/components/ui/button";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
@@ -283,10 +284,10 @@ export default function PeriodRegisterForm({ rows, onRegistered }: Props) {
           week_end_date: selectedCandidate.end,
         }),
       });
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) {
-        void adminDialog.alert({ variant: "danger", title: "등록 실패", description: json?.error ?? "등록에 실패했습니다." });
-        return;
+        // 서버 4xx 업무 사유(기간 충돌·중복 주차 등)는 그대로, 5xx 원문은 안전 문구로 치환된다.
+        throw apiErrorFrom(res, json, "등록에 실패했습니다.");
       }
 
       const regSeasonLabel =
@@ -302,8 +303,13 @@ export default function PeriodRegisterForm({ rows, onRegistered }: Props) {
       // 크루 페이지(cluster4 카드) 반영은 별도 조작이 필요 없다: 휴식/기간 변경은 영향 snapshot 을
       //   자동 stale 처리하고, 사용자가 크루 페이지를 조회할 때 loadWeeklyCards() 가 lazy 재계산한다.
       onRegistered();
-    } catch {
-      void adminDialog.alert({ variant: "danger", title: "등록 오류", description: "등록 중 오류가 발생했습니다." });
+    } catch (err) {
+      console.error("[periods/register] create failed", err);
+      void adminDialog.alert({
+        variant: "danger",
+        title: "등록 실패",
+        description: getApiErrorMessage(err, "등록에 실패했습니다."),
+      });
     } finally {
       setSubmitting(false);
     }

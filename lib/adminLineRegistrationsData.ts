@@ -302,7 +302,9 @@ export async function listLineRegistrations(
   // 마이그 전(선택 컬럼 부재) → 해당 컬럼을 빼고 폴백(목록 무회귀 · 값은 DTO 에서 null).
   const { data, error, count } = await runWithColumnFallback(run);
   if (error) {
-    throw new LineRegistrationError(500, error.message ?? "Failed to list line registrations");
+    // Postgres/PostgREST 원문(테이블·컬럼명)은 클라이언트로 내보내지 않는다(로그 전용).
+    console.error("[listLineRegistrations] load failed", error);
+    throw new LineRegistrationError(500, "라인 목록을 불러오지 못했습니다");
   }
 
   // 강화 Point.A/B 조회(오픈확인과 동일 SoT·규칙). 테이블 미적용이면 전부 null.
@@ -327,10 +329,12 @@ export async function getLineRegistration(id: string): Promise<LineRegistrationD
 
   const { data, error } = await runWithColumnFallback(run);
   if (error) {
-    throw new LineRegistrationError(500, error.message ?? "Failed to load line registration");
+    // Postgres/PostgREST 원문(테이블·컬럼·제약 이름)은 클라이언트로 내보내지 않는다.
+    console.error("[getLineRegistration] load failed", error);
+    throw new LineRegistrationError(500, "라인 정보를 불러오지 못했습니다");
   }
   if (!data) {
-    throw new LineRegistrationError(404, "line registration not found");
+    throw new LineRegistrationError(404, "등록된 라인을 찾을 수 없습니다");
   }
   const row = data as unknown as RegistrationRow;
   const lookup = await loadLinePointLookupAllOrgs();
@@ -377,7 +381,8 @@ export async function createLineRegistration(
     optionalColumnState.estimated_duration_minutes = "absent";
     throw new LineRegistrationError(
       500,
-      "line_registrations.estimated_duration_minutes 컬럼이 없습니다. db/migrations/2026-07-17_line_registrations_estimated_duration.sql 을 SQL Editor 에서 적용해주세요.",
+      // 상세(컬럼/마이그레이션 파일)는 서버 로그에만 — 사용자에게는 조치 불가한 내부 정보다.
+      "라인 정보 저장 준비가 완료되지 않았습니다. 관리자에게 문의해주세요.",
     );
   }
   // point 컬럼 미적용 → 컬럼 제거 후 재시도(선택 입력이라 기존처럼 무회귀 저장).
@@ -392,7 +397,7 @@ export async function createLineRegistration(
     if (error?.code === "23514" && /estimated_duration_minutes/.test(error.message ?? "")) {
       throw new LineRegistrationError(
         400,
-        "소요 시간은 30 | 60 | 90 | 120 분 중 하나여야 합니다",
+        "소요 시간은 30, 60, 90, 120분 중에서 선택해주세요.",
       );
     }
     // PGRST205 = 테이블 미존재 — 마이그레이션 미적용 안내를 명확히 한다.
@@ -400,13 +405,21 @@ export async function createLineRegistration(
     if (code === "PGRST205" || code === "PGRST204") {
       throw new LineRegistrationError(
         500,
-        "line_registrations 스키마가 최신이 아닙니다. db/migrations/2026-06-07_line_registrations.sql · _unit_link.sql 을 SQL Editor 에서 적용해주세요.",
+        "라인 정보 저장 준비가 완료되지 않았습니다. 관리자에게 문의해주세요.",
       );
     }
-    throw new LineRegistrationError(
-      500,
-      error?.message ?? "Failed to create line registration",
-    );
+    // 23505 = unique 위반. uq_line_registrations_hub_org_code (hub, organization_slug, line_code)
+    //   → 사용자가 고칠 수 있는 업무 충돌이므로 409 + 업무 문구. Postgres 원문은 로그로만 남긴다.
+    if (error?.code === "23505") {
+      console.error("[createLineRegistration] unique violation", error);
+      throw new LineRegistrationError(
+        409,
+        `이미 등록된 라인 코드입니다 (${input.lineCode}). 같은 허브·클럽에 중복 등록할 수 없습니다.`,
+      );
+    }
+    // 그 외 DB 오류 — 원문(테이블/컬럼/제약 이름)을 클라이언트로 내보내지 않는다(로그 전용).
+    console.error("[createLineRegistration] insert failed", error);
+    throw new LineRegistrationError(500, "라인 등록에 실패했습니다");
   }
   const row = data as unknown as RegistrationRow;
   const lookup = await loadLinePointLookupAllOrgs();
@@ -490,7 +503,7 @@ export async function updateLineRegistration(
     if (!LINE_REGISTRATION_LINE_TYPES[current.hub].includes(patch.lineType)) {
       throw new LineRegistrationError(
         400,
-        `line_type '${patch.lineType}' 은(는) ${HUB_LABEL_FOR_PATCH[current.hub]} 허브에서 선택할 수 없습니다`,
+        `'${patch.lineType}'은(는) ${HUB_LABEL_FOR_PATCH[current.hub]} 허브에서 선택할 수 없는 라인 종류입니다.`,
       );
     }
   }
@@ -502,7 +515,10 @@ export async function updateLineRegistration(
     patch.managerJob !== undefined ||
     patch.managerProfileKey !== undefined;
   if (careerFieldTouched && current.hub !== "career") {
-    throw new LineRegistrationError(400, "실무 경력 전용 필드는 career 행에서만 수정할 수 있습니다");
+    throw new LineRegistrationError(
+      400,
+      "실무 경력 전용 항목은 실무 경력 라인에서만 수정할 수 있습니다.",
+    );
   }
 
   // ── 개설 라인 게이트 ──
@@ -515,7 +531,7 @@ export async function updateLineRegistration(
   if (gateTouched && current.openedLineCount > 0) {
     throw new LineRegistrationError(
       409,
-      `이미 개설된 라인이 ${current.openedLineCount}건 있어 라인 코드/소속 클럽/경험 라인 종류는 수정할 수 없습니다 (비활성화 후 신규 등록을 사용하세요)`,
+      `이미 개설된 라인이 ${current.openedLineCount}건 있어 라인 코드·소속 클럽·라인 종류는 수정할 수 없습니다. 이 라인을 비활성화한 뒤 새로 등록해주세요.`,
     );
   }
 
@@ -535,7 +551,7 @@ export async function updateLineRegistration(
     if (current.mainTitleMode === "variable") {
       throw new LineRegistrationError(
         400,
-        "변동(variable) 모드에서는 main_title 을 직접 수정할 수 없습니다 — main_title_mode=fixed 로 함께 전환하세요",
+        "메인 타이틀 표시 방식이 '변동'이면 메인 타이틀을 직접 수정할 수 없습니다. '고정'으로 함께 바꿔주세요.",
       );
     }
   }
@@ -556,7 +572,7 @@ export async function updateLineRegistration(
     if (dup) {
       throw new LineRegistrationError(
         409,
-        `동일 허브/클럽에 같은 라인 코드(${nextCode})의 등록이 이미 있습니다`,
+        `이미 등록된 라인 코드입니다 (${nextCode}). 같은 허브·클럽에 중복 등록할 수 없습니다.`,
       );
     }
   }
@@ -609,7 +625,8 @@ export async function updateLineRegistration(
       optionalColumnState.estimated_duration_minutes = "absent";
       throw new LineRegistrationError(
         500,
-        "line_registrations.estimated_duration_minutes 컬럼이 없습니다. db/migrations/2026-07-17_line_registrations_estimated_duration.sql 을 SQL Editor 에서 적용해주세요.",
+        // 상세(컬럼/마이그레이션 파일)는 서버 로그에만 — 사용자에게는 조치 불가한 내부 정보다.
+      "라인 정보 저장 준비가 완료되지 않았습니다. 관리자에게 문의해주세요.",
       );
     }
     if (
@@ -618,10 +635,12 @@ export async function updateLineRegistration(
     ) {
       throw new LineRegistrationError(
         400,
-        "소요 시간은 30 | 60 | 90 | 120 분 중 하나여야 합니다",
+        "소요 시간은 30, 60, 90, 120분 중에서 선택해주세요.",
       );
     }
-    throw new LineRegistrationError(500, updateError.message);
+    // Postgres 원문(제약/컬럼명) 노출 금지 — 상세는 서버 로그로만.
+    console.error("[updateLineRegistration] update failed", updateError);
+    throw new LineRegistrationError(500, "라인 수정에 실패했습니다");
   }
 
   // ── mirror 정방향 sync (registration = 입력 SoT) ──

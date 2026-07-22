@@ -29,6 +29,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { LoadingState } from "@/components/ui/loading-state";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 import { cn } from "@/lib/utils";
 import AdminHelp from "@/components/admin/AdminHelp";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
@@ -156,14 +157,15 @@ export default function OfficialRestPeriodsManager() {
         });
         const json = await res.json();
         if (!res.ok || !json.success) {
-          throw new Error(json?.error ?? "Failed to load official rest periods.");
+          throw apiErrorFrom(res, json, "공식 휴식 기간을 불러오지 못했습니다.");
         }
         if (!cancelled) {
           setPeriods((json.data?.rows ?? []) as OfficialRestPeriodDto[]);
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load.");
+          console.error("[official-rest-periods] load failed", err);
+          setError(getApiErrorMessage(err, "공식 휴식 기간을 불러오지 못했습니다."));
           setPeriods([]);
         }
       } finally {
@@ -223,12 +225,13 @@ export default function OfficialRestPeriodsManager() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? "저장에 실패했습니다.");
+        throw apiErrorFrom(res, json, "저장에 실패했습니다.");
       }
       resetForm();
       refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "저장에 실패했습니다.");
+      console.error("[official-rest-periods] save failed", err);
+      setError(getApiErrorMessage(err, "저장에 실패했습니다."));
     } finally {
       setSaving(false);
     }
@@ -245,12 +248,13 @@ export default function OfficialRestPeriodsManager() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? "상태 변경에 실패했습니다.");
+        throw apiErrorFrom(res, json, "상태 변경에 실패했습니다.");
       }
       if (editingId === period.id) resetForm();
       refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "상태 변경에 실패했습니다.");
+      console.error("[official-rest-periods] toggle failed", err);
+      setError(getApiErrorMessage(err, "상태 변경에 실패했습니다."));
     } finally {
       setSaving(false);
     }
@@ -295,7 +299,7 @@ export default function OfficialRestPeriodsManager() {
       );
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? "업데이트에 실패했습니다.");
+        throw apiErrorFrom(res, json, "업데이트에 실패했습니다.");
       }
       const d = json.data;
       if (d.dry_run) {
@@ -311,7 +315,8 @@ export default function OfficialRestPeriodsManager() {
         );
       }
     } catch (err) {
-      setRcError(err instanceof Error ? err.message : "업데이트에 실패했습니다.");
+      console.error("[official-rest-periods] recompute failed", err);
+      setRcError(getApiErrorMessage(err, "업데이트에 실패했습니다."));
     } finally {
       setRcBusy(false);
     }
@@ -332,12 +337,13 @@ export default function OfficialRestPeriodsManager() {
       const res = await fetch(`${API_BASE}/${period.id}`, { method: "DELETE" });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? "삭제에 실패했습니다.");
+        throw apiErrorFrom(res, json, "삭제에 실패했습니다.");
       }
       if (editingId === period.id) resetForm();
       refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "삭제에 실패했습니다.");
+      console.error("[official-rest-periods] delete failed", err);
+      setError(getApiErrorMessage(err, "삭제에 실패했습니다."));
     } finally {
       setSaving(false);
     }

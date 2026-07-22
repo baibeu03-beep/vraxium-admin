@@ -56,11 +56,11 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json();
   } catch {
-    return Response.json({ success: false, error: "Invalid JSON body" }, { status: 400 });
+    return Response.json({ success: false, error: "요청 형식이 올바르지 않습니다." }, { status: 400 });
   }
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return Response.json(
-      { success: false, error: "Request body must be a JSON object" },
+      { success: false, error: "요청 형식이 올바르지 않습니다." },
       { status: 400 },
     );
   }
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
   const input = body as Record<string, unknown>;
   const weekId = typeof input.week_id === "string" ? input.week_id.trim() : "";
   if (!weekId) {
-    return Response.json({ success: false, error: "week_id is required" }, { status: 400 });
+    return Response.json({ success: false, error: "주차를 선택해주세요." }, { status: 400 });
   }
 
   // org: null/"all"/미지정 = 전체 조직, 값이면 유효 조직 검증.
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
   if (orgRaw && orgRaw !== "all") {
     if (!isOrganizationSlug(orgRaw)) {
       return Response.json(
-        { success: false, error: "organization_slug 은 유효한 클럽(encre|oranke|phalanx)이어야 합니다" },
+        { success: false, error: "소속 클럽을 다시 선택해주세요." },
         { status: 400 },
       );
     }
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
   if (hubRaw && hubRaw !== "all") {
     if (!isProcessCheckWindowHub(hubRaw)) {
       return Response.json(
-        { success: false, error: "hub 은 club|info|experience|competency|career|irregular 중 하나여야 합니다" },
+        { success: false, error: "소속 허브를 다시 선택해주세요." },
         { status: 400 },
       );
     }

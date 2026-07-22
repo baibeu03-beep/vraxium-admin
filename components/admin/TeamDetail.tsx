@@ -14,6 +14,7 @@ import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import { ORGANIZATION_LABEL_KO, type OrganizationSlug } from "@/lib/organizations";
 import { buildAdminContextHref } from "@/lib/adminOrgContext";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 import { useActionToast } from "@/lib/actionToast";
 import { adminDialog } from "@/components/ui/admin-dialog";
 import {
@@ -28,7 +29,7 @@ import {
 } from "@/components/admin/teamCardShared";
 import type { CrewRow, TeamSelectedWeekSummary } from "@/lib/adminTeamSelectedWeekSummary";
 import {
-  validateWeekPositionRows,
+  validateWeekPositionChange,
   type PositionDraftRow,
 } from "@/lib/teamWeekPositionValidation";
 import type { PositionCode } from "@/lib/positionHistory";
@@ -302,12 +303,12 @@ export default function TeamDetail({
       }
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? `조회 실패 (${res.status})`);
+        throw apiErrorFrom(res, json, `조회 실패 (${res.status})`);
       }
       setData(json.data as TeamDetailData);
     } catch (e) {
       setData(null);
-      setError(e instanceof Error ? e.message : "조회 실패");
+      setError(getApiErrorMessage(e, "조회 실패"));
     } finally {
       setLoading(false);
     }
@@ -430,13 +431,12 @@ export default function TeamDetail({
     if (!cur) return;
     const next = new Map(draft);
     next.set(userId, { ...cur, ...patch });
-    // draft 전체 기준으로 즉시 검증(파트장≤1/파트 · 심화≤정규). 위반이면 적용하지 않고 안내.
-    const rows: PositionDraftRow[] = [...next.entries()].map(([u, v]) => ({
-      userId: u,
-      rawPart: v.rawPart,
-      positionCode: v.positionCode,
-    }));
-    const verdict = validateWeekPositionRows(rows);
+    // 변경(delta) 기준 즉시 검증 — 서버 PATCH 와 **동일 순수 함수**.
+    //   ⚠ 이전 draft(=변경 전 상태)를 함께 넘겨야 한다. next 만 보고 whole-state 로 검사하면
+    //     팀이 이미 규칙을 어긴 상태에서 파트만 바꿔도 심화 팝업이 뜬다(2026-07-22 버그).
+    const toRows = (m: typeof draft): PositionDraftRow[] =>
+      [...m.entries()].map(([u, v]) => ({ userId: u, rawPart: v.rawPart, positionCode: v.positionCode }));
+    const verdict = validateWeekPositionChange(toRows(draft), toRows(next));
     if (!verdict.ok) {
       void adminDialog.alert({ variant: "warning", title: "변경 불가", description: verdict.message });
       return;
@@ -465,14 +465,14 @@ export default function TeamDetail({
         },
       );
       const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json?.error ?? `저장 실패 (${res.status})`);
+      if (!res.ok || !json.success) throw apiErrorFrom(res, json, `저장 실패 (${res.status})`);
       t.success("update", "파트·클래스가 저장되었습니다.");
       setWeekReloadTick((x) => x + 1); // [A]/[B]/매트릭스 재조회 → dirty 리셋.
     } catch (e) {
       await adminDialog.alert({
         variant: "danger",
         title: "저장 실패",
-        description: e instanceof Error ? e.message : "저장에 실패했습니다.",
+        description: getApiErrorMessage(e, "저장에 실패했습니다."),
       });
     } finally {
       setSavingRows(false);
@@ -500,14 +500,14 @@ export default function TeamDetail({
       );
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? `생성 실패 (${res.status})`);
+        throw apiErrorFrom(res, json, `생성 실패 (${res.status})`);
       }
       t.success("create", "파트가 생성되었습니다.");
       setCreateOpen(false);
       setPartName("");
       await load(); // 서버 재조회 — 생성 파트 목록·표 행 반영(운용 파트 수는 불변).
     } catch (e) {
-      setCreateError(e instanceof Error ? e.message : "생성 실패");
+      setCreateError(getApiErrorMessage(e, "생성 실패"));
     } finally {
       setCreating(false);
     }

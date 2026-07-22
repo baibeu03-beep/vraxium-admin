@@ -8,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 import { cn } from "@/lib/utils";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -365,12 +366,15 @@ export default function ExperienceLineManageBoard({
         const res = await fetch(
           `/api/admin/cluster4/experience/line-manage?${qs.toString()}`,
         );
-        const json = await res.json();
+        const json = await res.json().catch(() => ({}));
         if (cancelled) return;
-        if (json?.success) setData(json.data as ExperienceLineManageSummary);
-        else setError(json?.error ?? "라인 관리 요약을 불러오지 못했습니다");
-      } catch {
-        if (!cancelled) setError("라인 관리 요약을 불러오지 못했습니다");
+        if (res.ok && json?.success) setData(json.data as ExperienceLineManageSummary);
+        else throw apiErrorFrom(res, json, "라인 관리 요약을 불러오지 못했습니다");
+      } catch (err) {
+        if (!cancelled) {
+          console.error("[experience] line-manage load failed", err);
+          setError(getApiErrorMessage(err, "라인 관리 요약을 불러오지 못했습니다"));
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }

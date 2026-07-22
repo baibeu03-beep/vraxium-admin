@@ -14,6 +14,7 @@
 //   컬럼은 deprecated — 신규 저장/조회 모두 미사용 (마이그레이션 #39 참조).
 
 import { organizationLabelKo } from "@/lib/organizations";
+import { fieldLabel, withJosa } from "@/lib/apiFieldLabels";
 
 // 소속 허브 — cluster4_lines.part_type 과 동일 enum (값 호환을 위해 동일 토큰 사용).
 export type LineRegistrationHub = "info" | "experience" | "competency" | "career";
@@ -436,12 +437,19 @@ export function isLineRegistrationHub(value: unknown): value is LineRegistration
   );
 }
 
+// 400 문구는 "사용자가 읽는 문장"이다 — 내부 필드명(line_code)이 아니라 화면 라벨(라인 코드)을 쓴다.
+//   라벨 SoT = lib/apiFieldLabels. 라벨이 없는 필드는 사용자에게 노출하지 않는다(범용 문구로 대체).
 function requiredText(
   raw: unknown,
   field: string,
 ): ParseBodyResult<string> {
   if (typeof raw !== "string" || raw.trim().length === 0) {
-    return { ok: false, status: 400, error: `${field} is required` };
+    const label = fieldLabel(field);
+    return {
+      ok: false,
+      status: 400,
+      error: label ? `${withJosa(label, "을/를")} 입력해주세요.` : "필수 입력값이 비어 있습니다.",
+    };
   }
   return { ok: true, value: raw.trim() };
 }
@@ -458,7 +466,7 @@ function lineCodeText(raw: unknown): ParseBodyResult<string> {
       ok: false,
       status: 400,
       error:
-        "line_code 는 영문/숫자/하이픈(-)만 허용합니다 (공백·특수문자 불가). 예: IFBS-NN0007",
+        "라인 코드는 영문, 숫자, 하이픈(-)만 사용할 수 있습니다. 예: IFBS-NN0007",
     };
   }
   return { ok: true, value: r.value };
@@ -467,13 +475,14 @@ function lineCodeText(raw: unknown): ParseBodyResult<string> {
 // 소요 시간 파서 — 허용 값(30|60|90|120) 외는 전부 거부한다.
 //   클라이언트 검증과 무관한 서버 단독 게이트: 45/0/180/"60"/1.5/null 등을 여기서 막는다.
 //   (JSON 숫자만 허용 — 문자열 "60" 도 거부해 타입 혼입을 차단한다.)
-const LINE_DURATION_ALLOWED_TEXT = LINE_DURATION_MINUTES.join(" | ");
+// 사용자 문구용 열거 — "30 | 60" 같은 개발 표기 대신 쉼표로 읽히게 쓴다.
+const LINE_DURATION_ALLOWED_TEXT = LINE_DURATION_MINUTES.join(", ");
 function durationMinutes(raw: unknown): ParseBodyResult<LineDurationMinutes> {
   if (!isLineDurationMinutes(raw)) {
     return {
       ok: false,
       status: 400,
-      error: `estimated_duration_minutes 는 ${LINE_DURATION_ALLOWED_TEXT} 중 하나여야 합니다 (소요 시간을 선택해주세요)`,
+      error: `소요 시간은 ${LINE_DURATION_ALLOWED_TEXT}분 중에서 선택해주세요.`,
     };
   }
   return { ok: true, value: raw };
@@ -482,7 +491,12 @@ function durationMinutes(raw: unknown): ParseBodyResult<LineDurationMinutes> {
 function optionalText(raw: unknown, field: string): ParseBodyResult<string | null> {
   if (raw === undefined || raw === null) return { ok: true, value: null };
   if (typeof raw !== "string") {
-    return { ok: false, status: 400, error: `${field} must be a string or null` };
+    const label = fieldLabel(field);
+    return {
+      ok: false,
+      status: 400,
+      error: label ? `${label} 값의 형식이 올바르지 않습니다.` : "입력값의 형식이 올바르지 않습니다.",
+    };
   }
   const trimmed = raw.trim();
   return { ok: true, value: trimmed.length ? trimmed : null };
@@ -498,7 +512,7 @@ export function parseLineRegistrationCreateBody(
   body: unknown,
 ): ParseBodyResult<LineRegistrationCreateInput> {
   if (!isRecord(body)) {
-    return { ok: false, status: 400, error: "Request body must be a JSON object" };
+    return { ok: false, status: 400, error: "요청 형식이 올바르지 않습니다." };
   }
 
   const lineName = requiredText(body.line_name, "line_name");
@@ -508,7 +522,7 @@ export function parseLineRegistrationCreateBody(
     return {
       ok: false,
       status: 400,
-      error: "hub must be one of info|experience|competency|career (소속 허브를 선택해주세요)",
+      error: "소속 허브를 선택해주세요.",
     };
   }
   const hub = body.hub;
@@ -519,7 +533,7 @@ export function parseLineRegistrationCreateBody(
     return {
       ok: false,
       status: 400,
-      error: `line_type '${lineType.value}' 은(는) ${LINE_REGISTRATION_HUB_LABEL[hub]} 허브에서 선택할 수 없습니다`,
+      error: `'${lineType.value}'은(는) ${LINE_REGISTRATION_HUB_LABEL[hub]} 허브에서 선택할 수 없는 라인 종류입니다.`,
     };
   }
 
@@ -527,7 +541,7 @@ export function parseLineRegistrationCreateBody(
   if (!lineCode.ok) return lineCode;
 
   if (body.main_title_mode !== "fixed" && body.main_title_mode !== "variable") {
-    return { ok: false, status: 400, error: "main_title_mode must be 'fixed' or 'variable'" };
+    return { ok: false, status: 400, error: "메인 타이틀 표시 방식은 고정 또는 변동만 선택할 수 있습니다." };
   }
   const mainTitleMode = body.main_title_mode;
   let mainTitle: string;
@@ -555,13 +569,13 @@ export function parseLineRegistrationCreateBody(
   const orgParsed = optionalText(body.organization_slug, "organization_slug");
   if (!orgParsed.ok) return orgParsed;
   if (orgParsed.value === null) {
-    return { ok: false, status: 400, error: "소속 클럽을 선택해주세요 (organization_slug 는 필수입니다)" };
+    return { ok: false, status: 400, error: "소속 클럽을 선택해주세요." };
   }
   if (!isLineRegistrationOrg(orgParsed.value)) {
     return {
       ok: false,
       status: 400,
-      error: "organization_slug must be one of encre|oranke|phalanx|common",
+      error: "선택할 수 없는 소속 클럽입니다.",
     };
   }
   const organizationSlug = orgParsed.value;
@@ -607,7 +621,7 @@ export function parseLineRegistrationCreateBody(
       return {
         ok: false,
         status: 400,
-        error: `manager_profile_key 는 ${LINE_REGISTRATION_PROFILE_KEYS.join("/")} 중 하나여야 합니다`,
+        error: `프로필 사진은 ${LINE_REGISTRATION_PROFILE_KEYS.join(", ")} 중에서 선택해주세요.`,
       };
     }
     managerProfileKey = mk.value;
@@ -645,11 +659,18 @@ export function parseLineRegistrationPatchBody(
   body: unknown,
 ): ParseBodyResult<LineRegistrationPatchInput> {
   if (!isRecord(body)) {
-    return { ok: false, status: 400, error: "Request body must be a JSON object" };
+    return { ok: false, status: 400, error: "요청 형식이 올바르지 않습니다." };
   }
   for (const forbidden of ["hub", "bridged_master_id", "bridged_at"]) {
     if (body[forbidden] !== undefined) {
-      return { ok: false, status: 400, error: `${forbidden} 는 수정할 수 없습니다` };
+      const label = fieldLabel(forbidden);
+      return {
+        ok: false,
+        status: 400,
+        error: label
+          ? `${withJosa(label, "은/는")} 수정할 수 없습니다.`
+          : "수정할 수 없는 항목이 포함되어 있습니다.",
+      };
     }
   }
 
@@ -673,7 +694,11 @@ export function parseLineRegistrationPatchBody(
 
   if (body.main_title_mode !== undefined) {
     if (body.main_title_mode !== "fixed" && body.main_title_mode !== "variable") {
-      return { ok: false, status: 400, error: "main_title_mode must be 'fixed' or 'variable'" };
+      return {
+        ok: false,
+        status: 400,
+        error: "메인 타이틀 표시 방식은 고정 또는 변동만 선택할 수 있습니다.",
+      };
     }
     patch.mainTitleMode = body.main_title_mode;
     if (body.main_title_mode === "variable") {
@@ -711,13 +736,13 @@ export function parseLineRegistrationPatchBody(
     const r = optionalText(body.organization_slug, "organization_slug");
     if (!r.ok) return r;
     if (r.value === null) {
-      return { ok: false, status: 400, error: "소속 클럽은 비울 수 없습니다 (organization_slug 는 필수입니다)" };
+      return { ok: false, status: 400, error: "소속 클럽은 비울 수 없습니다." };
     }
     if (!isLineRegistrationOrg(r.value)) {
       return {
         ok: false,
         status: 400,
-        error: "organization_slug must be one of encre|oranke|phalanx|common",
+        error: "선택할 수 없는 소속 클럽입니다.",
       };
     }
     patch.organizationSlug = r.value;
@@ -753,7 +778,7 @@ export function parseLineRegistrationPatchBody(
       return {
         ok: false,
         status: 400,
-        error: `manager_profile_key 는 ${LINE_REGISTRATION_PROFILE_KEYS.join("/")} 중 하나여야 합니다`,
+        error: `프로필 사진은 ${LINE_REGISTRATION_PROFILE_KEYS.join(", ")} 중에서 선택해주세요.`,
       };
     }
     patch.managerProfileKey = r.value;
@@ -761,13 +786,13 @@ export function parseLineRegistrationPatchBody(
 
   if (body.is_active !== undefined) {
     if (typeof body.is_active !== "boolean") {
-      return { ok: false, status: 400, error: "is_active must be a boolean" };
+      return { ok: false, status: 400, error: "사용 여부 값이 올바르지 않습니다." };
     }
     patch.isActive = body.is_active;
   }
 
   if (Object.keys(patch).length === 0) {
-    return { ok: false, status: 400, error: "Request body must include at least one writable field" };
+    return { ok: false, status: 400, error: "수정할 항목이 없습니다." };
   }
   return { ok: true, value: patch };
 }

@@ -42,6 +42,7 @@ import {
   type ActCardState,
 } from "@/lib/actCardState";
 import type { LineOpeningManagementData } from "@/lib/adminTeamPartsInfoLineOpeningData";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 // 도움말 help key prefix(요청 네임스페이스). org/mode 로 갈라지지 않는 공통 키.
 const HELP = "admin.teamParts.info.weeks.activity";
@@ -1129,7 +1130,7 @@ export default function TeamPartsInfoWeekDetailManager({
           { cache: "no-store" },
         );
         const json = await res.json();
-        if (!res.ok || !json.success) throw new Error(json?.error ?? `조회 실패 (${res.status})`);
+        if (!res.ok || !json.success) throw apiErrorFrom(res, json, `조회 실패 (${res.status})`);
         if (cancelled) return;
         const dto = json.data as TeamPartsInfoWeekDetailData;
         setData(dto);
@@ -1159,7 +1160,7 @@ export default function TeamPartsInfoWeekDetailManager({
       } catch (e) {
         if (cancelled) return;
         setData(null);
-        setError(e instanceof Error ? e.message : "조회 실패");
+        setError(getApiErrorMessage(e, "조회 실패"));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -1186,10 +1187,10 @@ export default function TeamPartsInfoWeekDetailManager({
           { cache: "no-store" },
         );
         const json = await res.json();
-        if (!res.ok || !json.success) throw new Error(json?.error ?? `조회 실패 (${res.status})`);
+        if (!res.ok || !json.success) throw apiErrorFrom(res, json, `조회 실패 (${res.status})`);
         if (!cancelled) setActData(json.data as ActCheckManagementData);
       } catch (e) {
-        if (!cancelled) { setActData(null); setActError(e instanceof Error ? e.message : "조회 실패"); }
+        if (!cancelled) { setActData(null); setActError(getApiErrorMessage(e, "조회 실패")); }
       } finally {
         if (!cancelled) setActLoading(false);
       }
@@ -1254,10 +1255,10 @@ export default function TeamPartsInfoWeekDetailManager({
           { cache: "no-store" },
         );
         const json = await res.json();
-        if (!res.ok || !json.success) throw new Error(json?.error ?? `조회 실패 (${res.status})`);
+        if (!res.ok || !json.success) throw apiErrorFrom(res, json, `조회 실패 (${res.status})`);
         if (!cancelled) setLineData(json.data as LineOpeningManagementData);
       } catch (e) {
-        if (!cancelled) { setLineData(null); setLineError(e instanceof Error ? e.message : "조회 실패"); }
+        if (!cancelled) { setLineData(null); setLineError(getApiErrorMessage(e, "조회 실패")); }
       } finally {
         if (!cancelled) setLineLoading(false);
       }
@@ -1340,7 +1341,7 @@ export default function TeamPartsInfoWeekDetailManager({
         },
       );
       const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json?.error ?? `저장 실패 (${res.status})`);
+      if (!res.ok || !json.success) throw apiErrorFrom(res, json, `저장 실패 (${res.status})`);
       setOpenConfirmed(true);
       // [인정 개수 N] 오픈 확인 응답의 확정 N 으로 화면 즉시 갱신(managedWeek.weekRecognitionCount).
       //   featureAvailable 아니면 null → recognitionCount 는 기본값(30) 폴백 유지.
@@ -1360,7 +1361,8 @@ export default function TeamPartsInfoWeekDetailManager({
       router.refresh();
     } catch (e) {
       console.error("[team-parts] open-confirm failed", e);
-      setBanner({ kind: "error", message: "클럽 활동 진행 실패" });
+      // 재실행 차단(409: 목요일 00:01 KST 경과·검수 완료) 등 서버 업무 사유를 그대로 안내한다.
+      setBanner({ kind: "error", message: getApiErrorMessage(e, "클럽 활동 진행 실패") });
     } finally {
       setConfirming(false);
     }
@@ -1508,7 +1510,7 @@ export default function TeamPartsInfoWeekDetailManager({
           : { method: "POST" },
       );
       const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json?.error ?? `검수 실패 (${res.status})`);
+      if (!res.ok || !json.success) throw apiErrorFrom(res, json, `검수 실패 (${res.status})`);
       setReviewed(true);
       setShowReadiness(false);
       setBanner({
@@ -1519,7 +1521,7 @@ export default function TeamPartsInfoWeekDetailManager({
       });
     } catch (e) {
       console.error("[team-parts] week-review failed", e);
-      setBanner({ kind: "error", message: "주차 검수 실패" });
+      setBanner({ kind: "error", message: getApiErrorMessage(e, "주차 검수 실패") });
     } finally {
       // 성공/실패/예외 무관하게 로딩 토스트·loading state·in-flight 가드를 반드시 해제한다.
       stopProgress();
@@ -1543,11 +1545,11 @@ export default function TeamPartsInfoWeekDetailManager({
         ),
       );
       const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json?.error ?? `준비 상태 조회 실패 (${res.status})`);
+      if (!res.ok || !json.success) throw apiErrorFrom(res, json, `준비 상태 조회 실패 (${res.status})`);
       setReadiness(json.data as ReviewReadiness);
     } catch (e) {
       console.error("[team-parts] review-readiness failed", e);
-      setBanner({ kind: "error", message: "준비 상태 조회 실패" });
+      setBanner({ kind: "error", message: getApiErrorMessage(e, "준비 상태 조회 실패") });
       setShowReadiness(false);
     } finally {
       setReadinessLoading(false);
@@ -1573,7 +1575,7 @@ export default function TeamPartsInfoWeekDetailManager({
         { method: "DELETE" },
       );
       const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json?.error ?? `실행 취소 실패 (${res.status})`);
+      if (!res.ok || !json.success) throw apiErrorFrom(res, json, `실행 취소 실패 (${res.status})`);
       setReviewed(false);
       // 내부 복원 상태(‘검수 전·집계 중’ 상태로 복원 등)는 콘솔 로그로만 — 관리자 UI 엔 결과만.
       const reverted = Boolean(json.data?.reverted);
@@ -1586,7 +1588,7 @@ export default function TeamPartsInfoWeekDetailManager({
       });
     } catch (e) {
       console.error("[team-parts] review-revert failed", e);
-      setBanner({ kind: "error", message: "실행 취소 실패" });
+      setBanner({ kind: "error", message: getApiErrorMessage(e, "실행 취소 실패") });
     } finally {
       // 성공/실패/예외 무관하게 로딩 토스트·loading state·in-flight 가드를 반드시 해제한다.
       stopProgress();

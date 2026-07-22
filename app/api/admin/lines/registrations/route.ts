@@ -11,6 +11,7 @@ import {
   toAdminErrorResponse,
   type AdminContext,
 } from "@/lib/adminAuth";
+import { publicErrorMessage } from "@/lib/apiError";
 import { resolveAdminOrgAccess } from "@/lib/adminOrgAccess";
 import {
   isLineRegistrationHub,
@@ -55,7 +56,7 @@ export async function GET(request: NextRequest) {
   if (hubRaw !== null) {
     if (!isLineRegistrationHub(hubRaw)) {
       return Response.json(
-        { success: false, error: "hub must be one of info|experience|competency|career" },
+        { success: false, error: "소속 허브를 다시 선택해주세요." },
         { status: 400 },
       );
     }
@@ -94,7 +95,7 @@ export async function GET(request: NextRequest) {
     const status = error instanceof LineRegistrationError ? error.status : 500;
     console.error("[lines/registrations GET]", error);
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed" },
+      { success: false, error: publicErrorMessage(error, status, "라인 목록을 불러오지 못했습니다") },
       { status },
     );
   }
@@ -114,7 +115,7 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json();
   } catch {
-    return Response.json({ success: false, error: "Invalid JSON body" }, { status: 400 });
+    return Response.json({ success: false, error: "요청 형식이 올바르지 않습니다." }, { status: 400 });
   }
 
   const parsed = parseLineRegistrationCreateBody(body);
@@ -144,7 +145,7 @@ export async function POST(request: NextRequest) {
     const status = error instanceof LineRegistrationError ? error.status : 500;
     console.error("[lines/registrations POST]", error);
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed" },
+      { success: false, error: publicErrorMessage(error, status, "라인 등록에 실패했습니다") },
       { status },
     );
   }

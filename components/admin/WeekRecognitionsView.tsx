@@ -33,6 +33,7 @@ import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { LoadingState } from "@/components/ui/loading-state";
 import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 import { cn } from "@/lib/utils";
 import { Checkbox, checkedTextClass } from "@/components/ui/checkbox";
 import AdminHelp from "@/components/admin/AdminHelp";
@@ -271,16 +272,13 @@ export default function WeekRecognitionsView() {
         );
         const json = await res.json();
         if (!res.ok || !json.success) {
-          throw new Error(json?.error ?? "Failed to load week recognitions.");
+          throw apiErrorFrom(res, json, "Failed to load week recognitions.");
         }
         if (!cancelled) setData(json.data as WeekRecognitionsDto);
       } catch (err) {
         if (!cancelled) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : "Failed to load week recognitions.",
-          );
+          console.error("[week-recognitions] load failed", err);
+          setError(getApiErrorMessage(err, "주차 인정 목록을 불러오지 못했습니다."));
           setData(null);
         }
       } finally {
@@ -365,12 +363,13 @@ export default function WeekRecognitionsView() {
             );
             const json = await res.json();
             if (!res.ok || !json.success) {
-              throw new Error(json?.error ?? "결과 확정에 실패했습니다.");
+              throw apiErrorFrom(res, json, "결과 확정에 실패했습니다.");
             }
             handlePublished();
           } catch (err) {
             console.error("[week-recognitions] 결과 확정 실패", err);
-            t.error("save", { message: "결과 확정에 실패했습니다." });
+            // 이미 확정됨 등 서버 4xx 업무 사유가 있으면 그 원인을 그대로 안내한다.
+            t.apiError("save", err, "결과 확정에 실패했습니다.");
           }
         },
       }),
@@ -410,12 +409,12 @@ export default function WeekRecognitionsView() {
             );
             const json = await res.json();
             if (!res.ok || !json.success) {
-              throw new Error(json?.error ?? "검수 완료에 실패했습니다.");
+              throw apiErrorFrom(res, json, "검수 완료에 실패했습니다.");
             }
             handleReviewed();
           } catch (err) {
             console.error("[week-recognitions] 검수 완료 실패", err);
-            t.error("review", { message: "검수 완료에 실패했습니다." });
+            t.apiError("review", err, "검수 완료에 실패했습니다.");
           }
         },
       }),
@@ -1264,7 +1263,7 @@ function CheckThresholdRow({
       );
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? "체크 인정 기준 저장에 실패했습니다.");
+        throw apiErrorFrom(res, json, "체크 인정 기준 저장에 실패했습니다.");
       }
       const d = json.data as {
         week_label: string;
@@ -1284,7 +1283,7 @@ function CheckThresholdRow({
       );
     } catch (err) {
       onError(
-        err instanceof Error ? err.message : "체크 인정 기준 저장에 실패했습니다.",
+        getApiErrorMessage(err, "체크 인정 기준 저장에 실패했습니다."),
       );
     } finally {
       setSaving(false);
@@ -1390,15 +1389,12 @@ function WeekRecognitionEditModal({
       );
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? "Failed to update week recognition.");
+        throw apiErrorFrom(res, json, "Failed to update week recognition.");
       }
       onSaved(row.user_name, json.data?.recalculation_skipped === true);
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to update week recognition.",
-      );
+      console.error("[week-recognitions] update failed", err);
+      setError(getApiErrorMessage(err, "인정 상태 저장에 실패했습니다."));
     } finally {
       setSaving(false);
     }

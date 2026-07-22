@@ -17,6 +17,7 @@ import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import { organizationLabelKo, type OrganizationSlug } from "@/lib/organizations";
 import type { ClubCurrentSummaryRow } from "@/lib/adminClubSummaryData";
 import { parseHalfKey } from "@/lib/teamHalf";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 import { useActionToast } from "@/lib/actionToast";
 import { buildAdminContextHref } from "@/lib/adminOrgContext";
 import {
@@ -267,7 +268,7 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
         );
         const json = await res.json();
         if (!res.ok || !json.success) {
-          throw new Error(json?.error ?? `조회 실패 (${res.status})`);
+          throw apiErrorFrom(res, json, `조회 실패 (${res.status})`);
         }
         const dto = json.data as InfoDto;
         setCurrentHalfKey(dto.currentHalfKey);
@@ -278,7 +279,7 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
         setTeams([]);
         setBanner({
           kind: "error",
-          message: e instanceof Error ? e.message : "조회 실패",
+          message: getApiErrorMessage(e, "조회 실패"),
         });
       } finally {
         setLoading(false);
@@ -364,14 +365,15 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
       );
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? `조회 실패 (${res.status})`);
+        throw apiErrorFrom(res, json, "크루 조회에 실패했습니다.");
       }
       const cand = json.data as LeaderCandidate;
       setLeader(cand);
       return cand;
     } catch (e) {
+      console.error("[team-parts/info] crew-lookup failed", e);
       setLeader(null);
-      const message = e instanceof Error ? e.message : "크루 조회 실패";
+      const message = getApiErrorMessage(e, "크루 조회에 실패했습니다.");
       setLookupError(message);
       if (notifyOnFail) {
         void adminDialog.alert({
@@ -437,9 +439,7 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(
-          json?.error ?? `${isEditMode ? "수정" : "등록"} 실패 (${res.status})`,
-        );
+        throw apiErrorFrom(res, json, isEditMode ? "수정에 실패했습니다." : "등록에 실패했습니다.");
       }
       t.success(
         isEditMode ? "update" : "create",
@@ -451,7 +451,7 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
       void loadSummary();
     } catch (e) {
       setLookupError(
-        e instanceof Error ? e.message : isEditMode ? "수정 실패" : "등록 실패",
+        getApiErrorMessage(e, isEditMode ? "수정 실패" : "등록 실패"),
       );
     } finally {
       setRegistering(false);
@@ -472,7 +472,7 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? `삭제 실패 (${res.status})`);
+        throw apiErrorFrom(res, json, "삭제에 실패했습니다.");
       }
       t.success("delete", "팀이 삭제 대기 상태로 전환되었습니다.");
       await load(half);
@@ -480,7 +480,7 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
       void loadSummary();
     } catch (e) {
       console.error("[team-parts/info] 팀 삭제 실패", e);
-      t.error("delete");
+      t.apiError("delete", e, "팀 삭제에 실패했습니다.");
     }
   };
 

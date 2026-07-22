@@ -11,6 +11,7 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
+import { apiErrorFrom } from "@/lib/apiError";
 import { cn } from "@/lib/utils";
 import { DAY_NAMES } from "@/lib/practicalInfoSection0Format";
 import { type ProcessHub } from "@/lib/adminProcessesTypes";
@@ -203,13 +204,14 @@ export default function ProcessCheckActDialog({
         }),
       });
       const json = await res.json().catch(() => ({}));
-      if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
+      if (!res.ok || !json.success) throw apiErrorFrom(res, json);
       t.success(action === "request" ? "submit" : "cancel");
       onDone();
       onClose();
     } catch (err) {
       console.error("[ProcessCheckActDialog] check submit failed", err);
-      t.error(action === "request" ? "submit" : "cancel");
+      // 서버 4xx 업무 사유(주차 확정·중복 신청·링크 형식 등)를 그대로 안내한다.
+      t.apiError(action === "request" ? "submit" : "cancel", err);
     } finally {
       setSubmitting(false);
     }
@@ -233,7 +235,7 @@ export default function ProcessCheckActDialog({
         body: JSON.stringify({ organization, statusId: act.checkStatusId, source: "regular" }),
       });
       const json = await res.json().catch(() => ({}));
-      if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
+      if (!res.ok || !json.success) throw apiErrorFrom(res, json);
       t.success("review", "댓글을 다시 수집했습니다.");
       onDone();
       onClose();
