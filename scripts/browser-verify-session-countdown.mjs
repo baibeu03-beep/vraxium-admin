@@ -1,5 +1,5 @@
 // 브라우저(인증 세션) 검증 — 헤더 자동 로그아웃 카운트다운.
-//   · 헤더에 "활동이 없으면 mm:ss 후 자동 로그아웃" 표시 · data-level 색상 규칙 일치
+//   · 헤더에 "남은 로그인 시간 : 19분 58초" 표시 · data-level 색상 규칙 일치
 //   · 매초 감소(틱) · 활동(클릭) 시 즉시 리셋(증가)
 //   · (WAIT_LOGOUT_MS 설정 시) 미사용 지속 → /login?reason=idle 자동 이동
 // env: SMOKE_BASE_URL, EXPECT_FULL_WINDOW=1(기본 20분 서버), WAIT_LOGOUT_MS=16000(짧은 서버)
@@ -58,8 +58,11 @@ async function readCountdown(page) {
   const el = page.getByTestId("admin-session-countdown");
   const text = (await el.textContent())?.trim() ?? "";
   const level = await el.getAttribute("data-level");
-  const m = text.match(/(\d{2}):(\d{2})/);
-  const seconds = m ? Number(m[1]) * 60 + Number(m[2]) : NaN;
+  // "19분 58초" / "43초" / "1시간 19분 58초" — 단위 표기에서 총 초를 복원.
+  const m = text.match(/(?:(\d+)시간\s*)?(?:(\d+)분\s*)?(\d+)초/);
+  const seconds = m
+    ? Number(m[1] ?? 0) * 3600 + Number(m[2] ?? 0) * 60 + Number(m[3])
+    : NaN;
   return { text, level, seconds };
 }
 
@@ -73,8 +76,13 @@ try {
 
   // 1) 표시 & 포맷
   const c0 = await readCountdown(page);
-  check("헤더에 카운트다운 표시", /활동이 없으면 \d{2}:\d{2} 후 자동 로그아웃/.test(c0.text), c0.text);
-  check("mm:ss 파싱 가능", Number.isFinite(c0.seconds), `${c0.seconds}s`);
+  check(
+    "헤더에 카운트다운 표시",
+    /남은 로그인 시간 : (?:\d+시간 )?(?:\d+분 )?\d+초/.test(c0.text),
+    c0.text,
+  );
+  check("단위 표기 파싱 가능", Number.isFinite(c0.seconds), `${c0.seconds}s`);
+  check("시각(mm:ss) 표기 없음", !/\d+:\d{2}/.test(c0.text), c0.text);
 
   // 2) 기본 20:00(가득) — 기본 서버에서만
   if (EXPECT_FULL_WINDOW) {

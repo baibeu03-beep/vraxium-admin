@@ -28,7 +28,7 @@ export default function SessionCountdown({ className }: { className?: string }) 
       className={cn("block w-full truncate text-xs leading-normal tabular-nums", color, className)}
       title="클릭, 입력, 페이지 이동 등의 활동이 없으면 자동으로 로그아웃됩니다. 활동하면 남은 시간이 다시 초기화됩니다."
     >
-      활동이 없으면 {text} 후 자동 로그아웃
+      남은 로그인 시간 : {text}
     </span>
   );
 }
