@@ -130,56 +130,12 @@ export default function CrewWeekResultDetailWeek({
                   {week.periodLabel}
                 </div>
               ) : null}
-              {/* [2] 검수 진행 상태 — 통합/조직 목록과 같은 displayStatus(재계산 없음). */}
-              {cell ? (
-                <nav
-                  aria-label="검수 진행 상태"
-                  className="flex flex-wrap items-center gap-2"
-                  data-review-steps
-                >
-                  {(
-                    [
-                      ["in_progress", "진행 중"],
-                      ["aggregating", "집계 중"],
-                      ["completed", "검수 완료"],
-                    ] as const
-                  ).map(([key, label], i) => {
-                    const active = cell.displayStatus === key;
-                    return (
-                      <span key={key} className="flex items-center gap-2">
-                        {i > 0 ? <span aria-hidden className="text-muted-foreground">···</span> : null}
-                        <span
-                          aria-current={active ? "step" : undefined}
-                          data-step={key}
-                          data-active={active ? "true" : "false"}
-                          className={
-                            "rounded-md border px-4 py-2 text-base font-bold " +
-                            (active
-                              ? "border-foreground bg-foreground text-background"
-                              : "border-input text-muted-foreground")
-                          }
-                        >
-                          {/* 색만으로 상태를 표현하지 않는다 — 현재 단계에 텍스트 마커를 함께 준다. */}
-                          {label}
-                          {active ? <span className="ml-1 text-xs">(현재)</span> : null}
-                        </span>
-                      </span>
-                    );
-                  })}
-                  {cell.criterionPointA != null ? (
-                    <span className="ml-2 rounded-md border px-3 py-2 text-sm">
-                      주차 &lt;성장 성공&gt; 단감 기준{" "}
-                      <strong className="text-lg tabular-nums">{cell.criterionPointA}</strong>
-                    </span>
-                  ) : null}
-                </nav>
-              ) : null}
-
               {/* [3][4] 예비 검수 · 공표 · 공표 취소 */}
               <CrewWeekPublishPanel
                 organizationSlug={organizationSlug}
                 weekId={weekId}
                 displayStatus={cell?.displayStatus ?? null}
+                criterionPointA={cell?.criterionPointA ?? null}
                 weekEnded={weekEnded}
                 onChanged={() => void reload()}
               />

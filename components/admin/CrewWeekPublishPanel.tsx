@@ -8,7 +8,12 @@ import { adminDialog } from "@/components/ui/admin-dialog";
 import { pushToast } from "@/components/ui/toast";
 import { readScopeMode } from "@/lib/userScopeShared";
 import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
-import type { OrganizationSlug } from "@/lib/organizations";
+import {
+  ORGANIZATION_ACCENT,
+  ORGANIZATION_COLUMN,
+  ORGANIZATION_TEXT_CLASS,
+  type OrganizationSlug,
+} from "@/lib/organizations";
 import type { CrewWeeklyResultDisplayStatus } from "@/lib/crewWeeklyResultTypes";
 
 // [3] 예비 검수 · [4] 공표 / 공표 취소 — 세 동작을 **각각 다른 업무**로 구현한다.
@@ -76,48 +81,202 @@ function formatMetric(value: number | null, unit: "명" | "%"): string {
   return value === null ? "-" : `${value}${unit}`;
 }
 
-function MetricGrid({
+// 지표 의미색 — 조직색(페이지 테마)과 **역할이 다르다**. 성공=green·실패=red·도전=blue·휴식=gray.
+//   조직색은 아래 org 프롭으로 "소속 크루" 카드와 강조선에만 쓴다.
+type Tone = "org" | "gray" | "blue" | "green" | "red";
+
+const TONE_CLS: Record<Exclude<Tone, "org">, { card: string; value: string; bar: string }> = {
+  gray: { card: "border-zinc-300 bg-zinc-50/70", value: "text-zinc-700", bar: "bg-zinc-400" },
+  blue: { card: "border-sky-300 bg-sky-50/70", value: "text-sky-700", bar: "bg-sky-500" },
+  green: { card: "border-emerald-300 bg-emerald-50/70", value: "text-emerald-700", bar: "bg-emerald-500" },
+  red: { card: "border-rose-300 bg-rose-50/70", value: "text-rose-700", bar: "bg-rose-500" },
+};
+
+function MetricCard({
+  label,
+  value,
+  unit,
+  readiness,
+  tone,
+  org,
+}: {
+  label: string;
+  value: number | null;
+  unit: "명" | "%";
+  readiness: "ready" | "partial" | "unavailable";
+  tone: Tone;
+  org: OrganizationSlug;
+}) {
+  const cls =
+    tone === "org"
+      ? {
+          card: `${ORGANIZATION_COLUMN[org].edge} ${ORGANIZATION_COLUMN[org].cell}`,
+          value: ORGANIZATION_TEXT_CLASS[org],
+          bar: "",
+        }
+      : TONE_CLS[tone];
+  return (
+    <div className={`rounded-lg border-2 px-3 py-4 text-center ${cls.card}`}>
+      <div className="text-sm font-semibold text-muted-foreground">{label}</div>
+      <div
+        className={`mt-1 text-3xl font-extrabold tabular-nums ${cls.value}`}
+        data-metric={label}
+        data-readiness={readiness}
+        title={value === null ? "아직 집계되지 않았습니다(계산 불가). 실제 0과 다릅니다." : undefined}
+      >
+        {formatMetric(value, unit)}
+      </div>
+    </div>
+  );
+}
+
+// 비율 카드 — 큰 숫자 + progress bar. null 이면 bar 를 0 처럼 보이게 하지 않는다.
+function RateCard({
+  label,
+  value,
+  readiness,
+  tone,
+}: {
+  label: string;
+  value: number | null;
+  readiness: "ready" | "partial" | "unavailable";
+  tone: "green" | "blue";
+}) {
+  const cls = TONE_CLS[tone];
+  const isNull = value === null;
+  return (
+    <div className={`rounded-xl border-2 px-5 py-5 ${cls.card}`}>
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-base font-bold text-muted-foreground">{label}</span>
+        <span
+          className={`text-4xl font-extrabold tabular-nums ${cls.value}`}
+          data-metric={label}
+          data-readiness={readiness}
+          title={isNull ? "아직 집계되지 않았습니다(계산 불가). 실제 0과 다릅니다." : undefined}
+        >
+          {formatMetric(value, "%")}
+        </span>
+      </div>
+      <div
+        className="mt-3 h-3 w-full overflow-hidden rounded-full bg-white/70"
+        role="progressbar"
+        aria-label={label}
+        // null 은 값 미정 — aria-valuenow 를 0 으로 지어내지 않는다.
+        aria-valuenow={isNull ? undefined : value}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuetext={isNull ? "집계되지 않음" : `${value}%`}
+        data-bar-empty={isNull ? "true" : "false"}
+      >
+        {isNull ? (
+          <div className="h-full w-full bg-[repeating-linear-gradient(45deg,transparent,transparent_6px,rgba(0,0,0,.06)_6px,rgba(0,0,0,.06)_12px)]" />
+        ) : (
+          <div className={`h-full ${cls.bar}`} style={{ width: `${value}%` }} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// [5] 주차 종합 결과 — 상단 비율 2열 + 하단 크루(3×2) | 팀(준비 중) 2그룹.
+function SummaryIndex({
   m,
   readiness,
+  org,
 }: {
   m: Metrics | null;
   readiness: Readiness | null;
+  org: OrganizationSlug;
 }) {
-  // [5] 종합 인덱스 — 최초 진입(예비·공표 모두 없음)에는 m=null 이라 전 항목 "-".
-  //   자동 계산하지 않는다(진입 시 preview API 호출 없음).
-  const items: Array<[keyof Readiness, string, "명" | "%"]> = [
-    ["memberCount", "소속 크루", "명"],
-    ["seasonRestCount", "시즌 휴식", "명"],
-    ["personalRestCount", "개인 휴식", "명"],
-    ["growthChallengeCount", "성장 도전", "명"],
-    ["growthSuccessCount", "성장 성공", "명"],
-    ["growthFailureCount", "성장 실패", "명"],
-    ["growthChallengeRatePercent", "성장 도전율", "%"],
-    ["growthSuccessRatePercent", "성장 성공률", "%"],
+  const v = (k: keyof Readiness) =>
+    m ? ((m as unknown as Record<string, number | null>)[k] ?? null) : null;
+  const r = (k: keyof Readiness) => readiness?.[k] ?? "unavailable";
+
+  const crew: Array<[keyof Readiness, string, Tone]> = [
+    ["memberCount", "소속 크루", "org"],
+    ["seasonRestCount", "시즌 휴식", "gray"],
+    ["personalRestCount", "개인 휴식", "gray"],
+    ["growthChallengeCount", "성장 도전", "blue"],
+    ["growthSuccessCount", "성장 성공", "green"],
+    ["growthFailureCount", "성장 실패", "red"],
   ];
+
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-metric-grid>
-      {items.map(([key, label, unit]) => {
-        const value = m ? ((m as unknown as Record<string, number | null>)[key] ?? null) : null;
-        const state = readiness?.[key] ?? "unavailable";
-        return (
-          <div key={key} className="rounded-md border px-3 py-2 text-center">
-            <div className="text-xs text-muted-foreground">{label}</div>
-            <div
-              className="text-2xl font-bold tabular-nums"
-              data-metric={key}
-              data-readiness={state}
-              title={
-                value === null
-                  ? "아직 집계되지 않았습니다(계산 불가). 실제 0과 다릅니다."
-                  : undefined
-              }
-            >
-              {formatMetric(value, unit)}
-            </div>
+    <div className="space-y-6" data-metric-grid>
+      {/* 상단 — 성장 성공률 | 성장 도전율 (1행 2열) */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <RateCard
+          label="성장 성공률"
+          value={v("growthSuccessRatePercent")}
+          readiness={r("growthSuccessRatePercent")}
+          tone="green"
+        />
+        <RateCard
+          label="성장 도전율"
+          value={v("growthChallengeRatePercent")}
+          readiness={r("growthChallengeRatePercent")}
+          tone="blue"
+        />
+      </div>
+
+      {/* 하단 — 크루 활동 결과 | 팀 활동 결과 */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <section data-group="crew">
+          <h3 className="mb-2 text-lg font-bold">크루 활동 결과</h3>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {crew.map(([key, label, tone]) => (
+              <MetricCard
+                key={key}
+                label={label}
+                value={v(key)}
+                unit="명"
+                readiness={r(key)}
+                tone={tone}
+                org={org}
+              />
+            ))}
           </div>
-        );
-      })}
+        </section>
+
+        <section data-group="team">
+          <h3 className="mb-2 flex items-center gap-2 text-lg font-bold">
+            팀 활동 결과
+            <StatusBadge label="준비 중" size="sm" tone="neutral" />
+          </h3>
+          {/* ⚠ 팀 지표는 SoT 미확정 — 0 을 표시하거나 크루 데이터에서 유추하지 않는다. */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {["팀 수", "파트 수"].map((label) => (
+              <div
+                key={label}
+                className="rounded-lg border-2 border-zinc-200 bg-zinc-50/60 px-3 py-4 text-center"
+              >
+                <div className="text-sm font-semibold text-muted-foreground">{label}</div>
+                <div className="mt-1 text-3xl font-extrabold text-zinc-400" data-team-metric={label}>
+                  -
+                </div>
+              </div>
+            ))}
+            {/* 전적 — 2행을 세로로 차지 */}
+            <div className="sm:row-span-2 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-zinc-300 bg-zinc-50/60 px-3 py-4 text-center">
+              <div className="text-sm font-semibold text-muted-foreground">전적</div>
+              <div className="mt-1 text-base font-bold text-zinc-400" data-team-metric="전적">
+                준비 중
+              </div>
+            </div>
+            {["승리 팀 수", "패배 팀 수"].map((label) => (
+              <div
+                key={label}
+                className="rounded-lg border-2 border-zinc-200 bg-zinc-50/60 px-3 py-4 text-center"
+              >
+                <div className="text-sm font-semibold text-muted-foreground">{label}</div>
+                <div className="mt-1 text-3xl font-extrabold text-zinc-400" data-team-metric={label}>
+                  -
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
     </div>
   );
 }
@@ -168,9 +327,12 @@ export default function CrewWeekPublishPanel({
   organizationSlug,
   weekId,
   displayStatus,
+  criterionPointA,
   weekEnded,
   onChanged,
 }: {
+  /** 주차 확정 기준 포인트 A(좌측 상태 열에 표시). */
+  criterionPointA?: number | null;
   organizationSlug: OrganizationSlug;
   weekId: string;
   displayStatus: CrewWeeklyResultDisplayStatus | null;
@@ -295,30 +457,108 @@ export default function CrewWeekPublishPanel({
   const canUnpublish = published != null && busy == null;
 
   return (
-    <div className="admin-section-stack-lg" data-crew-week-publish>
-      <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" onClick={onPreview} disabled={busy != null} data-action-preview>
-          {busy === "preview" ? "계산 중…" : "클럽 활동 검수(예비)"}
-        </Button>
-        {preview ? (
-          <Button type="button" variant="outline" onClick={onCancelPreview} data-action-preview-cancel>
-            예비 검수 취소
+    <div className="admin-section-stack-lg min-w-0" data-crew-week-publish>
+      {/* [2]+[3][4] — 데스크톱에서 한 행 2열: 좌=진행 상태·기준 Po.A / 우=버튼 2행 1열. */}
+      <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
+        <div className="min-w-0 space-y-3">
+          <nav aria-label="검수 진행 상태" className="flex flex-wrap items-center gap-2" data-review-steps>
+            {(
+              [
+                ["in_progress", "진행 중"],
+                ["aggregating", "집계 중"],
+                ["completed", "검수 완료"],
+              ] as const
+            ).map(([key, label], i) => {
+              const active = displayStatus === key;
+              return (
+                <span key={key} className="flex items-center gap-2">
+                  {i > 0 ? <span aria-hidden className="text-muted-foreground">···</span> : null}
+                  <span
+                    aria-current={active ? "step" : undefined}
+                    data-step={key}
+                    data-active={active ? "true" : "false"}
+                    className={
+                      "rounded-lg border-2 px-3 py-2 text-base font-bold sm:px-5 sm:py-3 sm:text-lg " +
+                      (active
+                        ? `${ORGANIZATION_ACCENT[organizationSlug].solid}`
+                        : "border-input text-muted-foreground")
+                    }
+                  >
+                    {/* 색만으로 상태를 표현하지 않는다 — 현재 단계에 텍스트 마커를 함께 준다. */}
+                    {label}
+                    {active ? <span className="ml-1 text-xs sm:text-sm">(현재)</span> : null}
+                  </span>
+                </span>
+              );
+            })}
+          </nav>
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border-2 px-4 py-3 sm:inline-flex sm:px-5">
+            <span className="text-sm font-semibold text-muted-foreground sm:text-base">
+              주차 &lt;성장 성공&gt; 단감 기준
+            </span>
+            <strong className="text-3xl font-extrabold tabular-nums" data-criterion-point-a>
+              {criterionPointA ?? "-"}
+            </strong>
+          </div>
+        </div>
+
+        {/* 버튼 2행 1열 · 동일 너비 · 크게 */}
+        <div className="grid min-w-0 content-start gap-3">
+          <Button
+            type="button"
+            onClick={onPreview}
+            disabled={busy != null}
+            data-action-preview
+            className={`h-13 w-full py-3 text-base font-bold ${ORGANIZATION_ACCENT[organizationSlug].button}`}
+          >
+            {busy === "preview" ? "계산 중…" : "클럽 활동 검수(예비)"}
           </Button>
-        ) : null}
-        <Button
-          type="button"
-          onClick={onPublish}
-          disabled={!canPublish}
-          data-action-publish
-          title={weekEnded ? undefined : "진행 중인 주차는 공표할 수 없습니다."}
-        >
-          {published ? "클럽 활동 검수(재공표)" : "클럽 활동 검수(공표)"}
-        </Button>
-        {canUnpublish ? (
-          <Button type="button" variant="destructive" onClick={onUnpublish} data-action-unpublish>
-            공표 취소
-          </Button>
-        ) : null}
+          {canUnpublish ? (
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={onUnpublish}
+              data-action-unpublish
+              className="h-13 w-full py-3 text-base font-bold"
+            >
+              공표 취소
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              onClick={onPublish}
+              disabled={!canPublish}
+              data-action-publish
+              title={weekEnded ? undefined : "진행 중인 주차는 공표할 수 없습니다."}
+              className={`h-13 w-full py-3 text-base font-bold ${ORGANIZATION_ACCENT[organizationSlug].button}`}
+            >
+              {published ? "클럽 활동 검수(재공표)" : "클럽 활동 검수(공표)"}
+            </Button>
+          )}
+          {preview ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onCancelPreview}
+              data-action-preview-cancel
+              className="w-full text-base font-semibold"
+            >
+              예비 검수 취소
+            </Button>
+          ) : null}
+          {canUnpublish && (preview != null || published != null) && weekEnded ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onPublish}
+              disabled={!canPublish}
+              data-action-publish
+              className="w-full text-base font-semibold"
+            >
+              재공표
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       {/* [5] 주차 종합 인덱스 — 항상 렌더한다(최초 진입 = 전부 "-").
@@ -354,9 +594,10 @@ export default function CrewWeekPublishPanel({
             </span>
           )}
         </div>
-        <MetricGrid
+        <SummaryIndex
           m={preview ?? published}
           readiness={(preview ?? published)?.metricsReadiness ?? null}
+          org={organizationSlug}
         />
         {published && preview ? (
           <p className="mt-2 text-xs text-amber-800" data-summary-both>
