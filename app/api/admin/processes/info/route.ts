@@ -15,6 +15,7 @@ import {
   getProcessInfo,
   getProcessInfoAll,
 } from "@/lib/adminProcessesData";
+import { publicErrorMessage } from "@/lib/apiError";
 
 export async function GET(request: NextRequest) {
   try {
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
     const status = error instanceof ProcessMasterError ? error.status : 500;
     console.error("[processes/info GET]", error);
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed" },
+      { success: false, error: publicErrorMessage(error, status, "프로세스 정보를 불러오지 못했습니다.") },
       { status },
     );
   }

@@ -55,6 +55,7 @@ import {
   type ProcessIrregularActRowDto,
   type ProcessIrregularBoardDto,
 } from "@/lib/adminProcessIrregularTypes";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 // 다이얼로그 모드 — null | 전원(검수·all) | 부분 선택 | 부분 검수(partial) | 수동 부여.
 type DialogMode = "review-all" | "partial-choice" | "review-partial" | "manual";
@@ -230,13 +231,14 @@ export default function ProcessIrregularManager() {
       const res = await fetch(appendModeQuery(url, mode), { cache: "no-store" });
       const json = await res.json().catch(() => ({}));
       if (myReq !== reqRef.current) return;
-      if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
+      if (!res.ok || !json.success) throw apiErrorFrom(res, json, "조회에 실패했습니다");
       setBoard(json.data as ProcessIrregularBoardDto);
       setError(null);
     } catch (err) {
       if (myReq !== reqRef.current) return;
+      console.error("[process-irregular] load failed", err);
       setBoard(emptyProcessIrregularBoard(org));
-      setError(err instanceof Error ? err.message : "조회에 실패했습니다");
+      setError(getApiErrorMessage(err, "조회에 실패했습니다"));
     } finally {
       if (myReq === reqRef.current) setLoading(false);
     }

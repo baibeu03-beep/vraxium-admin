@@ -73,6 +73,7 @@ import {
   type ProcessWeekRef,
 } from "@/lib/adminProcessesTypes";
 import { LoadingState } from "@/components/ui/loading-state";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 type Banner = { kind: "success" | "error"; message: string } | null;
 
@@ -497,7 +498,7 @@ export default function ProcessUnifiedManager() {
       const res = await fetch("/api/admin/processes/info?hub=all");
       const json = await res.json().catch(() => ({}));
       if (myReq !== infoReqRef.current) return;
-      if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
+      if (!res.ok || !json.success) throw apiErrorFrom(res, json, "조회에 실패했습니다");
       setActs((json.data?.acts ?? []) as ProcessActDto[]);
       setSummary((json.data?.summary ?? EMPTY_SUMMARY) as ProcessActSummary);
     } catch (err) {
@@ -505,7 +506,7 @@ export default function ProcessUnifiedManager() {
       setActs([]);
       setSummary(EMPTY_SUMMARY);
       console.error("[processes] info load failed", err);
-      setBanner({ kind: "error", message: "조회에 실패했습니다" });
+      setBanner({ kind: "error", message: getApiErrorMessage(err, "조회에 실패했습니다") });
     } finally {
       if (myReq === infoReqRef.current) setInfoLoading(false);
     }
@@ -522,7 +523,7 @@ export default function ProcessUnifiedManager() {
       const res = await fetch(`/api/admin/processes/line-groups?hub=${hub}`);
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) {
-        throw new Error(json.error || `라인급 조회 실패 (HTTP ${res.status})`);
+        throw apiErrorFrom(res, json, "라인급 조회에 실패했습니다");
       }
       setLineGroups((json.data ?? []) as ProcessLineGroupDto[]);
     } catch (err) {
@@ -530,7 +531,7 @@ export default function ProcessUnifiedManager() {
       console.error("[processes] line-groups load failed", err);
       setBanner({
         kind: "error",
-        message: "라인급 조회에 실패했습니다",
+        message: getApiErrorMessage(err, "라인급 조회에 실패했습니다"),
       });
     } finally {
       setGroupsLoading(false);
@@ -690,7 +691,7 @@ export default function ProcessUnifiedManager() {
         body: JSON.stringify({ hub: selectedHub, name }),
       });
       const json = await res.json().catch(() => ({}));
-      if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
+      if (!res.ok || !json.success) throw apiErrorFrom(res, json, "라인급 등록에 실패했습니다");
       setNewGroupName("");
       await loadGroups(selectedHub);
       await loadInfo();
@@ -699,7 +700,7 @@ export default function ProcessUnifiedManager() {
       console.error("[processes] line-group create failed", err);
       setBanner({
         kind: "error",
-        message: "라인급 등록에 실패했습니다",
+        message: getApiErrorMessage(err, "라인급 등록에 실패했습니다"),
       });
     } finally {
       setAddingGroup(false);
@@ -728,7 +729,7 @@ export default function ProcessUnifiedManager() {
             if (selectedHub) await loadGroups(selectedHub);
             return;
           }
-          throw new Error(json.error || `HTTP ${res.status}`);
+          throw apiErrorFrom(res, json, "라인급 삭제에 실패했습니다");
         }
         if (lineGroupId === group.id) setLineGroupId("");
         if (selectedHub) await loadGroups(selectedHub);
@@ -738,7 +739,7 @@ export default function ProcessUnifiedManager() {
         console.error("[processes] line-group delete failed", err);
         setBanner({
           kind: "error",
-          message: "라인급 삭제에 실패했습니다",
+          message: getApiErrorMessage(err, "라인급 삭제에 실패했습니다"),
         });
       }
     },
@@ -826,7 +827,7 @@ export default function ProcessUnifiedManager() {
         }),
       });
       const json = await res.json().catch(() => ({}));
-      if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
+      if (!res.ok || !json.success) throw apiErrorFrom(res, json, "액트 등록에 실패했습니다");
       const saved = json.data as ProcessActDto;
       resetActForm();
       await loadGroups(selectedHub);
@@ -839,7 +840,7 @@ export default function ProcessUnifiedManager() {
       console.error("[processes] act create failed", err);
       setBanner({
         kind: "error",
-        message: "액트 등록에 실패했습니다",
+        message: getApiErrorMessage(err, "액트 등록에 실패했습니다"),
       });
     } finally {
       setSaving(false);
@@ -859,14 +860,14 @@ export default function ProcessUnifiedManager() {
       try {
         const res = await fetch(`/api/admin/processes/acts/${act.id}`, { method: "DELETE" });
         const json = await res.json().catch(() => ({}));
-        if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
+        if (!res.ok || !json.success) throw apiErrorFrom(res, json, "삭제에 실패했습니다");
         await loadInfo();
         // 삭제된 액트가 현재 선택 허브 소속이면 라인급 산하 액트수도 갱신.
         if (selectedHub && act.hub === selectedHub) await loadGroups(selectedHub);
         setBanner({ kind: "success", message: `액트가 삭제되었습니다 (${act.actName})` });
       } catch (err) {
         console.error("[processes] act delete failed", err);
-        setBanner({ kind: "error", message: "삭제에 실패했습니다" });
+        setBanner({ kind: "error", message: getApiErrorMessage(err, "삭제에 실패했습니다") });
       } finally {
         setDeletingId(null);
       }

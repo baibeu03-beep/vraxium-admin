@@ -12,6 +12,7 @@ import {
   EmergencyRestError,
   createEmergencyRest,
 } from "@/lib/adminEmergencyRest";
+import { publicErrorMessage } from "@/lib/apiError";
 
 // POST /api/admin/rest-management/emergency?mode=&actAsTestUserId=
 //   body: { organization, teamId, crewUserId, weekId, reason }
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json();
   } catch {
-    return Response.json({ success: false, error: "Invalid JSON body" }, { status: 400 });
+    return Response.json({ success: false, error: "요청 형식이 올바르지 않습니다." }, { status: 400 });
   }
 
   const orgParam = typeof body.organization === "string" ? body.organization.trim() : "";
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
   const reason = typeof body.reason === "string" ? body.reason : "";
   if (!teamId || !crewUserId || !weekId) {
     return Response.json(
-      { success: false, error: "teamId, crewUserId, weekId are required" },
+      { success: false, error: "팀, 크루, 주차를 모두 선택해주세요." },
       { status: 400 },
     );
   }
@@ -93,7 +94,7 @@ export async function POST(request: NextRequest) {
     }
     console.error("[admin/rest-management/emergency POST]", error);
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed to create emergency rest" },
+      { success: false, error: publicErrorMessage(error, 500, "긴급 휴식 처리를 완료하지 못했습니다.") },
       { status: 500 },
     );
   }

@@ -12,6 +12,7 @@ import {
   approveRestRequest,
   deleteRestRequest,
 } from "@/lib/adminRestManagementData";
+import { publicErrorMessage } from "@/lib/apiError";
 
 // /api/admin/rest-management/[id]
 //   PATCH  { action: "approve" } — pending → approved (종료 주차/이미 승인은 409 안내)
@@ -25,7 +26,7 @@ function restErrorResponse(error: unknown, label: string) {
   }
   console.error(label, error);
   return Response.json(
-    { success: false, error: error instanceof Error ? error.message : "요청 처리에 실패했습니다." },
+    { success: false, error: publicErrorMessage(error, 500, "요청 처리에 실패했습니다.") },
     { status: 500 },
   );
 }
@@ -49,7 +50,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
   try {
     body = await request.json();
   } catch {
-    return Response.json({ success: false, error: "Invalid JSON body" }, { status: 400 });
+    return Response.json({ success: false, error: "요청 형식이 올바르지 않습니다." }, { status: 400 });
   }
   const action = (body as { action?: unknown })?.action;
   if (action !== "approve") {

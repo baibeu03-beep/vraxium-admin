@@ -7,6 +7,7 @@ import { useToast } from "@/components/ui/toast";
 import { IrregularPointFields } from "@/components/admin/IrregularPointFields";
 import { type ScopeMode } from "@/lib/userScopeShared";
 import type { CrewWeekActDetailDto } from "@/lib/adminCrewWeekActDetail";
+import { getApiErrorMessage } from "@/lib/apiError";
 
 // 성장 결과 변경 미리보기(서버 409 impact) — 확인 팝업에 표시할 전후 값.
 type ImpactSide = { growthStatus: string; growthStatusLabel: string; pointA: number };
@@ -98,7 +99,8 @@ export default function ActSupplementDialog({
         onDone(d?.weekDetail ?? null);
         onClose();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "액트 보완에 실패했습니다.");
+        console.error("[act-supplement] submit failed", err);
+        setError(getApiErrorMessage(err, "액트 보완에 실패했습니다."));
       } finally {
         setSubmitting(false);
       }

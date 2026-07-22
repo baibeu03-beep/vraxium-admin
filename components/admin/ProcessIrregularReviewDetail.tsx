@@ -23,6 +23,7 @@ import {
 import { commentCollectionAllowsRecollect } from "@/lib/adminProcessCheckTypes";
 import CommentCollectionStatusView from "@/components/admin/CommentCollectionStatusView";
 import { getProcessPointLabels } from "@/lib/pointLabels";
+import { apiErrorFrom } from "@/lib/apiError";
 
 // 재수집 실패 시 사용자 문구(도메인 상수 · 서버 원문 아님) — 반드시 "일시적으로" 포함.
 const RECOLLECT_FAIL_MESSAGE = "댓글 정보를 일시적으로 가져오지 못했습니다. 다시 수집해주세요.";
@@ -68,21 +69,20 @@ export default function ProcessIrregularReviewDetail({
   //   호출 측에서 한 번 더 확인을 끝낸 뒤 실제 DELETE 만 수행.
   const cancel = async () => {
     setSubmitting(true);
-    let status = 0;
     try {
       const res = await fetch("/api/admin/processes/check/irregular", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: act.id, organization, ...(mode === "test" ? { mode: "test" } : {}) }),
       });
-      status = res.status;
+      // status 는 apiErrorFrom(res, …) 가 그대로 담아 catch 까지 전달한다(별도 보관 불필요).
       const json = await res.json().catch(() => ({}));
-      if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
+      if (!res.ok || !json.success) throw apiErrorFrom(res, json, "검수 취소에 실패했습니다.");
       onDone();
       onClose();
     } catch (err) {
       console.error("irregular check cancel failed", err);
-      t.error("cancel", status ? { status } : undefined);
+      t.apiError("cancel", err, "검수 취소에 실패했습니다.");
     } finally {
       setSubmitting(false);
     }

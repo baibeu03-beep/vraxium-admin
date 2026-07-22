@@ -11,6 +11,7 @@ import {
   RestActionError,
   bulkApproveRestRequests,
 } from "@/lib/adminRestManagementData";
+import { publicErrorMessage } from "@/lib/apiError";
 
 // POST /api/admin/rest-management/approve-all  { organization, season_key }
 //   현재 org+season 의 pending(종료되지 않은 주차)만 일괄 승인. approved/이행은 불변.
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json();
   } catch {
-    return Response.json({ success: false, error: "Invalid JSON body" }, { status: 400 });
+    return Response.json({ success: false, error: "요청 형식이 올바르지 않습니다." }, { status: 400 });
   }
   const org = (body as { organization?: unknown })?.organization;
   const seasonKey = (body as { season_key?: unknown })?.season_key;
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
     }
     console.error("[admin/rest-management/approve-all POST]", error);
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "일괄 승인에 실패했습니다." },
+      { success: false, error: publicErrorMessage(error, 500, "일괄 승인에 실패했습니다.") },
       { status: 500 },
     );
   }

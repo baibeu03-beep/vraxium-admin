@@ -11,6 +11,7 @@
 import type { NextRequest } from "next/server";
 import { ADMIN_WRITE_ROLES, requireAdmin, toAdminErrorResponse } from "@/lib/adminAuth";
 import { rollbackProcessCheckCompletion } from "@/lib/processCheckRollback";
+import { publicErrorMessage } from "@/lib/apiError";
 
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("[processes/check/rollback] error", error);
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "rollback failed" },
+      { success: false, error: publicErrorMessage(error, 500, "실행 취소에 실패했습니다.") },
       { status: 500, headers: NO_STORE_HEADERS },
     );
   }

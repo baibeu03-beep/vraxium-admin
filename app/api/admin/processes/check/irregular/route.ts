@@ -29,6 +29,7 @@ import {
   getIrregularBoard,
   setIrregularCrewReaction,
 } from "@/lib/adminProcessIrregularData";
+import { publicErrorMessage } from "@/lib/apiError";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -52,7 +53,7 @@ export async function GET(request: NextRequest) {
   const orgRaw = request.nextUrl.searchParams.get("org")?.trim() || null;
   if (!isOrganizationSlug(orgRaw)) {
     return Response.json(
-      { success: false, error: "org 은 유효한 클럽(encre|oranke|phalanx)이어야 합니다" },
+      { success: false, error: "소속 클럽을 다시 선택해주세요." },
       { status: 400 },
     );
   }
@@ -67,7 +68,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("[processes/check/irregular GET]", error);
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed" },
+      { success: false, error: publicErrorMessage(error, 500, "변동 액트 처리를 완료하지 못했습니다.") },
       { status: errStatus(error) },
     );
   }
@@ -87,13 +88,13 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json();
   } catch {
-    return Response.json({ success: false, error: "Invalid JSON body" }, { status: 400 });
+    return Response.json({ success: false, error: "요청 형식이 올바르지 않습니다." }, { status: 400 });
   }
   const b = (body ?? {}) as Record<string, unknown>;
 
   const orgRaw = typeof b.organization === "string" ? b.organization.trim() : "";
   if (!isOrganizationSlug(orgRaw)) {
-    return Response.json({ success: false, error: "organization 은 유효한 클럽이어야 합니다" }, { status: 400 });
+    return Response.json({ success: false, error: "소속 클럽을 다시 선택해주세요." }, { status: 400 });
   }
   const mode = parseScopeMode(typeof b.mode === "string" ? b.mode : null);
   // 선택 주차(weeks.id) — 현재와 다르면 데이터레이어가 활성 예외("irregular")일 때만 허용. 미부착=현재 주차.
@@ -104,7 +105,7 @@ export async function POST(request: NextRequest) {
   const targetIds = Array.isArray(b.target_user_ids) ? b.target_user_ids : [];
   for (const id of targetIds) {
     if (typeof id !== "string" || !UUID_RE.test(id.trim())) {
-      return Response.json({ success: false, error: "target_user_ids 형식이 올바르지 않습니다" }, { status: 400 });
+      return Response.json({ success: false, error: "대상자 값이 올바르지 않습니다." }, { status: 400 });
     }
   }
 
@@ -147,7 +148,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("[processes/check/irregular POST]", error);
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed" },
+      { success: false, error: publicErrorMessage(error, 500, "변동 액트 처리를 완료하지 못했습니다.") },
       { status: errStatus(error) },
     );
   }
@@ -166,7 +167,7 @@ export async function PATCH(request: NextRequest) {
   try {
     body = await request.json();
   } catch {
-    return Response.json({ success: false, error: "Invalid JSON body" }, { status: 400 });
+    return Response.json({ success: false, error: "요청 형식이 올바르지 않습니다." }, { status: 400 });
   }
   const b = (body ?? {}) as Record<string, unknown>;
 
@@ -177,7 +178,7 @@ export async function PATCH(request: NextRequest) {
     return Response.json({ success: false, error: "id 형식이 올바르지 않습니다" }, { status: 400 });
   }
   if (!isOrganizationSlug(orgRaw)) {
-    return Response.json({ success: false, error: "organization 은 유효한 클럽이어야 합니다" }, { status: 400 });
+    return Response.json({ success: false, error: "소속 클럽을 다시 선택해주세요." }, { status: 400 });
   }
   if (b.action !== "complete" && b.action !== "set_crew_reaction") {
     return Response.json(
@@ -195,7 +196,7 @@ export async function PATCH(request: NextRequest) {
   } catch (error) {
     console.error("[processes/check/irregular PATCH]", error);
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed" },
+      { success: false, error: publicErrorMessage(error, 500, "변동 액트 처리를 완료하지 못했습니다.") },
       { status: errStatus(error) },
     );
   }
@@ -214,7 +215,7 @@ export async function DELETE(request: NextRequest) {
   try {
     body = await request.json();
   } catch {
-    return Response.json({ success: false, error: "Invalid JSON body" }, { status: 400 });
+    return Response.json({ success: false, error: "요청 형식이 올바르지 않습니다." }, { status: 400 });
   }
   const b = (body ?? {}) as Record<string, unknown>;
 
@@ -225,7 +226,7 @@ export async function DELETE(request: NextRequest) {
     return Response.json({ success: false, error: "id 형식이 올바르지 않습니다" }, { status: 400 });
   }
   if (!isOrganizationSlug(orgRaw)) {
-    return Response.json({ success: false, error: "organization 은 유효한 클럽이어야 합니다" }, { status: 400 });
+    return Response.json({ success: false, error: "소속 클럽을 다시 선택해주세요." }, { status: 400 });
   }
 
   try {
@@ -234,7 +235,7 @@ export async function DELETE(request: NextRequest) {
   } catch (error) {
     console.error("[processes/check/irregular DELETE]", error);
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed" },
+      { success: false, error: publicErrorMessage(error, 500, "변동 액트 처리를 완료하지 못했습니다.") },
       { status: errStatus(error) },
     );
   }

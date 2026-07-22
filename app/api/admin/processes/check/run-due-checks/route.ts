@@ -20,6 +20,7 @@ import type { NextRequest } from "next/server";
 import { parseScopeMode } from "@/lib/userScopeShared";
 import { runDueProcessCheckSweep } from "@/lib/processCheckDueSweep";
 import { resolveStateScopeFromRequest } from "@/lib/operationalState";
+import { publicErrorMessage } from "@/lib/apiError";
 
 export const maxDuration = 300; // 만기 항목 크롤링 직렬 처리 — 넉넉한 상한(초과분은 catch-up).
 export const dynamic = "force-dynamic";
@@ -97,7 +98,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("[run-due-checks] error", error);
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "sweep failed" },
+      { success: false, error: publicErrorMessage(error, 500, "검수 실행에 실패했습니다.") },
       { status: 500 },
     );
   }

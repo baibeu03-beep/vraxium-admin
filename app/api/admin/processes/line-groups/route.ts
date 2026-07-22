@@ -18,6 +18,7 @@ import {
   createProcessLineGroup,
   listProcessLineGroups,
 } from "@/lib/adminProcessesData";
+import { publicErrorMessage } from "@/lib/apiError";
 
 export async function GET(request: NextRequest) {
   try {
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
   const hubRaw = request.nextUrl.searchParams.get("hub")?.trim() ?? null;
   if (!isProcessHub(hubRaw)) {
     return Response.json(
-      { success: false, error: "hub must be one of club|info|experience|competency|career" },
+      { success: false, error: "소속 허브를 다시 선택해주세요." },
       { status: 400 },
     );
   }
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
     const status = error instanceof ProcessMasterError ? error.status : 500;
     console.error("[processes/line-groups GET]", error);
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed" },
+      { success: false, error: publicErrorMessage(error, status, "라인급 정보를 처리하지 못했습니다.") },
       { status },
     );
   }
@@ -63,7 +64,7 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json();
   } catch {
-    return Response.json({ success: false, error: "Invalid JSON body" }, { status: 400 });
+    return Response.json({ success: false, error: "요청 형식이 올바르지 않습니다." }, { status: 400 });
   }
 
   const parsed = parseProcessLineGroupCreateBody(body);
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
     const status = error instanceof ProcessMasterError ? error.status : 500;
     console.error("[processes/line-groups POST]", error);
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed" },
+      { success: false, error: publicErrorMessage(error, status, "라인급 정보를 처리하지 못했습니다.") },
       { status },
     );
   }

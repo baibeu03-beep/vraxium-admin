@@ -60,6 +60,7 @@ import type {
   RestRequestDisplayStatus,
   RestRequestListRow,
 } from "@/lib/adminRestManagementData";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 const PAGE_SIZE = 20;
 
@@ -410,13 +411,14 @@ export default function RestManagementManager() {
         const json = await res.json();
         if (cancelled) return;
         if (!res.ok || !json?.success) {
-          throw new Error(json?.error ?? "요약을 불러오지 못했습니다.");
+          throw apiErrorFrom(res, json, "요약을 불러오지 못했습니다.");
         }
         setSeasons(json.seasons ?? []);
         setSummary(json.summary ?? EMPTY_SUMMARY);
       } catch (err) {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : "요약을 불러오지 못했습니다.");
+        console.error("[rest-management] summary load failed", err);
+        setError(getApiErrorMessage(err, "요약을 불러오지 못했습니다."));
         setSummary(EMPTY_SUMMARY);
       } finally {
         if (!cancelled) setLoading(false);

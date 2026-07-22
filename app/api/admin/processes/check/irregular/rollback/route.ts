@@ -13,6 +13,7 @@ import { isOrganizationSlug } from "@/lib/organizations";
 import { parseScopeMode } from "@/lib/userScopeShared";
 import { ProcessMasterError } from "@/lib/adminProcessesData";
 import { rollbackIrregularAct } from "@/lib/adminProcessIrregularData";
+import { publicErrorMessage } from "@/lib/apiError";
 
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -49,13 +50,13 @@ export async function POST(request: NextRequest) {
   const mode = parseScopeMode(typeof body.mode === "string" ? body.mode : null);
   if (!id || !UUID_RE.test(id)) {
     return Response.json(
-      { success: false, error: "id 형식이 올바르지 않습니다" },
+      { success: false, error: "대상 값이 올바르지 않습니다." },
       { status: 400, headers: NO_STORE_HEADERS },
     );
   }
   if (!isOrganizationSlug(orgRaw)) {
     return Response.json(
-      { success: false, error: "organization 은 유효한 클럽이어야 합니다" },
+      { success: false, error: "소속 클럽을 다시 선택해주세요." },
       { status: 400, headers: NO_STORE_HEADERS },
     );
   }
@@ -66,7 +67,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("[processes/check/irregular/rollback] error", error);
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "rollback failed" },
+      { success: false, error: publicErrorMessage(error, 500, "변동 액트 처리를 완료하지 못했습니다.") },
       { status: errStatus(error), headers: NO_STORE_HEADERS },
     );
   }

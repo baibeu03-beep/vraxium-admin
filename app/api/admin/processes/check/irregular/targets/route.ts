@@ -9,6 +9,7 @@ import { ADMIN_READ_ROLES, requireAdmin, toAdminErrorResponse } from "@/lib/admi
 import { isOrganizationSlug } from "@/lib/organizations";
 import { parseScopeMode } from "@/lib/userScopeShared";
 import { searchIrregularTargets } from "@/lib/adminProcessIrregularData";
+import { publicErrorMessage } from "@/lib/apiError";
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
   const orgRaw = request.nextUrl.searchParams.get("org")?.trim() || null;
   if (!isOrganizationSlug(orgRaw)) {
     return Response.json(
-      { success: false, error: "org 은 유효한 클럽(encre|oranke|phalanx)이어야 합니다" },
+      { success: false, error: "소속 클럽을 다시 선택해주세요." },
       { status: 400 },
     );
   }
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("[processes/check/irregular/targets GET]", error);
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed" },
+      { success: false, error: publicErrorMessage(error, 500, "변동 액트 처리를 완료하지 못했습니다.") },
       { status: 500 },
     );
   }

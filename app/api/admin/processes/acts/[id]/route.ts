@@ -10,6 +10,7 @@ import {
 } from "@/lib/adminAuth";
 import { isUuid } from "@/lib/isUuid";
 import { ProcessMasterError, deleteProcessAct } from "@/lib/adminProcessesData";
+import { publicErrorMessage } from "@/lib/apiError";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -34,7 +35,7 @@ export async function DELETE(_request: NextRequest, { params }: Ctx) {
     const status = error instanceof ProcessMasterError ? error.status : 500;
     console.error("[processes/acts/[id] DELETE]", error);
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed" },
+      { success: false, error: publicErrorMessage(error, status, "액트 정보를 처리하지 못했습니다.") },
       { status },
     );
   }

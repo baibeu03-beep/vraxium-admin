@@ -24,6 +24,7 @@ import { useActionToast } from "@/lib/actionToast";
 import { excludeAddedByUserId } from "@/lib/crewSearchExclude";
 import { IrregularPointFields, derivePartialPointMode } from "@/components/admin/IrregularPointFields";
 import { irregularCafeLabel } from "@/lib/adminProcessIrregularTypes";
+import { apiErrorFrom } from "@/lib/apiError";
 
 const DURATIONS = Array.from({ length: 18 }, (_, i) => (i + 1) * 5); // 5~90, 5분 단위
 const REASON_MAX = 50;
@@ -195,13 +196,13 @@ export default function ProcessIrregularManualGrantDialog({
         }),
       });
       const json = await res.json().catch(() => ({}));
-      if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
+      if (!res.ok || !json.success) throw apiErrorFrom(res, json, "수동 지급에 실패했습니다.");
       t.success("review");
       onDone();
       onClose();
     } catch (err) {
       console.error("[ProcessIrregularManualGrantDialog] manual grant failed", err);
-      t.error("review");
+      t.apiError("review", err, "수동 지급에 실패했습니다.");
     } finally {
       setSubmitting(false);
     }

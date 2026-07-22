@@ -9,6 +9,7 @@ import { assertAdminOrgAccess } from "@/lib/adminOrgAccess";
 import { isOrganizationSlug } from "@/lib/organizations";
 import { loadRestManagementOverview } from "@/lib/adminRestManagementData";
 import { observeApiRoute } from "@/lib/apiObservability";
+import { publicErrorMessage } from "@/lib/apiError";
 
 // GET /api/admin/rest-management/summary?organization=&season_key=
 //
@@ -53,7 +54,7 @@ export async function GET(request: NextRequest) {
         {
           success: false,
           error:
-            error instanceof Error ? error.message : "Failed to load summary",
+            publicErrorMessage(error, 500, "요약을 불러오지 못했습니다."),
         },
         { status: 500 },
       );

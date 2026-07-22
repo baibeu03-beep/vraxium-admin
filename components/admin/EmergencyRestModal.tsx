@@ -24,6 +24,7 @@ import { useActionToast } from "@/lib/actionToast";
 import { classTone } from "@/lib/statusBadge";
 import { getProcessPointLabels } from "@/lib/pointLabels";
 import type { OrganizationSlug } from "@/lib/organizations";
+import { apiErrorFrom } from "@/lib/apiError";
 
 type WeekOption = {
   weekId: string;
@@ -243,16 +244,14 @@ export default function EmergencyRestModal({
       );
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json?.success) {
-        console.error("emergency rest submit failed", res.status, json?.error);
-        t.error("submit", { status: res.status });
-        return;
+        throw apiErrorFrom(res, json, "긴급 휴식 신청에 실패했습니다.");
       }
       toast("success", "긴급 휴식 신청이 완료되었습니다.");
       onCreated();
       onClose();
     } catch (err) {
       console.error("emergency rest submit error", err);
-      t.error("submit");
+      t.apiError("submit", err, "긴급 휴식 신청에 실패했습니다.");
     } finally {
       setSubmitting(false);
     }

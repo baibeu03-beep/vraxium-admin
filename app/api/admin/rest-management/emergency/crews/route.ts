@@ -12,6 +12,7 @@ import {
   EmergencyRestError,
   listEmergencyCrews,
 } from "@/lib/adminEmergencyRest";
+import { publicErrorMessage } from "@/lib/apiError";
 
 // GET /api/admin/rest-management/emergency/crews?organization=&teamId=&mode=
 //
@@ -58,7 +59,7 @@ export async function GET(request: NextRequest) {
     }
     console.error("[admin/rest-management/emergency/crews GET]", error);
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed to load crews" },
+      { success: false, error: publicErrorMessage(error, 500, "긴급 휴식 처리를 완료하지 못했습니다.") },
       { status: 500 },
     );
   }

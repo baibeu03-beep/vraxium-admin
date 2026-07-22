@@ -12,6 +12,7 @@ import {
   loadRestManagementOverview,
 } from "@/lib/adminRestManagementData";
 import { observeApiRoute } from "@/lib/apiObservability";
+import { publicErrorMessage } from "@/lib/apiError";
 
 // GET /api/admin/rest-management/list?organization=&season_key=
 //
@@ -61,7 +62,7 @@ export async function GET(request: NextRequest) {
       return Response.json(
         {
           success: false,
-          error: error instanceof Error ? error.message : "Failed to load list",
+          error: publicErrorMessage(error, 500, "휴식 목록을 불러오지 못했습니다."),
         },
         { status: 500 },
       );

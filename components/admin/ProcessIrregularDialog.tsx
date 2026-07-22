@@ -23,6 +23,7 @@ import {
   validateScheduledCheckAt,
   type IrregularCrewReaction,
 } from "@/lib/adminProcessIrregularTypes";
+import { apiErrorFrom } from "@/lib/apiError";
 
 const TIME_SLOTS: string[] = (() => {
   const out: string[] = [];
@@ -152,13 +153,13 @@ export default function ProcessIrregularDialog({
         }),
       });
       const json = await res.json().catch(() => ({}));
-      if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
+      if (!res.ok || !json.success) throw apiErrorFrom(res, json, "검수 신청에 실패했습니다.");
       t.success("submit");
       onDone();
       onClose();
     } catch (err) {
       console.error("[ProcessIrregularDialog] review request failed", err);
-      t.error("submit");
+      t.apiError("submit", err, "검수 신청에 실패했습니다.");
     } finally {
       setSubmitting(false);
     }

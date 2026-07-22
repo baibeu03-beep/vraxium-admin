@@ -5,6 +5,7 @@ import {
   toAdminErrorResponse,
 } from "@/lib/adminAuth";
 import { accrueForCompletedAct, type AccrualSource } from "@/lib/processPointAccrual";
+import { publicErrorMessage } from "@/lib/apiError";
 
 // 프로세스 체크 완료 → 포인트 적립 트리거 (worker(.mjs)→TS 적립 로직 브리지).
 //   POST { source: 'regular'|'irregular', ref_id }  → accrueForCompletedAct
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json();
   } catch {
-    return Response.json({ success: false, error: "Invalid JSON body" }, { status: 400 });
+    return Response.json({ success: false, error: "요청 형식이 올바르지 않습니다." }, { status: 400 });
   }
 
   const b = (body ?? {}) as Record<string, unknown>;
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const status = (error as { status?: number })?.status ?? 500;
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "accrual failed" },
+      { success: false, error: publicErrorMessage(error, status, "적립 처리에 실패했습니다.") },
       { status },
     );
   }

@@ -29,6 +29,7 @@ import {
   applyProcessManualGrant,
   getProcessCheckBoard,
 } from "@/lib/adminProcessCheckData";
+import { publicErrorMessage } from "@/lib/apiError";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -44,21 +45,21 @@ export async function GET(request: NextRequest) {
   const hubRaw = request.nextUrl.searchParams.get("hub")?.trim() ?? null;
   if (!isProcessHub(hubRaw)) {
     return Response.json(
-      { success: false, error: "hub must be one of club|info|experience|competency|career" },
+      { success: false, error: "소속 허브를 다시 선택해주세요." },
       { status: 400 },
     );
   }
   const orgRaw = request.nextUrl.searchParams.get("org")?.trim() || null;
   if (!isOrganizationSlug(orgRaw)) {
     return Response.json(
-      { success: false, error: "org 은 유효한 클럽(encre|oranke|phalanx)이어야 합니다" },
+      { success: false, error: "소속 클럽을 다시 선택해주세요." },
       { status: 400 },
     );
   }
   // team(선택) — experience 섹션.1 팀 스코프. uuid 형식만 검증(소속 검증은 데이터레이어).
   const teamRaw = request.nextUrl.searchParams.get("team")?.trim() || null;
   if (teamRaw && !UUID_RE.test(teamRaw)) {
-    return Response.json({ success: false, error: "team 형식이 올바르지 않습니다" }, { status: 400 });
+    return Response.json({ success: false, error: "팀 값이 올바르지 않습니다." }, { status: 400 });
   }
   // scope/part(선택) — experience 섹션.1 팀·파트 스코프. 형식만 통과(소속/유효성은 데이터레이어).
   const scope = isProcessCheckScopeKind(request.nextUrl.searchParams.get("scope"))
@@ -79,7 +80,7 @@ export async function GET(request: NextRequest) {
     const status = error instanceof ProcessMasterError ? error.status : 500;
     console.error("[processes/check GET]", error);
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed" },
+      { success: false, error: publicErrorMessage(error, status, "체크 처리를 완료하지 못했습니다.") },
       { status },
     );
   }
@@ -99,7 +100,7 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json();
   } catch {
-    return Response.json({ success: false, error: "Invalid JSON body" }, { status: 400 });
+    return Response.json({ success: false, error: "요청 형식이 올바르지 않습니다." }, { status: 400 });
   }
 
   const b = (body ?? {}) as Record<string, unknown>;
@@ -123,22 +124,22 @@ export async function POST(request: NextRequest) {
 
   if (!isProcessHub(hub)) {
     return Response.json(
-      { success: false, error: "hub must be one of club|info|experience|competency|career" },
+      { success: false, error: "소속 허브를 다시 선택해주세요." },
       { status: 400 },
     );
   }
   if (!isOrganizationSlug(orgRaw)) {
-    return Response.json({ success: false, error: "organization 은 유효한 클럽이어야 합니다" }, { status: 400 });
+    return Response.json({ success: false, error: "소속 클럽을 다시 선택해주세요." }, { status: 400 });
   }
   if (!actId) {
-    return Response.json({ success: false, error: "act_id is required" }, { status: 400 });
+    return Response.json({ success: false, error: "액트를 선택해주세요." }, { status: 400 });
   }
   // uuid 형식 검증 — 잘못된 형식이 uuid 컬럼 쿼리로 가 500 나는 것을 막는다(→ 400).
   if (!UUID_RE.test(actId)) {
-    return Response.json({ success: false, error: "act_id 형식이 올바르지 않습니다" }, { status: 400 });
+    return Response.json({ success: false, error: "액트 값이 올바르지 않습니다." }, { status: 400 });
   }
   if (teamId && !UUID_RE.test(teamId)) {
-    return Response.json({ success: false, error: "team_id 형식이 올바르지 않습니다" }, { status: 400 });
+    return Response.json({ success: false, error: "팀 값이 올바르지 않습니다." }, { status: 400 });
   }
 
   // 선별(selection) 액트 수동 부여 — 대상 크루 명단 + 자유 입력 포인트(A→check·B→advantage·C→penalty).
@@ -147,7 +148,7 @@ export async function POST(request: NextRequest) {
     const targetIds = Array.isArray(b.target_user_ids) ? b.target_user_ids : [];
     for (const id of targetIds) {
       if (typeof id !== "string" || !UUID_RE.test(id.trim())) {
-        return Response.json({ success: false, error: "target_user_ids 형식이 올바르지 않습니다" }, { status: 400 });
+        return Response.json({ success: false, error: "대상자 값이 올바르지 않습니다." }, { status: 400 });
       }
     }
     try {
@@ -173,14 +174,14 @@ export async function POST(request: NextRequest) {
       const status = error instanceof ProcessMasterError ? error.status : 500;
       console.error("[processes/check POST manual_grant]", error);
       return Response.json(
-        { success: false, error: error instanceof Error ? error.message : "Failed" },
+        { success: false, error: publicErrorMessage(error, status, "체크 처리를 완료하지 못했습니다.") },
         { status },
       );
     }
   }
 
   if (!isProcessCheckAction(action)) {
-    return Response.json({ success: false, error: "action 은 request|cancel 이어야 합니다" }, { status: 400 });
+    return Response.json({ success: false, error: "요청 형식이 올바르지 않습니다." }, { status: 400 });
   }
 
   try {
@@ -203,7 +204,7 @@ export async function POST(request: NextRequest) {
     const status = error instanceof ProcessMasterError ? error.status : 500;
     console.error("[processes/check POST]", error);
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed" },
+      { success: false, error: publicErrorMessage(error, status, "체크 처리를 완료하지 못했습니다.") },
       { status },
     );
   }
