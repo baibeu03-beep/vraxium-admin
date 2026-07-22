@@ -18,16 +18,12 @@ import {
   isManualOverrideStatus,
   type GrowthStatusKey,
 } from "@/shared/growth.contracts";
+import { POSITION_CODE_TO_LABEL } from "@/lib/positionHistory";
+// 주차별 effective 직책 조립 = 공통 resolver 단일 구현(카드 빌더·area-8 과 동일 함수).
 import {
-  resolveSeasonPosition,
-  POSITION_CODE_TO_LABEL,
-  type PositionCode,
-} from "@/lib/positionHistory";
-// 주차별 파트/클래스 관리자 override — effective = override ?? UPH(관리자 팀 상세 [B] 와 동일 SoT).
-import {
-  loadUserPositionOverrideRows,
-  resolveOverrideAt,
-} from "@/lib/teamWeekPositionOverride";
+  loadUserWeekPositionSeries,
+  resolveSeasonPositionsFromSeries,
+} from "@/lib/positionResolver";
 import type {
   Cluster1ResumeDto,
   ResumeStatus,
@@ -388,7 +384,13 @@ export async function computeSeasonRecords(
   //   시즌별로 그 시즌 주차들의 직책을 모아 resolveSeasonPosition(3주룰)으로 대표 직책 산정.
   //   과거 시즌에 현재 직책을 복사하던 종전 버그 제거.
   //   PMS 이력이 없는 시즌(현재 2026 시즌·native 미이관자)만 현재 membership/role 로 fallback.
-  const [membershipRes, profileRoleRes, positionRes, positionOverrideRows] = await Promise.all([
+  // 주차 시즌 귀속 해소기 — uws 주차 → season_key(달력 대신 실제 주차 행 기준).
+  const seasonKeyByWeekStart = new Map<string, string>();
+  for (const w of weeks)
+    if (w.week_start_date && w.season_key)
+      seasonKeyByWeekStart.set(String(w.week_start_date).slice(0, 10), w.season_key);
+
+  const [membershipRes, profileRoleRes, positionSeries] = await Promise.all([
     supabaseAdmin
       .from("user_memberships")
       .select("membership_level,is_current,created_at,updated_at")
@@ -399,60 +401,19 @@ export async function computeSeasonRecords(
       .select("role,growth_status")
       .eq("user_id", userId)
       .maybeSingle(),
-    supabaseAdmin
-      .from("user_position_histories")
-      .select("season_key,position_code,week_start_date,raw_team")
-      .eq("user_id", userId),
-    loadUserPositionOverrideRows(userId),
+    // 조립은 **공통 resolver 단일 구현** — 카드 빌더·area-8 과 같은 함수(종전 3벌 복붙 제거).
+    loadUserWeekPositionSeries({
+      userId,
+      seasonKeys: null, // 이력서는 전 시즌.
+      seasonKeyOfWeek: (ws) => seasonKeyByWeekStart.get(ws) ?? null,
+    }),
   ]);
 
-  // 시즌별 대표 직책 맵. 테이블 미적용/조회실패 시 빈 맵 → 전 시즌 현재 membership fallback
-  //   (= 종전 동작, 무회귀). PMS 이력 보유 시즌만 주차단위 산정값으로 덮인다.
-  const seasonPositionMap = new Map<string, PositionCode>();
-  if (positionRes.error) {
-    console.warn("[cluster1] user_position_histories 조회 실패 → 전 시즌 현재 직책 fallback", {
-      userId,
-      message: positionRes.error.message,
-    });
-  } else {
-    // effective = carry-forward override ?? UPH — 저장 주차부터 이후 주차 전부에 이어진다.
-    //   시즌 대표(resolveSeasonPosition, 3주룰)는 그 시즌 주차들의 effective 코드로 산정한다.
-    const overrideAsc = [...positionOverrideRows].sort((a, b) =>
-      a.weekStartDate.localeCompare(b.weekStartDate),
-    );
-    const seasonKeyByWeekStart = new Map<string, string>();
-    for (const w of weeks)
-      if (w.week_start_date && w.season_key)
-        seasonKeyByWeekStart.set(String(w.week_start_date).slice(0, 10), w.season_key);
-
-    const seenWeeks = new Set<string>();
-    const codesBySeason = new Map<string, PositionCode[]>();
-    const push = (seasonKey: string | null, code: PositionCode) => {
-      if (!seasonKey) return;
-      const arr = codesBySeason.get(seasonKey) ?? [];
-      arr.push(code);
-      codesBySeason.set(seasonKey, arr);
-    };
-    for (const r of (positionRes.data ?? []) as Array<{
-      season_key: string | null;
-      position_code: PositionCode;
-      week_start_date: string | null;
-      raw_team: string | null;
-    }>) {
-      if (r.week_start_date) seenWeeks.add(r.week_start_date);
-      const ovr = r.week_start_date ? resolveOverrideAt(overrideAsc, r.week_start_date) : null;
-      push(r.season_key, ovr ? ovr.positionCode : r.position_code);
-    }
-    // UPH 행이 없는 주차에 저장된 override 는 그 주차 몫으로 1건 추가(이월분은 위에서 반영됨).
-    for (const o of overrideAsc) {
-      if (seenWeeks.has(o.weekStartDate)) continue;
-      push(seasonKeyByWeekStart.get(o.weekStartDate) ?? null, o.positionCode);
-    }
-    for (const [key, codes] of codesBySeason) {
-      const resolved = resolveSeasonPosition(codes);
-      if (resolved) seasonPositionMap.set(key, resolved);
-    }
-  }
+  // 시즌별 대표 직책 맵. 이력이 없으면 빈 맵 → 전 시즌 현재 membership fallback(= 종전 동작).
+  //   ⚠ basis="effective" — 여기는 gap 메우기가 아니라 **그 시즌 직책을 표시**하는 자리다.
+  //     0~3주 정규 / 4~7주 심화면 각 주차 effective(carry-forward 포함)로 3주룰을 돌린다.
+  //     과거 주차는 override 가 없으므로 그대로 유지된다(override 는 소급되지 않는다).
+  const seasonPositionMap = resolveSeasonPositionsFromSeries(positionSeries, "effective");
   const profileRow = profileRoleRes.data as {
     role: string | null;
     growth_status: string | null;

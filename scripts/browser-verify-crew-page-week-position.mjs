@@ -63,13 +63,23 @@ async function main() {
   const browser = await chromium.launch({ headless: true });
   const page = await (await browser.newContext({ viewport: { width: 1500, height: 1400 } })).newPage();
   try {
+    // ⚠ 배지가 "비어있지 않음"만 기다리면 안 된다 — 카드 메타 도착 전 profile 기반 placeholder("일반")가
+    //   이미 채워져 있어 그대로 읽고 실패한다(flaky 원인). weekly-cards 응답을 실제로 기다린 뒤,
+    //   소속 파트 셀이 placeholder("-")를 벗어날 때까지 기다린다.
+    const cardsResponse = page
+      .waitForResponse((r) => r.url().includes("/api/cluster4/weekly-cards") && r.status() === 200, { timeout: 60000 })
+      .catch(() => null);
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
-    // 카드 메타(weekly-cards fetch) 도착까지 배지가 채워지길 기다린다.
-    await page.waitForFunction(() => {
-      const b = document.querySelector(".info-badge.role");
-      return b && b.textContent.trim() !== "" && b.textContent.trim() !== "-";
-    }, { timeout: 45000 }).catch(() => {});
-    await page.waitForTimeout(3000);
+    await cardsResponse;
+    await page
+      .waitForFunction(() => {
+        const p = document.querySelector(".info-item.part");
+        const b = document.querySelector(".info-badge.role");
+        const pt = (p?.textContent ?? "").replace(/\[파트\]/g, "").trim();
+        return Boolean(b?.textContent?.trim()) && pt !== "" && pt !== "-";
+      }, { timeout: 45000 })
+      .catch(() => {});
+    await page.waitForTimeout(2500);
 
     const dom = await page.evaluate(() => ({
       badge: document.querySelector(".info-badge.role")?.textContent?.trim() ?? null,

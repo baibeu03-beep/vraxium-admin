@@ -6,7 +6,7 @@ import {
 import { applyEnhancementOverridesToCards } from "@/lib/cluster4EnhancementOverride";
 import { applySecondEntryOverridesToCards } from "@/lib/cluster4SecondEntryOverride";
 import { breakdownFromLines, emptyBreakdown } from "@/lib/cluster4WeeklyCardsData";
-import { classLabel } from "@/lib/adminMembersTypes";
+import { weekClassLabel, classLabel } from "@/lib/adminMembersTypes";
 import { roundGrowthRate } from "@/lib/lineAvailability";
 import { adminWeekStatusLabel, formatWeekFull } from "@/lib/adminCrewWeeklyResults";
 import { isCrewWeekEditable } from "@/shared/growth.contracts";
@@ -199,7 +199,8 @@ export async function getCrewWeekDetail(
         teamName: card.teamName,
         partName: card.partName,
         roleLabel: card.roleLabel,
-        classLabel: classLabel(crew.role, card.roleLabel),
+        // 주차 화면 — 그 주차 effective position_code 기준. 현재 role 을 섞지 않는다(이력 훼손 방지).
+        classLabel: weekClassLabel(card.crewClassPositionCode, card.roleLabel),
       },
       points: {
         star: card.points.star,

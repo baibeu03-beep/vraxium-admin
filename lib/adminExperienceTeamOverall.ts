@@ -13,6 +13,7 @@
 // (저렴) + 기존 lazy recompute 경로에 위임 — 생성/조회 로직 변경 없음.
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { loadCurrentWeekOverrideLabels } from "@/lib/positionResolver";
 import { QA_HIDE_REAL_USERS } from "@/lib/qaFixedScope";
 import {
   assertUserIdsInScope,
@@ -29,7 +30,7 @@ import {
   resolveExperienceLineOpenGate,
   EXPERIENCE_LINE_NOT_OPEN_REASON,
 } from "@/lib/experienceLineOpenGate";
-import { memberStatusLabel } from "@/lib/adminMembersTypes";
+import { resolvePositionLabels } from "@/lib/adminMembersTypes";
 import { resolveOutputLinks } from "@/lib/cluster4OutputLinks";
 import { insertExperienceOpeningLog } from "@/lib/adminExperienceOpeningLogs";
 import { getCurrentSeasonRestUserIds } from "@/lib/currentSeasonRest";
@@ -70,11 +71,19 @@ const EXCLUDED_PART_NAMES = new Set<string>(["일반"]);
 function overallMemberStatus(
   role: string | null,
   membershipLevel: string | null,
+  // 현재 주차 override 의 position_code. 있으면 멤버십 대신 이 값으로 판정한다
+  //   — 평가 대상 선별·파트장 여부가 화면 클래스와 갈리지 않게 한다(현재 상태 화면 규칙).
+  overridePositionCode?: string | null,
 ): { label: string; isPartLeader: boolean } | null {
-  const label = memberStatusLabel(role, membershipLevel);
-  if (label === "일반") return { label: "일반", isPartLeader: false };
-  if (label === "심화(에이전트)") return { label: "에이전트", isPartLeader: false };
-  if (label === "심화(파트장)") return { label: "파트장", isPartLeader: true };
+  // ⚠ 라벨 문자열이 아니라 positionCode 로 판정한다(어휘 2종 혼선 원천 차단).
+  const code = resolvePositionLabels({
+    positionCode: overridePositionCode ?? null,
+    role,
+    membershipLevel,
+  }).positionCode;
+  if (code === "regular") return { label: "일반", isPartLeader: false };
+  if (code === "advanced_agent") return { label: "에이전트", isPartLeader: false };
+  if (code === "advanced_part_leader") return { label: "파트장", isPartLeader: true };
   // 팀장/관리자/앰배서더/크루(등급미상) 등은 평가 대상 아님.
   return null;
 }
@@ -137,6 +146,8 @@ export async function loadTeamMembersWithLeaders(
     if (!existing || (m.is_current && !existing.is_current)) memMap.set(m.user_id, m);
   }
 
+  // 현재 주차 파트/클래스 override — 평가 대상 선별·파트장 판정에 반영(현재 상태 화면 규칙).
+  const weekOverrides = await loadCurrentWeekOverrideLabels(profs.map((p) => p.user_id), organization);
   const rows: OverallMemberRow[] = [];
   for (const p of profs) {
     // 모집단 스코프: operating=실사용자만 / test=테스트 유저만.
@@ -145,9 +156,12 @@ export async function loadTeamMembersWithLeaders(
     const m = memMap.get(p.user_id);
     if (!m || m.team_name !== teamName) continue;
     if (m.membership_state === "rest") continue; // 휴식 제외(active 만).
-    const part = m.part_name?.trim() ?? "";
+    const ovr = weekOverrides.get(p.user_id) ?? null;
+    // ⚠ 클래스만 override 를 따르고 파트는 멤버십을 쓰면, 같은 사람이 화면마다 다른 파트로 잡힌다
+    //   (실측 2026-07-22: 회원목록 "아트" vs 팀 총괄 "무드"). 파트도 같은 SoT 를 쓴다.
+    const part = (ovr ? ovr.rawPart : m.part_name)?.trim() ?? "";
     if (!part || EXCLUDED_PART_NAMES.has(part)) continue;
-    const status = overallMemberStatus(p.role, m.membership_level);
+    const status = overallMemberStatus(p.role, m.membership_level, ovr?.positionCode ?? null);
     if (!status) continue; // 팀장/관리자 등 제외.
     rows.push({
       userId: p.user_id,

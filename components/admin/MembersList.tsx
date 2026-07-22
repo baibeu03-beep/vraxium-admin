@@ -55,6 +55,7 @@ import type {
   MembersInfoStatsDto,
   InfoWeekRow,
 } from "@/lib/adminMembersInfoStats";
+import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 type Member = {
   userId: string;
@@ -571,7 +572,8 @@ export default function MembersList({
         });
       } catch (err) {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : "Failed to load roster.");
+        console.error("[members] roster load failed", err);
+        setError(getApiErrorMessage(err, "회원 명부를 불러오지 못했습니다."));
         setRoster([]);
         setPartialFailure(null);
       } finally {
@@ -978,7 +980,7 @@ function MembersInfoTab({
         const res = await fetch("/api/admin/season-weeks", { cache: "no-store" });
         const json = await res.json();
         if (!res.ok || !json.success) {
-          throw new Error(json?.error ?? "Failed to load season weeks.");
+          throw apiErrorFrom(res, json, "주차 정보를 불러오지 못했습니다.");
         }
         if (cancelled) return;
         const rows = (json.data?.rows ?? []) as SeasonWeekInfoRow[];
@@ -986,7 +988,8 @@ function MembersInfoTab({
         setSection0(resolveMembersInfoSection0(rows, new Date()));
       } catch (err) {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : "Failed to load season weeks.");
+        console.error("[members] season weeks load failed", err);
+        setError(getApiErrorMessage(err, "주차 정보를 불러오지 못했습니다."));
         setSection0(null);
       } finally {
         if (!cancelled) setLoading(false);
@@ -1205,7 +1208,7 @@ function InfoStatsPanel({ org, mode }: { org: InfoClubTab; mode: "operating" | "
         const res = await fetch(url, { cache: "no-store" });
         const json = await res.json();
         if (!res.ok || !json.success) {
-          throw new Error(json?.error ?? "Failed to load info stats.");
+          throw apiErrorFrom(res, json, "회원 통계를 불러오지 못했습니다.");
         }
         if (cancelled) return;
         const dto = json.data as MembersInfoStatsDto;
@@ -1214,7 +1217,8 @@ function InfoStatsPanel({ org, mode }: { org: InfoClubTab; mode: "operating" | "
         setPage(0); // 새 데이터 로드 시 첫 페이지로.
       } catch (err) {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : "Failed to load info stats.");
+        console.error("[members] info stats load failed", err);
+        setError(getApiErrorMessage(err, "회원 통계를 불러오지 못했습니다."));
         setData(null);
       } finally {
         if (!cancelled) setLoading(false);

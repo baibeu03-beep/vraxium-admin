@@ -1,6 +1,7 @@
 // 실무 정보 — "주차별 개설 결과" DTO (read-only).
 //
-// 선택 주차 + 실무 정보 활동유형(9종) 기준으로 라인별 개설 결과를 산정한다. 순수 조회 —
+// 선택 주차 + 실무 정보 라인(listInfoLineCatalog · 등록 라인 포함) 기준으로 라인별 개설 결과를
+// 산정한다. 순수 조회 —
 // 쓰기/snapshot/invalidate/demoUserId 어디에도 관여하지 않는다(고객 DTO 무영향).
 //
 // status:
@@ -20,6 +21,7 @@ import { isLineVisibleForUserOrg } from "@/lib/cluster4LineOrg";
 import type { OrganizationSlug } from "@/lib/organizations";
 import { resolveUserScope, type ScopeMode } from "@/lib/userScope";
 import { loadWeekOpeningConfig } from "@/lib/adminTeamPartsInfoWeekDetailData";
+import { listInfoLineCatalog } from "@/lib/adminInfoLineCatalog";
 
 export type InfoLineResultStatus = "opened" | "needs_opening" | "not_open";
 
@@ -46,26 +48,13 @@ export type InfoLineResultsDto = {
   // 주차 시작/종료일(date-only ISO) — "개설 대상 크루 수정" 허용 범위 판정에 사용(클라이언트 게이트).
   weekStartDate: string | null;
   weekEndDate: string | null;
-  totalLineCount: number; // 전체 라인(활동유형 9종)
+  totalLineCount: number; // 전체 라인(카탈로그 = 정본 9종 + 등록된 신규 라인, org 스코프 적용)
   openLineCount: number; // 오픈 라인 = 이번 주 개설 대상(status != not_open)
   openedLineCount: number; // 개설 라인(실제 개설된 활성 라인 수 = status 'opened')
   needsOpeningCount: number; // 개설 필요(오픈 대상이나 미개설 = status 'needs_opening')
   notOpenCount: number; // 미오픈(이번 주 개설 대상 아님 = status 'not_open')
   lines: InfoLineResultDto[];
 };
-
-// 표시 순서 — PracticalInfoManager PREFERRED_TAB_ORDER 미러.
-const PREFERRED_ORDER = [
-  "wisdom",
-  "essay",
-  "infodesk",
-  "calendar",
-  "forum",
-  "session",
-  "practical_lecture",
-  "community",
-  "etc_a",
-];
 
 type LineMeta = {
   id: string;
@@ -165,19 +154,12 @@ export async function getInfoLineResultsForWeek(opts: {
       ? `${fmtDate(w.start_date)} ~ ${fmtDate(w.end_date)}`
       : "-";
 
-  // 2. 실무 정보 활동유형(9종, 활성) — 표시 순서 적용.
-  const { data: typeData, error: typeErr } = await supabaseAdmin
-    .from("activity_types")
-    .select("id,name")
-    .eq("cluster_id", "practical_info")
-    .eq("is_active", true);
-  if (typeErr) throw new Error(typeErr.message);
-  const typeRows = (typeData ?? []) as { id: string; name: string | null }[];
-  const orderIdx = (id: string) => {
-    const i = PREFERRED_ORDER.indexOf(id);
-    return i < 0 ? PREFERRED_ORDER.length : i;
-  };
-  typeRows.sort((a, b) => orderIdx(a.id) - orderIdx(b.id) || a.id.localeCompare(b.id));
+  // 2. 실무 정보 라인(활동유형) — org 스코프·활성·표시 순서·라인명 전부 카탈로그 단일 SoT.
+  //    등록으로 추가된 신규 라인이 여기서 그대로 1행이 된다(practical-info 탭과 동일 목록·동일 ID).
+  const typeRows = (await listInfoLineCatalog(organization)).map((l) => ({
+    id: l.lineId,
+    name: l.lineName,
+  }));
 
   // 3. 해당 주차의 개설(활성) 라인 — 타깃(week_id, 0명 sentinel 포함) ∪ 라인 자체 week_id.
   //    QA 정책(2026-07-01): 라인 자체는 운영 그대로 전부 노출한다(고객앱과 동일 line_id 집합).

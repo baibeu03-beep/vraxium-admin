@@ -685,26 +685,97 @@ export async function recomputeStaleOrDueSnapshots(opts: {
 
 // 다건 변경(공표/라인 CRUD/프로젝트/마스터/휴식정책)용 정책 일원화 진입점.
 //   - 대상 0명         → no-op
-//   - 대상 ≤ THRESHOLD → 요청 내 즉시 병렬 recompute(제한 concurrency) → 응답 시점에 이미 fresh
+//   - 대상 ≤ THRESHOLD → markStaleMany(먼저) + 요청 내 즉시 병렬 recompute → 응답 시점에 이미 fresh
 //   - 대상 >  THRESHOLD → markStaleMany(즉시, reads 는 구값 노출·계산 0) + after()로 응답 후
 //                         백그라운드 recompute(cron 없이 수초 내 반영). after 불가 컨텍스트면 stale-only.
 // 조회 API 는 어느 경우에도 계산하지 않는다(snapshot-only 불변). 직렬 N명 recompute 금지(≤THRESHOLD 만 병렬).
+//
+// ⚠ **stale 마킹이 수렴 보장의 근간이다(2026-07-22 수정).**
+//   종전 immediate 경로는 markStale 없이 곧바로 recompute 만 했다. recompute 는 사용자별로 실패를
+//   격리(로그만)하고 **실패해도 upsert 를 하지 않으므로**, 실패 시 기존 행이 `is_stale=false` +
+//   옛 `computed_at` + **옛 카드** 그대로 남는다. 조회 라우트는 fresh(hit)로 판정해 lazy 재계산을
+//   하지 않으므로 그 사용자는 DTO 버전 bump/주차 경계 전까지 **영구히 옛 카드**를 받는다.
+//   실측(2026-07-22): override updated_at 07:47:43 > snapshot computed_at 07:47:16, is_stale=false
+//   → 크루앱 주차 카드만 옛 팀/파트/클래스 고정. 사이드바(/api/profile, live 조회)와 불일치.
+//   → 먼저 stale 로 찍고 recompute 한다. recompute 성공 시 is_stale=false 로 되돌아가고,
+//     실패하면 is_stale=true 가 남아 다음 조회의 블로킹 lazy 또는 cron 이 반드시 복구한다.
+//
+// ⚠ 결과를 **날조하지 않는다**. 종전에는 recompute 결과를 버리고 항상 {mode:"immediate"} 를 반환해
+//   전원 실패해도 호출부가 성공으로 오해했다. 실제 수치(staleMarked/recomputed/failed)를 그대로 올려
+//   라우트가 응답에 실패 상태를 담거나 저장을 실패 처리할 수 있게 한다.
 export const SNAPSHOT_RECOMPUTE_THRESHOLD = 10;
+
+export type WeeklyCardsInvalidationResult = {
+  mode: "none" | "immediate" | "background" | "stale_only";
+  /** 대상 사용자 수(중복 제거 후). 하위호환 필드 — 종전 의미 유지. */
+  count: number;
+  /** stale 마킹에 성공한 사용자 수. */
+  staleMarked: number;
+  /** stale 마킹에 실패한 사용자 수. >0 이면 수렴 보장이 깨진 상태. */
+  staleFailed: number;
+  /** 이번 요청 안에서 즉시 재계산까지 끝난 사용자 수(background/stale_only 는 0). */
+  recomputed: number;
+  /** 즉시 재계산 실패 수 — stale 이 찍혀 있으면 조회 lazy/cron 이 복구한다. */
+  recomputeFailed: number;
+  failedUserIds: string[];
+  /**
+   * 수렴이 보장되는가.
+   *   true  = 전원 fresh 이거나, 최소한 stale 마킹이 되어 조회 lazy/cron 이 반드시 복구한다.
+   *   false = stale 마킹조차 실패 → 옛 카드가 fresh 로 남을 수 있다(호출부가 실패 처리해야 함).
+   */
+  ok: boolean;
+};
 
 export async function invalidateWeeklyCardsForUsers(
   userIds: string[],
-): Promise<{ mode: "none" | "immediate" | "background" | "stale_only"; count: number }> {
+): Promise<WeeklyCardsInvalidationResult> {
   const ids = Array.from(new Set(userIds.filter((id): id is string => Boolean(id))));
-  if (ids.length === 0) return { mode: "none", count: 0 };
+  const empty = (mode: WeeklyCardsInvalidationResult["mode"]): WeeklyCardsInvalidationResult => ({
+    mode,
+    count: ids.length,
+    staleMarked: 0,
+    staleFailed: 0,
+    recomputed: 0,
+    recomputeFailed: 0,
+    failedUserIds: [],
+    ok: true,
+  });
+  if (ids.length === 0) return empty("none");
+
+  // 공통 1단계 — 먼저 stale 로 찍어 "재계산 필요" 사실 자체를 DB 에 남긴다(안전망).
+  const stale = await markWeeklyCardsSnapshotStaleMany(ids);
+  const staleMarked = stale.requested - stale.failed;
 
   if (ids.length <= SNAPSHOT_RECOMPUTE_THRESHOLD) {
-    await recomputeWeeklyCardsSnapshotsForUsers(ids);
-    console.log("[weekly-cards][snapshot] invalidate immediate", `count=${ids.length}`);
-    return { mode: "immediate", count: ids.length };
+    const r = await recomputeWeeklyCardsSnapshotsForUsers(ids);
+    const result: WeeklyCardsInvalidationResult = {
+      mode: "immediate",
+      count: ids.length,
+      staleMarked,
+      staleFailed: stale.failed,
+      recomputed: r.recomputed,
+      recomputeFailed: r.failed,
+      failedUserIds: Array.from(new Set([...stale.failedUserIds, ...r.failedUserIds])),
+      ok: stale.failed === 0,
+    };
+    console.log(
+      "[weekly-cards][snapshot] invalidate immediate",
+      `count=${ids.length} staleMarked=${staleMarked} recomputed=${r.recomputed} ` +
+        `recomputeFailed=${r.failed} staleFailed=${stale.failed} ok=${result.ok}`,
+    );
+    return result;
   }
 
-  // 많음: 먼저 stale 로 막아 조회가 구값을 즉시 노출(계산 0). 그다음 백그라운드 재계산.
-  await markWeeklyCardsSnapshotStaleMany(ids);
+  // 많음: stale 로 막은 상태에서 조회는 구값을 즉시 노출(계산 0). 재계산은 응답 후 백그라운드.
+  const base = {
+    count: ids.length,
+    staleMarked,
+    staleFailed: stale.failed,
+    recomputed: 0,
+    recomputeFailed: 0,
+    failedUserIds: stale.failedUserIds,
+    ok: stale.failed === 0,
+  };
   try {
     // next/server 의 after(): 요청 컨텍스트에서만 동작. 응답 후 같은 인스턴스에서 실행 → cron 불필요.
     const { after } = await import("next/server");
@@ -719,14 +790,14 @@ export async function invalidateWeeklyCardsForUsers(
         });
       }
     });
-    return { mode: "background", count: ids.length };
+    return { mode: "background", ...base };
   } catch (e) {
     // 요청 컨텍스트 밖(after 불가) → stale 만 유지, daily cron 이 복구.
     console.warn("[weekly-cards][snapshot] after() unavailable → stale-only (cron recovers)", {
       count: ids.length,
       message: e instanceof Error ? e.message : String(e),
     });
-    return { mode: "stale_only", count: ids.length };
+    return { mode: "stale_only", ...base };
   }
 }
 
@@ -866,15 +937,18 @@ export async function markWeeklyCardsSnapshotStale(
 //   세팅되지 않는다 → snapshot-only 조회 런타임에서 lazy 재계산이 트리거되지 않아 "실무 경험/역량
 //   라인이 고객앱에 반영 안 됨"(2026-07-01 근본원인, 실측 audience=729 → Bad Request)을 유발한다.
 //   Info 개설은 targets(소수)만 무효화해 즉시 재계산 경로라 이 버그에 걸리지 않았다.
+// ⚠ 반환값 추가(2026-07-22): 실패를 호출부가 알 수 있어야 한다. 종전 Promise<void> 는 부분 실패를
+//   로그로만 남겨 invalidate 진입점이 "성공"으로 보고했다. 기존 호출부(await 만 하고 값 미사용)는
+//   그대로 컴파일된다.
 export async function markWeeklyCardsSnapshotStaleMany(
   profileUserIds: string[],
-): Promise<void> {
+): Promise<{ requested: number; failed: number; failedUserIds: string[] }> {
   const uniqueIds = Array.from(
     new Set(profileUserIds.filter((id): id is string => Boolean(id))),
   );
-  if (uniqueIds.length === 0) return;
+  if (uniqueIds.length === 0) return { requested: 0, failed: 0, failedUserIds: [] };
   const CHUNK = 100; // UUID 100개 ≈ 3.7KB — PostgREST URL 한도 안전 구간.
-  let failed = 0;
+  const failedUserIds: string[] = [];
   for (let i = 0; i < uniqueIds.length; i += CHUNK) {
     const chunk = uniqueIds.slice(i, i + CHUNK);
     const { error } = await supabaseAdmin
@@ -882,19 +956,20 @@ export async function markWeeklyCardsSnapshotStaleMany(
       .update({ is_stale: true })
       .in("user_id", chunk);
     if (error) {
-      failed += chunk.length;
+      failedUserIds.push(...chunk);
       console.warn("[weekly-cards][snapshot] mark stale (many) chunk failed", {
         chunk: chunk.length,
         message: error.message,
       });
     }
   }
-  if (failed > 0) {
+  if (failedUserIds.length > 0) {
     console.warn(
       "[weekly-cards][snapshot] mark stale (many) partial",
-      `failed=${failed}/${uniqueIds.length}`,
+      `failed=${failedUserIds.length}/${uniqueIds.length}`,
     );
   } else {
     console.log("[weekly-cards][snapshot] mark stale (many) ok", `count=${uniqueIds.length}`);
   }
+  return { requested: uniqueIds.length, failed: failedUserIds.length, failedUserIds };
 }

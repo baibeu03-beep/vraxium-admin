@@ -466,7 +466,18 @@ export default function TeamDetail({
       );
       const json = await res.json();
       if (!res.ok || !json.success) throw apiErrorFrom(res, json, `저장 실패 (${res.status})`);
-      t.success("update", "파트·클래스가 저장되었습니다.");
+      // 크루앱 주차 카드 캐시 무효화가 부분 실패하면(즉시 재계산 실패 → stale 마킹만 성공) 저장은
+      //   성공이지만 반영이 다음 조회로 미뤄진다. 조용히 성공으로 덮지 않고 그대로 알린다.
+      const warning: string | null = json?.data?.warning ?? null;
+      if (warning) {
+        await adminDialog.alert({
+          variant: "warning",
+          title: "저장됨 — 크루앱 반영 지연",
+          description: warning,
+        });
+      } else {
+        t.success("update", "파트·클래스가 저장되었습니다.");
+      }
       setWeekReloadTick((x) => x + 1); // [A]/[B]/매트릭스 재조회 → dirty 리셋.
     } catch (e) {
       await adminDialog.alert({

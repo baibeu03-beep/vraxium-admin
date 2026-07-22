@@ -1,6 +1,6 @@
 // GET /api/admin/cluster4/info-line-open-status?week_id=&organization=[&mode=]
 //
-// 실무 정보 활동유형(9종) 각각이 선택 주차에 "오픈(개설 대상)"인지 일괄 반환한다(라인 개설 탭의
+// 실무 정보 라인(listInfoLineCatalog · org 스코프) 각각이 선택 주차에 "오픈(개설 대상)"인지 일괄 반환한다(라인 개설 탭의
 //   활동유형 탭 미오픈 배지/어둠 처리용). 판정 = weekOpenGate.isInfoLineOpenForWeek 단일 SoT
 //   (open_confirmed + practicalInfo[activityType] 체크) — 실제 개설 저장/개설 폼과 동일 함수·동일 기준.
 //   ⚠ mode(operating/test)·org 로 판정을 분기하지 않는다. mode 는 파라미터로 받되 판정에 영향 없음(무분기).
@@ -10,7 +10,7 @@ import { NextRequest } from "next/server";
 import { ADMIN_READ_ROLES, requireAdmin, toAdminErrorResponse } from "@/lib/adminAuth";
 import { isOrganizationSlug } from "@/lib/organizations";
 import { isUuid } from "@/lib/isUuid";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { listInfoLineIds } from "@/lib/adminInfoLineCatalog";
 import { loadWeekOpeningConfig } from "@/lib/adminTeamPartsInfoWeekDetailData";
 import { isInfoLineOpenForWeek } from "@/lib/weekOpenGate";
 
@@ -33,13 +33,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const { data, error } = await supabaseAdmin
-      .from("activity_types")
-      .select("id")
-      .eq("cluster_id", "practical_info")
-      .eq("is_active", true);
-    if (error) return Response.json({ success: false, error: error.message }, { status: 500 });
-    const ids = ((data ?? []) as Array<{ id: string }>).map((r) => r.id);
+    // 라인 목록 = practical-info 탭과 동일 카탈로그(org 스코프). 탭과 배지 맵의 키 집합이 갈라지지 않는다.
+    const ids = await listInfoLineIds(organization);
 
     // org 지정 시에만 게이트 적용 — loadWeekOpeningConfig 는 1회 조회, 판정은 isInfoLineOpenForWeek 공용.
     const openByActivityType: Record<string, boolean> = {};

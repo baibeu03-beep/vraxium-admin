@@ -1,3 +1,13 @@
+import {
+  POSITION_CODE_TO_CLASS_LABEL,
+  isPositionCode,
+  positionCodeToClassLabel,
+  roleLevelToPositionCode,
+  type PositionCode,
+} from "@/shared/crewClassPosition";
+
+const CLASS_LABEL_VALUES = new Set<string>(Object.values(POSITION_CODE_TO_CLASS_LABEL));
+
 // Browser-safe constants and types for the /admin/members view.
 // Must not import any server-only modules (supabaseAdmin, next/headers, ...),
 // because client components import from here.
@@ -88,6 +98,74 @@ export function positionCodeToStatusLabel(code: string): string {
     default:
       return "크루"; // operating_club_leader 등 — 크루 집계 대상 아님.
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 라벨 변환 **단일 진입점** — positionCode → statusLabel → classLabel
+// ═══════════════════════════════════════════════════════════════════════════
+// 종전에는 같은 변환이 4갈래로 흩어져 있었다:
+//   memberStatusLabel(role, level) · classLabel(role, level) ·
+//   positionCodeToStatusLabel(code) · POSITION_CODE_TO_LABEL[code]
+// 소비처가 어느 쪽을 고르느냐에 따라 같은 사람이 다른 라벨을 받았고, 특히 어휘 2종을
+//   섞으면 버킷 분기에서 통째로 사라졌다([[함정 1]] — [A] 정규6→4 실측).
+//
+// 앞으로 라벨이 필요한 모든 곳은 **이 함수 하나만** 호출한다. 파일마다 "일반"/"정규"/
+//   "advanced_part_leader" 를 직접 비교하지 않는다.
+//
+//   · positionCode 를 알면(주차 effective/override) 그 코드가 진실이다.
+//   · 모르면 role+membershipLevel 을 코드로 정규화해서 같은 경로를 탄다.
+//   · 코드로 정규화조차 안 되는 값(관리자/최고 관리자, 신호 전무)만 종전 라벨러로 떨어진다.
+export type PositionLabelBundle = {
+  positionCode: PositionCode | null;
+  /** 상태 칩·버킷 분기 어휘: 일반/심화(파트장)/심화(에이전트)/팀장/앰배서더/크루 */
+  statusLabel: string;
+  /** 클래스 컬럼 어휘: 정규/심화(파트장)/심화(에이전트)/운영진(팀장)/운영진(앰배서더) */
+  classLabel: string;
+};
+
+export function resolvePositionLabels(input: {
+  positionCode?: string | null;
+  role?: string | null;
+  membershipLevel?: string | null;
+}): PositionLabelBundle {
+  const role = input.role ?? null;
+  const level = input.membershipLevel ?? null;
+  const code = isPositionCode(input.positionCode)
+    ? input.positionCode
+    : roleLevelToPositionCode(role, level);
+  if (code) {
+    return {
+      positionCode: code,
+      statusLabel: positionCodeToStatusLabel(code),
+      classLabel: POSITION_CODE_TO_CLASS_LABEL[code],
+    };
+  }
+  // 코드 체계 밖(관리자/최고 관리자) 또는 신호 전무 — 종전 라벨러 유지.
+  return {
+    positionCode: null,
+    statusLabel: memberStatusLabel(role, level),
+    classLabel: classLabel(role, level),
+  };
+}
+
+// ── 주차 이력 화면 전용 클래스 라벨 ────────────────────────────────────────────
+// 특정 주차의 기록을 보여주는 화면(주차 상세·주차별 결과)은 **그 주차 effective position_code** 로만
+//   클래스를 정한다. 현재 user_profiles.role 을 섞으면 과거 주차가 현재 직책으로 덮인다
+//   (2026-07-22 정책: "현재 role 이 주차값을 덮으면 안 된다").
+//   · 1순위: 카드의 crewClassPositionCode(주차 effective 코드) → positionCodeToClassLabel
+//   · 2순위(구 스냅샷 호환): 주차 roleLabel 이 이미 클래스 어휘면 그대로, 아니면 role 없이 변환.
+//     ⚠ 2순위에서도 role 은 절대 넘기지 않는다(누출 방지).
+export function weekClassLabel(
+  positionCode: string | null | undefined,
+  weekRoleLabel: string | null | undefined,
+): string {
+  const byCode = positionCodeToClassLabel(positionCode);
+  if (byCode) return byCode;
+  const raw = (weekRoleLabel ?? "").trim();
+  if (!raw) return "-";
+  if (CLASS_LABEL_VALUES.has(raw)) return raw; // 이미 "정규"/"심화(파트장)"/"운영진(팀장)" 등
+  // ⚠ role 은 넘기지 않는다(현재 직책 누출 방지) — 등급 라벨만으로 변환한다.
+  return resolvePositionLabels({ membershipLevel: raw }).classLabel;
 }
 
 // 클래스 라벨 — memberStatusLabel(등급 SoT) → 정규/심화(파트장)/심화(에이전트)/운영진(앰배서더)/운영진(팀장).

@@ -971,10 +971,42 @@ export default function LineRegistrationInfoManager({
                           </Button>
                         )}
                       </TableCell>
-                      {/* 개설 연결 — 경험/역량 전용. 연결 전이면 버튼, 연결 후면 "연결 완료" 배지.
-                          실무 정보(info)는 마스터가 없어 브리지 대상이 아니다(서버도 400 거부). */}
+                      {/* 개설 연결 — 연결 전이면 버튼, 연결 후면 "연결 완료" 배지.
+                          허브별 연결 대상:
+                            · 경험/역량 = 개설 마스터(bridged_master_id) — 자동 브리지 + 수동 재시도
+                            · 실무 정보 = 고정 9종 활동유형(point_activity_type_id) — 신규 활동유형을
+                              만들지 않으므로 브리지 버튼이 아니라 **수정(활동유형 선택)** 이 복구 경로다
+                            · 실무 경력 = 대상 아님 */}
                       <TableCell className="text-center">
-                        {row.bridgedMasterId ? (
+                        {row.hub === "info" ? (
+                          row.pointActivityTypeId ? (
+                            <span
+                              className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700"
+                              title={`활동유형 연결됨: ${row.pointActivityTypeId}`}
+                            >
+                              <Link2 className="h-3 w-3" />
+                              연결 완료
+                            </span>
+                          ) : (
+                            // 과거에 활동유형 없이 저장된 등록행(현재는 서버가 422 로 차단).
+                            //   임의 활동유형으로 자동 연결하지 않는다 — 관리자가 9종 중 하나를 고르게 한다.
+                            <div className="flex flex-col items-center gap-1">
+                              <span className="text-[11px] leading-tight text-amber-700">
+                                활동유형 미연결
+                              </span>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setEditingRow(row)}
+                                title="수정에서 실무 정보 활동유형(고정 9종) 중 하나를 선택해 연결하세요"
+                              >
+                                <Link2 className="mr-1 h-3.5 w-3.5" />
+                                활동유형 연결
+                              </Button>
+                            </div>
+                          )
+                        ) : row.bridgedMasterId ? (
                           <span
                             className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700"
                             // master UUID 는 노출하지 않는다 — 연결 시각만 보조 정보로.
@@ -987,10 +1019,10 @@ export default function LineRegistrationInfoManager({
                             <Link2 className="h-3 w-3" />
                             연결 완료
                           </span>
-                        ) : row.hub === "info" ? (
+                        ) : row.hub === "career" ? (
                           <span
                             className="text-xs text-muted-foreground"
-                            title="실무 정보는 개설 마스터가 없어 연결 대상이 아닙니다 — 개설 화면에서 활동유형별로 직접 개설합니다."
+                            title="실무 경력은 개설 연결 대상이 아닙니다."
                           >
                             —
                           </span>

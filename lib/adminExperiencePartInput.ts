@@ -4,10 +4,12 @@
 // 읽고 쓴다. 기존 experience_drafts/검수/개설/snapshot 과 무연동(이번 phase 신청 저장/취소만).
 //
 // 크루/파트/상태는 user_profiles(role) + user_memberships(team_name/part_name/membership_level/state)
-// 에서 resolve 한다. 상태 라벨은 memberStatusLabel 재사용. 평가 대상 = 일반/에이전트(파트장·팀장 제외).
+// 에서 resolve 한다. 클래스 판정은 공통 변환기(resolvePositionLabels) 단일 경로.
+// 평가 대상 = 일반/에이전트(파트장·팀장 제외).
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { memberStatusLabel, normalizeMemberRole } from "@/lib/adminMembersTypes";
+import { normalizeMemberRole, resolvePositionLabels } from "@/lib/adminMembersTypes";
+import { loadCurrentWeekOverrideLabels } from "@/lib/positionResolver";
 import {
   assertUserIdsInScope,
   resolveUserScope,
@@ -38,6 +40,8 @@ type TeamCrewRow = {
   role: string | null;
   membershipLevel: string | null;
   membershipState: string | null;
+  /** 현재 주차 override 의 position_code(없으면 null → role+등급 정규화로 판정). */
+  overridePositionCode?: string | null;
 };
 
 // 파트가 아닌 placeholder part_name(미배정 기본값). 등급 단어 '일반' 이 part_name 으로 새는 경우 등.
@@ -48,10 +52,18 @@ const EXCLUDED_PART_NAMES = new Set<string>(["일반"]);
 function crewDisplayStatus(
   role: string | null,
   membershipLevel: string | null,
+  // 현재 주차 override 의 position_code. 있으면 멤버십 대신 이 값으로 판정(현재 상태 화면 규칙)
+  //   — 평가 대상 선별이 화면 클래스 컬럼과 갈리지 않게 한다.
+  overridePositionCode?: string | null,
 ): "일반" | "에이전트" | null {
-  const label = memberStatusLabel(role, membershipLevel);
-  if (label === "일반") return "일반";
-  if (label === "심화(에이전트)") return "에이전트";
+  // ⚠ 라벨 문자열이 아니라 positionCode 로 판정한다(어휘 2종 혼선 원천 차단).
+  const code = resolvePositionLabels({
+    positionCode: overridePositionCode ?? null,
+    role,
+    membershipLevel,
+  }).positionCode;
+  if (code === "regular") return "일반";
+  if (code === "advanced_agent") return "에이전트";
   return null;
 }
 
@@ -105,6 +117,11 @@ export async function loadTeamCrewRows(
     if (!existing || (m.is_current && !existing.is_current)) memMap.set(m.user_id, m);
   }
 
+  // 현재 주차 파트/클래스 override — 평가 대상 선별/표시가 화면 클래스와 갈리지 않게 함께 읽는다.
+  const weekOverrides = await loadCurrentWeekOverrideLabels(
+    profs.map((x) => x.user_id),
+    organization,
+  );
   const rows: TeamCrewRow[] = [];
   for (const p of profs) {
     // 모집단 스코프: operating=실사용자만 / test=테스트 유저만.
@@ -115,15 +132,19 @@ export async function loadTeamCrewRows(
     // 휴식 크루는 평가 대상에서 제외(active 만).
     if (m.membership_state === "rest") continue;
     // 실제 파트만(미배정/placeholder '일반' 제외).
-    const part = m.part_name?.trim() ?? "";
+    //   ⚠ 클래스만 override 를 따르고 파트는 멤버십을 쓰면 같은 사람이 화면마다 다른 파트로 잡힌다 — 동일 SoT.
+    const ovr = weekOverrides.get(p.user_id) ?? null;
+    const effPart = ovr ? ovr.rawPart : m.part_name;
+    const part = effPart?.trim() ?? "";
     if (!part || EXCLUDED_PART_NAMES.has(part)) continue;
     rows.push({
       userId: p.user_id,
       displayName: p.display_name ?? "(이름 없음)",
-      partName: m.part_name,
+      partName: effPart,
       role: p.role,
       membershipLevel: m.membership_level,
       membershipState: m.membership_state,
+      overridePositionCode: ovr?.positionCode ?? null,
     });
   }
   return rows;
@@ -187,7 +208,7 @@ export async function listPartCrews(
   const out: PartInputCrew[] = [];
   for (const r of rows) {
     if (r.partName !== part) continue;
-    const status = crewDisplayStatus(r.role, r.membershipLevel);
+    const status = crewDisplayStatus(r.role, r.membershipLevel, r.overridePositionCode);
     if (!status) continue; // 파트장/팀장 등 제외
     out.push({
       userId: r.userId,
@@ -210,7 +231,7 @@ export async function listTeamCrews(
   const out: PartInputCrew[] = [];
   const seen = new Set<string>();
   for (const r of rows) {
-    const status = crewDisplayStatus(r.role, r.membershipLevel);
+    const status = crewDisplayStatus(r.role, r.membershipLevel, r.overridePositionCode);
     if (!status) continue; // 파트장/팀장 등 제외
     if (seen.has(r.userId)) continue;
     seen.add(r.userId);
@@ -313,7 +334,7 @@ export async function getTeamOverall(
       r.userId,
       {
         displayName: r.displayName,
-        statusLabel: crewDisplayStatus(r.role, r.membershipLevel) ?? "-",
+        statusLabel: crewDisplayStatus(r.role, r.membershipLevel, r.overridePositionCode) ?? "-",
       },
     ]),
   );

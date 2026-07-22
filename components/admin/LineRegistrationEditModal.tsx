@@ -36,6 +36,9 @@ import {
 const POINT_SELECT_OPTIONS: string[] = ["", ...Array.from({ length: 21 }, (_, i) => String(i))];
 
 // 실무 정보 포인트 대상 활동유형(config_key = activity_types.id) — 라인 등록 폼과 동일 목록.
+// 스코프 불일치/미조회 시 쓰는 고정 빈 집합(렌더마다 새 Set 을 만들지 않는다).
+const EMPTY_TAKEN: ReadonlySet<string> = new Set<string>();
+
 const INFO_ACTIVITY_TYPES: ReadonlyArray<{ id: string; label: string }> = [
   { id: "wisdom", label: "위즈덤" },
   { id: "essay", label: "에세이" },
@@ -131,10 +134,58 @@ export default function LineRegistrationEditModal({
     };
   }, [row.id]);
 
+  // ── 실무 정보: 같은 조직 범위에서 **다른 등록**이 이미 점유한 활동유형 ──────────
+  //   서버 중복 판정(hub=info + 동일 organization_slug + is_active, 자기 자신 제외)과 동일 기준.
+  const [takenByScope, setTakenByScope] = useState<{ org: string; ids: Set<string> } | null>(null);
+  useEffect(() => {
+    const scope = orgSlug || null;
+    if (!isInfo || !scope) return;
+    let cancelled = false;
+    (async () => {
+      let ids = new Set<string>();
+      try {
+        const res = await fetch("/api/admin/lines/registrations?hub=info&limit=200");
+        const json = await res.json().catch(() => ({}));
+        if (res.ok && json?.success) {
+          const rows = (json.data?.rows ?? []) as Array<{
+            id: string;
+            organizationSlug: string | null;
+            pointActivityTypeId: string | null;
+            isActive: boolean;
+          }>;
+          ids = new Set(
+            rows
+              .filter(
+                (r) =>
+                  r.id !== row.id &&
+                  r.isActive &&
+                  r.organizationSlug === scope &&
+                  r.pointActivityTypeId,
+              )
+              .map((r) => r.pointActivityTypeId as string),
+          );
+        }
+      } catch {
+        /* 조회 실패는 편집을 막지 않는다 — 서버가 최종 게이트(409). */
+      }
+      if (!cancelled) setTakenByScope({ org: scope, ids });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isInfo, orgSlug, row.id]);
+  const takenByOthers =
+    orgSlug && takenByScope?.org === orgSlug ? takenByScope.ids : EMPTY_TAKEN;
+
   const lineTypeOptions = LINE_REGISTRATION_LINE_TYPES[row.hub] ?? [row.lineType];
 
   const handleSave = useCallback(async () => {
     setError(null);
+    // 실무 정보(활성)는 고정 9종 중 하나에 반드시 연결돼야 한다 — 서버도 422 로 강제.
+    if (isInfo && isActive && !pointActivityTypeId.trim()) {
+      setError("실무 정보 활동유형을 선택해주세요.");
+      return;
+    }
     if (!lineName.trim()) {
       setError("라인명을 입력해주세요");
       return;
@@ -421,9 +472,14 @@ export default function LineRegistrationEditModal({
           {/* 강화 시 포인트 (Point.A / Point.B) — 기존 point-configs SoT */}
           <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
             <h3 className="text-base font-semibold tracking-wide text-foreground">강화 시 포인트</h3>
+            {/* 실무 정보 활동유형 — 고정 9종 중 하나. 활성 등록이면 **필수**이며, 같은 조직 범위의
+                다른 등록이 이미 쓰고 있는 활동유형은 고를 수 없다(서버도 409). 활동유형 미연결
+                등록행의 복구 경로가 바로 이 select 다. */}
             {isInfo && (
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">포인트 대상 활동유형</Label>
+                <Label className="text-xs text-muted-foreground">
+                  포인트 대상 활동유형<span className="ml-0.5 text-red-500">*</span>
+                </Label>
                 <select
                   aria-label="포인트 대상 활동유형"
                   className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
@@ -431,13 +487,20 @@ export default function LineRegistrationEditModal({
                   onChange={(e) => setPointActivityTypeId(e.target.value)}
                   disabled={saving}
                 >
-                  <option value="">-</option>
-                  {INFO_ACTIVITY_TYPES.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.label} ({a.id})
-                    </option>
-                  ))}
+                  <option value="">활동유형을 선택하세요</option>
+                  {INFO_ACTIVITY_TYPES.map((a) => {
+                    const taken = takenByOthers.has(a.id);
+                    return (
+                      <option key={a.id} value={a.id} disabled={taken}>
+                        {a.label} ({a.id}){taken ? " — 등록 완료" : ""}
+                      </option>
+                    );
+                  })}
                 </select>
+                <p className="text-xs text-muted-foreground">
+                  실무 정보는 고정 9개 활동유형에 정식 라인 정보를 연결합니다. 새로운 활동유형은
+                  생성되지 않습니다.
+                </p>
               </div>
             )}
             {/* 실무 경험 활동유형 — line_type 에서 파생(별도 저장 없음). 라인 종류 변경 시 즉시 반영. */}

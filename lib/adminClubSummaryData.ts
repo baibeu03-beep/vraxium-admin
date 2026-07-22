@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { loadCurrentWeekOverrideLabels } from "@/lib/positionResolver";
 import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import {
   ORGANIZATIONS,
@@ -140,8 +141,12 @@ async function buildClubRoleCounts(
   let regularCrewCount = 0;
   let partLeaderCount = 0;
   let agentCount = 0;
+  // 현재 주차 override 가 있으면 그 클래스로 버킷팅한다(회원 목록·팀 상세 [A] 와 동일 정책).
+  const weekOverrides = await loadCurrentWeekOverrideLabels(roster.map((r) => r.user_id), organization);
   for (const r of roster) {
-    const label = memberStatusLabel(r.role, levelByUser.get(r.user_id) ?? null);
+    const label =
+      weekOverrides.get(r.user_id)?.statusLabel ??
+      memberStatusLabel(r.role, levelByUser.get(r.user_id) ?? null);
     switch (label) {
       case "팀장":
         teamLeaderCount++;

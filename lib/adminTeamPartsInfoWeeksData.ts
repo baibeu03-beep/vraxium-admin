@@ -18,7 +18,7 @@
 //         ④ 변동 액트 : 전혀 미포함
 //       → 위 4건 모두 공통 SoT 로 흡수. 상세와 동일 값이 보장된다.
 //   · 전체 라인(라인칸)            = 허브별 카탈로그 합(org):
-//                                     info=activity_types(practical_info, 공통 9)
+//                                     info=listInfoLineCatalog(org)
 //                                     + experience=cluster4_experience_line_masters(org)
 //                                     + competency=cluster4_competency_line_masters(org)
 //   · 오픈 라인 / 라인칸 개설율    = 주차에 개설된 활성 라인(org 노출)의 서로 다른 카탈로그 단위 수
@@ -54,6 +54,7 @@ import {
   type ActCheckApplicationSummary,
 } from "@/lib/actCheckApplicationSummary";
 import { loadActCheckApplicationInputsByWeek } from "@/lib/adminActCheckApplicationInputs";
+import { listInfoLineCatalog } from "@/lib/adminInfoLineCatalog";
 import type { OrganizationSlug } from "@/lib/organizations";
 import type { ScopeMode } from "@/lib/userScopeShared";
 import {
@@ -250,15 +251,16 @@ function cmpWeekStartDesc(a: SeasonWeekDto, b: SeasonWeekDto): number {
 //  주차별 오픈 게이트 + 변동 액트가 반영되므로 공통 로더(loadActCheckApplicationInputsByWeek)가 산출한다.)
 
 // 전체 라인(라인칸) = 허브별 카탈로그 합(org 기준).
-//   info=activity_types(practical_info, 공통) + experience/competency 마스터(organization_slug=org).
+//   info=listInfoLineCatalog(org) + experience/competency 마스터(organization_slug=org).
 //   테이블 미적용 시 해당 허브만 0 으로 graceful degrade.
 async function loadTotalLines(org: OrganizationSlug): Promise<number> {
-  const [info, exp, comp] = await Promise.all([
-    supabaseAdmin
-      .from("activity_types")
-      .select("*", { count: "exact", head: true })
-      .eq("cluster_id", "practical_info")
-      .eq("is_active", true),
+  const [infoLines, exp, comp] = await Promise.all([
+    // info = listInfoLineCatalog(org) — 정본 9종 + 이 조직에 보이는 등록 라인. 타 조직 전용 라인은
+    //   여기 포함되지 않는다(count(*) 로는 org 를 구분할 수 없어 카탈로그를 쓴다).
+    listInfoLineCatalog(org).catch((e) => {
+      console.warn("[team-parts/info/weeks] info catalog unavailable:", e);
+      return [] as Array<unknown>;
+    }),
     supabaseAdmin
       .from("cluster4_experience_line_masters")
       .select("*", { count: "exact", head: true })
@@ -271,7 +273,7 @@ async function loadTotalLines(org: OrganizationSlug): Promise<number> {
       .eq("is_active", true),
   ]);
   const n = (r: { count: number | null; error: unknown }) => (r.error ? 0 : r.count ?? 0);
-  return n(info) + n(exp) + n(comp);
+  return infoLines.length + n(exp) + n(comp);
 }
 
 // id → organization_slug 벌크 조회(마스터 테이블 공용).

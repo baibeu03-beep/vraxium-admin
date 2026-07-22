@@ -15,6 +15,7 @@
 //   "부분 성공(휴식만 생성·포인트 미지급)"을 방지한다. 멱등성 = (크루,주차) 중복 가드 + 원장 UNIQUE.
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { loadCurrentWeekOverrideLabels } from "@/lib/positionResolver";
 import type { AdminContext } from "@/lib/adminAuth";
 import { resolveAdminOrgAccess } from "@/lib/adminOrgAccess";
 import { resolveEffectiveActorUserId } from "@/lib/experienceImpersonation";
@@ -417,13 +418,16 @@ export async function listEmergencyCrews(
 
   const crewCodes = await fetchCrewCodeMap(crewUids);
 
+  // 현재 주차 파트/클래스 override 우선(현재 상태 화면 규칙) — 없으면 종전 멤버십 값.
+  const weekOverrides = await loadCurrentWeekOverrideLabels(crewUids);
   const out: EmergencyCrewDto[] = crewUids.map((u) => {
     const p = profById.get(u);
     return {
       userId: u,
       crewName: p?.display_name?.trim() || "(이름 없음)",
       crewCode: crewCodes.get(u) ?? null,
-      classLabel: classLabel(p?.role ?? null, levelByUser.get(u) ?? null),
+      classLabel:
+        weekOverrides.get(u)?.classLabel ?? classLabel(p?.role ?? null, levelByUser.get(u) ?? null),
       teamId,
     };
   });

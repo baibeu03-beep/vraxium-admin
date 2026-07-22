@@ -178,6 +178,54 @@ export function organizationAccent(
   return isOrganizationSlug(slug) ? ORGANIZATION_ACCENT[slug] : null;
 }
 
+// ── 조직별 "표 열(column) 구역" 색 — 단일 SoT ───────────────────────────────
+// 한 표 안에 조직이 열로 나란히 서는 화면(주차 결과(크루) 통합 목록 등)에서, 각 조직 열을
+//   "옅은 세로 구역"으로 구분한다. 헤더만 원색으로 칠하는 방식 대신 헤더·본문·경계선을
+//   **같은 계열의 옅은 톤으로 연결**하는 표현이다.
+//
+//   팔레트는 ORGANIZATION_META.bannerClass 와 동일 계열(encre=분홍 · oranke=황금 · phalanx=초록) —
+//   조직색 SoT 를 새로 만들지 않는다. header 는 bannerClass 와 같은 -100/-950 단계를 쓴다.
+//
+//   역할 분리(중요): **조직색 = 열 구분 전용**이다. 상태 배지(진행 중/집계 중/검수 완료)와
+//   활동 유형 배지는 자기 색(lib/statusBadge 레지스트리)을 그대로 유지해야 하므로, 본문 셀 배경은
+//   배지 색을 흐리지 않을 만큼 아주 옅게만 깐다. 주차 열·페이지 배경에는 조직색을 쓰지 않는다.
+//
+//   · header : 헤더 셀 배경(본문보다 한 단계 진하게)
+//   · cell   : 본문 셀 배경(아주 옅게 — 배지 대비 보존)
+//   · edge   : 열 좌우 경계선(선명한 포인트)
+//   라이트/다크 동시 정의(정적 문자열 → Tailwind JIT 인식). 다크는 저채도 알파로 깔아
+//   본문 텍스트(foreground) 대비를 떨어뜨리지 않는다.
+export type OrganizationColumn = {
+  header: string;
+  cell: string;
+  edge: string;
+};
+
+export const ORGANIZATION_COLUMN: Record<OrganizationSlug, OrganizationColumn> = {
+  encre: {
+    header: "bg-pink-100 dark:bg-pink-950",
+    cell: "bg-pink-50/60 dark:bg-pink-500/10",
+    edge: "border-pink-300 dark:border-pink-800",
+  },
+  oranke: {
+    header: "bg-amber-100 dark:bg-amber-950",
+    cell: "bg-amber-50/60 dark:bg-amber-500/10",
+    edge: "border-amber-300 dark:border-amber-800",
+  },
+  phalanx: {
+    header: "bg-emerald-100 dark:bg-emerald-950",
+    cell: "bg-emerald-50/60 dark:bg-emerald-500/10",
+    edge: "border-emerald-300 dark:border-emerald-800",
+  },
+};
+
+// slug → 조직 열 색. 미매핑/공통은 null(호출부에서 중립 표 스타일 유지).
+export function organizationColumn(
+  slug: string | null | undefined,
+): OrganizationColumn | null {
+  return isOrganizationSlug(slug) ? ORGANIZATION_COLUMN[slug] : null;
+}
+
 // ── /admin 홈 조직 선택 카드(통합 SoT) ──────────────────────────────────────
 // 홈의 조직 선택 카드는 환경 배너와 **동일한 조직 메타(ORGANIZATION_META)** 를 재사용한다
 //   — 조직명/색을 홈에서 별도 하드코딩하지 않는다. 실제 org(encre/oranke/phalanx)는 META 참조,

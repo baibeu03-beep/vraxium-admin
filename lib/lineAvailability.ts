@@ -17,7 +17,9 @@ import type {
   Cluster4ExperienceCategory,
 } from "@/shared/cluster4.contracts";
 import { type CareerGrade, isCareerGradeFail } from "@/lib/careerGrade";
-import { classLabel } from "@/lib/adminMembersTypes";
+import { resolvePositionLabels } from "@/lib/adminMembersTypes";
+import type { PositionCode } from "@/lib/positionHistory";
+import { loadCurrentWeekOverrideLabels } from "@/lib/positionResolver";
 
 // ─────────────────────────────────────────────────────────────────────
 // 실무 경험 5슬롯 정책 (2026-06-04 확정):
@@ -149,16 +151,31 @@ export function isManagementSlotOpenForLevel(
 //   가 "일반"인 경우가 정상이다(등급 SoT 가 아니라 user_profiles.role 이 운영진 정체성을 보유).
 //   level 만 보던 isManagementSlotOpenForLevel 은 이런 팀장/앰배서더를 "일반"으로 잠가버려
 //   고객앱 실무 경험 관리(5) 슬롯이 부당하게 잠겼다.
-//   → /admin/members·이력서 클래스 컬럼과 동일한 단일 SoT classLabel(role, level) 로 판정한다.
-//     classLabel 이 "심화…" 또는 "운영진…" 이면 관리 슬롯 개방. (정규/관리자/최고 관리자/크루는 잠금.)
-//   part_leader/agent 인데 level="일반" 인 경우는 classLabel 이 "정규" → 잠금(기존 정책 유지).
+//   → 라벨 문자열("심화…"/"운영진…") 비교를 그만두고 **positionCode 집합**으로 판정한다
+//     (공통 변환기 resolvePositionLabels 가 role+등급 / override 코드를 같은 코드 체계로 정규화).
+//   part_leader/agent 인데 level="일반" 인 경우는 코드가 regular → 잠금(기존 정책 유지).
+//   관리자/최고 관리자는 코드 체계 밖(null) → 잠금(기존 정책 유지).
 // ─────────────────────────────────────────────────────────────────────
+const MANAGEMENT_SLOT_OPEN_CODES = new Set<string>([
+  "advanced_agent",
+  "advanced_part_leader",
+  "operating_team_leader",
+  "operating_ambassador",
+  "operating_club_leader",
+]);
+
+/** positionCode(주차 effective 또는 현재 정규화값) → 관리 슬롯 개방 여부. 판정 SoT. */
+export function isManagementSlotOpenForPosition(code: string | null | undefined): boolean {
+  return Boolean(code) && MANAGEMENT_SLOT_OPEN_CODES.has(code as string);
+}
+
 export function isManagementSlotOpenFor(
   role: string | null,
   membershipLevel: string | null,
 ): boolean {
-  const cls = classLabel(role ?? null, membershipLevel ?? null);
-  return cls.startsWith("심화") || cls.startsWith("운영진");
+  return isManagementSlotOpenForPosition(
+    resolvePositionLabels({ role, membershipLevel }).positionCode,
+  );
 }
 
 // membership 선택은 고객앱/pickBestMembership 동일 규칙(team_name 보유 행 > is_current,
@@ -217,10 +234,28 @@ export async function fetchManagementSlotOpen(
     if (rankDelta !== 0) return rankDelta;
     return (b.updated_at ?? "").localeCompare(a.updated_at ?? "");
   })[0];
+
+  // ⚠ 관리 슬롯은 **표시가 아니라 개방 판정**이다. 관리자가 현재 주차의 클래스를 바꿨다면
+  //   (정규↔심화) 판정도 그 effective 클래스를 따라야 한다 — 안 그러면 "화면은 심화인데
+  //   슬롯은 정규 기준"으로 갈린다(2026-07-22 정책 확정, A6).
+  //   기준 시점 = 오늘이 속한 주차(현재 상태 화면 규칙). 과거 주차 재조회용 per-week 판정이
+  //   필요해지면 resolvePositionAt(targetWeek) 로 확장한다.
+  //   ⚠ 핫 패스(유저별 카드 빌드)라 membership/profile 재조회를 하지 않는다 — 위에서 이미 읽은
+  //     값을 base 로 두고 override 1건만 얹는다. override 없으면 종전 판정 그대로(무회귀).
+  const override = await fetchCurrentWeekPositionCode(profileUserId);
+  if (override) return isManagementSlotOpenForPosition(override);
   return isManagementSlotOpenFor(
     (profile?.role as string | null) ?? null,
     best?.membership_level ?? null,
   );
+}
+
+// 오늘 주차 기준 override position_code(없으면 null). 조회/실패 처리는 공통 resolver 담당.
+async function fetchCurrentWeekPositionCode(
+  profileUserId: string,
+): Promise<PositionCode | null> {
+  const m = await loadCurrentWeekOverrideLabels([profileUserId]);
+  return m.get(profileUserId)?.positionCode ?? null;
 }
 
 export type LineCategory = "info" | "ability" | "experience" | "career";

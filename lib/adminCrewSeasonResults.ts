@@ -4,7 +4,7 @@ import { computeSeasonActivityStatuses } from "@/lib/cluster4WeeklyGrowthData";
 import { computeSeasonAreaProgress } from "@/lib/cluster4SeasonCircles";
 import { readWeeklyCardsSnapshot } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { getSeasonCalendar, toDbSeasonKey, type Season } from "@/lib/seasonCalendar";
-import { classLabel } from "@/lib/adminMembersTypes";
+import { resolvePositionLabels } from "@/lib/adminMembersTypes";
 
 // ─────────────────────────────────────────────────────────────────────
 // 클럽 결과(시즌) 하단부 — 시즌별 결과 표(/admin/members 상세).
@@ -286,12 +286,19 @@ export async function getCrewSeasonResults(
       // 소속&클래스 — area-8 동일 산식(시즌 범위 오버랩).
       const season = seasonKeyToSeason(seasonKey);
       const acts = season ? await computeSeasonActivityStatuses(userId, season) : [];
-      // 클래스 = 어드민 단일 SoT classLabel(role, level) — 5종(정규/심화(파트장)/심화(에이전트)/
-      //   운영진(앰배서더)/운영진(팀장)). area-8 statusLabel("일반"/"팀장(00 팀)" 등)을 그대로 쓰지 않는다.
+      // 클래스 = 5종(정규/심화(파트장)/심화(에이전트)/운영진(앰배서더)/운영진(팀장)).
+      //   ⚠ area-8 구간의 rawMembershipLevel 은 UPH/override 유래 구간에서는 **position_code(영문)** 이고
+      //     현재값 fallback 구간에서만 한글 등급이다. 공통 변환기가 이 둘을 한 경로로 흡수한다
+      //     (코드면 코드로, 아니면 role+등급 정규화). 종전에는 코드를 level 자리에 넣어 "크루"→
+      //     **모든 시즌이 "정규"** 로 보였다(2026-07-22 실측 C1).
       const memberships: CrewSeasonMembership[] = acts.map((a) => ({
         teamName: a.teamLabel === "-" ? null : a.teamLabel,
         partName: a.partLabel === "-" ? null : a.partLabel,
-        classLabel: classLabel(a.rawRole, a.rawMembershipLevel),
+        classLabel: resolvePositionLabels({
+          positionCode: a.rawMembershipLevel,
+          role: a.rawRole,
+          membershipLevel: a.rawMembershipLevel,
+        }).classLabel,
       }));
 
       const pts = pointsByKey.get(seasonKey) ?? { poA: 0, poB: 0, poC: 0 };

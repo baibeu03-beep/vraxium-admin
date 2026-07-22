@@ -3,7 +3,7 @@ import { readWeeklyCardsSnapshot } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { truncateCardsForGrowthStop } from "@/lib/cluster4GrowthStopPolicy";
 import { deriveEndStatus } from "@/lib/growthCore";
 import { computeSeasonAreaProgress } from "@/lib/cluster4SeasonCircles";
-import { classLabel } from "@/lib/adminMembersTypes";
+import { weekClassLabel, classLabel } from "@/lib/adminMembersTypes";
 import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 
 // ─────────────────────────────────────────────────────────────────────
@@ -167,7 +167,7 @@ export async function getCrewWeeklyResults(userId: string): Promise<CrewWeeklyRe
       partName: card.partName,
       // 클래스 = 어드민 단일 SoT classLabel(role, level) — 5종. card.roleLabel(등급 raw "일반"/"심화")
       //   을 그대로 쓰지 않는다("일반"→"정규" 통일).
-      classLabel: classLabel(currentRole, card.roleLabel),
+      classLabel: weekClassLabel(card.crewClassPositionCode, card.roleLabel),
       // Po.B = 최종 B(= advantages − penalty, 음수 가능). 주차 단위. (2026-07-13)
       points: { poA: pt?.points ?? 0, poB: (pt?.advantages ?? 0) - (pt?.penalty ?? 0), poC: pt?.penalty ?? 0 },
       hubRates: {

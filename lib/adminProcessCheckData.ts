@@ -6,6 +6,7 @@
 // 포인트 부여/크롤링(완료 트리거)은 본 Phase 범위 밖.
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { loadCurrentWeekOverrideLabels } from "@/lib/positionResolver";
 import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import { ProcessMasterError } from "@/lib/adminProcessesData";
 import {
@@ -607,6 +608,8 @@ async function resolveCrewMeta(userIds: string[]): Promise<Map<string, CrewMeta>
     const ex = memMap.get(m.user_id);
     if (!ex || (m.is_current && !ex.is_current)) memMap.set(m.user_id, m);
   }
+  // 현재 주차 파트/클래스 override — 있으면 소속/클래스가 이 값을 따른다(현재 상태 화면 규칙).
+  const weekOverrides = await loadCurrentWeekOverrideLabels(ids);
   // 첫 비어있지 않은 값. 팀장 등 user_memberships 행이 없는 운영진은 team/part 가 전부 null 이 되어
   // 명단에 팀이 "-" 로 빠지므로, 비정규화된 user_profiles.current_* 로 폴백한다(adminCrewData 의
   // membership → profile.current_* 폴백 규칙과 동일 — 고객앱 resolver 규칙 5).
@@ -622,11 +625,13 @@ async function resolveCrewMeta(userIds: string[]): Promise<Map<string, CrewMeta>
     current_part_name: string | null;
   }>) {
     const m = memMap.get(p.user_id);
+    const ovr = weekOverrides.get(p.user_id);
     map.set(p.user_id, {
       name: p.display_name?.trim() || "(이름 없음)",
-      teamName: pick(m?.team_name, p.current_team_name),
-      partName: pick(m?.part_name, p.current_part_name),
-      className: classLabel(p.role ?? null, m?.membership_level ?? null),
+      // 현재 주차 override 우선(현재 상태 화면 규칙) — 없으면 종전 멤버십 값.
+      teamName: ovr?.rawTeam ?? pick(m?.team_name, p.current_team_name),
+      partName: ovr ? ovr.rawPart : pick(m?.part_name, p.current_part_name),
+      className: ovr?.classLabel ?? classLabel(p.role ?? null, m?.membership_level ?? null),
     });
   }
   return map;

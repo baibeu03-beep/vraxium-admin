@@ -16,7 +16,12 @@ import {
   type PositionDraftRow,
 } from "@/lib/teamWeekPositionValidation";
 import type { PositionCode } from "@/lib/positionHistory";
-import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
+import {
+  invalidateWeeklyCardsForUsers,
+  markWeeklyCardsSnapshotStaleMany,
+  type WeeklyCardsInvalidationResult,
+} from "@/lib/cluster4WeeklyCardsSnapshot";
+import { resolveWeekPositionInvalidationOutcome } from "@/lib/weekPositionInvalidationOutcome";
 
 // 팀 상세 [B] — 주차별 파트/클래스 저장(관리자 override, batch).
 //   PATCH ?mode=test  body { organization, weekId, rawTeam, changes:[{userId, rawPart, positionCode}] }
@@ -27,7 +32,8 @@ import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot
 //     (validateWeekPositionRows — 클라이언트 onCellChange 와 동일 순수 함수).
 //   2단계(2026-07-22): override 는 이제 **공통 SoT** 다. 저장 직후 변경 크루의 weekly-cards snapshot 을
 //     invalidate 해 카드 역할배지/클래스·area-8·이력서 시즌 직책이 같은 값으로 수렴한다
-//     (invalidateWeeklyCardsForUsers: ≤10명 즉시 재계산 / 초과 시 stale+after 백그라운드).
+//     (invalidateWeeklyCardsForUsers: stale 마킹 → ≤10명 즉시 재계산 / 초과 시 after 백그라운드).
+//     ⚠ 무효화는 best-effort 가 아니라 **보장**이다 — 실패하면 이 라우트가 500 으로 응답한다(아래 참조).
 //     파트×주차 존재표·팀 상세 [A]/[B] 는 조회 시 override 를 coalesce 하므로 캐시가 없다(즉시 반영).
 export async function PATCH(request: NextRequest) {
   let admin: AdminContext;
@@ -110,6 +116,21 @@ export async function PATCH(request: NextRequest) {
         { status: 403 },
       );
     }
+    // ⚠ getTeamSelectedWeekSummary 는 weekId 가 선택 가능 목록에 없으면 **조용히 현재 주차로 폴백**한다
+    //   (읽기 화면에서는 무해한 기본값). 쓰기 경로에서 그대로 두면 "과거 주차를 편집한다고 믿고 보낸
+    //   요청이 현재 주차 행을 덮는" 사고가 난다 — 실제로 밟았다(2026-07-22: mode 를 쿼리가 아닌 body 로
+    //   보내 scope 가 달라지자 다른 주차에 저장돼 사용자가 저장해 둔 행이 손실). 요청한 주차와 실제
+    //   대상 주차가 다르면 저장하지 않고 409 로 알린다.
+    if (summary.week.weekId !== weekId) {
+      return Response.json(
+        {
+          success: false,
+          error:
+            "요청한 주차를 이 조직·모집단에서 편집할 수 없습니다. 주차를 다시 선택해 주세요.",
+        },
+        { status: 409 },
+      );
+    }
     const weekStart = summary.week.weekStartDate;
 
     // prev = 저장 전 effective 상태, next = 변경 적용 상태. 변경 대상은 반드시 현재 팀 crew.
@@ -154,17 +175,78 @@ export async function PATCH(request: NextRequest) {
     if (error) throw new Error(error.message);
 
     // 변경 크루의 파생 캐시(weekly-cards snapshot) 무효화 — 고객앱/스냅샷 소비 화면 즉시 수렴.
-    //   best-effort: 실패해도 저장 응답을 깨뜨리지 않는다(cron 이 보정).
-    let invalidated: { mode: string; count: number } = { mode: "none", count: 0 };
+    //
+    // ⚠ **best-effort 였던 것을 보장으로 바꿨다(2026-07-22).** 종전에는 예외를 삼키고 항상
+    //   success:true 를 돌려줘, 무효화가 실패해도 관리자는 "저장됨"으로 보고 크루앱은 옛
+    //   팀/파트/클래스를 계속 노출했다(실측: override updated_at > snapshot computed_at 인데
+    //   is_stale=false → 조회 라우트가 fresh 로 판정해 lazy 재계산조차 안 함 → 영구 고착).
+    // 정책:
+    //   · invalidateWeeklyCardsForUsers 는 먼저 is_stale=true 를 찍고 즉시 재계산한다.
+    //   · 재계산 일부 실패(ok=true, recomputeFailed>0) → stale 이 남아 조회 lazy/cron 이 반드시
+    //     복구하므로 저장은 성공. 다만 응답에 수치를 담아 "반영 지연 가능"을 알린다.
+    //   · **stale 마킹 자체 실패(ok=false)** → 수렴 보장이 깨진다 → 저장 요청을 실패로 응답한다.
+    //     override upsert 는 멱등이라 관리자가 그대로 재시도하면 안전하게 복구된다.
+    const changedUserIds = parsed.map((c) => c.userId);
+    let invalidated: WeeklyCardsInvalidationResult | null = null;
+    let invalidateError: string | null = null;
     try {
-      invalidated = await invalidateWeeklyCardsForUsers(parsed.map((c) => c.userId));
+      invalidated = await invalidateWeeklyCardsForUsers(changedUserIds);
     } catch (e) {
-      console.warn("[admin/team-parts/info/team-detail/week-position] snapshot invalidate failed", {
-        message: e instanceof Error ? e.message : String(e),
+      invalidateError = e instanceof Error ? e.message : String(e);
+      console.error("[admin/team-parts/info/team-detail/week-position] snapshot invalidate threw", {
+        userIds: changedUserIds,
+        message: invalidateError,
       });
+      // 마지막 안전망 — 최소한 stale 만이라도 찍어 조회 lazy 가 복구하게 한다.
+      try {
+        const fallback = await markWeeklyCardsSnapshotStaleMany(changedUserIds);
+        if (fallback.failed === 0) {
+          invalidated = {
+            mode: "stale_only",
+            count: changedUserIds.length,
+            staleMarked: fallback.requested,
+            staleFailed: 0,
+            recomputed: 0,
+            recomputeFailed: changedUserIds.length,
+            failedUserIds: [],
+            ok: true,
+          };
+        }
+      } catch (e2) {
+        console.error("[admin/team-parts/info/team-detail/week-position] fallback markStale threw", {
+          message: e2 instanceof Error ? e2.message : String(e2),
+        });
+      }
     }
 
-    return Response.json({ success: true, data: { saved: rows.length, invalidated } });
+    // 판정 규칙은 lib/weekPositionInvalidationOutcome 로 분리(서버 없이 단위 검증 가능).
+    const outcome = resolveWeekPositionInvalidationOutcome(invalidated);
+    if (!outcome.ok) {
+      // 저장 자체를 실패로 응답 — 관리자가 재시도하도록. (override 행은 이미 기록됐고 upsert 는 멱등)
+      console.error("[admin/team-parts/info/team-detail/week-position] invalidation NOT guaranteed", {
+        userIds: changedUserIds,
+        invalidated,
+        invalidateError,
+      });
+      return Response.json(
+        {
+          success: false,
+          error: outcome.error,
+          data: {
+            saved: rows.length,
+            invalidated,
+            invalidateError,
+            userIds: changedUserIds,
+          },
+        },
+        { status: outcome.status },
+      );
+    }
+
+    return Response.json({
+      success: true,
+      data: { saved: rows.length, invalidated, warning: outcome.warning },
+    });
   } catch (error) {
     console.error("[admin/team-parts/info/team-detail/week-position PATCH]", error);
     return Response.json(

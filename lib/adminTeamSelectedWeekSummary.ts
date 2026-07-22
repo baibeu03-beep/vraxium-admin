@@ -14,11 +14,11 @@ import {
   getLeaderBasicsBatch,
 } from "@/lib/adminTeamHalvesData";
 import { SUPER_ADMIN_EXCLUDE_OR } from "@/lib/superAdmins";
-import { memberStatusLabel } from "@/lib/adminMembersTypes";
+import { resolvePositionLabels } from "@/lib/adminMembersTypes";
 import { loadWeekPositionOverrides } from "@/lib/teamWeekPositionOverride";
 import { loadWeeklyCrewResults, type WeeklyCrewResult } from "@/lib/teamWeekCrewResults";
 import { loadWeekGradeHistory, type WeekGradeHistoryEntry } from "@/lib/userWeekGradeHistory";
-import { POSITION_CODE_TO_LABEL, type PositionCode } from "@/lib/positionHistory";
+import { type PositionCode } from "@/lib/positionHistory";
 import type { ScopeMode } from "@/lib/userScopeShared";
 import { type OrganizationSlug } from "@/lib/organizations";
 
@@ -39,11 +39,15 @@ const isCrewPosition = (pc: string | null) =>
 const isAdvancedPosition = (pc: string | null) =>
   pc === "advanced_agent" || pc === "advanced_part_leader";
 // 폴백(현재 멤버십) 라벨 → UPH position_code. 운영진/관리자 등 크루 아님 = null.
-function labelToPositionCode(label: string): string | null {
-  if (label === "심화(파트장)") return "advanced_part_leader";
-  if (label === "심화(에이전트)") return "advanced_agent";
-  if (label === "일반" || label === "크루") return "regular";
-  return null;
+// 크루 집계 대상 코드 3종만 통과. 운영진(팀장/앰배서더/클럽장)·관리자는 null(= 크루 아님, 미집계).
+//   라벨 문자열을 다시 비교하지 않는다 — 공통 변환기가 준 positionCode 로 판정한다.
+const CREW_POSITION_CODES = new Set<string>([
+  "regular",
+  "advanced_agent",
+  "advanced_part_leader",
+]);
+function crewPositionCodeOrNull(code: string | null): string | null {
+  return code && CREW_POSITION_CODES.has(code) ? code : null;
 }
 // uws.status → [B] 주차 결과 표시 라벨(검수 완료 후에만 호출).
 function weekResultLabel(status: string | undefined): string | null {
@@ -264,8 +268,12 @@ export async function getTeamSelectedWeekSummary(opts: {
         }>) {
           if ((m.team_name ?? "").trim() !== teamName) continue;
           if (baseByUser.has(m.user_id)) continue;
-          const label = memberStatusLabel(roleByUser.get(m.user_id) ?? null, m.membership_level ?? null);
-          const code = labelToPositionCode(label);
+          const code = crewPositionCodeOrNull(
+            resolvePositionLabels({
+              role: roleByUser.get(m.user_id) ?? null,
+              membershipLevel: m.membership_level ?? null,
+            }).positionCode,
+          );
           if (code === null) continue; // 운영진/관리자 등 = 크루 아님(미집계)
           // 파트 — 매트릭스 폴백과 동일: 비휴식만 part_name 반영(휴식 크루는 전체엔 포함·파트엔 미포함).
           baseByUser.set(m.user_id, {
@@ -380,7 +388,7 @@ export async function getTeamSelectedWeekSummary(opts: {
         residence: b?.residence ?? null,
         rawPart: eff?.rawPart ?? null,
         positionCode: code,
-        classLabel: POSITION_CODE_TO_LABEL[code] ?? "정규",
+        classLabel: resolvePositionLabels({ positionCode: code }).classLabel,
         // 검수 완료 후에만 결과류 공개(#21). 성장성공수/라인강화율/액트체크율 = snapshot SoT(weekResults).
         //   품계 = 주차 확정 품계 이력(gradeHistory). gradeRank=grade(1=정승…10=정9품, 정렬용).
         //   현재값 fallback 금지 — 이력 없으면 null('-').

@@ -17,6 +17,7 @@
 // 체크 상태(checkStatus): 신청됨일 때만 — 실제 신청(completed_at ?? requested_at) ≤ 신청 시점 → 'ontime'(🔴), 초과 → 'late'(🔵).
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { loadCurrentWeekOverrideLabels } from "@/lib/positionResolver";
 import { isActOpenAtTime } from "@/lib/weekOpenGate";
 import { loadWeekOpeningTimeline } from "@/lib/weekOpeningTimeline";
 import { listTeams } from "@/lib/adminExperienceLineData";
@@ -32,7 +33,7 @@ import {
 import { formatClubDate, formatClubDateTime, formatClubWeekdayTime } from "@/lib/clubDate";
 import { resolveActCardState, type ActCardState } from "@/lib/actCardState";
 import { resolveRegularActRequiredDate, resolveRegularActOccurredAtMs } from "@/lib/regularActRequiredAt";
-import { memberStatusLabel } from "@/lib/adminMembersTypes";
+import { resolvePositionLabels } from "@/lib/adminMembersTypes";
 import type { OrganizationSlug } from "@/lib/organizations";
 import type { ScopeMode } from "@/lib/userScopeShared";
 
@@ -450,10 +451,16 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
       isAdmin.add(a.id);
       if (!nameById.has(a.id) && a.email) nameById.set(a.id, a.email);
     }
+    // 현재 주차 파트/클래스 override 우선(현재 상태 화면 규칙). 관리자 등 override 없는 대상은 종전 로직.
+    const weekOverrides = await loadCurrentWeekOverrideLabels([...requesterIds]);
     for (const id of requesterIds) {
       const name = nameById.get(id);
       if (!name) continue;
-      let role = memberStatusLabel(roleRawById.get(id) ?? null, levelById.get(id) ?? null);
+      let role = resolvePositionLabels({
+        positionCode: weekOverrides.get(id)?.positionCode ?? null,
+        role: roleRawById.get(id) ?? null,
+        membershipLevel: levelById.get(id) ?? null,
+      }).statusLabel;
       if (role === "크루" && isAdmin.has(id)) role = "관리자";
       requesterInfoById.set(id, { name, role });
     }

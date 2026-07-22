@@ -15,6 +15,7 @@
 //   - weekly_reviews 는 본 모듈과 무관(건드리지 않음).
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { loadCurrentWeekOverrideLabels } from "@/lib/positionResolver";
 import type {
   Cluster4ColleagueSummaryDto,
   Cluster4PersonProfileDto,
@@ -248,9 +249,13 @@ async function buildPersonProfileMap(
     educationByUser.set(row.user_id, list);
   }
 
+  // 동료 인적사항은 "현재 소속" 표시다 — 현재 주차 override 가 있으면 그 값을 따른다
+  //   (회원 목록·크루 상세와 같은 현재 상태 화면 규칙).
+  const weekOverrides = await loadCurrentWeekOverrideLabels(ids);
   for (const p of (profileRes.data ?? []) as ProfileRow[]) {
     const m = pickBestMembership(membershipByUser.get(p.user_id) ?? []);
     const edu = pickPrimaryEducation(educationByUser.get(p.user_id) ?? []);
+    const ovr = weekOverrides.get(p.user_id) ?? null;
     map.set(p.user_id, {
       userId: p.user_id,
       name: p.display_name ?? null,
@@ -259,8 +264,8 @@ async function buildPersonProfileMap(
       // 학교/학과: user_educations(canonical) 우선 → user_profiles 폴백.
       school: preferString(edu?.school_name, p.school_name),
       department: preferString(edu?.major_name_1, p.department_name),
-      team: preferString(m?.team_name, p.current_team_name),
-      part: preferString(m?.part_name, p.current_part_name),
+      team: ovr?.rawTeam ?? preferString(m?.team_name, p.current_team_name),
+      part: ovr ? ovr.rawPart : preferString(m?.part_name, p.current_part_name),
       // badge-status 의 등급 source. membership_state("active" 등 상태값)가 아닌 등급(level).
       // 값 없을 때 role 로의 fallback 은 프론트(resolvePersonalInfo)가 수행 — 여기선 raw 등급만.
       membershipLevel: m?.membership_level ?? null,

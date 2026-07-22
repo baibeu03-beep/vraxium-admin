@@ -15,7 +15,6 @@ import {
   resolveCurrentWeekStartDate,
   type OverridePosition,
 } from "@/lib/teamWeekPositionOverride";
-import { POSITION_CODE_TO_LABEL } from "@/lib/positionHistory";
 import { fetchOperationalSeasonParticipants } from "@/lib/operationalSeasonParticipants";
 import { applyRosterView, type FilterValue, type SortEntry } from "@/lib/membersRosterView";
 import { getScheduleReliabilityRateBatch } from "@/lib/cluster1ResumeData";
@@ -25,9 +24,7 @@ import {
   isMemberAssignableRole,
   MEMBER_ASSIGNABLE_ROLES,
   MEMBER_PATCH_FIELDS,
-  memberStatusLabel,
-  classLabel,
-  positionCodeToStatusLabel,
+  resolvePositionLabels,
   ORG_NONE_SENTINEL,
   PART_UNIQUE_ROLES,
   TEAM_UNIQUE_ROLES,
@@ -125,6 +122,11 @@ function toDto(
   //   ([[teamWeekPositionOverride]] loadWeekPositionOverridesByUser). 없으면 종전 멤버십 SoT.
   weekOverride: OverridePosition | null = null,
 ): AdminMemberDto {
+  const labels = resolvePositionLabels({
+    positionCode: weekOverride?.positionCode ?? null,
+    role: row.role,
+    membershipLevel,
+  });
   return {
     userId: row.user_id,
     displayName: row.display_name,
@@ -137,15 +139,11 @@ function toDto(
     suspendedWeekId: row.suspended_week_id,
     role: row.role,
     membershipLevel,
-    // 상태 칩 표기. 등급 SoT=membership_level — role 단독으로 "파트장"을 만들지 않는다.
-    //   단, 현재 주차 override 가 있으면 그 클래스가 이긴다(관리자 주차 편집과 화면 일치).
-    statusLabel: weekOverride
-      ? positionCodeToStatusLabel(weekOverride.positionCode)
-      : memberStatusLabel(row.role, membershipLevel),
-    // 클래스 컬럼 — 화면이 클라이언트에서 만들던 값을 서버가 override 반영해 계산해 내려준다.
-    classLabel: weekOverride
-      ? POSITION_CODE_TO_LABEL[weekOverride.positionCode]
-      : classLabel(row.role, membershipLevel),
+    // 상태 칩·클래스 컬럼 — 라벨 변환은 **공통 변환기 하나**(resolvePositionLabels).
+    //   현재 주차 override 가 있으면 그 코드가 진실이고, 없으면 role+등급을 코드로 정규화해
+    //   같은 경로를 탄다. 어휘 2종(상태/클래스)을 여기서 따로 조립하지 않는다.
+    statusLabel: labels.statusLabel,
+    classLabel: labels.classLabel,
     currentTeamName: weekOverride?.rawTeam ?? row.current_team_name,
     currentPartName: weekOverride ? weekOverride.rawPart : row.current_part_name,
     checkPoints: points.checkPoints,
@@ -884,9 +882,11 @@ export async function listMembersRoster(options: {
       // 소속/클래스 = 현재 주차 override 우선(없으면 종전 현재 멤버십 값).
       teamName: ovr?.rawTeam ?? c.teamName,
       partName: ovr ? ovr.rawPart : c.partName,
-      classLabel: ovr
-        ? POSITION_CODE_TO_LABEL[ovr.positionCode]
-        : classLabel(c.role, c.membershipLevel),
+      classLabel: resolvePositionLabels({
+        positionCode: ovr?.positionCode ?? null,
+        role: c.role,
+        membershipLevel: c.membershipLevel,
+      }).classLabel,
       rankGradeNumber: rank?.grade ?? null,
       rankGradeLabel: rank?.label ?? null,
       successWeeks: g?.successWeeks ?? null,

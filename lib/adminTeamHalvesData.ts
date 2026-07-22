@@ -14,7 +14,8 @@ import {
 import { getUserIdByCrewCode } from "@/lib/adminCrewCodeData";
 import { getCrewDetailDto } from "@/lib/adminCrewDetailData";
 import { getClubRankGradeBatch } from "@/lib/cluster3ClubRankData";
-import { classLabel, memberStatusLabel, positionCodeToStatusLabel } from "@/lib/adminMembersTypes";
+import { resolvePositionLabels } from "@/lib/adminMembersTypes";
+import { loadCurrentWeekOverrideLabels } from "@/lib/positionResolver";
 import { isOrganizationSlug, ORGANIZATIONS, type OrganizationSlug } from "@/lib/organizations";
 import { loadSeasonWeeks } from "@/lib/adminSeasonWeeksData";
 import {
@@ -386,6 +387,8 @@ export async function getLeaderBasicsBatch(
     eduByUser.set(uid, { school: top?.school_name ?? null, major: top?.major_name_1 ?? null });
   }
 
+  // 현재 상태 화면 규칙 — 현재 주차 override 가 있으면 클래스가 그 값을 따른다(회원 목록과 동일).
+  const weekOverrides = await loadCurrentWeekOverrideLabels(userIds);
   for (const p of (profs ?? []) as Array<{
     user_id: string;
     display_name: string | null;
@@ -408,7 +411,11 @@ export async function getLeaderBasicsBatch(
       residence: p.address,
       school: edu?.school ?? p.school_name ?? null,
       major: edu?.major ?? p.department_name ?? null,
-      classLabel: classLabel(p.role ?? null, level),
+      classLabel: resolvePositionLabels({
+        positionCode: weekOverrides.get(p.user_id)?.positionCode ?? null,
+        role: p.role ?? null,
+        membershipLevel: level,
+      }).classLabel,
       gradeLabel: grade?.label ?? null,
       gradeRank: grade?.grade ?? null,
     });
@@ -658,12 +665,14 @@ async function loadTeamCurrentCrewByName(
       const ovr = weekOverrides.get(m.user_id);
       const tn = (ovr?.rawTeam ?? m.team_name)?.trim();
       if (!tn || !teamNameSet.has(tn)) continue;
-      // ⚠ 아래 버킷 분기가 memberStatusLabel 어휘("일반"/"심화(…)")를 쓰므로 override 도 같은 어휘로
-      //   변환해야 한다. POSITION_CODE_TO_LABEL("정규")을 넣으면 어느 분기에도 안 걸려 그 사람이
-      //   집계에서 사라진다(2026-07-22 실측 [A] 정규6→4).
-      const label = ovr
-        ? positionCodeToStatusLabel(ovr.positionCode)
-        : memberStatusLabel(roleByUser.get(m.user_id) ?? null, m.membership_level ?? null);
+      // ⚠ 아래 버킷 분기는 **상태 어휘**("일반"/"심화(…)")다. 클래스 어휘("정규")를 넣으면 어느
+      //   분기에도 안 걸려 그 사람이 집계에서 사라진다(2026-07-22 실측 [A] 정규6→4).
+      //   공통 변환기가 두 어휘를 함께 주므로 여기서는 statusLabel 만 고르면 된다.
+      const label = resolvePositionLabels({
+        positionCode: ovr?.positionCode ?? null,
+        role: roleByUser.get(m.user_id) ?? null,
+        membershipLevel: m.membership_level ?? null,
+      }).statusLabel;
       const bucket = out.get(tn);
       if (!bucket) continue;
       if (label === "일반" || label === "크루") {

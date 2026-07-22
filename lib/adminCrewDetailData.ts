@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { loadCurrentWeekOverrideLabels } from "@/lib/positionResolver";
 import { getAdminCrewDtoByLegacyUserId } from "@/lib/adminCrewData";
 import { lazyEnsureCrewCode } from "@/lib/adminCrewCodeData";
 import { getGrowthRosterBatchFast } from "@/lib/cluster3GrowthData";
@@ -419,6 +420,8 @@ export async function getCrewDetailDto(
 
   const id = crew.userId;
   const todayIso = getCurrentActivityDateIso(); // 현재 활동 날짜(월 00:01 KST 경계 SoT)
+  // 현재 주차 파트/클래스 override — 있으면 상단 클래스/소속 표기가 이 값을 따른다(현재 상태 화면 규칙).
+  const weekOverride = (await loadCurrentWeekOverrideLabels([id], crew.organizationSlug, todayIso)).get(id) ?? null;
 
   const [
     profileRes,
@@ -607,9 +610,10 @@ export async function getCrewDetailDto(
     activityStartWeek,
     activityEndDate,
     activityEndWeek,
-    classLabel: classLabel(crew.role, crew.membershipLevel),
-    teamName: crew.teamName,
-    partName: crew.partName,
+    // 현재 주차 override 우선(현재 상태 화면 규칙) — 없으면 종전 멤버십 값.
+    classLabel: weekOverride?.classLabel ?? classLabel(crew.role, crew.membershipLevel),
+    teamName: weekOverride?.rawTeam ?? crew.teamName,
+    partName: weekOverride ? weekOverride.rawPart : crew.partName,
     clubSummary,
     seasonSummary,
     seasonResults,

@@ -5,8 +5,8 @@ import {
   toAdminErrorResponse,
 } from "@/lib/adminAuth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { isOrganizationSlug } from "@/lib/organizations";
-import { loadInfoLineCatalog } from "@/lib/adminLineHistoryType";
+import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
+import { listInfoLineCatalog } from "@/lib/adminInfoLineCatalog";
 
 const VALID_CLUSTERS = [
   "practical_info",
@@ -45,18 +45,42 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const { data: types, error } = await supabaseAdmin
-      .from("activity_types")
-      .select("id,name,line_code,description,is_active")
-      .eq("cluster_id", cluster)
-      .eq("is_active", true)
-      .order("id", { ascending: true });
+    // ── 실무 정보: 라인 유니버스 = listInfoLineCatalog(org) 단일 SoT ──────────────
+    //   **항상 고정 9종**이다(등록으로 늘지 않는다 — 2026-07-22 제품 계약). 이 함수를 쓰는 이유는
+    //   개수가 아니라 정합이다: 표시 순서·등록 원장(라인명/코드) 조인·org 우선순위를
+    //   team-parts/info/weeks 와 **동일 함수**에서 얻어 두 화면이 갈라지지 않게 한다.
+    //   (프론트에서 배열을 합치지 않는다 — 서버가 완성된 DTO 를 돌려준다.)
+    const organizationRaw = request.nextUrl.searchParams.get("organization")?.trim() || null;
+    const organization: OrganizationSlug | null = isOrganizationSlug(organizationRaw)
+      ? organizationRaw
+      : null;
+    let types: ActivityTypeRow[];
+    const infoCatalog =
+      cluster === "practical_info" ? await listInfoLineCatalog(organization) : null;
 
-    if (error) {
-      return Response.json(
-        { success: false, error: error.message },
-        { status: 500 },
-      );
+    if (infoCatalog) {
+      types = infoCatalog.map((l) => ({
+        id: l.lineId,
+        name: l.lineName,
+        line_code: l.lineCode,
+        description: null,
+        is_active: true,
+      }));
+    } else {
+      const { data, error } = await supabaseAdmin
+        .from("activity_types")
+        .select("id,name,line_code,description,is_active")
+        .eq("cluster_id", cluster)
+        .eq("is_active", true)
+        .order("id", { ascending: true });
+
+      if (error) {
+        return Response.json(
+          { success: false, error: error.message },
+          { status: 500 },
+        );
+      }
+      types = (data ?? []) as ActivityTypeRow[];
     }
 
     // Check which activity_type_ids already have an active line
@@ -79,26 +103,17 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // ── 실무 정보: 라인 등록(line_registrations) 메타 병합 ────────────────────────
-    //   정보 허브의 "개설 단위"는 activity_types(고정 9종)이고, /admin/lines/register 의
-    //   info 등록은 그 활동유형에 **정식 라인명/라인코드를 부여하는 메타**다
-    //   (line_registrations.point_activity_type_id → activity_types.id 로 1:1 연결).
-    //   따라서 등록 결과를 개설 화면에 반영하는 올바른 방법은 "새 개설 후보 생성"이 아니라
-    //   활동유형 DTO 에 등록된 라인명/코드를 실어 보내는 것이다.
-    //   · SoT = loadInfoLineCatalog(org) — 라인 내역 화면이 쓰는 것과 동일 함수(중복 조회 금지).
-    //   · 프론트에서 배열을 합치지 않는다 — 서버가 완성된 DTO 를 돌려준다.
-    //   · registeredLine* 는 additive optional — 미등록 활동유형은 null(기존 표시 유지).
+    // registeredLine* — 등록 원장(line_registrations, hub='info')이 이 활동유형에 부여한 정식
+    //   라인명/코드. 표시명(name)은 activity_types 정본 그대로 두고 이 값은 툴팁으로만 쓴다
+    //   (정본 라벨을 원장 값으로 덮지 않는다 — 고객 앱 하드코딩 라벨/과거 FK 보호).
+    //   등록 원장이 없는 활동유형은 null → 기존 표시 그대로.
     const registeredByActivity = new Map<string, { lineName: string; lineCode: string | null }>();
-    if (cluster === "practical_info") {
-      const organization = request.nextUrl.searchParams.get("organization")?.trim() || null;
-      for (const entry of await loadInfoLineCatalog(
-        isOrganizationSlug(organization) ? organization : null,
-      )) {
-        registeredByActivity.set(entry.activityTypeId, {
-          lineName: entry.lineName,
-          lineCode: entry.displayLineCode,
-        });
-      }
+    for (const entry of infoCatalog ?? []) {
+      if (!entry.registrationId || !entry.registeredLineName) continue;
+      registeredByActivity.set(entry.activityTypeId, {
+        lineName: entry.registeredLineName,
+        lineCode: entry.registeredLineCode,
+      });
     }
 
     const result = ((types ?? []) as ActivityTypeRow[]).map((t) => {

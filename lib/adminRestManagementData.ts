@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { loadCurrentWeekOverrideLabels } from "@/lib/positionResolver";
 import type { OrganizationSlug } from "@/lib/organizations";
 import {
   getCurrentActivityDateIso,
@@ -6,7 +7,7 @@ import {
   hasWeekStartedKst,
   operationalSeasonDbKey,
 } from "@/lib/seasonCalendar";
-import { classLabel, memberStatusLabel } from "@/lib/adminMembersTypes";
+import { resolvePositionLabels } from "@/lib/adminMembersTypes";
 import { formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
 import { revokeForAct } from "@/lib/processPointAccrual";
 import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
@@ -371,13 +372,20 @@ async function resolveCrewInfo(userIds: string[]): Promise<Map<string, CrewInfo>
     }
   }
 
+  // 현재 주차 파트/클래스 override 우선(현재 상태 화면 규칙) — 없으면 종전 멤버십 값.
+  const weekOverrides = await loadCurrentWeekOverrideLabels(unique);
   for (const uid of unique) {
     const p = profileById.get(uid);
     const best = pickBestMembership(membershipsByUser.get(uid) ?? []);
+    const ovr = weekOverrides.get(uid);
     out.set(uid, {
       crewName: p?.display_name ?? null,
-      teamName: preferString(best?.team_name ?? null, p?.current_team_name ?? null),
-      classLabel: classLabel(p?.role ?? null, best?.membership_level ?? null),
+      teamName: ovr?.rawTeam ?? preferString(best?.team_name ?? null, p?.current_team_name ?? null),
+      classLabel: resolvePositionLabels({
+        positionCode: ovr?.positionCode ?? null,
+        role: p?.role ?? null,
+        membershipLevel: best?.membership_level ?? null,
+      }).classLabel,
     });
   }
   return out;
@@ -484,12 +492,18 @@ async function resolveRequesterInfo(
     }
   }
 
+  // 현재 주차 override 우선(현재 상태 화면 규칙) — 라벨은 공통 변환기의 상태 어휘.
+  const weekOverrides = await loadCurrentWeekOverrideLabels(unique);
   for (const uid of unique) {
     const p = profileById.get(uid);
     const best = pickBestMembership(membershipsByUser.get(uid) ?? []);
     out.set(uid, {
       name: p?.display_name?.trim() || null,
-      roleLabel: memberStatusLabel(p?.role ?? null, best?.membership_level ?? null),
+      roleLabel: resolvePositionLabels({
+        positionCode: weekOverrides.get(uid)?.positionCode ?? null,
+        role: p?.role ?? null,
+        membershipLevel: best?.membership_level ?? null,
+      }).statusLabel,
     });
   }
   return out;

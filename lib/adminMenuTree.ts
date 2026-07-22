@@ -138,10 +138,10 @@ export const MENU_INTEGRATED: MenuItem[] = [
       { label: "팀 관리", href: "/admin/team-parts/info", exact: true },
       { label: "시즌 관리", href: "/admin/team-parts/info/seasons" },
       { label: "주차 활동(클럽)", href: "/admin/team-parts/info/weeks" },
-      // [주차 결과(크루)] 신규 메뉴 — 대응 전용 페이지가 아직 없어 disabled(준비 중)로 노출만 한다.
+      // [주차 결과(크루)] — 통합 목록(행=주차 · 열=클럽). 클럽 헤더 [상세] → /{organizationSlug}.
       //   기존 "주차와 시즌 > 주차 인정 결과"(/admin/week-recognitions)는 목적이 달라 재사용하지 않는다.
-      //   전용 페이지 신설 시 disabled 를 제거하고 href 를 실제 라우트로 교체할 것.
-      { label: "주차 결과(크루)", href: "/admin/team-parts/info/crew-week-results", disabled: true },
+      //   ⚠ 상세 라우트는 추후 [개별] 어드민이 그대로 재사용한다(별도 페이지 신설 금지).
+      { label: "주차 결과(크루)", href: "/admin/team-parts/info/crew-week-results" },
       // [팀 & 파트 등록] 메뉴 비노출(주석 처리) — /admin/team-parts/register 라우트/코드는 유지.
       //   재활성화하려면 아래 줄의 주석을 해제하세요.
       // { label: "팀 & 파트 등록", href: "/admin/team-parts/register" },
@@ -400,6 +400,30 @@ const BREADCRUMB_OVERRIDES: { test: RegExp; parts: OverrideParts }[] = [
       return [{ label: "크루 활동", href: listHref }, { label: "크루 관리" }];
     },
   },
+  // 주차 결과(크루) 주차 세부 — /admin/team-parts/info/crew-week-results/{organizationSlug}/{weekId}
+  //   끝 2칸(클럽명·주차명)은 페이지가 AdminDetailTitle items 로 실제 표시명 + 클럽 상세 href 를 공급.
+  //   ⚠ 클럽 상세(1세그먼트)보다 **먼저** 와야 한다(2세그먼트가 1세그먼트 규칙에 먹히지 않도록).
+  {
+    test: /^\/admin\/team-parts\/info\/crew-week-results\/[^/]+\/[^/]+\/?$/,
+    parts: [
+      { label: "클럽 정보", href: "/admin/team-parts/info" },
+      { label: "주차 결과(크루)", href: "/admin/team-parts/info/crew-week-results" },
+      { label: "클럽 상세" },
+      { label: "주차 상세" },
+    ],
+  },
+  // 주차 결과(크루) 클럽 상세 — /admin/team-parts/info/crew-week-results/{organizationSlug}
+  //   마지막 칸(클럽명)은 페이지가 AdminDetailTitle 로 실제 표시명을 공급해 교체한다
+  //   (여기선 slug 를 절대 노출하지 않는 placeholder). weeks 규칙보다 먼저 둘 필요는 없지만
+  //   동일 접두(team-parts/info)라 override 목록 안에서 함께 관리한다.
+  {
+    test: /^\/admin\/team-parts\/info\/crew-week-results\/[^/]+\/?$/,
+    parts: [
+      { label: "클럽 정보", href: "/admin/team-parts/info" },
+      { label: "주차 결과(크루)", href: "/admin/team-parts/info/crew-week-results" },
+      { label: "클럽 상세" },
+    ],
+  },
   // 주차 상세 — /admin/team-parts/info/weeks/{weekId}
   {
     test: /^\/admin\/team-parts\/info\/weeks\/[^/]+\/?$/,
@@ -409,12 +433,14 @@ const BREADCRUMB_OVERRIDES: { test: RegExp; parts: OverrideParts }[] = [
       { label: "주차 상세" },
     ],
   },
-  // 클럽 상세 — /admin/team-parts/info/{clubId} (clubId=org slug). weeks/seasons 는 제외(별도 라우트).
+  // 클럽 상세 — /admin/team-parts/info/{clubId} (clubId=org slug).
+  //   weeks/seasons/crew-week-results 는 제외(별도 라우트) — negative-lookahead 에 반드시 추가할 것.
+  //   ⚠ 누락하면 그 라우트의 목록 페이지가 "클럽 정보 > 팀 관리 > 클럽"으로 잘못 표시된다(실측 회귀).
   //   3단계: 클럽 정보 > 팀 내역 > 클럽. 클럽 정보·팀 내역은 별도 인덱스 라우트가 없어 둘 다 팀 내역
   //   목록(/admin/team-parts/info)으로 이동한다. 마지막 칸("클럽")은 페이지가 AdminDetailTitle 로 실제
   //   클럽명으로 교체한다(slug 미노출).
   {
-    test: /^\/admin\/team-parts\/info\/(?!weeks(?:\/|$)|seasons(?:\/|$))[^/]+\/?$/,
+    test: /^\/admin\/team-parts\/info\/(?!weeks(?:\/|$)|seasons(?:\/|$)|crew-week-results(?:\/|$))[^/]+\/?$/,
     parts: [
       { label: "클럽 정보", href: "/admin/team-parts/info" },
       { label: "팀 관리", href: "/admin/team-parts/info" },
@@ -423,9 +449,10 @@ const BREADCRUMB_OVERRIDES: { test: RegExp; parts: OverrideParts }[] = [
   },
   // 팀 상세 — /admin/team-parts/info/{clubId}/{teamHalfId}. 4단계: 클럽 정보 > 팀 내역 > 클럽 > 팀.
   //   마지막 2칸(클럽·팀)은 페이지가 AdminDetailTitle items 로 실제 클럽명·팀명(+클럽 href)으로 교체한다.
-  //   weeks/seasons 는 자체 라우트라 제외(negative-lookahead). 두 세그먼트라 클럽 상세(1세그먼트)와 구분됨.
+  //   weeks/seasons/crew-week-results 는 자체 라우트라 제외(negative-lookahead). 두 세그먼트라
+  //   클럽 상세(1세그먼트)와 구분됨.
   {
-    test: /^\/admin\/team-parts\/info\/(?!weeks(?:\/|$)|seasons(?:\/|$))[^/]+\/[^/]+\/?$/,
+    test: /^\/admin\/team-parts\/info\/(?!weeks(?:\/|$)|seasons(?:\/|$)|crew-week-results(?:\/|$))[^/]+\/[^/]+\/?$/,
     parts: [
       { label: "클럽 정보", href: "/admin/team-parts/info" },
       { label: "팀 관리", href: "/admin/team-parts/info" },

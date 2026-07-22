@@ -5,7 +5,7 @@
 // 이번 범위: "주차 전체 라인칸 개설 관리" 요약 5필드까지만(허브별 상세 라인 목록은 다음 작업).
 //
 // 라인 유니버스(관리 대상) = 오픈 설정(cluster4_week_opening_configs)의 라인 단위와 동일 granularity:
-//   · 실무 정보 = 활동유형(activity_types, practical_info) 1개 = 라인 1개 (9종)
+//   · 실무 정보 = 정보 라인 1개(listInfoLineCatalog — 정본 9종 + 등록된 신규 라인, org 스코프)
 //   · 실무 경험 = (팀 × 카테고리 5종[도출·분석·견문·관리·확장]) 각 1개 = 라인 1개
 //   · 실무 역량 = 허브 단일 라인 1개
 //   · 실무 경력 = 이번 집계에서 제외
@@ -49,12 +49,7 @@ import {
   type OrgResultScope,
 } from "@/lib/weekOrgResultState";
 import type { ScopeMode } from "@/lib/userScopeShared";
-
-// 실무 정보 활동유형 표시 순서(adminCluster4InfoLineResults PREFERRED_ORDER 미러 — 라인 목록 정렬 SoT).
-const INFO_PREFERRED_ORDER = [
-  "wisdom", "essay", "infodesk", "calendar", "forum",
-  "session", "practical_lecture", "community", "etc_a",
-];
+import { listInfoLineCatalog } from "@/lib/adminInfoLineCatalog";
 
 // 실무 경험 5개 라인(표시 순서 = 도출·분석·견문·관리·확장).
 //   type   = 오픈 설정(config.practicalExperience[team][type]) 키
@@ -551,24 +546,16 @@ async function loadExperienceLineOpening(opts: {
   return { summary: hub, teams: teamDtos };
 }
 
-// 실무 정보 활동유형(라인) 카탈로그 — 관리 대상 유니버스(총 라인 수·라인명) SoT. 표시 순서 적용.
-async function loadInfoCatalog(): Promise<Array<{ id: string; name: string }>> {
-  const { data, error } = await supabaseAdmin
-    .from("activity_types")
-    .select("id,name")
-    .eq("cluster_id", "practical_info")
-    .eq("is_active", true);
-  if (error) {
-    console.warn("[line-opening-management] activity_types unavailable:", error.message);
-    return [];
-  }
-  const rows = (data ?? []) as Array<{ id: string; name: string | null }>;
-  const orderIdx = (id: string) => {
-    const i = INFO_PREFERRED_ORDER.indexOf(id);
-    return i < 0 ? INFO_PREFERRED_ORDER.length : i;
-  };
-  rows.sort((a, b) => orderIdx(a.id) - orderIdx(b.id) || a.id.localeCompare(b.id));
-  return rows.map((r) => ({ id: r.id, name: r.name ?? r.id }));
+// 실무 정보 라인 카탈로그 — 관리 대상 유니버스(총 라인 수·라인명·ID) SoT.
+//   /admin/line-opening/practical-info 탭과 **완전히 같은 함수**를 쓴다 → 두 화면의 라인 목록·ID·
+//   이름·정렬·org 필터가 구조적으로 갈라질 수 없다(요구 §6).
+async function loadInfoCatalog(
+  organization: OrganizationSlug,
+): Promise<Array<{ id: string; name: string }>> {
+  return (await listInfoLineCatalog(organization)).map((l) => ({
+    id: l.lineId,
+    name: l.lineName,
+  }));
 }
 
 // 주차 메타 — 월요일(start_date, 개설 타이밍 기준) + 조직별 검수 여부(크루 기입 종료 판정).
@@ -620,7 +607,7 @@ export async function loadTeamPartsInfoLineOpeningManagement(opts: {
     eligibleCrews,
   ] = await Promise.all([
     loadWeekOpeningConfig(weekId, organization),
-    loadInfoCatalog(),
+    loadInfoCatalog(organization),
     listTeams(organization, mode),
     getInfoLineResultsForWeek({ weekId, organization, mode }).catch((e) => {
       console.warn(

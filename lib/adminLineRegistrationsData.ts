@@ -479,6 +479,7 @@ import {
   LINE_REGISTRATION_HUB_LABEL as HUB_LABEL_FOR_PATCH,
 } from "@/lib/adminLineRegistrationsTypes";
 import { syncMasterFromRegistration } from "@/lib/lineMasterDriftGuard";
+import { assertInfoRegistrationPolicy } from "@/lib/adminInfoLineRegistrationPolicy";
 
 export type LineRegistrationUpdateResult = {
   registration: LineRegistrationDetail;
@@ -560,6 +561,31 @@ export async function updateLineRegistration(
   const nextOrg =
     patch.organizationSlug !== undefined ? patch.organizationSlug : current.organizationSlug;
   const nextCode = patch.lineCode ?? current.lineCode;
+
+  // ── [정보 허브] 고정 9종 정책 — 등록 POST 와 **동일 게이트**를 수정에도 적용한다 ──
+  //   · 활동유형은 9종 중 하나 필수(해제/9종 외 값 거부)
+  //   · 활동유형 × 조직 범위당 활성 등록 1개(자기 자신 제외)
+  //   비활성(is_active=false)으로 내리는 수정은 유니버스에서 빠지므로 중복 검사 대상이 아니다.
+  //   이 경로가 곧 "활동유형 미연결" 등록행의 **복구 경로**다(수정 모달에서 9종 중 하나 선택).
+  if (current.hub === "info") {
+    const nextActive = patch.isActive !== undefined ? patch.isActive : current.isActive;
+    const nextActivityType =
+      patch.pointActivityTypeId !== undefined
+        ? patch.pointActivityTypeId
+        : current.pointActivityTypeId;
+    const touchesPolicy =
+      patch.pointActivityTypeId !== undefined ||
+      patch.organizationSlug !== undefined ||
+      (patch.isActive === true && current.isActive === false);
+    if (nextActive && touchesPolicy) {
+      const violation = await assertInfoRegistrationPolicy({
+        pointActivityTypeId: nextActivityType,
+        organizationSlug: nextOrg,
+        excludeRegistrationId: id,
+      });
+      if (violation) throw new LineRegistrationError(violation.status, violation.message);
+    }
+  }
   if (nextOrg !== null && (nextCode !== current.lineCode || nextOrg !== current.organizationSlug)) {
     const { data: dup } = await supabaseAdmin
       .from("line_registrations")

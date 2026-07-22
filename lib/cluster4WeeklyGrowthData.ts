@@ -18,18 +18,15 @@ import {
   type Season,
 } from "@/lib/seasonCalendar";
 import { getGraduationThreshold } from "@/lib/pointLabels";
-import {
-  resolveSeasonPosition,
-  POSITION_CODE_TO_LABEL,
-  type PositionCode,
-} from "@/lib/positionHistory";
+import { POSITION_CODE_TO_LABEL, type PositionCode } from "@/lib/positionHistory";
 // 클래스(직책) position_code 정규화 — 미러 공통 모듈(vraxium 과 byte-identical, parity 검증).
 import { roleLevelToPositionCode } from "@/shared/crewClassPosition";
-// 주차별 파트/클래스 관리자 override — effective = override ?? UPH. 카드/area-8 이 관리자 팀 상세와 같은 값을 쓴다.
+// 주차별 effective 직책/소속 조립 = 공통 resolver 단일 구현.
+//   카드 빌더 · area-8 · 이력서 시즌 직책이 **같은 함수**를 쓴다(종전 3벌 복붙 제거).
 import {
-  loadUserPositionOverrideRows,
-  resolveOverrideAt,
-} from "@/lib/teamWeekPositionOverride";
+  loadUserWeekPositionSeries,
+  resolveSeasonPositionsFromSeries,
+} from "@/lib/positionResolver";
 import { fetchActiveRestPeriods } from "@/lib/officialRestPeriodsData";
 import {
   matchOfficialRestPeriods,
@@ -616,88 +613,29 @@ async function computeWeeklyCards(
   //     주차값을 쓰고, 나머지는 종전대로 현재 멤버십(crewMeta)을 유지한다.
   const weekTeamPartByStart = new Map<string, { team: string | null; part: string | null }>();
   if (seasonKeys.length > 0) {
-    const [{ data: positionData, error: positionErr }, overrideRows] = await Promise.all([
-      supabaseAdmin
-        .from("user_position_histories")
-        .select("season_key,week_start_date,position_code,raw_team")
-        .eq("user_id", userId)
-        .in("season_key", seasonKeys),
-      loadUserPositionOverrideRows(userId),
-    ]);
-    if (positionErr) {
-      console.warn(
-        "[weekly-cards] user_position_histories 조회 실패 → 카드 역할배지 현재값 fallback",
-        { userId, message: positionErr.message },
-      );
+    // 조립은 **공통 resolver 단일 구현**(loadUserWeekPositionSeries). carry-forward · UPH 없는 주차
+    //   보강 · uph/effective 분리는 전부 그쪽에 있다. 여기서는 소비만 한다.
+    const series = await loadUserWeekPositionSeries({
+      userId,
+      seasonKeys,
+      extraWeekStarts: cardWeekByStart.keys(),
+      seasonKeyOfWeek: (ws) => {
+        const season = getSeasonForDate(ws);
+        return season ? seasonDbKey(season) : null;
+      },
+    });
+    for (const [ws, tp] of series.overriddenTeamPartByWeek) weekTeamPartByStart.set(ws, tp);
+    // ① 주차 단위 정확 매칭 (week_start_date = 카드 startDate). carry-forward override 포함.
+    for (const r of series.rows) {
+      if (!r.weekStart) continue;
+      weekPositionLabelByStart.set(r.weekStart, POSITION_CODE_TO_LABEL[r.effectiveCode]);
+      weekPositionCodeByStart.set(r.weekStart, r.effectiveCode);
     }
-    // effective 조립 — **carry-forward**: 각 주차마다 "그 주차 이하 최근 override" 를 고른다.
-    //   4주차에 저장하면 4·5·6주차가 그 값이 되고 3주차 이전은 불변이다.
-    //   시즌 귀속은 UPH 행이면 그 season_key, override 로만 생기는 주차는 달력으로 해소한다.
-    const overrideAsc = [...overrideRows].sort((a, b) => a.weekStartDate.localeCompare(b.weekStartDate));
-    const overrideAt = (weekStart: string) => resolveOverrideAt(overrideAsc, weekStart);
-    const seenWeeks = new Set<string>();
-    // uphCode = 그 주차의 **원본 UPH 코드**(override 미적용). 시즌 대표(tier②) 계산 전용 —
-    //   override 로만 존재하는 주차는 null 이라 시즌 대표에 기여하지 않는다(아래 codesBySeason).
-    const effective: Array<{
-      seasonKey: string | null;
-      weekStart: string | null;
-      code: PositionCode;
-      uphCode: PositionCode | null;
-    }> = [];
-    for (const r of (positionData ?? []) as Array<{
-      season_key: string | null;
-      week_start_date: string | null;
-      position_code: PositionCode;
-      raw_team: string | null;
-    }>) {
-      const ovr = r.week_start_date ? overrideAt(r.week_start_date) : null;
-      if (r.week_start_date) seenWeeks.add(r.week_start_date);
-      effective.push({
-        seasonKey: r.season_key,
-        weekStart: r.week_start_date,
-        code: ovr ? ovr.positionCode : r.position_code,
-        uphCode: r.position_code,
-      });
-      if (ovr && r.week_start_date)
-        weekTeamPartByStart.set(r.week_start_date, { team: ovr.rawTeam, part: ovr.rawPart });
-    }
-    // UPH 행이 없는 주차(멤버십 폴백 주차)도 override 가 이월되면 카드에 반영해야 한다.
-    //   카드가 실제로 만들어지는 주차 집합(cardWeekByStart)을 훑어 빈 주차를 채운다.
-    for (const ws of cardWeekByStart.keys()) {
-      if (seenWeeks.has(ws)) continue;
-      const ovr = overrideAt(ws);
-      if (!ovr) continue;
-      const season = getSeasonForDate(ws);
-      const sk = season ? seasonDbKey(season) : null;
-      if (sk != null && !seasonKeys.includes(sk)) continue; // 이 카드 범위 밖 시즌.
-      effective.push({ seasonKey: sk, weekStart: ws, code: ovr.positionCode, uphCode: null });
-      weekTeamPartByStart.set(ws, { team: ovr.rawTeam, part: ovr.rawPart });
-    }
-
-    const codesBySeason = new Map<string, PositionCode[]>();
-    for (const r of effective) {
-      // ① 주차 단위 정확 매칭 (week_start_date = 카드 startDate). carry-forward override 포함.
-      if (r.weekStart) {
-        weekPositionLabelByStart.set(r.weekStart, POSITION_CODE_TO_LABEL[r.code]);
-        weekPositionCodeByStart.set(r.weekStart, r.code);
-      }
-      // ② 시즌 대표(PMS gap 주차 fallback)용 코드 수집 — **UPH 원본만**.
-      //   ⚠ override 를 섞으면 안 된다. /cluster-4-card 는 "현재 상태"가 아니라 "주차별 이력" 화면이라,
-      //     4주차 override 가 시즌 대표로 승격되면 UPH 행이 없는 0~3주차 카드까지 그 값으로 덮인다
-      //     (실측 2026-07-22: 여름 UPH 0건 + W4 override 1건 → 여름 0~4주차 전부 심화(파트장)).
-      //     override 의 유효 범위는 carry-forward(그 주차 이후)뿐이며, 과거 주차로 소급되면 안 된다.
-      //     시즌 대표값은 PMS 이력이 있는 시즌의 gap 주차를 메우는 원래 용도로만 쓴다.
-      if (!r.seasonKey || r.uphCode == null) continue;
-      const arr = codesBySeason.get(r.seasonKey) ?? [];
-      arr.push(r.uphCode);
-      codesBySeason.set(r.seasonKey, arr);
-    }
-    for (const [key, codes] of codesBySeason) {
-      const resolved = resolveSeasonPosition(codes);
-      if (resolved) {
-        seasonPositionLabelMap.set(key, POSITION_CODE_TO_LABEL[resolved]);
-        seasonPositionCodeMap.set(key, resolved);
-      }
+    // ② 시즌 대표(PMS gap 주차 fallback) — basis="uph". override 를 섞으면 4주차 편집이 시즌
+    //   대표로 승격돼 UPH 행이 없는 0~3주차 카드까지 소급으로 덮인다(resolver 주석 참조).
+    for (const [key, code] of resolveSeasonPositionsFromSeries(series, "uph")) {
+      seasonPositionLabelMap.set(key, POSITION_CODE_TO_LABEL[code]);
+      seasonPositionCodeMap.set(key, code);
     }
   }
 
@@ -1612,57 +1550,23 @@ export async function computeSeasonActivityStatusesBySeason(
   const keys = Array.from(new Set(seasonKeys.filter((k): k is string => !!k)));
   if (keys.length === 0) return out;
 
-  const [{ data, error }, overrideRows] = await Promise.all([
-    supabaseAdmin
-      .from("user_position_histories")
-      .select("season_key,week_start_date,position_code,raw_team,raw_part")
-      .eq("user_id", userId)
-      .in("season_key", keys),
-    loadUserPositionOverrideRows(userId),
-  ]);
-  if (error) {
-    // 조회 실패(테이블 미적용 등) → 전 시즌 현재값 fallback(무회귀).
-    console.warn("[weekly-growth][area-8] user_position_histories 조회 실패 → 현재값 fallback", {
-      userId,
-      message: error.message,
-    });
-  }
-
-  // effective = carry-forward override ?? UPH — 관리자 편집이 area-8 구간에도 이어진다.
-  //   각 UPH 주차마다 "그 주차 이하 최근 override" 를 적용한다(저장 주차부터 이후 전부).
-  const overrideAsc = [...overrideRows].sort((a, b) => a.weekStartDate.localeCompare(b.weekStartDate));
-  const seenWeeks = new Set<string>();
-  const effectiveRows: PositionHistoryRow[] = [];
-  for (const r of (data ?? []) as PositionHistoryRow[]) {
-    if (r.week_start_date) seenWeeks.add(r.week_start_date);
-    const ovr = r.week_start_date ? resolveOverrideAt(overrideAsc, r.week_start_date) : null;
-    if (!ovr) {
-      effectiveRows.push(r);
-      continue;
-    }
-    effectiveRows.push({
-      season_key: r.season_key,
-      week_start_date: r.week_start_date,
-      position_code: ovr.positionCode,
-      raw_team: ovr.rawTeam,
-      raw_part: ovr.rawPart,
-    });
-  }
-  // override 가 저장된 주차 자체에 UPH 행이 없으면(멤버십 폴백 주차) 그 주차를 구간에 추가한다.
-  //   (이월분은 위 루프에서 UPH 주차에 이미 반영되므로 여기서는 저장 주차만 보강한다.)
-  for (const o of overrideAsc) {
-    if (seenWeeks.has(o.weekStartDate)) continue;
-    const season = getSeasonForDate(o.weekStartDate);
-    const sk = season ? seasonDbKey(season) : null;
-    if (!sk || !keys.includes(sk)) continue;
-    effectiveRows.push({
-      season_key: sk,
-      week_start_date: o.weekStartDate,
-      position_code: o.positionCode,
-      raw_team: o.rawTeam,
-      raw_part: o.rawPart,
-    });
-  }
+  // 조립은 **공통 resolver 단일 구현**(loadUserWeekPositionSeries) — 카드 빌더·이력서와 같은 함수.
+  //   구간 표시는 "그 주차에 실제로 무엇이었나" 이므로 effectiveCode(override carry-forward 포함)를 쓴다.
+  const series = await loadUserWeekPositionSeries({
+    userId,
+    seasonKeys: keys,
+    seasonKeyOfWeek: (ws) => {
+      const season = getSeasonForDate(ws);
+      return season ? seasonDbKey(season) : null;
+    },
+  });
+  const effectiveRows: PositionHistoryRow[] = series.rows.map((r) => ({
+    season_key: r.seasonKey,
+    week_start_date: r.weekStart,
+    position_code: r.effectiveCode,
+    raw_team: r.rawTeam,
+    raw_part: r.rawPart,
+  }));
 
   const bySeason = new Map<string, PositionHistoryRow[]>();
   for (const r of effectiveRows) {

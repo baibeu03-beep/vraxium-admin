@@ -16,6 +16,7 @@
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import type { OrganizationSlug } from "@/lib/organizations";
+import { listInfoLineCatalog } from "@/lib/adminInfoLineCatalog";
 import {
   EXPERIENCE_LINE_TYPES,
   type SavedConfig,
@@ -98,17 +99,12 @@ export async function resolveRecognitionInputs(opts: {
   };
 
   // ── 라인 ────────────────────────────────────────────────────────────────
-  // info: activity_types(practical_info) 각 1라인. config_key = activity_types.id.
-  const { data: atData } = await supabaseAdmin
-    .from("activity_types")
-    .select("id, name")
-    .eq("cluster_id", "practical_info")
-    .eq("is_active", true);
-  for (const at of (atData ?? []) as Array<{ id: string; name: string | null }>) {
-    const isOpen = openConfirmed && config.practicalInfo?.[at.id] === true;
-    const p = pointCfg.get("info", at.id);
-    lines.push({ id: `info:${at.id}`, hub: "info", isOpen, pointA: p.pointA, pointB: p.pointB });
-    if (isOpen) flagMissing("info", at.id, at.name ?? at.id);
+  // info: 정보 라인 카탈로그(org 스코프) 각 1라인. config_key = activity_types.id.
+  for (const at of await listInfoLineCatalog(organization)) {
+    const isOpen = openConfirmed && config.practicalInfo?.[at.lineId] === true;
+    const p = pointCfg.get("info", at.lineId);
+    lines.push({ id: `info:${at.lineId}`, hub: "info", isOpen, pointA: p.pointA, pointB: p.pointB });
+    if (isOpen) flagMissing("info", at.lineId, at.lineName);
   }
 
   // experience: config_key = category enum(type). 라인 config 는 팀 공통(team/part scope 구분 없음·

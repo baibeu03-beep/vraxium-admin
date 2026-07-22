@@ -9,7 +9,7 @@
 //   · 주차 메타/공식휴식/현재주차 = loadSeasonWeeks (3-tier 공식휴식 판정 포함)
 //   · 주차 검수(reviewed)         = weeks.result_reviewed_at != null (주차 전역·org 무관)
 //   · 오픈 설정/오픈확인          = cluster4_week_opening_configs (주차×클럽). 없으면 정책 기본값.
-//   · 실무 정보 라인              = activity_types(cluster_id='practical_info', 활성)
+//   · 실무 정보 라인              = listInfoLineCatalog(org) — 정본 9종 + 등록된 신규 정보 라인
 //   · 실무 경험 팀                = listTeams(org, mode) (cluster4_teams, (T) 스코프)
 //
 // 기본 체크 정책:
@@ -41,6 +41,7 @@ import {
 } from "@/lib/adminTeamPartsInfoWeeksData";
 import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import { listTeams } from "@/lib/adminExperienceLineData";
+import { listInfoLineCatalog } from "@/lib/adminInfoLineCatalog";
 import type { OrganizationSlug } from "@/lib/organizations";
 import type { ScopeMode } from "@/lib/userScopeShared";
 import {
@@ -175,19 +176,6 @@ export type TeamPartsInfoWeekDetailData = {
   };
 };
 
-// 실무 정보 활동유형 표시 순서(adminCluster4InfoLineResults PREFERRED_ORDER 미러).
-const INFO_PREFERRED_ORDER = [
-  "wisdom",
-  "essay",
-  "infodesk",
-  "calendar",
-  "forum",
-  "session",
-  "practical_lecture",
-  "community",
-  "etc_a",
-];
-
 export class WeekDetailNotFoundError extends Error {
   constructor(message = "주차를 찾을 수 없습니다.") {
     super(message);
@@ -256,28 +244,19 @@ async function loadReviewStatus(
   return resolveWeekOrgResultState(orgStates.get(weekId), startDate ?? "", legacyReviewed).status;
 }
 
-// 실무 정보 라인 개설(8) 카탈로그 — 키=activity_type id(개설 판정 회로 cluster4_lines.activity_type_id
-//   와 조인·불변), 표시명/순서=line_registrations(hub='info') 미러링(실제 등록 라인 명칭). 동일 9종을
-//   순서(activity_type INFO_PREFERRED_ORDER ↔ line_registrations line_code)로 위치 매칭한다.
-async function loadInfoLineCatalog(): Promise<Array<{ lineId: string; lineName: string }>> {
-  const [{ data: atData, error: atErr }, { data: lrData }] = await Promise.all([
-    supabaseAdmin.from("activity_types").select("id,name").eq("cluster_id", "practical_info").eq("is_active", true),
-    supabaseAdmin.from("line_registrations").select("line_name,line_code").eq("hub", "info").eq("is_active", true),
-  ]);
-  if (atErr) {
-    console.warn("[team-parts/info/weeks/detail] activity_types read unavailable:", atErr.message);
-    return [];
-  }
-  const orderIdx = (id: string) => {
-    const i = INFO_PREFERRED_ORDER.indexOf(id);
-    return i < 0 ? INFO_PREFERRED_ORDER.length : i;
-  };
-  const ats = ((atData ?? []) as Array<{ id: string; name: string | null }>)
-    .sort((a, b) => orderIdx(a.id) - orderIdx(b.id) || a.id.localeCompare(b.id));
-  // line_registrations(info) 를 line_code 순으로 — activity_type 순서와 위치 대응(둘 다 동일 9종).
-  const regs = ((lrData ?? []) as Array<{ line_name: string | null; line_code: string | null }>)
-    .sort((a, b) => (a.line_code ?? "").localeCompare(b.line_code ?? ""));
-  return ats.map((a, i) => ({ lineId: a.id, lineName: regs[i]?.line_name ?? a.name ?? a.id }));
+// 실무 정보 라인 개설(8) 카탈로그 — practical-info · 라인 개설 관리와 **동일 함수**(listInfoLineCatalog).
+//   키=activity_type id(개설 판정 회로 cluster4_lines.activity_type_id 와 조인·불변),
+//   표시명=등록 원장 line_name.
+//   ⚠ 종전 구현은 activity_types(정렬) 와 line_registrations(line_code 정렬) 를 **위치(index)로**
+//     맞췄다. 등록 라인이 10개째로 늘거나 line_code 가 IFBS-* 보다 앞서면 9개 라인명이 통째로
+//     한 칸씩 밀리는 구조였다. 이제 point_activity_type_id 로 실제 조인한다(위치 매칭 폐기).
+async function loadInfoLineCatalog(
+  organization: OrganizationSlug,
+): Promise<Array<{ lineId: string; lineName: string }>> {
+  return (await listInfoLineCatalog(organization)).map((l) => ({
+    lineId: l.lineId,
+    lineName: l.lineName,
+  }));
 }
 
 // 라인급(체크) SoT — process_line_groups(hub, is_active). 프로세스 등록 소속 라인급과 동일 목록.
@@ -340,7 +319,7 @@ export async function loadTeamPartsInfoWeekDetail(opts: {
   ] = await Promise.all([
     loadWeekOpeningConfig(weekId, organization),
     loadReviewStatus(weekId, organization, resolveOrgResultScope(mode), managedRow.week_start_date),
-    loadInfoLineCatalog(),
+    loadInfoLineCatalog(organization),
     listTeams(organization, mode),
     loadProcessLineGroups("info"),
     loadProcessLineGroups("experience"),

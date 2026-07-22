@@ -6,7 +6,8 @@
 //   - cluster4_lines/snapshot/개설 플로우 코드는 호출하지도 수정하지도 않는다 —
 //     브리지는 마스터 행 확보 + line_registrations.bridged_* 기록까지만.
 //     개설은 기존 허브별 플로우(마스터 드롭다운)에서 그대로 수행된다.
-//   - info: 마스터가 없으므로 브리지 불가(프리필 전용 — UI 안내).
+//   - info: 마스터가 없으므로 브리지 불가. 실무 정보는 고정 9종 활동유형에 등록 원장을
+//     연결하는 구조이며(2026-07-22 제품 계약 확정), 연결 키는 point_activity_type_id 다.
 //   - org 미지정(null) 등록은 브리지 불가 (마스터 UNIQUE(org, line_code) 정합 + 분모A org 판정).
 //   - career 프로필: manager_profile_key 토큰은 supervisor_profile_img 로 옮기지 않는다(NULL) —
 //     이미지 자산 확정 후 별도 작업 (2026-06-07 결정 4).
@@ -164,10 +165,12 @@ export async function bridgeLineRegistration(
     throw e;
   }
 
+  // 정보 허브 — 마스터가 없고, 신규 활동유형도 만들지 않는다(고정 9종 제품 계약).
+  //   info 등록의 "연결"은 point_activity_type_id(9종 중 하나) 지정이며 등록/수정 폼에서 수행한다.
   if (reg.hub === "info") {
     throw new LineBridgeError(
       400,
-      "실무 정보는 마스터가 없어 브리지 대상이 아닙니다 — 기존 개설 화면에서 직접 개설하세요(프리필 지원).",
+      "실무 정보는 개설 마스터가 없어 브리지 대상이 아닙니다 — 등록/수정에서 활동유형(고정 9종)을 지정하세요.",
     );
   }
   if (!reg.organizationSlug) {

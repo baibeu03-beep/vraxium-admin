@@ -4,6 +4,7 @@
 //   테이블 미적용(마이그 전) 시 available:false + 값 0/미저장(무회귀). org 스코프 = registrations 미러.
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { listInfoLineCatalog } from "@/lib/adminInfoLineCatalog";
 import type { OrganizationSlug } from "@/lib/organizations";
 import { EXPERIENCE_LINE_TYPES } from "@/lib/adminTeamPartsInfoWeekDetailData";
 // 실무 경험 활동유형 라벨/매핑 SoT (browser-safe 단일 정의) — 라인 등록 폼/편집 모달과 동일 원천.
@@ -79,14 +80,10 @@ async function listAvailableKeys(
 ): Promise<LinePointConfigRow[]> {
   const rows: LinePointConfigRow[] = [];
 
-  // info = activity_types(practical_info).
-  const { data: at } = await supabaseAdmin
-    .from("activity_types")
-    .select("id, name")
-    .eq("cluster_id", "practical_info")
-    .eq("is_active", true);
-  for (const r of (at ?? []) as Array<{ id: string; name: string | null }>) {
-    rows.push({ hub: "info", configKey: r.id, label: r.name ?? r.id, pointA: null, pointB: null });
+  // info = 정보 라인 카탈로그(정본 9종 + 등록된 신규 라인). config_key = activity_types.id.
+  //   org 스코프를 그대로 태운다 — 조직 전용 라인의 포인트 키가 다른 조직 편집 화면에 새지 않는다.
+  for (const l of await listInfoLineCatalog(organization === "common" ? null : organization)) {
+    rows.push({ hub: "info", configKey: l.lineId, label: l.lineName, pointA: null, pointB: null });
   }
 
   // experience = 카테고리 enum(고정 5종).

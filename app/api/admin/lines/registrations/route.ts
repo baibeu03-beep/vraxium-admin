@@ -25,6 +25,7 @@ import {
   listLineRegistrations,
 } from "@/lib/adminLineRegistrationsData";
 import { LineBridgeError, bridgeLineRegistration } from "@/lib/adminLineBridgeData";
+import { assertInfoRegistrationPolicy } from "@/lib/adminInfoLineRegistrationPolicy";
 import {
   deriveLineConfigKey,
   upsertLinePointConfig,
@@ -140,6 +141,26 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // ── [정보 허브] 고정 9종 정책 게이트 — **행 생성 전에** 검증한다 ────────────────
+  //   실무 정보 활동유형은 고정 9종이고 info 등록은 그 9종에 정식 라인명/코드/포인트를 연결하는
+  //   원장이다(신규 활동유형을 만들지 않는다). 따라서:
+  //     · 활동유형 미선택/9종 외 값 → 422 INFO_ACTIVITY_TYPE_REQUIRED
+  //     · 같은 조직 범위에 그 활동유형의 활성 등록이 이미 있음 → 409 (수정 경로로 유도)
+  //   ⚠ 종전처럼 registration 을 먼저 만들고 포인트만 실패시키는 부분 성공 구조를 쓰지 않는다 —
+  //     "등록은 됐는데 연결은 안 된" 반쪽 행이 목록에 남는다. 요청 전체를 거절해 일관성을 지킨다.
+  if (parsed.value.hub === "info") {
+    const violation = await assertInfoRegistrationPolicy({
+      pointActivityTypeId: parsed.value.pointActivityTypeId,
+      organizationSlug: parsed.value.organizationSlug,
+    });
+    if (violation) {
+      return Response.json(
+        { success: false, code: violation.code, error: violation.message },
+        { status: violation.status },
+      );
+    }
+  }
+
   let registration;
   try {
     registration = await createLineRegistration(parsed.value, admin.userId);
@@ -164,7 +185,15 @@ export async function POST(request: NextRequest) {
   };
   const pointA = toPoint(b.point_a);
   const pointB = toPoint(b.point_b);
-  const infoActivityTypeId = typeof b.point_activity_type_id === "string" ? b.point_activity_type_id : null;
+  // info 포인트 config_key = 선택된 활동유형 id(고정 9종 중 하나).
+  //   info 는 위 정책 게이트를 통과했으므로 이 값이 항상 유효하다 → 도출 실패 경로가 없다.
+  //   (registration.pointActivityTypeId 를 쓴다 — 저장된 값과 config_key 가 갈릴 여지를 없앤다.)
+  const infoActivityTypeId =
+    registration.hub === "info"
+      ? registration.pointActivityTypeId
+      : typeof b.point_activity_type_id === "string"
+        ? b.point_activity_type_id
+        : null;
 
   let pointConfig: { saved: boolean; configKey: string | null; reason?: string } = { saved: false, configKey: null };
   const hasPoint = pointA !== null || pointB !== null;
@@ -176,7 +205,12 @@ export async function POST(request: NextRequest) {
       infoActivityTypeId,
     });
     if (!derived) {
-      pointConfig = { saved: false, configKey: null, reason: registration.hub === "info" ? "info 는 포인트 대상 활동유형을 선택해야 저장됩니다." : "포인트 config_key 를 도출할 수 없습니다." };
+      // info 는 위 정책 게이트 통과 후이므로 여기 오지 않는다(방어적 분기).
+      pointConfig = {
+        saved: false,
+        configKey: null,
+        reason: "포인트 config_key 를 도출할 수 없습니다.",
+      };
     } else {
       try {
         await upsertLinePointConfig({
@@ -203,7 +237,8 @@ export async function POST(request: NextRequest) {
   //   ⚠ 새 로직을 만들지 않는다 — 기존 bridgeLineRegistration() 을 그대로 호출한다.
   //     (마스터 find-or-create·무덮어쓰기·멱등(already_bridged)·info 400 거부·org 미지정 400 ·
   //      마스터 UUID 체계가 전부 그 함수의 기존 계약이다.)
-  //   · info: 적용하지 않는다 — 개설 단위가 activity_types 이며 마스터가 없다(함수도 400 으로 거부).
+  //   · info: 적용하지 않는다 — 개설 단위가 고정 9종 activity_types 이며 마스터가 없다(함수도 400 거부).
+  //     info 의 연결은 등록 시 point_activity_type_id(9종 중 하나) 지정으로 끝난다.
   //   · career: 이번 단계 대상 아님(등록 화면의 라인 정보 탭에서도 제외되는 허브).
   //   · 조직 권한은 위 createAccess 게이트에서 이미 통과했다(추가 검사 불필요·중복 금지).
   //
@@ -239,6 +274,8 @@ export async function POST(request: NextRequest) {
     }
   } else {
     // info/career — 연결 대상 아님. linked=false 지만 reason 없음(실패가 아니라 "해당 없음").
+    //   info 의 "연결"은 마스터 브리지가 아니라 point_activity_type_id(고정 9종) 지정이며,
+    //   그것은 위 정책 게이트에서 이미 필수로 강제됐다.
     bridge = { linked: false };
   }
 

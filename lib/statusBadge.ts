@@ -35,6 +35,9 @@ const LABEL_TONE: Record<string, BadgeTone> = {
   개인휴식: "warning",
   "공식 휴식": "info",
   공식휴식: "info",
+  // 주차 활동 유형(주차 결과(크루)) — 휴식과 짝을 이루는 "공식 활동".
+  "공식 활동": "success",
+  공식활동: "success",
   "시즌 휴식": "info",
   시즌휴식: "info",
   "진행 중": "neutral",
@@ -63,6 +66,9 @@ const LABEL_TONE: Record<string, BadgeTone> = {
   "수동 부여": "info",
   "체크 대상 아님": "neutral",
   "검수 대기": "violet",
+  // 주차 결과(크루) 3종 표시 상태 — "진행 중"/"집계 중"은 위 등록분과 같은 색을 공유한다.
+  "검수 완료": "success",
+  검수완료: "success",
 
   // 액트 종류(필수/자율/선별/기타)
   필수: "info",

@@ -14,7 +14,7 @@
 //   - 버튼 우측 하단: [등록] [초기화]
 //   - 하단 "등록된 라인" 목록은 /admin/lines/info 로 이동 (2026-06-07) — 이 화면은 등록 폼만.
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Loader2, Trash2, Upload, X } from "lucide-react";
 import { readOrgParam } from "@/lib/adminOrgContext";
@@ -32,6 +32,10 @@ import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { useActionToast } from "@/lib/actionToast";
 import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 import { cn } from "@/lib/utils";
+import {
+  INFO_ALL_REGISTERED_BODY,
+  INFO_ALL_REGISTERED_TITLE,
+} from "@/lib/adminInfoLineRegistrationMessages";
 import {
   experienceActivityTypeForLineType,
   LINE_DURATION_OPTIONS,
@@ -62,7 +66,9 @@ function lineTypeOptions(hub: HubSelection): readonly string[] {
 // 강화 시 포인트(Point.A/B) — 0~20 정수 + 미설정(""). Point.C 는 라인에 두지 않는다.
 const POINT_SELECT_OPTIONS: string[] = ["", ...Array.from({ length: 21 }, (_, i) => String(i))];
 
-// 실무 정보 포인트 대상 활동유형 — config_key = activity_types.id(표시명/순서로 조인하지 않음).
+// 실무 정보 고정 9종 — config_key = activity_types.id(표시명/순서로 조인하지 않음).
+//   ⚠ info 등록은 **신규 활동유형을 만들지 않는다**(2026-07-22 제품 계약). 이 9개가 실행 유니버스 전부다.
+//   서버 SoT = lib/adminInfoLineCatalog.INFO_ACTIVITY_TYPE_IDS (이 배열은 그 순서의 라벨 미러).
 const INFO_ACTIVITY_TYPES: ReadonlyArray<{ id: string; label: string }> = [
   { id: "wisdom", label: "위즈덤" },
   { id: "essay", label: "에세이" },
@@ -74,6 +80,21 @@ const INFO_ACTIVITY_TYPES: ReadonlyArray<{ id: string; label: string }> = [
   { id: "community", label: "커뮤니티" },
   { id: "etc_a", label: "기타A" },
 ];
+
+// 실무 정보 허브 안내 — "새 라인 추가" 오인 차단(요구 §6).
+const INFO_HUB_NOTICE =
+  "실무 정보는 고정된 9개 활동유형에 정식 라인명과 라인 코드를 연결하는 기능입니다. 새로운 활동유형은 생성되지 않습니다.";
+const INFO_ACTIVITY_TYPE_REQUIRED_FIELD_ERROR = "실무 정보 활동유형을 선택해주세요.";
+const INFO_ACTIVITY_TYPE_DUPLICATE_ERROR =
+  "선택한 활동유형에는 이미 정식 라인이 등록되어 있습니다. 기존 라인을 수정해주세요.";
+
+// 허브별 카드 제목/설명 — info 만 "연결" 성격을 제목에서부터 밝힌다.
+function hubCardCopy(hub: HubSelection): { title: string; description: string | null } {
+  if (hub === "info") {
+    return { title: "실무 정보 정식 라인 등록", description: INFO_HUB_NOTICE };
+  }
+  return { title: "라인 등록", description: null };
+}
 
 // ──────────────────────────────────────────────────────────────
 // 필드 라벨 — 라벨 텍스트 + 요소별 편집형 돋보기 도움말(AdminHelpIconButton).
@@ -288,8 +309,14 @@ export default function LineRegistrationManager() {
   // ── 강화 시 포인트 (라인과 함께 저장 → cluster4_line_point_configs) ──
   const [pointA, setPointA] = useState(""); // "" = 미설정
   const [pointB, setPointB] = useState("");
-  // 실무 정보 포인트 대상 활동유형(config_key). info 일 때만 사용.
+  // 실무 정보 포인트 대상 활동유형(config_key). info 일 때만 사용 — **필수**.
   const [infoActivityTypeId, setInfoActivityTypeId] = useState("");
+  const [infoActivityTypeError, setInfoActivityTypeError] = useState<string | null>(null);
+  const infoActivitySelectRef = useRef<HTMLSelectElement>(null);
+  // 이 조직 범위에서 이미 활성 등록이 있는 활동유형 id 집합(= 신규 등록 불가·수정 경로 안내 대상).
+  //   서버 중복 판정과 **동일 기준**(hub=info + 같은 organization_slug + is_active)으로 만든다.
+  //   조회 결과에 스코프를 함께 담아, 조직을 바꾼 직후 이전 조직의 점유 현황이 잠깐 보이는 일이 없게 한다.
+  const [takenByScope, setTakenByScope] = useState<{ org: string; ids: Set<string> } | null>(null);
 
   // ── 실무 경력 전용 ──
   const [partnerCompany, setPartnerCompany] = useState("");
@@ -300,6 +327,63 @@ export default function LineRegistrationManager() {
   const [managerProfileKey, setManagerProfileKey] = useState("");
 
   const isCareer = hub === "career";
+  const isInfo = hub === "info";
+
+  // 등록 대상 조직(payload 와 동일 값) — URL org 고정 > select. 미선택이면 null.
+  //   info 슬롯 점유 판정은 **이 값 기준**이어야 서버 중복 판정(같은 organization_slug)과 어긋나지 않는다.
+  const effectiveOrg = scopedOrg ?? (orgSlug || null);
+
+  // ── 실무 정보 슬롯 점유 현황 로드 ────────────────────────────────────────
+  //   허브가 info 이고 대상 조직이 정해졌을 때만 조회한다. 기존 GET 을 그대로 쓰고(신규 엔드포인트 없음)
+  //   organizationSlug 가 **정확히 일치**하는 활성 행만 점유로 센다(common 과 org 전용은 별개 슬롯 —
+  //   서버 findConflictingInfoRegistration 과 동일 기준).
+  useEffect(() => {
+    if (!isInfo || !effectiveOrg) return;
+    const org = effectiveOrg;
+    let cancelled = false;
+    (async () => {
+      // 조회 실패는 등록을 막지 않는다 — 서버가 최종 게이트다(422/409). 빈 집합으로 진행한다.
+      let ids = new Set<string>();
+      try {
+        const res = await fetch("/api/admin/lines/registrations?hub=info&limit=200");
+        const json = await res.json().catch(() => ({}));
+        if (res.ok && json?.success) {
+          const rows = (json.data?.rows ?? []) as Array<{
+            organizationSlug: string | null;
+            pointActivityTypeId: string | null;
+            isActive: boolean;
+          }>;
+          ids = new Set(
+            rows
+              .filter((r) => r.isActive && r.organizationSlug === org && r.pointActivityTypeId)
+              .map((r) => r.pointActivityTypeId as string),
+          );
+        }
+      } catch {
+        /* 네트워크 실패 — 빈 집합 유지 */
+      }
+      if (!cancelled) setTakenByScope({ org, ids });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isInfo, effectiveOrg]);
+
+  // 현재 스코프의 점유 집합만 채택(스코프 불일치/미조회 = null → 아직 판단 불가).
+  const takenActivityTypeIds = useMemo(
+    () =>
+      isInfo && effectiveOrg && takenByScope?.org === effectiveOrg ? takenByScope.ids : null,
+    [isInfo, effectiveOrg, takenByScope],
+  );
+
+  // 9종 모두 점유 = 신규 등록 불가(제출 차단 + 팝업).
+  const infoAllRegistered = useMemo(
+    () =>
+      isInfo &&
+      takenActivityTypeIds != null &&
+      INFO_ACTIVITY_TYPES.every((a) => takenActivityTypeIds.has(a.id)),
+    [isInfo, takenActivityTypeIds],
+  );
 
   // 허브 변경 → 라인 종류를 그 허브의 첫 옵션으로 리셋. 비career 전환 시 경력 전용 카드는
   // 비활성화(서버에서도 null 강제 — 이중 안전망으로 전송 자체를 생략).
@@ -380,6 +464,39 @@ export default function LineRegistrationManager() {
       return;
     }
 
+    // ── 실무 정보 고정 9종 정책 — POST 이전에 차단한다(요청 자체가 나가지 않는다) ──
+    //   서버(422/409)가 최종 게이트이고 여기는 그 규칙의 UI 미러다. 둘 중 하나만 고쳐 어긋나지
+    //   않도록 판정 기준(조직 범위 = effectiveOrg 정확히 일치)을 서버와 동일하게 맞춘다.
+    if (hub === "info") {
+      if (infoAllRegistered) {
+        // 등록 API 호출 전에 차단한다(요청 자체가 나가지 않는다). 서버도 같은 판정을 409 로 강제.
+        //   문구는 "왜 안 되는지"만 — 대안 안내나 이동 CTA 는 붙이지 않는다(운영 결정).
+        await adminDialog.alert({
+          variant: "warning",
+          title: INFO_ALL_REGISTERED_TITLE,
+          description: INFO_ALL_REGISTERED_BODY,
+        });
+        return;
+      }
+      if (!infoActivityTypeId) {
+        setInfoActivityTypeError(INFO_ACTIVITY_TYPE_REQUIRED_FIELD_ERROR);
+        setBanner({ kind: "error", message: INFO_ACTIVITY_TYPE_REQUIRED_FIELD_ERROR });
+        infoActivitySelectRef.current?.focus();
+        infoActivitySelectRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+        return;
+      }
+      if (takenActivityTypeIds?.has(infoActivityTypeId)) {
+        setInfoActivityTypeError(INFO_ACTIVITY_TYPE_DUPLICATE_ERROR);
+        await adminDialog.alert({
+          variant: "warning",
+          title: "이미 등록된 활동유형입니다",
+          description: INFO_ACTIVITY_TYPE_DUPLICATE_ERROR,
+        });
+        infoActivitySelectRef.current?.focus();
+        return;
+      }
+    }
+
     setSaving(true);
     setBanner(null);
     try {
@@ -428,7 +545,12 @@ export default function LineRegistrationManager() {
       const br = json.bridge as
         | { linked: boolean; action?: string; reason?: string }
         | undefined;
+      // 등록만으로 개설 목록에 반영되어야 하는 허브 = 마스터 브리지 대상(경험/역량)뿐이다.
+      //   info 는 마스터가 없고 고정 9종에 원장을 연결하는 구조라 브리지 대상이 아니다(해당 없음).
       const autoBridgeHub = hub === "experience" || hub === "competency";
+      // 실무 정보 성공 문구 — 어떤 활동유형에 연결됐는지 라벨로 밝힌다.
+      const infoActivityLabel =
+        INFO_ACTIVITY_TYPES.find((a) => a.id === infoActivityTypeId)?.label ?? null;
       // 어떤 허브로 등록됐는지 결과 문구에 명시한다 — 허브를 잘못 고른 채 등록하고
       //   "다른 허브 목록에 왜 안 보이지"로 이어지는 오인을 결과 시점에 차단한다.
       //   (허브를 고르면 라인 종류가 그 허브의 첫 값으로 자동 지정되므로 오선택을 눈치채기 어렵다.)
@@ -448,9 +570,20 @@ export default function LineRegistrationManager() {
           }`,
         );
       } else if (enteredPoints && !pc?.saved) {
-        // 라인은 등록됐지만 강화 포인트 저장은 실패 — 상세 사유는 콘솔에만.
+        // 라인은 등록됐지만 강화 포인트 저장은 실패(테이블 미적용 등). 업무 사유(4xx)는 그대로
+        //   노출하고 내부 오류(5xx/스택)는 숨긴 채 확인 경로만 안내한다(lib/apiError SoT 와 동일 원칙).
+        //   ※ info 활동유형 미선택으로 인한 실패는 이제 존재하지 않는다 — 등록 자체가 422 로 거절된다.
         console.warn("line registered but point config not saved", pc?.reason);
-        t.raw("warning", "라인은 등록되었지만 강화 포인트는 저장되지 않았습니다. 다시 시도해주세요.");
+        t.raw(
+          "warning",
+          "라인은 등록되었지만 포인트 설정은 저장되지 않았습니다. 포인트 설정을 다시 확인해주세요.",
+        );
+      } else if (hub === "info") {
+        // 정보 = 고정 9종 중 하나에 정식 라인 정보를 연결한 것 — "새 라인 추가"로 읽히지 않게 쓴다.
+        t.success(
+          "create",
+          `[${infoActivityLabel ?? "실무 정보"}] 정식 라인 정보와 포인트 설정이 저장되었습니다.`,
+        );
       } else if (autoBridgeHub) {
         t.success("create", `${registeredAs}라인이 등록되어 관련 개설 목록에 반영되었습니다.`);
       } else {
@@ -467,6 +600,7 @@ export default function LineRegistrationManager() {
     hasInvalidOrg, rawOrgParam, scopedOrg,
     lineName, hub, lineType, lineCode, orgSlug, mainTitleMode, mainTitle, unitLink,
     durationMinutes, pointA, pointB, infoActivityTypeId,
+    infoAllRegistered, takenActivityTypeIds,
     partnerCompany, companyLogo, managerName, managerPosition, managerJob,
     managerProfileKey, handleReset, t,
   ]);
@@ -493,14 +627,29 @@ export default function LineRegistrationManager() {
 
       <Card>
         <CardHeader>
-          <CardTitle>라인 등록</CardTitle>
+          <CardTitle>{hubCardCopy(hub).title}</CardTitle>
+          {hubCardCopy(hub).description && (
+            <p className="text-sm text-muted-foreground">{hubCardCopy(hub).description}</p>
+          )}
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* 9종 모두 점유 — 제출 전에 상태를 먼저 알린다(제출 시엔 팝업으로 다시 차단). */}
+          {infoAllRegistered && (
+            <div
+              data-info-all-registered
+              className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+            >
+              <p className="font-medium">{INFO_ALL_REGISTERED_TITLE}</p>
+              <p className="mt-0.5 whitespace-pre-line text-xs">{INFO_ALL_REGISTERED_BODY}</p>
+            </div>
+          )}
           {/* ── 기본 정보 — 1행 라인명 / 2행 허브·종류 / 3행 코드·유닛 링크 / 4행 메인 타이틀 ── */}
           <div className="space-y-4">
             {/* 1행: 라인명 (전체 폭) */}
             <FormRow label="라인명" helpKey="admin.lines.register.lineName" required>
               <Input
+                aria-label="라인명"
+                data-line-name
                 value={lineName}
                 onChange={(e) => setLineName(e.target.value)}
                 placeholder="예) 마케팅 전략 라인"
@@ -593,6 +742,8 @@ export default function LineRegistrationManager() {
             <div className="grid grid-cols-1 gap-x-8 gap-y-4 lg:grid-cols-3">
               <FormRow label="라인 코드" helpKey="admin.lines.register.lineCode" required>
                 <Input
+                  aria-label="라인 코드"
+                  data-line-code
                   value={lineCode}
                   onChange={(e) => setLineCode(e.target.value)}
                   placeholder="예) WCBS-NL0001"
@@ -697,23 +848,63 @@ export default function LineRegistrationManager() {
               </h3>
               <AdminHelpIconButton helpKey="admin.lines.register.pointSection" title="강화 시 포인트" size="xs" />
             </div>
-            {/* 실무 정보는 활동유형(activity_types.id)을 config_key 로 사용 — 표시명/순서 조인 금지. */}
+            {/* 실무 정보 활동유형 — **필수**. 고정 9종 중 하나에 이 등록을 연결한다(신규 생성 없음).
+                이미 이 조직 범위에 활성 등록이 있는 활동유형은 선택 불가(수정 경로 안내). 서버도
+                동일 규칙을 422/409 로 강제하므로 UI 우회는 통하지 않는다. */}
             {hub === "info" && (
-              <FormRow label="포인트 대상 활동유형" helpKey="admin.lines.register.pointActivityType">
-                <select
-                  aria-label="포인트 대상 활동유형"
-                  data-point-activity-type
-                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                  value={infoActivityTypeId}
-                  onChange={(e) => setInfoActivityTypeId(e.target.value)}
-                >
-                  <option value="">-</option>
-                  {INFO_ACTIVITY_TYPES.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.label} ({a.id})
-                    </option>
-                  ))}
-                </select>
+              <FormRow
+                label="포인트 대상 활동유형"
+                helpKey="admin.lines.register.pointActivityType"
+                required
+              >
+                <div className="space-y-1">
+                  <select
+                    ref={infoActivitySelectRef}
+                    aria-label="포인트 대상 활동유형"
+                    aria-invalid={infoActivityTypeError != null}
+                    aria-describedby={
+                      infoActivityTypeError ? "info-activity-type-error" : undefined
+                    }
+                    data-point-activity-type
+                    className={cn(
+                      "h-9 w-full rounded-md border bg-background px-3 text-sm",
+                      infoActivityTypeError
+                        ? "border-rose-400 ring-1 ring-rose-300"
+                        : "border-input",
+                    )}
+                    value={infoActivityTypeId}
+                    onChange={(e) => {
+                      setInfoActivityTypeId(e.target.value);
+                      if (e.target.value) setInfoActivityTypeError(null);
+                    }}
+                  >
+                    <option value="">활동유형을 선택하세요</option>
+                    {INFO_ACTIVITY_TYPES.map((a) => {
+                      const taken = takenActivityTypeIds?.has(a.id) ?? false;
+                      return (
+                        <option
+                          key={a.id}
+                          value={a.id}
+                          disabled={taken}
+                          data-taken={taken ? "true" : undefined}
+                        >
+                          {a.label} ({a.id}){taken ? " — 등록 완료" : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  {infoActivityTypeError ? (
+                    <p id="info-activity-type-error" className="text-xs text-rose-600">
+                      {infoActivityTypeError}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      {effectiveOrg
+                        ? "이미 등록된 활동유형은 선택할 수 없습니다 — 라인 정보에서 수정해주세요."
+                        : "소속 클럽을 먼저 선택하면 등록 가능한 활동유형이 표시됩니다."}
+                    </p>
+                  )}
+                </div>
               </FormRow>
             )}
             {/* 실무 경험 활동유형 — config_key 는 line_type 에서 파생(별도 저장 필드 없음)이므로

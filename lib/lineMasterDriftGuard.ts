@@ -214,8 +214,11 @@ import type { LineRegistrationDto } from "@/lib/adminLineRegistrationsTypes";
 export async function syncMasterFromRegistration(
   reg: LineRegistrationDto,
 ): Promise<DriftSyncResult> {
+  // 정보 허브 — mirror 대상 없음. activity_types(고정 9종)의 name/line_code 는 고객 앱 라벨과
+  //   과거 개설/주차/snapshot 이 매달린 정본이므로 **등록 원장 값으로 절대 덮지 않는다**.
+  //   등록 원장의 라인명/코드는 화면에서 registeredLineName/registeredLineCode 로만 보여준다.
+  if (reg.hub === "info") return { synced: false, warning: null };
   if (!reg.bridgedMasterId) return { synced: false, warning: null }; // 미브리지 — 정상
-  if (reg.hub === "info") return { synced: false, warning: null }; // info — 마스터 없음
 
   const fixedTitle = reg.mainTitleMode === "fixed" && reg.mainTitle.trim() ? reg.mainTitle : null;
 

@@ -152,31 +152,44 @@ export async function resolveCurrentWeekStartDate(todayIso: string): Promise<str
 
 // (weekStartDate, userIds) → userId → override. 한 유저가 그 주차에 복수 팀 override 를 가지면
 //   마지막 행이 이긴다(현재-시점 칩은 값 1개만 표시 가능 — 실무상 예외 케이스).
+// 유저 목록 × (week_start_date ≤ maxWeekStartDate) override 행 전부. carry-forward 계산 원천.
+//   organization 을 주면 그 조직으로 한정한다(안 주면 유저의 전 조직 — 실무상 1조직).
+export async function loadUserOverrideRowsUpTo(
+  userIds: string[],
+  maxWeekStartDate: string,
+  organization?: string | null,
+): Promise<WeekPositionOverrideRow[]> {
+  const ids = Array.from(new Set(userIds.filter(Boolean)));
+  if (ids.length === 0 || !maxWeekStartDate) return [];
+  const all: WeekPositionOverrideRow[] = [];
+  const CHUNK = 100; // UUID 100개 ≈ 3.7KB — PostgREST URL 한도 안전 구간.
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    let q = supabaseAdmin
+      .from("cluster4_team_week_position_overrides")
+      .select(SELECT_COLS)
+      .lte("week_start_date", maxWeekStartDate)
+      .in("user_id", ids.slice(i, i + CHUNK));
+    if (organization) q = q.eq("organization", organization);
+    const { data, error } = await q;
+    if (error) {
+      if (isMissingTableError(error)) return [];
+      console.warn("[team-week-position-override] 유저 override 조회 실패 → UPH/멤버십 SoT 유지", {
+        message: (error as { message?: string }).message,
+      });
+      return [];
+    }
+    all.push(...toRows(data));
+  }
+  return all;
+}
+
 //   carry-forward — 그 주차 이하 최근 행(유저별). 한 유저가 복수 팀 override 를 가지면 마지막 팀이 이긴다.
 export async function loadWeekPositionOverridesByUser(
   weekStartDate: string,
   userIds: string[],
 ): Promise<Map<string, OverridePosition>> {
   const out = new Map<string, OverridePosition>();
-  const ids = Array.from(new Set(userIds.filter(Boolean)));
-  if (ids.length === 0 || !weekStartDate) return out;
-  const all: WeekPositionOverrideRow[] = [];
-  const CHUNK = 100; // UUID 100개 ≈ 3.7KB — PostgREST URL 한도 안전 구간.
-  for (let i = 0; i < ids.length; i += CHUNK) {
-    const { data, error } = await supabaseAdmin
-      .from("cluster4_team_week_position_overrides")
-      .select(SELECT_COLS)
-      .lte("week_start_date", weekStartDate)
-      .in("user_id", ids.slice(i, i + CHUNK));
-    if (error) {
-      if (isMissingTableError(error)) return out;
-      console.warn("[team-week-position-override] current-week rows 조회 실패 → 멤버십 SoT 유지", {
-        message: (error as { message?: string }).message,
-      });
-      return out;
-    }
-    all.push(...toRows(data));
-  }
+  const all = await loadUserOverrideRowsUpTo(userIds, weekStartDate);
   const index = buildOverrideIndex(all, (r) => r.userId);
   for (const [uid, arr] of index) {
     const hit = resolveOverrideAt(arr, weekStartDate);

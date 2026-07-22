@@ -10,6 +10,7 @@
 //   대상 주차 = 개설 대상(금요일 경계, openable) — 상태창(opening-status)·팀 총괄과 동일 SoT.
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { loadCurrentWeekOverrideLabels } from "@/lib/positionResolver";
 import {
   describeWeekByStartMs,
   getOpenableWeekStartMs,
@@ -18,7 +19,7 @@ import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import { listTeams } from "@/lib/adminExperienceLineData";
 import { getTeamOverallBoard } from "@/lib/adminExperienceTeamOverall";
 import { resolveUserScope, type ScopeMode } from "@/lib/userScope";
-import { memberStatusLabel } from "@/lib/adminMembersTypes";
+import { resolvePositionLabels } from "@/lib/adminMembersTypes";
 import { EXPERIENCE_OVERALL_CATEGORIES } from "@/lib/experienceTeamOverallTypes";
 import type {
   ExperienceLineManageSummary,
@@ -113,24 +114,38 @@ async function loadOrgTeamRoster(
   // 팀명 → 팀장 user_id(팀별 첫 번째). 학적은 아래에서 일괄 조회 후 채운다.
   const leaderUserByTeam = new Map<string, string>();
 
+  // 현재 주차 파트/클래스 override — 명부 역할 판정에 반영(현재 상태 화면 규칙).
+  const weekOverrides = await loadCurrentWeekOverrideLabels(profs.map((x) => x.user_id));
   for (const p of profs) {
     // 모집단 스코프: operating=실사용자만 / test=테스트 유저만 (구 무조건 제외 버그 해소).
     if (!scope.includes(p.user_id)) continue;
     const m = memMap.get(p.user_id);
     if (!m || !m.team_name) continue;
-    const label = memberStatusLabel(roleById(profById, p.user_id), m.membership_level);
-    if (label === "팀장") {
+    // ⚠ 라벨 문자열("일반"/"심화(파트장)")로 분기하지 않는다 — 어휘 2종이 섞이면 어느 분기에도
+    //   안 걸려 그 사람이 집계에서 사라진다. 공통 변환기가 준 positionCode 로만 판정한다.
+    const ovr = weekOverrides.get(p.user_id) ?? null;
+    const code = resolvePositionLabels({
+      positionCode: ovr?.positionCode ?? null,
+      role: roleById(profById, p.user_id),
+      membershipLevel: m.membership_level,
+    }).positionCode;
+    if (code === "operating_team_leader") {
       // 팀장은 crew 명부 집계 제외 — 카드 표시용으로 팀별 1명만 잡는다.
       if (!leaderUserByTeam.has(m.team_name)) leaderUserByTeam.set(m.team_name, p.user_id);
       continue;
     }
-    const part = m.part_name?.trim() ?? "";
+    // 클래스만 override 를 따르고 파트는 멤버십을 쓰면 같은 사람이 화면마다 다른 파트로 잡힌다 — 동일 SoT.
+    const part = (ovr ? ovr.rawPart : m.part_name)?.trim() ?? "";
     if (!part || ROSTER_EXCLUDED_PARTS.has(part)) continue;
-    let statusKey: "normal" | "partLeader" | "agent" | null = null;
-    if (label === "일반") statusKey = "normal";
-    else if (label === "심화(파트장)") statusKey = "partLeader";
-    else if (label === "심화(에이전트)") statusKey = "agent";
-    if (!statusKey) continue; // 관리자/크루(등급미상) 등은 명부 제외(팀 총괄 코호트와 동일).
+    const statusKey: "normal" | "partLeader" | "agent" | null =
+      code === "regular"
+        ? "normal"
+        : code === "advanced_part_leader"
+          ? "partLeader"
+          : code === "advanced_agent"
+            ? "agent"
+            : null;
+    if (!statusKey) continue; // 운영진/관리자/등급미상 등은 명부 제외(팀 총괄 코호트와 동일).
 
     const hc = headcounts.get(m.team_name) ?? emptyHeadcount();
     hc.total++;

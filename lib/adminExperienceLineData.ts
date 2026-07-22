@@ -4,6 +4,7 @@ import {
   toLineDurationDto,
 } from "@/lib/adminLineRegistrationsData";
 import { fetchCrewNoMap } from "@/lib/adminCrewNo";
+import { loadCurrentWeekOverrideLabels } from "@/lib/positionResolver";
 import {
   resolveUserScope,
   type ScopeMode,
@@ -488,18 +489,24 @@ export async function listCrewsForTargetSelection(options: {
   }
 
   // 운영용 크루 번호 — best-effort(컬럼 미존재 시 빈 맵). 기존 select 무변경.
-  const crewNoMap = await fetchCrewNoMap(userIds);
+  // 소속(팀/파트)은 현재 주차 override 우선 — 라인 개설 대상자 목록이 회원 목록/팀 상세와 같은
+  //   소속을 보여야 한다(현재 상태 화면 규칙). 등급 필터(membershipLevel)는 멤버십 등급 원본 유지.
+  const [crewNoMap, weekOverrides] = await Promise.all([
+    fetchCrewNoMap(userIds),
+    loadCurrentWeekOverrideLabels(userIds),
+  ]);
 
   let result: CrewItemDto[] = scopedProfiles.map((p) => {
     const m = memMap.get(p.user_id);
+    const ovr = weekOverrides.get(p.user_id) ?? null;
     return {
       userId: p.user_id,
       displayName: p.display_name ?? "(이름 없음)",
       crewNo: crewNoMap.get(p.user_id) ?? null,
       profileImg: p.profile_photo_url,
       organization: p.organization_slug,
-      teamName: m?.team_name ?? null,
-      partName: m?.part_name ?? null,
+      teamName: ovr?.rawTeam ?? m?.team_name ?? null,
+      partName: ovr ? ovr.rawPart : m?.part_name ?? null,
       membershipLevel: m?.membership_level ?? null,
       membershipState: m?.membership_state ?? null,
     };

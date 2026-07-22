@@ -59,6 +59,9 @@ export type UserActivityModalKey =
   | "work_exp"
   | "work_career";
 
+// 정본 9종(고정). 신규 등록 info 라인('info_*')은 이 목록에 없고 아래 cluster_id 조회
+//   (practical_info → work_info)로 분류된다. 이 상수는 "정본 9종" 의미로만 쓴다 —
+//   info 라인 유니버스는 lib/adminInfoLineCatalog.listInfoLineCatalog 가 SoT다.
 export const WORK_INFO_ACTIVITY_TYPE_IDS = [
   "wisdom",
   "essay",
@@ -78,6 +81,7 @@ export type ActivityTypeClusterMap = Record<string, string>;
 // activity_types.cluster_id 값 → 4개 모달 매핑 (canonical).
 // Career-Resume Cluster4CardContent.tsx 의 분기와 동일 (line 1130-1142).
 const CLUSTER_ID_TO_MODAL: Record<string, UserActivityModalKey> = {
+  practical_info: "work_info",
   practical_competency: "work_ability",
   practical_experience: "work_exp",
   practical_career: "work_career",

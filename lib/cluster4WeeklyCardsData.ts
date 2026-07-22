@@ -36,7 +36,8 @@ import {
 } from "@/lib/lineAvailability";
 import { normalizeOutputImages, RESERVED_ADMIN_IMAGE_SLOTS } from "@/lib/cluster4OutputImages";
 import { experienceBreakdownFromFold } from "@/lib/experienceSlotFold";
-import { memberStatusLabel } from "@/lib/adminMembersTypes";
+import { resolvePositionLabels } from "@/lib/adminMembersTypes";
+import { loadCurrentWeekOverrideLabels } from "@/lib/positionResolver";
 import {
   CLUSTER4_HUB_EDIT_WINDOW_KEYS,
   PART_TYPE_TO_EDIT_WINDOW_KEY,
@@ -1606,7 +1607,15 @@ async function fetchUserTeamAndRole(
   }>;
   const cur = memRows.find((m) => m.is_current) ?? memRows[0] ?? null;
   const p = prof as { role: string | null; organization_slug: string | null } | null;
-  const label = memberStatusLabel(p?.role ?? null, cur?.membership_level ?? null);
+  // 역할 판정 = 공통 변환기의 positionCode(라벨 문자열 비교 금지). 현재 주차 override 가 있으면
+  //   그 값이 이긴다 — 개설 단계(overallMemberStatus)와 같은 SoT 라야 스코프가 갈리지 않는다.
+  const ovrCode = (await loadCurrentWeekOverrideLabels([profileUserId])).get(profileUserId)
+    ?.positionCode;
+  const code = resolvePositionLabels({
+    positionCode: ovrCode ?? null,
+    role: p?.role ?? null,
+    membershipLevel: cur?.membership_level ?? null,
+  }).positionCode;
   let teamId: string | null = null;
   if (cur?.team_name && p?.organization_slug) {
     const { data: team } = await supabaseAdmin
@@ -1619,8 +1628,8 @@ async function fetchUserTeamAndRole(
   }
   return {
     teamId,
-    isPartLeader: label === "심화(파트장)",
-    isAgent: label === "심화(에이전트)",
+    isPartLeader: code === "advanced_part_leader",
+    isAgent: code === "advanced_agent",
   };
 }
 
