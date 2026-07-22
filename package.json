@@ -68,7 +68,15 @@
     "verify:uncomplete-reset": "tsx --env-file=.env.local scripts/verify-uncomplete-collection-reset.ts",
     "verify:cafe-crawl-outcome-unit": "tsx scripts/verify-cafe-crawl-outcome-unit.ts",
     "verify:cafe-crawl-fixtures": "tsx scripts/verify-cafe-crawl-fixtures.ts",
-    "diag:cafe-dom": "tsx scripts/diag-cafe-dom.ts"
+    "diag:cafe-dom": "tsx scripts/diag-cafe-dom.ts",
+    "verify:week-position-propagation": "node scripts/verify-week-position-override-propagation.mjs",
+    "backfill:week-position-snapshots": "tsx --env-file=.env.local scripts/backfill-week-position-override-snapshots.ts",
+    "verify:week-position-scan": "node scripts/scan-week-position-divergence.mjs",
+    "verify:week-position-render": "node scripts/browser-verify-week-position-render.mjs",
+    "verify:week-position-crew-page": "node scripts/browser-verify-crew-page-week-position.mjs",
+    "verify:week-position-api-diff": "node scripts/diff-weekly-cards-admin-vs-front.mjs",
+    "test:week-position-validation": "tsx scripts/test-week-position-validation.ts",
+    "verify:week-position-carry-forward": "node scripts/verify-week-position-carry-forward.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

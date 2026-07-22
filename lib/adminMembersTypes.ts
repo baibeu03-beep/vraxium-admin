@@ -22,6 +22,11 @@ export type AdminMemberDto = {
   // 상태 칩 표기 = memberStatusLabel(role, membershipLevel). 등급 SoT 는
   // membership_level 이며 role 단독으로 "파트장"을 만들지 않는다(아래 함수 주석 참조).
   statusLabel: string;
+  // 클래스 컬럼 표기(정규/심화(파트장)/…). 종전에는 화면이 classLabel(role, membershipLevel) 로
+  //   **클라이언트에서** 만들었는데, 현재 주차 파트/클래스 override 는 role/membershipLevel 을
+  //   건드리지 않으므로 화면이 영원히 멤버십 값을 보여줬다. 서버가 override 를 반영해 계산한
+  //   이 값을 화면이 우선 사용한다(없으면 종전 클라이언트 계산으로 폴백).
+  classLabel: string;
   // user_memberships(is_current=true) 의 비정규화 값 (읽기 전용 — 트리거가 동기화).
   currentTeamName: string | null;
   currentPartName: string | null;
@@ -62,6 +67,27 @@ export function memberStatusLabel(
   }
   if (lv === "일반") return "일반";
   return "크루"; // 멤버십 등급 정보 없음 → 등급 미부여 기본 표기
+}
+
+// position_code → **memberStatusLabel 과 같은 어휘**(일반/심화(파트장)/…)로 변환.
+//   ⚠ POSITION_CODE_TO_LABEL 을 그대로 쓰면 안 된다. 그쪽은 classLabel 어휘("정규")라, 상태 칩이나
+//     "일반/크루" 로 분기하는 집계(loadTeamCurrentCrewByName)에 넣으면 어느 분기에도 안 걸려
+//     그 사람이 집계에서 통째로 사라진다(2026-07-22 실측: [A] 정규6→4).
+export function positionCodeToStatusLabel(code: string): string {
+  switch (code) {
+    case "regular":
+      return "일반";
+    case "advanced_agent":
+      return "심화(에이전트)";
+    case "advanced_part_leader":
+      return "심화(파트장)";
+    case "operating_team_leader":
+      return "팀장";
+    case "operating_ambassador":
+      return "앰배서더";
+    default:
+      return "크루"; // operating_club_leader 등 — 크루 집계 대상 아님.
+  }
 }
 
 // 클래스 라벨 — memberStatusLabel(등급 SoT) → 정규/심화(파트장)/심화(에이전트)/운영진(앰배서더)/운영진(팀장).

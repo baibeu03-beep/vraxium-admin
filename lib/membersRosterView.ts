@@ -37,7 +37,9 @@ export const ROSTER_COLUMNS: RosterColumn[] = [
   { key: "name", label: "이름", type: "string", text: (m) => fmtStr(m.displayName) },
   { key: "club", label: "클럽명", type: "string", text: (m) => clubLabelKo(m.organizationSlug) },
   { key: "status", label: "상태", type: "string", text: (m) => BUCKET_LABEL[statusBucket(m.displayGrowthStatus)] },
-  { key: "class", label: "클래스", type: "string", text: (m) => classLabel(m.role, m.membershipLevel) },
+  // 클래스 = 서버가 현재 주차 override 를 반영해 계산한 m.classLabel 우선.
+  //   (구 응답/미보유 시에만 종전 클라이언트 계산으로 폴백 — [[teamWeekPositionOverride]])
+  { key: "class", label: "클래스", type: "string", text: (m) => m.classLabel || classLabel(m.role, m.membershipLevel) },
   { key: "gender", label: "성별", type: "string", text: (m) => fmtStr(m.gender) },
   { key: "birth", label: "생년월일", type: "date", text: (m) => fmtStr(m.birthDate), date: (m) => birthMs(m.birthDate) },
   { key: "school", label: "학교", type: "string", clamp: "max-w-[160px]", text: (m) => fmtStr(m.schoolName) },

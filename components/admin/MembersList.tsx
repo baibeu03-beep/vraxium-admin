@@ -78,6 +78,8 @@ type Member = {
   poC: number;
   scheduleReliability: number | null;
   activityCompletion: number | null;
+  // 서버가 현재 주차 override 를 반영해 계산한 클래스 표기(구 응답 호환 위해 optional).
+  classLabel?: string;
 };
 
 // 로스터 전체 조회 중 일부 사용자의 성장 지표(snapshot)를 못 읽었을 때의 부분 실패 신호.
@@ -228,7 +230,8 @@ const COLUMNS: Column[] = [
     label: "클래스",
     type: "string",
     help: { helpKey: "admin.members.column.class", title: "클래스" },
-    text: (m) => classLabel(m.role, m.membershipLevel),
+    // 서버가 현재 주차 override 를 반영해 계산한 값 우선(없으면 종전 클라이언트 계산).
+    text: (m) => m.classLabel || classLabel(m.role, m.membershipLevel),
   },
   { key: "gender", label: "성별", type: "string", text: (m) => fmtStr(m.gender) },
   {

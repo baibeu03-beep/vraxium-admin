@@ -11,11 +11,12 @@ import { readScopeMode } from "@/lib/userScopeShared";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getTeamSelectedWeekSummary } from "@/lib/adminTeamSelectedWeekSummary";
 import {
-  validateWeekPositionRows,
+  validateWeekPositionChange,
   POSITION_CODE_VALUES,
   type PositionDraftRow,
 } from "@/lib/teamWeekPositionValidation";
 import type { PositionCode } from "@/lib/positionHistory";
+import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 
 // 팀 상세 [B] — 주차별 파트/클래스 저장(관리자 override, batch).
 //   PATCH ?mode=test  body { organization, weekId, rawTeam, changes:[{userId, rawPart, positionCode}] }
@@ -23,7 +24,11 @@ import type { PositionCode } from "@/lib/positionHistory";
 //     · UPH 원본 무변경 — override 만 생성/갱신. effective = override ?? UPH.
 //   서버 검증(우회 방지): 검수 완료 주차 차단(403) · positionCode 화이트리스트 · 팀 전체 next 상태로
 //     파트장≤1/파트 · 심화≤정규 · <운용>파트(배정 크루≥1 distinct rawPart, '일반' 포함)≤6
-//     (validateWeekPositionRows — 클라이언트 onCellChange 와 동일 순수 함수). 1단계 snapshot invalidate 미호출(#27).
+//     (validateWeekPositionRows — 클라이언트 onCellChange 와 동일 순수 함수).
+//   2단계(2026-07-22): override 는 이제 **공통 SoT** 다. 저장 직후 변경 크루의 weekly-cards snapshot 을
+//     invalidate 해 카드 역할배지/클래스·area-8·이력서 시즌 직책이 같은 값으로 수렴한다
+//     (invalidateWeeklyCardsForUsers: ≤10명 즉시 재계산 / 초과 시 stale+after 백그라운드).
+//     파트×주차 존재표·팀 상세 [A]/[B] 는 조회 시 override 를 coalesce 하므로 캐시가 없다(즉시 반영).
 export async function PATCH(request: NextRequest) {
   let admin: AdminContext;
   try {
@@ -107,10 +112,13 @@ export async function PATCH(request: NextRequest) {
     }
     const weekStart = summary.week.weekStartDate;
 
-    // next 상태 = 현재 팀 crew 행 + 변경 적용. 변경 대상은 반드시 현재 팀 crew.
-    const draft = new Map<string, PositionDraftRow>();
-    for (const r of summary.crewRows)
-      draft.set(r.userId, { userId: r.userId, rawPart: r.rawPart, positionCode: r.positionCode });
+    // prev = 저장 전 effective 상태, next = 변경 적용 상태. 변경 대상은 반드시 현재 팀 crew.
+    const prevRows: PositionDraftRow[] = summary.crewRows.map((r) => ({
+      userId: r.userId,
+      rawPart: r.rawPart,
+      positionCode: r.positionCode,
+    }));
+    const draft = new Map<string, PositionDraftRow>(prevRows.map((r) => [r.userId, r]));
     for (const c of parsed) {
       if (!draft.has(c.userId)) {
         return Response.json(
@@ -120,7 +128,9 @@ export async function PATCH(request: NextRequest) {
       }
       draft.set(c.userId, c);
     }
-    const verdict = validateWeekPositionRows([...draft.values()]);
+    // ⚠ delta 검증(prev→next). whole-state 로 검사하면 팀이 이미 규칙을 어긴 상태에서
+    //   파트만 바꾸는 편집까지 막힌다(2026-07-22 버그). 클라이언트 onCellChange 와 동일 함수.
+    const verdict = validateWeekPositionChange(prevRows, [...draft.values()]);
     if (!verdict.ok) {
       return Response.json({ success: false, error: verdict.message }, { status: 422 });
     }
@@ -143,7 +153,18 @@ export async function PATCH(request: NextRequest) {
       .upsert(rows, { onConflict: "user_id,week_start_date,organization,raw_team" });
     if (error) throw new Error(error.message);
 
-    return Response.json({ success: true, data: { saved: rows.length } });
+    // 변경 크루의 파생 캐시(weekly-cards snapshot) 무효화 — 고객앱/스냅샷 소비 화면 즉시 수렴.
+    //   best-effort: 실패해도 저장 응답을 깨뜨리지 않는다(cron 이 보정).
+    let invalidated: { mode: string; count: number } = { mode: "none", count: 0 };
+    try {
+      invalidated = await invalidateWeeklyCardsForUsers(parsed.map((c) => c.userId));
+    } catch (e) {
+      console.warn("[admin/team-parts/info/team-detail/week-position] snapshot invalidate failed", {
+        message: e instanceof Error ? e.message : String(e),
+      });
+    }
+
+    return Response.json({ success: true, data: { saved: rows.length, invalidated } });
   } catch (error) {
     console.error("[admin/team-parts/info/team-detail/week-position PATCH]", error);
     return Response.json(

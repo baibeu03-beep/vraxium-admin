@@ -68,6 +68,66 @@ export function validateWeekPositionRows(rows: PositionDraftRow[]): ValidationRe
   return validateOperatedPartLimit(rows);
 }
 
+// ── 변경(delta) 기준 검증 — 실제 저장/편집 경로가 쓰는 SoT ──────────────────────
+//   ⚠ 위 whole-state 검증(validateWeekPositionRows)을 저장 경로에 그대로 쓰면 안 된다.
+//     팀이 **이미** 규칙을 위반한 상태(예: 심화>정규)면, 규칙과 무관한 편집(파트만 이동)까지
+//     전부 막힌다 — 실제 사고: "정규/비트 → 정규/보컬" 파트만 바꿨는데 "심화 크루가 너무 많아서"
+//     팝업(2026-07-22). 규칙은 **그 변경이 위반을 새로 만들 때만** 적용한다.
+//
+//   규칙:
+//     ① 파트장 유일성 — 변경 결과 그 사람이 '심화(파트장)'이 되는 경우에만(클래스 변경이든 파트
+//        이동이든), 이동/승격한 파트에 다른 '심화(파트장)'이 이미 있으면 차단.
+//     ② 심화 ≤ 정규   — 변경으로 팀의 **심화 수가 늘어날 때만** 검사. 파트만 바꾸거나 심화를
+//        정규로 내리는 변경은 검사하지 않는다.
+//     ③ 운용 파트 ≤ 6 — 변경으로 운용 파트 수가 **늘어날 때만** 검사(6→6 이동·파트 교체는 통과).
+export function validateWeekPositionChange(
+  prev: PositionDraftRow[],
+  next: PositionDraftRow[],
+): ValidationResult {
+  const prevByUser = new Map(prev.map((r) => [r.userId, r]));
+  const isAdvanced = (c: PositionCode) => c === "advanced_agent" || c === "advanced_part_leader";
+  const norm = (p: string | null) => (p ?? "").trim();
+
+  // ① 파트장 유일성 — 변경된(또는 새로 생긴) 행 중 next 가 파트장인 사람만.
+  for (const r of next) {
+    if (r.positionCode !== "advanced_part_leader") continue;
+    const before = prevByUser.get(r.userId);
+    const changed =
+      !before || before.positionCode !== r.positionCode || norm(before.rawPart) !== norm(r.rawPart);
+    if (!changed) continue; // 원래부터 그 파트의 파트장 — 이 변경이 만든 위반이 아니다.
+    const part = norm(r.rawPart);
+    if (!part) continue;
+    const clash = next.some(
+      (o) => o.userId !== r.userId && o.positionCode === "advanced_part_leader" && norm(o.rawPart) === part,
+    );
+    if (clash) return { ok: false, message: PART_LEADER_MSG };
+  }
+
+  // ② 심화 ≤ 정규 — 심화 수가 늘어나는 변경에만.
+  const advPrev = prev.filter((r) => isAdvanced(r.positionCode)).length;
+  const advNext = next.filter((r) => isAdvanced(r.positionCode)).length;
+  if (advNext > advPrev) {
+    const verdict = validateAdvancedRatio(next);
+    if (!verdict.ok) return verdict;
+  }
+
+  // ③ 운용 파트 ≤ 6 — 운용 파트가 늘어나는 변경에만.
+  const partsOf = (rows: PositionDraftRow[]) => {
+    const s = new Set<string>();
+    for (const r of rows) {
+      const p = norm(r.rawPart);
+      if (p) s.add(p);
+    }
+    return s.size;
+  };
+  if (partsOf(next) > partsOf(prev)) {
+    const verdict = validateOperatedPartLimit(next);
+    if (!verdict.ok) return verdict;
+  }
+
+  return { ok: true };
+}
+
 export const POSITION_CODE_VALUES: PositionCode[] = [
   "regular",
   "advanced_agent",

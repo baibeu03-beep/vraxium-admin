@@ -14,7 +14,7 @@ import {
 import { getUserIdByCrewCode } from "@/lib/adminCrewCodeData";
 import { getCrewDetailDto } from "@/lib/adminCrewDetailData";
 import { getClubRankGradeBatch } from "@/lib/cluster3ClubRankData";
-import { classLabel, memberStatusLabel } from "@/lib/adminMembersTypes";
+import { classLabel, memberStatusLabel, positionCodeToStatusLabel } from "@/lib/adminMembersTypes";
 import { isOrganizationSlug, ORGANIZATIONS, type OrganizationSlug } from "@/lib/organizations";
 import { loadSeasonWeeks } from "@/lib/adminSeasonWeeksData";
 import {
@@ -25,6 +25,13 @@ import type { ScopeMode } from "@/lib/userScopeShared";
 import { resolveUserScope } from "@/lib/userScope";
 import { SUPER_ADMIN_EXCLUDE_OR } from "@/lib/superAdmins";
 import { markWeeklyCardsSnapshotStaleMany } from "@/lib/cluster4WeeklyCardsSnapshot";
+import {
+  loadOrgOverrideRowsUpTo,
+  loadWeekPositionOverridesByUser,
+  buildOverrideIndex,
+  resolveOverrideAt,
+  type OverridePosition,
+} from "@/lib/teamWeekPositionOverride";
 import { applyMemberRolePosition, MemberPatchError } from "@/lib/adminMembersData";
 
 // 반기별 팀 SoT(cluster4_team_halves) 데이터 접근.
@@ -536,11 +543,13 @@ const stripParen = (s: string): string => s.replace(/\(.*?\)/g, "").trim();
 //   ⚠ part_name = null/빈문자 = "파트 미배정"(팀장 정책) — "일반"으로 변환하지 않고 제외한다.
 //     따라서 팀장은 어떤 파트 셀/인원에도 포함되지 않는다(팀 전체 인원엔 별도 경로로 포함).
 //     실제 저장값이 "일반"인 사용자만 "일반" 파트로 집계된다.
-async function currentMembershipPartsByTeam(
+//   ⚠ 폴백은 **유저 단위**로 잡아야 관리자 override(유저×주차×팀)를 그 위에 얹을 수 있다.
+//     그래서 원천은 (팀 → [{userId, part}]) 형태로 만들고, 팀→파트 목록은 여기서 파생시킨다.
+async function currentMembershipAssignmentsByTeam(
   organization: string,
   teamNames: string[],
-): Promise<Map<string, string[]>> {
-  const out = new Map<string, string[]>();
+): Promise<Map<string, Array<{ userId: string; part: string }>>> {
+  const out = new Map<string, Array<{ userId: string; part: string }>>();
   if (teamNames.length === 0) return out;
   const { data: mems, error } = await supabaseAdmin
     .from("user_memberships")
@@ -571,8 +580,23 @@ async function currentMembershipPartsByTeam(
     const part = (r.part_name ?? "").trim();
     if (!part) continue; // 파트 미배정(팀장) — 일반 변환 없이 제외.
     const list = out.get(r.team_name) ?? [];
-    if (!list.includes(part)) list.push(part);
+    list.push({ userId: r.user_id, part });
     out.set(r.team_name, list);
+  }
+  return out;
+}
+
+// 팀 → 점유 파트(중복 제거, 등장 순서). 위 유저 단위 원천에서 파생 — 쿼리/필터 규칙 단일화.
+async function currentMembershipPartsByTeam(
+  organization: string,
+  teamNames: string[],
+): Promise<Map<string, string[]>> {
+  const byTeam = await currentMembershipAssignmentsByTeam(organization, teamNames);
+  const out = new Map<string, string[]>();
+  for (const [team, rows] of byTeam) {
+    const parts: string[] = [];
+    for (const r of rows) if (!parts.includes(r.part)) parts.push(r.part);
+    out.set(team, parts);
   }
   return out;
 }
@@ -608,6 +632,13 @@ async function loadTeamCurrentCrewByName(
   if (uids.length === 0) return out;
 
   // 2) is_current 멤버십(team_name + membership_level). 개인 휴식(membership_state) 무관 → 포함.
+  //    ⚠ 현재 주차에 파트/클래스 override 가 있으면 그 클래스가 이긴다 — 같은 사람이 [A] 요약과
+  //      [B] 표에서 다른 등급으로 집계되던 불일치를 없앤다([[teamWeekPositionOverride]]).
+  // 현재 주차 = 이 파일의 정식 helper(loadSeasonWeeks.is_current_week) 재사용.
+  const currentWeekStart = await resolveCurrentWeekStartDate();
+  const weekOverrides = currentWeekStart
+    ? await loadWeekPositionOverridesByUser(currentWeekStart, uids)
+    : new Map<string, OverridePosition>();
   const teamNameSet = new Set(teamNames);
   const seen = new Set<string>(); // userId 고유 가드(is_current 는 사용자당 1행이지만 방어적).
   for (let i = 0; i < uids.length; i += 100) {
@@ -624,12 +655,15 @@ async function loadTeamCurrentCrewByName(
       membership_level: string | null;
     }>) {
       if (seen.has(m.user_id)) continue;
-      const tn = m.team_name?.trim();
+      const ovr = weekOverrides.get(m.user_id);
+      const tn = (ovr?.rawTeam ?? m.team_name)?.trim();
       if (!tn || !teamNameSet.has(tn)) continue;
-      const label = memberStatusLabel(
-        roleByUser.get(m.user_id) ?? null,
-        m.membership_level ?? null,
-      );
+      // ⚠ 아래 버킷 분기가 memberStatusLabel 어휘("일반"/"심화(…)")를 쓰므로 override 도 같은 어휘로
+      //   변환해야 한다. POSITION_CODE_TO_LABEL("정규")을 넣으면 어느 분기에도 안 걸려 그 사람이
+      //   집계에서 사라진다(2026-07-22 실측 [A] 정규6→4).
+      const label = ovr
+        ? positionCodeToStatusLabel(ovr.positionCode)
+        : memberStatusLabel(roleByUser.get(m.user_id) ?? null, m.membership_level ?? null);
       const bucket = out.get(tn);
       if (!bucket) continue;
       if (label === "일반" || label === "크루") {
@@ -717,7 +751,10 @@ async function computePartWeekData(
   }
 
   // 3) UPH(주차단위 소속 이력) — org + 두 시즌. 페이지네이션.
+  //    user_id 를 함께 읽는다 — 관리자 override 는 (유저×주차×팀) 단위라, 유저 단위로 base 를 잡아야
+  //    "마지막 크루가 파트를 옮기면 그 파트 셀이 꺼진다"가 성립한다(집계만으론 제거 불가).
   const uph: Array<{
+    user_id: string;
     raw_team: string | null;
     raw_part: string | null;
     week_start_date: string;
@@ -725,7 +762,7 @@ async function computePartWeekData(
   for (let from = 0; ; from += 1000) {
     const { data, error } = await supabaseAdmin
       .from("user_position_histories")
-      .select("raw_team,raw_part,week_start_date")
+      .select("user_id,raw_team,raw_part,week_start_date")
       .eq("organization", organization)
       .in("season_key", seasons)
       .order("week_start_date", { ascending: true })
@@ -738,66 +775,109 @@ async function computePartWeekData(
 
   // 4) team_name 매칭(직접 → 괄호 strip). team_name 은 org 내 유일.
   const teamNameSet = new Set(teams.map((t) => t.teamName));
-  // teamName → partName → Set<weekIdx>, 그리고 partName 최초 등장 weekIdx(정렬용).
-  const presence = new Map<string, Map<string, Set<number>>>();
-  const firstSeen = new Map<string, Map<string, number>>();
+  const resolveTeam = (rawTeam: string | null): string | null => {
+    const rt = rawTeam ?? "";
+    if (teamNameSet.has(rt)) return rt;
+    const stripped = stripParen(rt);
+    return teamNameSet.has(stripped) ? stripped : null;
+  };
+  // effective 배정 = teamName → weekIdx → userId → Set<partName>.
+  //   base(UPH) 위에 관리자 override(cluster4_team_week_position_overrides)를 유저 단위로 덮어쓴다
+  //   (override ?? UPH — [[teamWeekPositionOverride]] 공용 규칙, 팀 상세 [A]/[B] 와 동일 SoT).
+  const assign = new Map<string, Map<number, Map<string, Set<string>>>>();
+  const assignSlot = (team: string, wi: number, userId: string): Set<string> => {
+    const byWeek = assign.get(team) ?? new Map<number, Map<string, Set<string>>>();
+    assign.set(team, byWeek);
+    const byUser = byWeek.get(wi) ?? new Map<string, Set<string>>();
+    byWeek.set(wi, byUser);
+    const set = byUser.get(userId) ?? new Set<string>();
+    byUser.set(userId, set);
+    return set;
+  };
   for (const r of uph) {
-    const rt = r.raw_team ?? "";
-    const team = teamNameSet.has(rt)
-      ? rt
-      : teamNameSet.has(stripParen(rt))
-        ? stripParen(rt)
-        : null;
+    const team = resolveTeam(r.raw_team);
     if (!team) continue;
     const wi = weekIdxByStart.get(String(r.week_start_date).slice(0, 10));
     if (wi === undefined) continue;
     const part = (r.raw_part ?? "").trim();
     if (!part) continue; // null/empty raw_part 는 파트 미상 — 제외.
-    const pm = presence.get(team) ?? new Map<string, Set<number>>();
-    const set = pm.get(part) ?? new Set<number>();
-    set.add(wi);
-    pm.set(part, set);
-    presence.set(team, pm);
-    const fm = firstSeen.get(team) ?? new Map<string, number>();
-    if (!fm.has(part) || wi < (fm.get(part) ?? Infinity)) fm.set(part, wi);
-    firstSeen.set(team, fm);
+    assignSlot(team, wi, r.user_id).add(part);
   }
 
-  // 4b) 진행 중 반기 폴백 — UPH가 없는 "진행 대상(경과) 주차"에 한해 현재 팀·파트 배정
-  //     (user_memberships, 사용자 화면과 동일 SoT)으로 셀을 채운다.
+  // ⚠ 적용 순서 = UPH base → 멤버십 폴백 → override. 순서를 바꾸면 안 된다:
+  //     override 를 폴백보다 먼저 얹으면 "override 가 있는 주차"가 UPH 보유 주차로 오인되어
+  //     그 주차 전체가 폴백에서 제외되고, 한 명을 옮겼을 뿐인데 팀의 그 주 컬럼이 통째로 사라진다.
+  //   폴백 제외 판정은 **UPH 보유 주차만** 기준으로 삼는다(아래 uphWeeksByTeam).
+  const uphWeeksByTeam = new Map<string, Set<number>>();
+  for (const [team, byWeek] of assign) uphWeeksByTeam.set(team, new Set(byWeek.keys()));
+
+  // 4a) 진행 중 반기 폴백 — UPH가 없는 "진행 대상(경과) 주차"에 한해 현재 팀·파트 배정
+  //     (user_memberships, 사용자 화면과 동일 SoT)으로 셀을 채운다. **유저 단위**로 넣어야
+  //     그 위에 override 를 유저별로 얹을 수 있다.
   //     · UPH가 있는 주차는 항상 UPH 우선(그 주차는 폴백 제외).
   //     · 시작일 > 오늘(미래·미도래) 주차는 채우지 않음(전체 무조건 채움 금지).
   //     · 현재 멤버 없는 팀은 폴백 없음. mode/org 분기 없음·user_week_statuses 미생성.
   if (applyMembershipFallback) {
     const cutoff = todayIso ?? getCurrentActivityDateIso();
-    const memberParts = await currentMembershipPartsByTeam(
+    const memberAssignments = await currentMembershipAssignmentsByTeam(
       organization,
       teams.map((t) => t.teamName),
     );
     for (const t of teams) {
-      const parts = memberParts.get(t.teamName);
-      if (!parts || parts.length === 0) continue;
-      const pm = presence.get(t.teamName) ?? new Map<string, Set<number>>();
-      // 이 팀에 UPH가 이미 있는 주차 = UPH 우선(폴백 제외).
-      const uphWeeks = new Set<number>();
-      for (const s of pm.values()) for (const wi of s) uphWeeks.add(wi);
-      // 진행 대상 주차 = 시작일 <= 오늘 && UPH 미보유.
+      const rows = memberAssignments.get(t.teamName);
+      if (!rows || rows.length === 0) continue;
+      const uphWeeks = uphWeeksByTeam.get(t.teamName) ?? new Set<number>();
       const elapsed = weekColumns
         .map((c, wi) => ({ start: c.weekStartDate, wi }))
         .filter(({ start, wi }) => start <= cutoff && !uphWeeks.has(wi))
         .map(({ wi }) => wi);
       if (elapsed.length === 0) continue;
-      const fm = firstSeen.get(t.teamName) ?? new Map<string, number>();
-      const minWi = Math.min(...elapsed);
-      for (const part of parts) {
-        const set = pm.get(part) ?? new Set<number>();
-        for (const wi of elapsed) set.add(wi);
-        pm.set(part, set);
-        if (!fm.has(part) || minWi < (fm.get(part) ?? Infinity)) fm.set(part, minWi);
-      }
-      presence.set(t.teamName, pm);
-      firstSeen.set(t.teamName, fm);
+      for (const wi of elapsed)
+        for (const r of rows) assignSlot(t.teamName, wi, r.userId).add(r.part);
     }
+  }
+
+  // 4b) override 덮어쓰기 — 그 (유저×팀) 의 base 파트를 통째로 대체(null=파트 미배정 → 제거).
+  //     base 가 UPH 든 멤버십 폴백이든 무관하게 그 한 유저만 바뀐다(팀 컬럼 전체 영향 없음).
+  //     ⚠ carry-forward: override 는 저장 주차 **이후 주차 전부**에 이어진다. 그래서 "그 주차에
+  //       저장된 행"만 찍는 게 아니라, **주차 컬럼마다** ≤그 주차 최근 override 를 다시 고른다.
+  //       (4주차 저장 → 4·5·6주차 반영, 3주차는 불변.)
+  const lastWeekStart = weekColumns.length > 0 ? weekColumns[weekColumns.length - 1].weekStartDate : null;
+  if (lastWeekStart) {
+    const overrideRows = await loadOrgOverrideRowsUpTo(organization, lastWeekStart);
+    const index = buildOverrideIndex(overrideRows, (r) => `${r.userId}::${r.rawTeam}`);
+    for (const arr of index.values()) {
+      const team = resolveTeam(arr[0].rawTeam);
+      if (!team) continue;
+      for (let wi = 0; wi < weekColumns.length; wi++) {
+        const hit = resolveOverrideAt(arr, weekColumns[wi].weekStartDate);
+        if (!hit) continue; // 이 주차보다 이른 override 없음 → base 유지(과거 주차 불변).
+        const set = assignSlot(team, wi, hit.userId);
+        set.clear();
+        const part = (hit.rawPart ?? "").trim();
+        if (part) set.add(part);
+      }
+    }
+  }
+
+  // 4c) 존재표 집계 — teamName → partName → Set<weekIdx>, partName 최초 등장 weekIdx(정렬용).
+  const presence = new Map<string, Map<string, Set<number>>>();
+  const firstSeen = new Map<string, Map<string, number>>();
+  for (const [team, byWeek] of assign) {
+    const pm = presence.get(team) ?? new Map<string, Set<number>>();
+    const fm = firstSeen.get(team) ?? new Map<string, number>();
+    for (const [wi, byUser] of byWeek) {
+      for (const parts of byUser.values()) {
+        for (const part of parts) {
+          const set = pm.get(part) ?? new Set<number>();
+          set.add(wi);
+          pm.set(part, set);
+          if (!fm.has(part) || wi < (fm.get(part) ?? Infinity)) fm.set(part, wi);
+        }
+      }
+    }
+    presence.set(team, pm);
+    firstSeen.set(team, fm);
   }
 
   // 5) 팀별 matrix 조립. y축 = ["일반", 카탈로그 비-일반(순서), UPH-only(최초주차→이름)].

@@ -15,7 +15,7 @@ import {
   type TeamSelectedWeekSummary,
 } from "@/lib/adminTeamSelectedWeekSummary";
 import {
-  validateWeekPositionRows,
+  validateWeekPositionChange,
   type PositionDraftRow,
 } from "@/lib/teamWeekPositionValidation";
 import type { PositionCode } from "@/lib/positionHistory";
@@ -41,16 +41,19 @@ async function applyOverride(
   if (summary.week.reviewCompleted) return { status: 403, error: "검수가 완료된 주차는 수정할 수 없습니다." };
   const weekStart = summary.week.weekStartDate;
 
-  const draft = new Map<string, PositionDraftRow>();
-  for (const r of summary.crewRows)
-    draft.set(r.userId, { userId: r.userId, rawPart: r.rawPart, positionCode: r.positionCode });
+  const prevRows: PositionDraftRow[] = summary.crewRows.map((r) => ({
+    userId: r.userId,
+    rawPart: r.rawPart,
+    positionCode: r.positionCode,
+  }));
+  const draft = new Map<string, PositionDraftRow>(prevRows.map((r) => [r.userId, r]));
   for (const c of changes) {
     if (!draft.has(c.userId)) return { status: 400, error: "현재 팀·주차의 크루가 아닙니다." };
     const part = (c.rawPart ?? "").trim();
     if (!part) return { status: 400, error: "소속 파트를 선택하세요." };
     draft.set(c.userId, { userId: c.userId, rawPart: part, positionCode: c.positionCode });
   }
-  const verdict = validateWeekPositionRows([...draft.values()]);
+  const verdict = validateWeekPositionChange(prevRows, [...draft.values()]);
   if (!verdict.ok) return { status: 422, error: verdict.message };
 
   const rows = changes.map((c) => ({

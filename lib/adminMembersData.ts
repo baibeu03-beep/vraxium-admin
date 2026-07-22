@@ -10,6 +10,12 @@ import type { ScopeMode } from "@/lib/userScopeShared";
 import type { OrganizationSlug } from "@/lib/organizations";
 import { getGrowthRosterBatchFast } from "@/lib/cluster3GrowthData";
 import { getCurrentActivityDateIso, operationalSeasonDbKey } from "@/lib/seasonCalendar";
+import {
+  loadWeekPositionOverridesByUser,
+  resolveCurrentWeekStartDate,
+  type OverridePosition,
+} from "@/lib/teamWeekPositionOverride";
+import { POSITION_CODE_TO_LABEL } from "@/lib/positionHistory";
 import { fetchOperationalSeasonParticipants } from "@/lib/operationalSeasonParticipants";
 import { applyRosterView, type FilterValue, type SortEntry } from "@/lib/membersRosterView";
 import { getScheduleReliabilityRateBatch } from "@/lib/cluster1ResumeData";
@@ -20,6 +26,8 @@ import {
   MEMBER_ASSIGNABLE_ROLES,
   MEMBER_PATCH_FIELDS,
   memberStatusLabel,
+  classLabel,
+  positionCodeToStatusLabel,
   ORG_NONE_SENTINEL,
   PART_UNIQUE_ROLES,
   TEAM_UNIQUE_ROLES,
@@ -92,6 +100,16 @@ type PointAggregate = {
   netAdvantagePoints: number; // advantagePoints − penaltyPoints (고객 표시 방패)
 };
 
+// 현재 주차 override 배치 로드 — 목록/상세 공용. 오늘 기준 주차를 못 찾으면 빈 Map(=종전 동작).
+async function loadCurrentWeekOverrides(
+  userIds: string[],
+): Promise<Map<string, OverridePosition>> {
+  if (userIds.length === 0) return new Map();
+  const weekStart = await resolveCurrentWeekStartDate(getCurrentActivityDateIso());
+  if (!weekStart) return new Map();
+  return loadWeekPositionOverridesByUser(weekStart, userIds);
+}
+
 const ZERO_POINTS: PointAggregate = {
   checkPoints: 0,
   advantagePoints: 0,
@@ -103,6 +121,9 @@ function toDto(
   row: MemberRow,
   points: PointAggregate = ZERO_POINTS,
   membershipLevel: string | null = null,
+  // 현재 주차 파트/클래스 override — 있으면 상태 칩·소속을 이 값으로 표시한다
+  //   ([[teamWeekPositionOverride]] loadWeekPositionOverridesByUser). 없으면 종전 멤버십 SoT.
+  weekOverride: OverridePosition | null = null,
 ): AdminMemberDto {
   return {
     userId: row.user_id,
@@ -117,9 +138,16 @@ function toDto(
     role: row.role,
     membershipLevel,
     // 상태 칩 표기. 등급 SoT=membership_level — role 단독으로 "파트장"을 만들지 않는다.
-    statusLabel: memberStatusLabel(row.role, membershipLevel),
-    currentTeamName: row.current_team_name,
-    currentPartName: row.current_part_name,
+    //   단, 현재 주차 override 가 있으면 그 클래스가 이긴다(관리자 주차 편집과 화면 일치).
+    statusLabel: weekOverride
+      ? positionCodeToStatusLabel(weekOverride.positionCode)
+      : memberStatusLabel(row.role, membershipLevel),
+    // 클래스 컬럼 — 화면이 클라이언트에서 만들던 값을 서버가 override 반영해 계산해 내려준다.
+    classLabel: weekOverride
+      ? POSITION_CODE_TO_LABEL[weekOverride.positionCode]
+      : classLabel(row.role, membershipLevel),
+    currentTeamName: weekOverride?.rawTeam ?? row.current_team_name,
+    currentPartName: weekOverride ? weekOverride.rawPart : row.current_part_name,
     checkPoints: points.checkPoints,
     advantagePoints: points.advantagePoints,
     penaltyPoints: points.penaltyPoints,
@@ -382,12 +410,13 @@ export async function listMembers(
     if (pageIds.length === 0) {
       members = [];
     } else {
-      const [{ data, error }, levels] = await Promise.all([
+      const [{ data, error }, levels, weekOverrides] = await Promise.all([
         supabaseAdmin
           .from("user_profiles")
           .select(MEMBER_SELECT)
           .in("user_id", pageIds),
         fetchMembershipLevels(pageIds),
+        loadCurrentWeekOverrides(pageIds),
       ]);
       if (error) throw new Error(error.message);
       const byId = new Map<string, MemberRow>();
@@ -399,7 +428,12 @@ export async function listMembers(
         .map((id) => {
           const row = byId.get(id);
           return row
-            ? toDto(row, sums.get(id) ?? ZERO_POINTS, levels.get(id) ?? null)
+            ? toDto(
+                row,
+                sums.get(id) ?? ZERO_POINTS,
+                levels.get(id) ?? null,
+                weekOverrides.get(id) ?? null,
+              )
             : null;
         })
         .filter((m): m is AdminMemberDto => m !== null);
@@ -425,12 +459,18 @@ export async function listMembers(
 
     const rows = (data ?? []) as unknown as MemberRow[];
     const pageUserIds = rows.map((r) => r.user_id);
-    const [sums, levels] = await Promise.all([
+    const [sums, levels, weekOverrides] = await Promise.all([
       sumPointsForUsers(pageUserIds),
       fetchMembershipLevels(pageUserIds),
+      loadCurrentWeekOverrides(pageUserIds),
     ]);
     members = rows.map((r) =>
-      toDto(r, sums.get(r.user_id) ?? ZERO_POINTS, levels.get(r.user_id) ?? null),
+      toDto(
+        r,
+        sums.get(r.user_id) ?? ZERO_POINTS,
+        levels.get(r.user_id) ?? null,
+        weekOverrides.get(r.user_id) ?? null,
+      ),
     );
     total = count ?? 0;
   }
@@ -515,6 +555,9 @@ export type MemberRosterRow = {
   poC: number;
   scheduleReliability: number | null; // 일정 신뢰도(%) — 고객 cluster.1 동일 산식. 산정 불가=null.
   activityCompletion: number | null; // 활동 완료율(%) — 고객 cluster.1 동일 산식. 데이터 없음=null.
+  // 클래스 컬럼 표기 — 현재 주차 override 반영값. 화면(membersRosterView/MembersList)은 이 값을
+  //   우선 쓰고, 없을 때만 classLabel(role, membershipLevel) 로 폴백한다.
+  classLabel: string;
 };
 
 // 로스터 전체 조회 중 일부 사용자의 성장 지표(snapshot)를 못 읽었을 때의 부분 실패 신호.
@@ -813,10 +856,11 @@ export async function listMembersRoster(options: {
   //   (fetchGradeCacheByIds, .in 청크) — 종전 getClubRankGradeBatch live 전수 스캔을 제거(병목 해소).
   //   상태 카운트(active/rest/stopped)는 위 fetchSeasonParticipantsAndCounts 단일 스캔에서 이미 산출.
   //   전부 풀스캔/대량 .in 없음.
-  const [growthResult, gradeByUser, statsByUser] = await Promise.all([
+  const [growthResult, gradeByUser, statsByUser, rosterWeekOverrides] = await Promise.all([
     buildGrowthMap(),
     fetchGradeCacheByIds(userIds),
     getRosterPointsScheduleFast(userIds),
+    loadCurrentWeekOverrides(userIds),
   ]);
   const growthByUser = growthResult.map;
   t("batches(growth+grade-cache+points·schedule-slim+counts)", Date.now() - s);
@@ -825,6 +869,7 @@ export async function listMembersRoster(options: {
     const g = growthByUser.get(c.userId);
     const rank = gradeByUser.get(c.userId) ?? null;
     const st = statsByUser.get(c.userId);
+    const ovr = rosterWeekOverrides.get(c.userId) ?? null;
     return {
       userId: c.userId,
       displayName: c.displayName,
@@ -836,8 +881,12 @@ export async function listMembersRoster(options: {
       birthDate: c.birthDate,
       schoolName: c.schoolName,
       departmentName: c.departmentName,
-      teamName: c.teamName,
-      partName: c.partName,
+      // 소속/클래스 = 현재 주차 override 우선(없으면 종전 현재 멤버십 값).
+      teamName: ovr?.rawTeam ?? c.teamName,
+      partName: ovr ? ovr.rawPart : c.partName,
+      classLabel: ovr
+        ? POSITION_CODE_TO_LABEL[ovr.positionCode]
+        : classLabel(c.role, c.membershipLevel),
       rankGradeNumber: rank?.grade ?? null,
       rankGradeLabel: rank?.label ?? null,
       successWeeks: g?.successWeeks ?? null,
@@ -1174,14 +1223,16 @@ export async function updateMember(
 
   // PATCH 는 포인트를 바꾸지 않지만, 응답 DTO 가 포인트 집계/상태 표기를 항상
   // 정확히 담도록 단일 사용자 합·멤버십 등급을 채운다(목록 row 와 동일 의미 유지).
-  const [pointSums, levels] = await Promise.all([
+  const [pointSums, levels, weekOverrides] = await Promise.all([
     sumPointsForUsers([userId]),
     fetchMembershipLevels([userId]),
+    loadCurrentWeekOverrides([userId]),
   ]);
   const dto = toDto(
     data as unknown as MemberRow,
     pointSums.get(userId) ?? ZERO_POINTS,
     levels.get(userId) ?? null,
+    weekOverrides.get(userId) ?? null,
   );
 
   // 역할이 실제로 바뀐 경우만 감사 로그 (best-effort — 실패해도 저장은 성공 처리).
