@@ -114,7 +114,7 @@ export const MENU_INTEGRATED: MenuItem[] = [
       // [비활성화 2026-06-14] 개설 이력 페이지 임시 비활성화(복구 시 주석 해제).
       //   라우트도 page.tsx 에서 notFound() 처리됨.
       // { label: "개설 이력", href: "/admin/line-opening/line-history" },
-      { label: "라인 개설 [실무 경력]", href: "/admin/line-opening/practical-career" },
+      { label: "라인 개설 [실무 경력]", href: "/admin/line-opening/practical-career", disabled: true },
     ],
   },
   {
@@ -124,7 +124,7 @@ export const MENU_INTEGRATED: MenuItem[] = [
     basePath: "/admin/processes",
     children: [
       { label: "프로세스 관리", href: "/admin/processes/register", matchPaths: ["/admin/processes/register", "/admin/processes/info"] },
-      { label: "프로세스 체크 [실무 경력]", href: "/admin/processes/check" },
+      { label: "프로세스 체크 [실무 경력]", href: "/admin/processes/check", disabled: true },
     ],
   },
   {
@@ -136,7 +136,7 @@ export const MENU_INTEGRATED: MenuItem[] = [
       // [표시명 변경 2026-07-21] URL/라우트는 무변경 — 사이드바·헤더 표시 라벨만 변경.
       //   팀 내역→팀 관리 · 시즌 내역→시즌 관리 · 주차 내역→주차 활동(클럽).
       { label: "팀 관리", href: "/admin/team-parts/info", exact: true },
-      { label: "시즌 관리", href: "/admin/team-parts/info/seasons" },
+      { label: "시즌 관리", href: "/admin/team-parts/info/seasons", disabled: true },
       { label: "주차 활동(클럽)", href: "/admin/team-parts/info/weeks" },
       // [주차 결과(크루)] — 통합 목록(행=주차 · 열=클럽). 클럽 헤더 [상세] → /{organizationSlug}.
       //   기존 "주차와 시즌 > 주차 인정 결과"(/admin/week-recognitions)는 목적이 달라 재사용하지 않는다.
