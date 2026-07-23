@@ -333,7 +333,15 @@ const BATTLE_TONE: Record<BattleResult, "success" | "danger" | "neutral"> = {
 };
 
 // 팀 활동 결과 표 — 행 순서는 **팀명 ko-KR 가나다순**(고객 앱 display_order 와 별개, 값은 동일).
-function TeamTable({ rows, hasResult = true }: { rows: TeamRow[]; hasResult?: boolean }) {
+function TeamTable({
+  rows,
+  hasResult = true,
+  teamHref,
+}: {
+  rows: TeamRow[];
+  hasResult?: boolean;
+  teamHref?: (teamId: string) => string;
+}) {
   const sorted = useMemo(
     () => [...rows].sort((a, b) => a.teamName.localeCompare(b.teamName, "ko-KR")),
     [rows],
@@ -367,7 +375,19 @@ function TeamTable({ rows, hasResult = true }: { rows: TeamRow[]; hasResult?: bo
               data-team-total={t.totalCrew}
               data-team-parts={t.partCount}
             >
-              <td className="whitespace-nowrap border-b px-3 py-2 text-left font-bold">{t.teamName}</td>
+              <td className="whitespace-nowrap border-b px-3 py-2 text-left font-bold">
+                {t.teamId && teamHref ? (
+                  <Link
+                    href={teamHref(t.teamId)}
+                    className="text-primary underline-offset-4 hover:underline"
+                    data-team-detail-link={t.teamId}
+                  >
+                    {t.teamName}
+                  </Link>
+                ) : (
+                  t.teamName
+                )}
+              </td>
               <td className="whitespace-nowrap border-b px-3 py-2 text-center">
                 {hasResult && t.battleResult ? (
                   <StatusBadge label={BATTLE_LABEL[t.battleResult]} size="sm" tone={BATTLE_TONE[t.battleResult]} />
@@ -536,6 +556,7 @@ function CrewTable({
 export default function CrewWeekPublishPanel({
   organizationSlug,
   weekId,
+  halfKey,
   displayStatus,
   criterionPointA,
   weekEnded,
@@ -545,6 +566,7 @@ export default function CrewWeekPublishPanel({
   criterionPointA?: number | null;
   organizationSlug: OrganizationSlug;
   weekId: string;
+  halfKey: string | null;
   displayStatus: CrewWeeklyResultDisplayStatus | null;
   /** 주차가 실제로 종료됐는가 — 진행 중 주차는 공표 금지(서버도 422로 차단). */
   weekEnded: boolean;
@@ -563,6 +585,19 @@ export default function CrewWeekPublishPanel({
         searchParams,
       }),
     [pathname, searchParams],
+  );
+  const teamHref = useCallback(
+    (teamId: string) => {
+      const params = new URLSearchParams();
+      if (halfKey) params.set("half", halfKey);
+      params.set("weekId", weekId);
+      return buildAdminContextHref({
+        targetPath: `/admin/team-parts/info/${organizationSlug}/${teamId}?${params.toString()}`,
+        pathname,
+        searchParams,
+      });
+    },
+    [halfKey, organizationSlug, pathname, searchParams, weekId],
   );
   const qs = mode === "test" ? "?mode=test" : "";
   const base = `/api/admin/team-parts/info/crew-week-results/${organizationSlug}/${weekId}`;
@@ -977,7 +1012,7 @@ export default function CrewWeekPublishPanel({
               {tab === "crew" ? (
                 <CrewTable rows={source.crewResults} hasResult memberHref={memberHref} />
               ) : (
-                <TeamTable rows={source.teamResults} />
+                <TeamTable rows={source.teamResults} teamHref={teamHref} />
               )}
             </>
           ) : tab === "crew" && baseRows ? (
@@ -996,7 +1031,7 @@ export default function CrewWeekPublishPanel({
               <p className="mb-2 text-xs text-muted-foreground" data-details-base>
                 기본 정보만 표시 중입니다. [클럽 활동 검수(예비)] 를 실행하면 결과 컬럼이 채워집니다.
               </p>
-              <TeamTable rows={baseTeamRows} hasResult={false} />
+              <TeamTable rows={baseTeamRows} hasResult={false} teamHref={teamHref} />
             </>
           ) : (
             <p className="py-10 text-center text-sm text-muted-foreground" data-details-empty>

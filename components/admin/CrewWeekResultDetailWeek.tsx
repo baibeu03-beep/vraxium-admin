@@ -11,6 +11,7 @@ import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 import CrewWeekPublishPanel from "@/components/admin/CrewWeekPublishPanel";
 import { organizationLabelKo, type OrganizationSlug } from "@/lib/organizations";
 import type { CrewWeeklyResultsBundleDto } from "@/lib/crewWeeklyResultTypes";
+import { seasonKeyToHalfKey } from "@/lib/teamHalf";
 
 // 주차 세부 페이지(골격) — 이번 단계는 "경로·breadcrumb·주차 식별" 까지만.
 //   ⚠ 표시용 주차명은 **공용 API 의 DTO** 에서 가져온다(문자열을 URL/화면에서 재조합하지 않음).
@@ -65,6 +66,7 @@ export default function CrewWeekResultDetailWeek({
 
   const week = bundle?.weeks.find((w) => w.weekId === weekId) ?? null;
   const cell = bundle?.cells.find((c) => c.weekId === weekId) ?? null;
+  const halfKey = week?.seasonKey ? seasonKeyToHalfKey(week.seasonKey) : null;
   // 주차 종료 여부 — 서버가 준 활동 기준일과 주차 종료일로 판정(클라이언트 시계 사용 금지).
   const weekEnded =
     !!bundle && !!week?.endDate && bundle.activityDate > week.endDate;
@@ -134,6 +136,7 @@ export default function CrewWeekResultDetailWeek({
               <CrewWeekPublishPanel
                 organizationSlug={organizationSlug}
                 weekId={weekId}
+                halfKey={halfKey}
                 displayStatus={cell?.displayStatus ?? null}
                 criterionPointA={cell?.criterionPointA ?? null}
                 weekEnded={weekEnded}

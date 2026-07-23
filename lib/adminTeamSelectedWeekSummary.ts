@@ -140,6 +140,7 @@ export async function getTeamSelectedWeekSummary(opts: {
   organization: OrganizationSlug;
   teamName: string;
   weekId?: string | null;
+  halfKey?: string | null;
   mode?: ScopeMode;
   today?: string;
 }): Promise<TeamSelectedWeekSummary> {
@@ -154,7 +155,12 @@ export async function getTeamSelectedWeekSummary(opts: {
   const { rows: weekRows } = await loadSeasonWeeks(today);
   const selectable = weekRows
     .filter(
-      (w) => w.week_start_date && w.week_start_date <= todayIso && (w.week_number ?? 0) > 0,
+      (w) =>
+        w.week_start_date &&
+        w.week_start_date <= todayIso &&
+        (w.week_number ?? 0) > 0 &&
+        (!opts.halfKey ||
+          (w.season_key && seasonKeyToHalfKey(w.season_key) === opts.halfKey)),
     )
     .sort((a, b) => (b.week_start_date ?? "").localeCompare(a.week_start_date ?? ""));
   const yearOf = (w: (typeof selectable)[number]): number => {

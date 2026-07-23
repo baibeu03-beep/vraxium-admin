@@ -10,6 +10,7 @@ import { isOrganizationSlug } from "@/lib/organizations";
 import { readScopeMode } from "@/lib/userScopeShared";
 import { resolveTeamAnchorName } from "@/lib/adminTeamHalvesData";
 import { getTeamSelectedWeekSummary } from "@/lib/adminTeamSelectedWeekSummary";
+import { isHalfKey } from "@/lib/teamHalf";
 
 // 팀 상세 [A] — 선택 주차 요약.
 //   GET ?organization=&teamHalfId=&weekId=[&mode=test]
@@ -44,6 +45,8 @@ export async function GET(request: NextRequest) {
     );
   }
   const weekId = request.nextUrl.searchParams.get("weekId")?.trim() || null;
+  const halfParam = request.nextUrl.searchParams.get("half")?.trim() || null;
+  const halfKey = halfParam && isHalfKey(halfParam) ? halfParam : null;
   const mode = readScopeMode(request.nextUrl.searchParams);
 
   try {
@@ -58,6 +61,7 @@ export async function GET(request: NextRequest) {
       organization,
       teamName,
       weekId,
+      halfKey,
       mode,
     });
     return Response.json({ success: true, data });

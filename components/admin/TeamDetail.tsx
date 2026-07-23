@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -251,6 +251,7 @@ export default function TeamDetail({
   teamHalfId: string;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const mode = readScopeMode(searchParams);
   const halfParam = searchParams.get("half");
@@ -272,7 +273,8 @@ export default function TeamDetail({
   // [A] 선택 주차 요약 — 주차별 파트 운용 상태표와 독립. weekId 변경 시 이 영역만 재조회(요청 버저닝).
   const [weekSummary, setWeekSummary] = useState<TeamSelectedWeekSummary | null>(null);
   const [weekLoading, setWeekLoading] = useState(true);
-  const [selectedWeekId, setSelectedWeekId] = useState<string | null>(null);
+  const requestedWeekId = searchParams.get("weekId")?.trim() || null;
+  const [selectedWeekId, setSelectedWeekId] = useState<string | null>(requestedWeekId);
   const weekReqRef = useRef(0);
   // [B] 편집 draft(userId → {rawPart, positionCode}). weekSummary.crewRows 로 초기화, 저장 후 재조회로 리셋.
   const [draft, setDraft] = useState<Map<string, { rawPart: string | null; positionCode: PositionCode }>>(
@@ -322,6 +324,7 @@ export default function TeamDetail({
   // [A] 선택 주차 요약 로드 — selectedWeekId(미지정=현재 주차) 변경 시 이 영역만 갱신. 요청 버저닝으로
   //   연속 선택 시 이전 응답이 최신을 덮어쓰지 않게 한다. 상단 상세/매트릭스와 독립(전체 깜빡임 없음).
   useEffect(() => {
+    if (!data) return;
     const reqId = ++weekReqRef.current;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setWeekLoading(true);
@@ -329,6 +332,7 @@ export default function TeamDetail({
       try {
         const params = new URLSearchParams({ organization: orgSlug, teamHalfId });
         if (selectedWeekId) params.set("weekId", selectedWeekId);
+        if (data.selectedHalfKey) params.set("half", data.selectedHalfKey);
         if (mode === "test") params.set("mode", "test");
         const res = await fetch(
           `/api/admin/team-parts/info/team-detail/week-summary?${params.toString()}`,
@@ -343,7 +347,33 @@ export default function TeamDetail({
         if (weekReqRef.current === reqId) setWeekLoading(false);
       }
     })();
-  }, [orgSlug, teamHalfId, mode, selectedWeekId, weekReloadTick]);
+  }, [data, orgSlug, teamHalfId, mode, selectedWeekId, weekReloadTick]);
+
+  useEffect(() => {
+    const resolvedWeekId = weekSummary?.week?.weekId ?? null;
+    const selectableWeekIds = new Set(
+      (weekSummary?.selectableWeeks ?? []).map((week) => week.weekId),
+    );
+    if (
+      !resolvedWeekId ||
+      resolvedWeekId === selectedWeekId ||
+      (selectedWeekId != null && selectableWeekIds.has(selectedWeekId))
+    ) {
+      return;
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSelectedWeekId(resolvedWeekId);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("weekId", resolvedWeekId);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }, [pathname, router, searchParams, selectedWeekId, weekSummary]);
+
+  const onWeekChange = (weekId: string) => {
+    setSelectedWeekId(weekId);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("weekId", weekId);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  };
 
   // [B] draft 초기화/리셋 — weekSummary(주차 변경·저장 후 재조회) 바뀌면 crewRows 로 다시 채운다.
   useEffect(() => {
@@ -667,7 +697,7 @@ export default function TeamDetail({
                     className={WEEK_SELECT_CLS}
                     value={weekSummary?.week?.weekId ?? ""}
                     disabled={weekLoading && !weekSummary}
-                    onChange={(e) => setSelectedWeekId(e.target.value)}
+                    onChange={(e) => onWeekChange(e.target.value)}
                   >
                     {(weekSummary?.selectableWeeks ?? []).map((w) => (
                       <option key={w.weekId} value={w.weekId}>
