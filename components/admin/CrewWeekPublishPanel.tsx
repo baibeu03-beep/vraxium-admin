@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { buildAdminContextHref } from "@/lib/adminOrgContext";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { adminDialog } from "@/components/ui/admin-dialog";
@@ -120,6 +122,21 @@ function formatMetric(value: number | null, unit: "명" | "%"): string {
   return value === null ? "-" : `${value}${unit}`;
 }
 
+function HelpLabel({
+  children,
+  helpKey,
+}: {
+  children: ReactNode;
+  helpKey: string;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      {children}
+      <AdminHelpIconButton helpKey={helpKey} title={typeof children === "string" ? children : undefined} />
+    </span>
+  );
+}
+
 // 지표 의미색 — 조직색(페이지 테마)과 **역할이 다르다**. 성공=green·실패=red·도전=blue·휴식=gray.
 //   조직색은 아래 org 프롭으로 "소속 크루" 카드와 강조선에만 쓴다.
 type Tone = "org" | "gray" | "blue" | "green" | "red";
@@ -138,6 +155,7 @@ function MetricCard({
   readiness,
   tone,
   org,
+  helpKey,
 }: {
   label: string;
   value: number | null;
@@ -145,6 +163,7 @@ function MetricCard({
   readiness: "ready" | "partial" | "unavailable";
   tone: Tone;
   org: OrganizationSlug;
+  helpKey: string;
 }) {
   const cls =
     tone === "org"
@@ -156,7 +175,9 @@ function MetricCard({
       : TONE_CLS[tone];
   return (
     <div className={`rounded-lg border-2 px-3 py-4 text-center ${cls.card}`}>
-      <div className="text-sm font-semibold text-muted-foreground">{label}</div>
+      <div className="text-sm font-semibold text-muted-foreground">
+        <HelpLabel helpKey={helpKey}>{label}</HelpLabel>
+      </div>
       <div
         className={`mt-1 text-3xl font-extrabold tabular-nums ${cls.value}`}
         data-metric={label}
@@ -175,18 +196,22 @@ function RateCard({
   value,
   readiness,
   tone,
+  helpKey,
 }: {
   label: string;
   value: number | null;
   readiness: "ready" | "partial" | "unavailable";
   tone: "green" | "blue";
+  helpKey: string;
 }) {
   const cls = TONE_CLS[tone];
   const isNull = value === null;
   return (
     <div className={`rounded-xl border-2 px-5 py-5 ${cls.card}`}>
       <div className="flex items-baseline justify-between gap-3">
-        <span className="text-base font-bold text-muted-foreground">{label}</span>
+        <span className="text-base font-bold text-muted-foreground">
+          <HelpLabel helpKey={helpKey}>{label}</HelpLabel>
+        </span>
         <span
           className={`text-4xl font-extrabold tabular-nums ${cls.value}`}
           data-metric={label}
@@ -249,12 +274,14 @@ function SummaryIndex({
       <div className="grid gap-4 sm:grid-cols-2">
         <RateCard
           label="성장 성공률"
+          helpKey="admin.teamParts.crewWeekResults.metric.growthSuccessRate"
           value={v("growthSuccessRatePercent")}
           readiness={r("growthSuccessRatePercent")}
           tone="green"
         />
         <RateCard
           label="성장 도전율"
+          helpKey="admin.teamParts.crewWeekResults.metric.growthChallengeRate"
           value={v("growthChallengeRatePercent")}
           readiness={r("growthChallengeRatePercent")}
           tone="blue"
@@ -264,12 +291,17 @@ function SummaryIndex({
       {/* 하단 — 크루 활동 결과 | 팀 활동 결과 */}
       <div className="grid gap-6 lg:grid-cols-2">
         <section data-group="crew">
-          <h3 className="mb-2 text-lg font-bold">크루 활동 결과</h3>
+          <h3 className="mb-2 text-lg font-bold">
+            <HelpLabel helpKey="admin.teamParts.crewWeekResults.section.crewSummary">
+              크루 활동 결과
+            </HelpLabel>
+          </h3>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {crew.map(([key, label, tone]) => (
               <MetricCard
                 key={key}
                 label={label}
+                helpKey={`admin.teamParts.crewWeekResults.metric.${key}`}
                 value={v(key)}
                 unit="명"
                 readiness={r(key)}
@@ -281,7 +313,11 @@ function SummaryIndex({
         </section>
 
         <section data-group="team">
-          <h3 className="mb-2 text-lg font-bold">팀 활동 결과</h3>
+          <h3 className="mb-2 text-lg font-bold">
+            <HelpLabel helpKey="admin.teamParts.crewWeekResults.section.teamSummary">
+              팀 활동 결과
+            </HelpLabel>
+          </h3>
           {/* 상단 팀 지표 = 하단 팀 행의 집계. 고객 앱 Team Battle KPI 정의를 그대로 미러한다:
                 참전 팀 = teams.length · 전체 파트 = Σ partCount(팀별 **합계**, distinct 아님) ·
                 전적 = 승/패/무 팀 수. teams 가 없으면(결과 미도출) 전부 "-" — 0 폴백 금지. */}
@@ -354,14 +390,17 @@ function TeamTable({
     );
   }
   const COLS = ["팀명","팀 결과","팀장","파트 수","소속 크루","심화 크루","정규 크루","성장 도전","성장 휴식","성장 성공","성장 실패","승률"];
+  const COL_KEYS = ["name","result","leader","partCount","crewCount","advancedCrew","regularCrew","growthChallenge","growthRest","growthSuccess","growthFailure","winRate"];
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[1200px] border-separate border-spacing-0 text-sm" data-team-table>
         <thead>
           <tr>
-            {COLS.map((h) => (
+            {COLS.map((h, index) => (
               <th key={h} className={`whitespace-nowrap border-b bg-muted/60 px-3 py-2 font-semibold ${h==="팀명"||h==="팀장"?"text-left":"text-center"}`}>
-                {h}
+                <HelpLabel helpKey={`admin.teamParts.crewWeekResults.teamColumn.${COL_KEYS[index]}`}>
+                  {h}
+                </HelpLabel>
               </th>
             ))}
           </tr>
@@ -441,6 +480,10 @@ const CREW_COLS = [
   "등수", "크루명", "학적", "성장 결과", "클래스", "소속 팀", "소속 파트", "품계",
   "액트 체크율", "주차 성장률", "포인트 A", "포인트 B", "포인트 C", "성장성공(주차)",
 ];
+const CREW_COL_KEYS = [
+  "rank", "name", "education", "growthResult", "class", "team", "part", "grade",
+  "actCompletionRate", "weeklyGrowthRate", "pointA", "pointB", "pointC", "successWeeks",
+];
 
 function CrewTable({
   rows,
@@ -483,7 +526,7 @@ function CrewTable({
       <table className="w-full min-w-[1400px] border-separate border-spacing-0 text-sm" data-crew-table>
         <thead>
           <tr>
-            {CREW_COLS.map((h) => (
+            {CREW_COLS.map((h, index) => (
               <th
                 key={h}
                 className={
@@ -492,7 +535,9 @@ function CrewTable({
                   (h === "크루명" ? " sticky left-0 z-10 bg-muted" : "")
                 }
               >
-                {h}
+                <HelpLabel helpKey={`admin.teamParts.crewWeekResults.crewColumn.${CREW_COL_KEYS[index]}`}>
+                  {h}
+                </HelpLabel>
               </th>
             ))}
           </tr>
@@ -804,6 +849,11 @@ export default function CrewWeekPublishPanel({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-3">
           <nav aria-label="검수 진행 상태" className="flex flex-wrap items-center gap-2" data-review-steps>
+            <AdminHelpIconButton
+              helpKey="admin.teamParts.crewWeekResults.section.reviewStatus"
+              title="검수 진행 상태"
+              size="sm"
+            />
             {(
               [
                 ["in_progress", "진행 중"],
@@ -839,6 +889,12 @@ export default function CrewWeekPublishPanel({
           >
             <span className="text-lg font-bold text-muted-foreground">
               {growthStandardLabel(growthStandardPoint.name)}
+              <AdminHelpIconButton
+                helpKey="admin.teamParts.crewWeekResults.field.growthCriterion"
+                title={growthStandardLabel(growthStandardPoint.name)}
+                size="sm"
+                className="ml-1"
+              />
             </span>
             <strong
               className={`text-4xl font-extrabold tabular-nums ${ORGANIZATION_TEXT_CLASS[organizationSlug]}`}
@@ -852,17 +908,21 @@ export default function CrewWeekPublishPanel({
 
         {/* 버튼 2행 1열 · 동일 너비 · 크게 */}
         <div className="grid min-w-0 content-start gap-3">
+          <div className="flex items-center gap-1">
           <Button
             type="button"
             onClick={onPreview}
             disabled={!canPreview}
             data-action-preview
-            className={`h-13 w-full py-3 text-base font-bold ${ORGANIZATION_ACCENT[organizationSlug].button}`}
+            className={`h-13 min-w-0 flex-1 py-3 text-base font-bold ${ORGANIZATION_ACCENT[organizationSlug].button}`}
           >
             {busy === "preview" ? "계산 중…" : "클럽 활동 검수(예비)"}
           </Button>
+          <AdminHelpIconButton helpKey="admin.teamParts.crewWeekResults.action.preview" title="클럽 활동 검수(예비)" size="sm" />
+          </div>
           {/* 공표 버튼은 **항상 렌더**한다(비활성 상태도 보여야 상태표와 일치한다).
               공표 취소는 대체가 아니라 아래에 **추가**된다 — 기존 버튼을 갈아치우지 않는다. */}
+          <div className="flex items-center gap-1">
           <Button
             type="button"
             onClick={onPublish}
@@ -876,7 +936,7 @@ export default function CrewWeekPublishPanel({
                   ? "먼저 [클럽 활동 검수(예비)] 를 실행해주세요."
                   : undefined
             }
-            className={`h-13 w-full py-3 text-base font-bold ${ORGANIZATION_ACCENT[organizationSlug].button}`}
+            className={`h-13 min-w-0 flex-1 py-3 text-base font-bold ${ORGANIZATION_ACCENT[organizationSlug].button}`}
           >
             {busy === "publish"
               ? "공표 중…"
@@ -884,29 +944,37 @@ export default function CrewWeekPublishPanel({
                 ? "클럽 활동 검수(재공표)"
                 : "클럽 활동 검수(공표)"}
           </Button>
+          <AdminHelpIconButton helpKey="admin.teamParts.crewWeekResults.action.publish" title="클럽 활동 검수 공표" size="sm" />
+          </div>
           {showUnpublish ? (
+            <div className="flex items-center gap-1">
             <Button
               type="button"
               variant="destructive"
               onClick={onUnpublish}
               disabled={!canUnpublish}
               data-action-unpublish
-              className="h-13 w-full py-3 text-base font-bold"
+              className="h-13 min-w-0 flex-1 py-3 text-base font-bold"
             >
               {busy === "unpublish" ? "취소 중…" : "공표 취소"}
             </Button>
+            <AdminHelpIconButton helpKey="admin.teamParts.crewWeekResults.action.unpublish" title="공표 취소" size="sm" />
+            </div>
           ) : null}
           {preview ? (
+            <div className="flex items-center gap-1">
             <Button
               type="button"
               variant="outline"
               onClick={onCancelPreview}
               disabled={busy != null}
               data-action-preview-cancel
-              className="w-full text-base font-semibold"
+              className="min-w-0 flex-1 text-base font-semibold"
             >
               예비 검수 취소
             </Button>
+            <AdminHelpIconButton helpKey="admin.teamParts.crewWeekResults.action.cancelPreview" title="예비 검수 취소" size="sm" />
+            </div>
           ) : null}
         </div>
       </div>
@@ -918,7 +986,11 @@ export default function CrewWeekPublishPanel({
           예비와 공표를 **절대 섞지 않는다** — 배지와 제목으로 출처를 명시한다. */}
       <section className="rounded-lg border p-4" data-summary-index>
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <strong className="text-base">이번 주 크루 종합 결과</strong>
+          <strong className="text-base">
+            <HelpLabel helpKey="admin.teamParts.crewWeekResults.section.weekSummary">
+              이번 주 크루 종합 결과
+            </HelpLabel>
+          </strong>
           {preview ? (
             <>
               <StatusBadge label="집계 중" size="sm" />
@@ -978,23 +1050,29 @@ export default function CrewWeekPublishPanel({
             ).map(([key, label]) => {
               const selected = tab === key;
               return (
-                <button
-                  key={key}
-                  type="button"
-                  role="tab"
-                  aria-selected={selected}
-                  data-tab={key}
-                  // 탭 전환은 표시만 바꾼다 — API 재호출·재계산 없음.
-                  onClick={() => setTab(key)}
-                  className={
-                    "rounded-lg border-2 py-4 text-xl font-bold transition-colors " +
-                    (selected
-                      ? ORGANIZATION_ACCENT[organizationSlug].solid
-                      : `${ORGANIZATION_COLUMN[organizationSlug].edge} ${ORGANIZATION_COLUMN[organizationSlug].cell} hover:brightness-95`)
-                  }
-                >
-                  {label}
-                </button>
+                <div key={key} className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    data-tab={key}
+                    // 탭 전환은 표시만 바꾼다 — API 재호출·재계산 없음.
+                    onClick={() => setTab(key)}
+                    className={
+                      "min-w-0 flex-1 rounded-lg border-2 py-4 text-xl font-bold transition-colors " +
+                      (selected
+                        ? ORGANIZATION_ACCENT[organizationSlug].solid
+                        : `${ORGANIZATION_COLUMN[organizationSlug].edge} ${ORGANIZATION_COLUMN[organizationSlug].cell} hover:brightness-95`)
+                    }
+                  >
+                    {label}
+                  </button>
+                  <AdminHelpIconButton
+                    helpKey={`admin.teamParts.crewWeekResults.tab.${key}`}
+                    title={label}
+                    size="sm"
+                  />
+                </div>
               );
             })}
           </div>

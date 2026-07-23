@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { AdminDetailTitle } from "@/components/admin/AdminRouteTitleProvider";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import CrewWeekResultsDetailTable from "@/components/admin/CrewWeekResultsDetailTable";
 import {
   useAdminOrgAccess,
@@ -47,6 +48,8 @@ const BASE_PATH = "/admin/team-parts/info/crew-week-results";
 // 상태 배지 — 색은 공용 레지스트리(lib/statusBadge)가 라벨로 정한다("같은 라벨=같은 색").
 //   라벨 문자열은 서버 DTO 값을 그대로 쓴다(프론트 매핑 테이블 재작성 금지).
 function StatusCell({ cell }: { cell: CrewWeeklyResultCellDto }) {
+  const isOfficialRest = cell.activityKind === "official_rest";
+
   return (
     <div
       // 셀 내용도 한 줄 유지 — 클럽 열을 좁혀도 "공식 활동 | 진행 중"이 두 줄로 갈라지지 않게.
@@ -58,7 +61,15 @@ function StatusCell({ cell }: { cell: CrewWeeklyResultCellDto }) {
       data-lifecycle-status={cell.lifecycleStatus}
       data-review-status={cell.reviewStatus}
     >
-      <span className="text-sm font-semibold">{cell.activityKindLabel}</span>
+      <span
+        className={
+          isOfficialRest
+            ? "rounded-md border border-amber-300 bg-amber-100 px-2 py-1 text-sm font-bold text-amber-900 shadow-sm"
+            : "text-sm font-semibold"
+        }
+      >
+        {cell.activityKindLabel}
+      </span>
       <span aria-hidden className="text-muted-foreground">
         |
       </span>
@@ -170,8 +181,20 @@ export default function CrewWeekResultsBoard({
       ) : null}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2">
-          <CardTitle>{title}</CardTitle>
+          <CardTitle className="flex items-center gap-1">
+            {title}
+            <AdminHelpIconButton
+              helpKey={
+                isDetail
+                  ? "admin.teamParts.crewWeekResults.section.organizationList"
+                  : "admin.teamParts.crewWeekResults.section.overview"
+              }
+              title={title}
+              size="sm"
+            />
+          </CardTitle>
           {isDetail ? (
+            <span className="flex items-center gap-1">
             <Button
               type="button"
               variant="outline"
@@ -185,6 +208,11 @@ export default function CrewWeekResultsBoard({
             >
               목록으로
             </Button>
+            <AdminHelpIconButton
+              helpKey="admin.teamParts.crewWeekResults.action.backToOverview"
+              title="통합 목록으로"
+            />
+            </span>
           ) : null}
         </CardHeader>
         <CardContent className="admin-section-stack-lg">
@@ -243,7 +271,13 @@ export default function CrewWeekResultsBoard({
                         scope="col"
                         className="border-b bg-muted/60 px-3 py-2 text-left font-semibold"
                       >
-                        주차
+                        <span className="inline-flex items-center gap-1">
+                          주차
+                          <AdminHelpIconButton
+                            helpKey="admin.teamParts.crewWeekResults.column.week"
+                            title="주차"
+                          />
+                        </span>
                       </th>
                       {organizations.map((org) => (
                         <th
@@ -260,8 +294,13 @@ export default function CrewWeekResultsBoard({
                             >
                               {org.organizationName}
                             </span>
+                            <AdminHelpIconButton
+                              helpKey="admin.teamParts.crewWeekResults.column.organizationResult"
+                              title="조직별 주차 결과"
+                            />
                             {/* 통합에서만 [상세] 진입 버튼. 상세 화면에는 자기 자신 링크를 두지 않는다. */}
                             {isDetail ? null : (
+                              <>
                               <Button
                                 type="button"
                                 variant="outline"
@@ -271,6 +310,11 @@ export default function CrewWeekResultsBoard({
                               >
                                 상세
                               </Button>
+                              <AdminHelpIconButton
+                                helpKey="admin.teamParts.crewWeekResults.action.openOrganization"
+                                title="조직 상세"
+                              />
+                              </>
                             )}
                           </div>
                         </th>
@@ -342,8 +386,12 @@ export default function CrewWeekResultsBoard({
 
               {pagination && pagination.totalCount > 0 ? (
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">
+                  <span className="inline-flex items-center gap-1 text-muted-foreground">
                     전체 {pagination.totalCount}개 · {pagination.page}/{totalPages}페이지
+                    <AdminHelpIconButton
+                      helpKey="admin.teamParts.crewWeekResults.action.pagination"
+                      title="페이지 이동"
+                    />
                   </span>
                   <div className="flex gap-1">
                     <Button

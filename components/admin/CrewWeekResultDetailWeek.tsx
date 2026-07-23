@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AdminDetailTitle } from "@/components/admin/AdminRouteTitleProvider";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { buildAdminContextHref } from "@/lib/adminOrgContext";
 import { readScopeMode } from "@/lib/userScopeShared";
 import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
@@ -93,26 +94,37 @@ export default function CrewWeekResultDetailWeek({
       />
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2">
-          <CardTitle data-week-detail-title>
+          <CardTitle className="flex items-center gap-1" data-week-detail-title>
             {week ? `${week.displayName} · ${orgKo}` : notAvailable ? "조회할 수 없는 주차" : "불러오는 중"}
+            <AdminHelpIconButton
+              helpKey="admin.teamParts.crewWeekResults.section.weekReview"
+              title="주차 결과 검수"
+              size="sm"
+            />
           </CardTitle>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            data-back-to-detail
-            onClick={() =>
-              router.push(
-                buildAdminContextHref({
-                  targetPath: `${BASE_PATH}/${organizationSlug}`,
-                  pathname,
-                  searchParams,
-                }),
-              )
-            }
-          >
-            목록으로
-          </Button>
+          <span className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              data-back-to-detail
+              onClick={() =>
+                router.push(
+                  buildAdminContextHref({
+                    targetPath: `${BASE_PATH}/${organizationSlug}`,
+                    pathname,
+                    searchParams,
+                  }),
+                )
+              }
+            >
+              목록으로
+            </Button>
+            <AdminHelpIconButton
+              helpKey="admin.teamParts.crewWeekResults.action.backToOrganization"
+              title="조직별 주차 목록으로"
+            />
+          </span>
         </CardHeader>
         <CardContent className="admin-section-stack-lg">
           {error ? (

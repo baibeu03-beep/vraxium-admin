@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { buildAdminContextHref } from "@/lib/adminOrgContext";
 import type { OrganizationSlug } from "@/lib/organizations";
+import { getProcessPointLabels } from "@/lib/pointLabels";
 import type {
   CrewWeeklyResultCellDto,
   CrewWeeklyResultWeekDto,
@@ -56,6 +58,7 @@ export default function CrewWeekResultsDetailTable({
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const pointLabels = getProcessPointLabels(organizationSlug);
 
   // 주차 세부 페이지 링크 — 불변 식별자(organizationSlug/weekId)만 URL 에 쓴다.
   //   표시 문자열·배열 인덱스 사용 금지. 어드민 컨텍스트(mode 등)는 공통 헬퍼로 승계.
@@ -67,19 +70,19 @@ export default function CrewWeekResultsDetailTable({
     });
 
   const COLS = [
-    "상태",
-    "주차명",
-    "기간",
-    "클럽 활동",
-    "기준 포인트 A",
-    "소속 크루",
-    "시즌 휴식",
-    "개인 휴식",
-    "성장 도전",
-    "성장 성공",
-    "성장 실패",
-    "성장 성공률",
-    "성장 도전율",
+    ["상태", "status"],
+    ["주차명", "week"],
+    ["기간", "period"],
+    ["클럽 활동", "activity"],
+    [`기준 ${pointLabels.a}`, "criterionPoint"],
+    ["소속 크루", "crewCount"],
+    ["시즌 휴식", "seasonRest"],
+    ["개인 휴식", "personalRest"],
+    ["성장 도전", "growthChallenge"],
+    ["성장 성공", "growthSuccess"],
+    ["성장 실패", "growthFailure"],
+    ["성장 성공률", "growthSuccessRate"],
+    ["성장 도전율", "growthChallengeRate"],
   ];
 
   return (
@@ -90,15 +93,21 @@ export default function CrewWeekResultsDetailTable({
       >
         <thead>
           <tr>
-            {COLS.map((label) => (
+            {COLS.map(([label, key]) => (
               <th
-                key={label}
+                key={key}
                 scope="col"
                 className={`whitespace-nowrap border-b bg-muted/60 px-3 py-2 font-semibold ${
                   label === "주차명" || label === "기간" ? "text-left" : "text-center"
                 }`}
               >
-                {label}
+                <span className="inline-flex items-center gap-1">
+                  {label}
+                  <AdminHelpIconButton
+                    helpKey={`admin.teamParts.crewWeekResults.column.${key}`}
+                    title={label}
+                  />
+                </span>
               </th>
             ))}
           </tr>
@@ -168,7 +177,17 @@ export default function CrewWeekResultsDetailTable({
                     className="whitespace-nowrap border-b px-3 py-2 text-center"
                     data-activity-kind={cell.activityKind}
                   >
-                    <StatusBadge label={cell.activityKindLabel} size="sm" appearance="soft" />
+                    <StatusBadge
+                      label={cell.activityKindLabel}
+                      size="sm"
+                      appearance={cell.activityKind === "official_rest" ? "solid" : "soft"}
+                      tone={cell.activityKind === "official_rest" ? "warning" : undefined}
+                      className={
+                        cell.activityKind === "official_rest"
+                          ? "border border-amber-300 shadow-sm"
+                          : undefined
+                      }
+                    />
                   </td>
 
                   {/* 5 기준 포인트 A — 없으면 "-"(30 폴백 금지). */}
