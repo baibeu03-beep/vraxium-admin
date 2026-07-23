@@ -203,7 +203,10 @@ async function main() {
   const firstLink = detailRows.find((r) => r.weekLink);
   if (firstLink) {
     await page.goto(`${BASE}${firstLink.weekLink}`, { waitUntil: "domcontentloaded" });
-    await page.waitForSelector("[data-week-detail-pending]", { timeout: 30_000 });
+    // 주차 세부 페이지 본문 = 공표 패널(정상) 또는 조회 불가 안내. 예전 "준비 중" 자리표시자는 없어졌다.
+    await page.waitForSelector("[data-crew-week-publish], [data-week-not-available]", {
+      timeout: 30_000,
+    });
     ck("주차 세부 페이지 진입", page.url().includes(firstLink.weekId), page.url());
     await page.waitForFunction(
       () => !document.querySelector("[data-week-detail-title]")?.textContent?.includes("불러오는 중"),

@@ -15,6 +15,7 @@ import {
   publishCrewWeekResult,
   unpublishCrewWeekResult,
   loadPublishedCrewWeekResult,
+  loadCrewWeekPublicationState,
   CrewWeekPublishError,
 } from "@/lib/crewWeekPublish";
 
@@ -113,12 +114,22 @@ export async function GET(request: NextRequest, { params }: Params) {
       });
       return Response.json({ success: true, data: { preview, scope: t.scope } });
     }
-    const published = await loadPublishedCrewWeekResult({
-      organization: t.organization,
-      weekId: t.weekId,
-      scope: t.scope,
-    });
-    return Response.json({ success: true, data: { published, scope: t.scope } });
+    // 기본 GET = **진입 즉시 호출**되는 공표 조회. 활성 run snapshot + 공표 상태 요약을 함께 준다.
+    //   ⚠ published=null 하나로는 "공표된 적 없음"과 "검수 완료인데 snapshot 없음(legacy)"이
+    //     구분되지 않는다 → publication 을 반드시 함께 실어 화면이 둘을 갈라 보게 한다.
+    const [published, publication] = await Promise.all([
+      loadPublishedCrewWeekResult({
+        organization: t.organization,
+        weekId: t.weekId,
+        scope: t.scope,
+      }),
+      loadCrewWeekPublicationState({
+        organization: t.organization,
+        weekId: t.weekId,
+        scope: t.scope,
+      }),
+    ]);
+    return Response.json({ success: true, data: { published, publication, scope: t.scope } });
   } catch (error) {
     return toErrorResponse(error, "조회에 실패했습니다.");
   }
@@ -136,6 +147,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   }
 
   try {
+    // 쓰기 후에는 **바뀐 사실을 서버에서 다시 읽어** 함께 돌려준다(클라이언트가 상태를 추측하지 않게).
     if (body.action === "publish") {
       const published = await publishCrewWeekResult({
         organization: t.organization,
@@ -143,7 +155,12 @@ export async function POST(request: NextRequest, { params }: Params) {
         scope: t.scope,
         actorId: t.admin.userId,
       });
-      return Response.json({ success: true, data: { published, scope: t.scope } });
+      const publication = await loadCrewWeekPublicationState({
+        organization: t.organization,
+        weekId: t.weekId,
+        scope: t.scope,
+      });
+      return Response.json({ success: true, data: { published, publication, scope: t.scope } });
     }
     if (body.action === "unpublish") {
       const result = await unpublishCrewWeekResult({
@@ -152,7 +169,12 @@ export async function POST(request: NextRequest, { params }: Params) {
         scope: t.scope,
         actorId: t.admin.userId,
       });
-      return Response.json({ success: true, data: { ...result, scope: t.scope } });
+      const publication = await loadCrewWeekPublicationState({
+        organization: t.organization,
+        weekId: t.weekId,
+        scope: t.scope,
+      });
+      return Response.json({ success: true, data: { ...result, publication, scope: t.scope } });
     }
     return Response.json(
       { success: false, error: "action 은 publish 또는 unpublish 여야 합니다." },

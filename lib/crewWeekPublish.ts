@@ -23,8 +23,11 @@ import {
 import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import { organizationLabelKo, type OrganizationSlug } from "@/lib/organizations";
 import {
+  loadWeekOrgResultStates,
+  resolveWeekOrgResultState,
   setWeekOrgResultStatus,
   type OrgResultScope,
+  type WeekOrgResultStatus,
 } from "@/lib/weekOrgResultState";
 import {
   loadCrewWeeklyMetricsInputs,
@@ -154,12 +157,16 @@ type WeekMeta = {
   is_official_rest: boolean | null;
   iso_year: number | null;
   iso_week: number | null;
+  /** 레거시 전역 검수 시각 — 조직별 상태 행이 없을 때의 폴백 근거(resolveWeekOrgResultState). */
+  result_reviewed_at: string | null;
 };
 
 async function loadWeekMeta(weekId: string): Promise<WeekMeta | null> {
   const { data } = await supabaseAdmin
     .from("weeks")
-    .select("id,season_key,start_date,end_date,is_official_rest,iso_year,iso_week")
+    .select(
+      "id,season_key,start_date,end_date,is_official_rest,iso_year,iso_week,result_reviewed_at",
+    )
     .eq("id", weekId)
     .maybeSingle();
   return (data as WeekMeta | null) ?? null;
@@ -358,14 +365,15 @@ export async function computeCrewWeekPreview(opts: {
   // ── 크루 표 base row + 결과 overlay 결합 ──────────────────────────────────
   //   base(크루명·학적·클래스·팀·파트·품계)는 예비 전에도 보여야 하므로 항상 채운다.
   //   overlay(등수·포인트·완료율·성장률·누적)는 여기서 계산해 **같은 행**에 얹는다(행 재생성 없음).
+  // week-effective 위치(팀·파트·클래스) — 조직 전체 배치 1회. 기존 공통 resolver 그대로 사용.
+  //   ⚠ 크루 행과 팀 집계가 **같은 이 결과**를 쓴다(팀 집계가 현재 멤버십을 따로 읽지 않는다).
+  const positions = await resolvePositionAtBatch({
+    userIds: crewResults.map((c) => c.userId),
+    targetWeekStart: week.start_date,
+    organization,
+  });
   {
     const ids = crewResults.map((c) => c.userId);
-    // week-effective 위치(팀·파트·클래스) — 조직 전체 배치 1회. 기존 공통 resolver 그대로 사용.
-    const positions = await resolvePositionAtBatch({
-      userIds: ids,
-      targetWeekStart: week.start_date,
-      organization,
-    });
     const showcase = await loadCrewShowcaseInputs({
       organization,
       userIds: ids,
@@ -445,18 +453,39 @@ export async function computeCrewWeekPreview(opts: {
     }
   }
   // 공식 휴식 주차는 팀 대전이 없다 → 빈 배열(가짜 0 팀 행 생성 금지).
-  const teamResults =
+  //   ⚠ teamResults 는 **실제 팀(카탈로그 매칭)만** 담는다. '미배정' 가상 버킷은 projection 이
+  //     분리해 주므로 여기서 다시 필터하지 않는다. 그 크루들은 crewResults·크루 종합 지표에 그대로 남는다.
+  const teamProjection =
     week.is_official_rest === true || verdicts.size === 0
-      ? []
+      ? { teams: [], unmatched: [] }
       : buildCrewWeekTeamResults({
           ctx: await loadCrewWeekTeamContext({
             organization,
-            userIds: [...verdicts.keys()],
             halfKey: week.season_key ? seasonKeyToHalfKey(week.season_key) : null,
           }),
+          // 소속은 **크루 행에 최종 표시된 값 그대로** 넘긴다(rawTeam ?? 프로필 폴백까지 동일).
+          //   → 크루 표의 팀별 인원 합 == 팀 표 totalCrew 합 이 구조적으로 보장된다.
+          positions: new Map(
+            crewResults.map((c) => [
+              c.userId,
+              {
+                teamName: c.teamName,
+                partName: c.partName,
+                positionCode: positions.get(c.userId)?.positionCode ?? null,
+              },
+            ]),
+          ),
           verdicts,
           seasonRestUserIds,
         });
+  const teamResults = teamProjection.teams;
+  if (teamProjection.unmatched.length > 0) {
+    // 진단용 — 팀 카탈로그에 매칭되지 않은 크루가 있다는 사실 자체는 남긴다(집계에는 미반영).
+    console.info(
+      "[crew-week-publish] 팀 카탈로그 미매칭 버킷 제외",
+      teamProjection.unmatched.map((t) => `${t.teamName}:${t.totalCrew}명`).join(", "),
+    );
+  }
 
   return {
     kind: "preview",
@@ -701,6 +730,63 @@ export async function loadPublishedCrewWeekResult(opts: {
     calculatedAt: run.calculated_at ?? run.created_at,
     calculationVersion: run.calculation_version ?? 0,
     sourceActivityDate: run.source_activity_date ?? "",
+  };
+}
+
+// ── 공표 상태(진입 즉시 1회) ────────────────────────────────────────────────
+// 상세 화면의 **버튼/표시 분기를 서버 사실로 확정**하기 위한 요약. 클라이언트가 상태를 추측하지
+//   않게 한다. 새 저장소가 아니라 기존 두 SoT(조직 검수 상태 · finalize run)를 한 번에 읽어 합친 것.
+//
+// ⚠ 가장 중요한 구분 — "검수 완료(published)인데 활성 공표 snapshot 이 없다"(legacy 검수 완료 주차)를
+//   **일반 집계 중과 절대 섞지 않는다.** live 결과로 조용히 폴백하지도 않는다(값이 달라진다).
+export type CrewWeekPublicationState = {
+  /** 조직별 검수 상태 SoT(폴백 포함). */
+  orgStatus: WeekOrgResultStatus;
+  /** organization = 조직별 행 존재 · legacy = 행 없음(weeks.result_reviewed_at 폴백). */
+  orgStatusSource: "organization" | "legacy";
+  /** 활성 finalize run 이 있는가(snapshot 유무 무관) — 공표 취소 대상 존재 여부. */
+  hasActiveRun: boolean;
+  /** 활성 run 이 snapshot 을 보유 = 결과를 표시할 수 있다. */
+  hasActiveSnapshot: boolean;
+  /**
+   * org 상태는 published 인데 표시 가능한 공표 snapshot 이 없다 = **기존 방식으로 검수 완료된 주차**.
+   *   (run 자체가 없거나, 있어도 snapshot_captured=false 인 legacy run)
+   *   화면은 완료 상태를 유지한 채 "결과를 표시할 수 없음"을 명시해야 한다.
+   */
+  legacyCompletedWithoutSnapshot: boolean;
+  activeRunId: string | null;
+  /** 주차가 실제로 끝났는가 — 진행 중 주차는 공표 불가(서버도 422). */
+  weekEnded: boolean;
+};
+
+export async function loadCrewWeekPublicationState(opts: {
+  organization: OrganizationSlug;
+  weekId: string;
+  scope: OrgResultScope;
+  today?: string;
+}): Promise<CrewWeekPublicationState> {
+  const { organization, weekId, scope } = opts;
+  const [week, stateMap, run] = await Promise.all([
+    loadWeekMeta(weekId),
+    loadWeekOrgResultStates([weekId], organization, scope),
+    loadActiveRun(weekId, organization, scope),
+  ]);
+  const state = resolveWeekOrgResultState(
+    stateMap.get(weekId),
+    week?.start_date ?? "",
+    week?.result_reviewed_at != null,
+  );
+  const hasActiveRun = run != null;
+  const hasActiveSnapshot = run?.snapshot_captured === true;
+  const activityDate = opts.today ?? getCurrentActivityDateIso();
+  return {
+    orgStatus: state.status,
+    orgStatusSource: state.source,
+    hasActiveRun,
+    hasActiveSnapshot,
+    legacyCompletedWithoutSnapshot: state.status === "published" && !hasActiveSnapshot,
+    activeRunId: run?.id ?? null,
+    weekEnded: week != null && activityDate > week.end_date,
   };
 }
 

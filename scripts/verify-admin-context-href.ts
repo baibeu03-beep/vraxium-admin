@@ -117,10 +117,12 @@ check(
     "mode=test&page=3&sort=name:asc&search=김&tab=info",
   ) === norm("/admin/members/u1?org=phalanx&mode=test"),
 );
+// 화이트리스트 고정 — page/sort/search/tab 등 목록 전용 파라미터가 새로 섞이면 실패한다.
+//   club 은 2026-07-xx(3b1ff7b)에 의도적으로 추가됐다(team-parts/info 계열은 조직 탭이 ?club).
 check(
-  "ADMIN_CONTEXT_PARAMS 는 mode/org/actAsTestUserId/demoUserId 만 포함한다",
+  "ADMIN_CONTEXT_PARAMS 는 mode/org/club/actAsTestUserId/demoUserId 만 포함한다",
   JSON.stringify([...ADMIN_CONTEXT_PARAMS]) ===
-    JSON.stringify(["mode", "org", "actAsTestUserId", "demoUserId"]),
+    JSON.stringify(["mode", "org", "club", "actAsTestUserId", "demoUserId"]),
 );
 
 // ── CrewDetail 뒤로가기 시나리오(상세 → 목록 왕복) ───────────────────────────

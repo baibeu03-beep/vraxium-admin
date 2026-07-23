@@ -273,10 +273,29 @@ export function sortShowcaseRows<
 //   **읽기 전용** — snapshot 생성/재계산/무효화 로직은 건드리지 않는다(readWeeklyCardsSnapshotBatch).
 //   stale/version_mismatch 여도 cards 배열이 있으면 그대로 쓴다(공용 조회 정책과 동일).
 //   카드가 없으면(MISS·error) **null 유지** — 0 폴백 금지.
+//
+// ⚠ 필드명 함정(2026-07-23 실측): 카드 DTO 에는 `cumulativeSuccessWeeks` 가 **없다**.
+//   고객 앱 /weekly-ranking 의 "N주"(CrewRankShowcase.cumulativeSuccessWeeks)는 front metricFromCard 가
+//   `card.accumulatedApprovedWeeks` 를 그대로 옮겨 담은 값이다(front lib/weekly-league.ts).
+//   여기서도 **같은 필드를 그대로 읽는다** — 누적 성공 주차를 새로 세지 않는다
+//   (user_week_statuses 카운트 금지 · 현재 주차 성공 여부 가산 금지).
 export type GrowthFromSnapshot = {
   weeklyGrowthRatePercent: number | null;
   cumulativeSuccessWeeks: number | null;
 };
+
+// front `rateValue()` 미러 — Cluster4RateDto → 0~100 정수. 값이 없으면 null(0 환원 금지).
+//   front 는 rateValue(undefined)=0 으로 환원하지만, 어드민 표는 "미집계('-')"와 "실제 0"을 구분해야
+//   하므로 여기서는 null 을 유지하고 상위 폴백(weeklyGrowthRate)에 판단을 넘긴다.
+function rateValueOrNull(rate: unknown): number | null {
+  if (rate == null || typeof rate !== "object") return null;
+  const r = rate as { rate?: unknown; total?: unknown; count?: unknown };
+  if (typeof r.rate === "number" && Number.isFinite(r.rate)) return Math.round(r.rate);
+  const total = Number(r.total);
+  const count = Number(r.count);
+  if (!Number.isFinite(total) || !Number.isFinite(count)) return null;
+  return total > 0 ? Math.round((count / total) * 100) : 0;
+}
 
 async function loadGrowthFromSnapshot(
   userIds: string[],
@@ -299,11 +318,17 @@ async function loadGrowthFromSnapshot(
     if (!Array.isArray(cards)) continue;
     const card = (cards as Array<Record<string, unknown>>).find((c) => c.weekId === weekId);
     if (!card) continue;
-    const rate = card.weeklyGrowthRate;
-    const cum = card.cumulativeSuccessWeeks;
+    // 주차 성장률 — front metricFromCard 순서 그대로: growthRate(있으면) → weeklyGrowthRate.
+    const fromRateDto = rateValueOrNull(card.growthRate);
+    const flat = card.weeklyGrowthRate;
+    // 성장성공(주차) — 카드의 accumulatedApprovedWeeks 를 **그대로**. 0 은 실제 0("0주"),
+    //   필드 자체가 없을 때만 null("-").
+    const cum = card.accumulatedApprovedWeeks;
     out.set(uid, {
-      weeklyGrowthRatePercent: typeof rate === "number" ? Math.round(rate) : null,
-      cumulativeSuccessWeeks: typeof cum === "number" ? cum : null,
+      weeklyGrowthRatePercent:
+        fromRateDto ?? (typeof flat === "number" && Number.isFinite(flat) ? Math.round(flat) : null),
+      cumulativeSuccessWeeks:
+        typeof cum === "number" && Number.isFinite(cum) ? Math.max(0, cum) : null,
     });
   }
   return out;

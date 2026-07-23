@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { buildAdminContextHref } from "@/lib/adminOrgContext";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { adminDialog } from "@/components/ui/admin-dialog";
 import { pushToast } from "@/components/ui/toast";
@@ -97,6 +99,18 @@ type PublishedDto = PreviewDto & {
   publishedAt: string;
   publishedBy: string | null;
   snapshotUnavailable: boolean;
+};
+
+// 서버가 확정해 준 공표 상태 요약(lib/crewWeekPublish.CrewWeekPublicationState).
+//   화면은 이 사실만 보고 버튼·표시를 가른다 — 상태를 클라이언트에서 추측하지 않는다.
+type PublicationState = {
+  orgStatus: "aggregating" | "reviewing" | "published";
+  orgStatusSource: "organization" | "legacy";
+  hasActiveRun: boolean;
+  hasActiveSnapshot: boolean;
+  legacyCompletedWithoutSnapshot: boolean;
+  activeRunId: string | null;
+  weekEnded: boolean;
 };
 
 // null = 아직 계산 불가/미집계 → "-".  0 = 계산 완료 후 실제 0 → "0".
@@ -344,7 +358,13 @@ function TeamTable({ rows }: { rows: TeamRow[] }) {
         </thead>
         <tbody>
           {sorted.map((t, i) => (
-            <tr key={t.teamId ?? t.teamName} className={i % 2 === 1 ? "bg-muted/30" : ""} data-team-row={t.teamName}>
+            <tr
+              key={t.teamId ?? t.teamName}
+              className={i % 2 === 1 ? "bg-muted/30" : ""}
+              data-team-row={t.teamName}
+              data-team-total={t.totalCrew}
+              data-team-parts={t.partCount}
+            >
               <td className="whitespace-nowrap border-b px-3 py-2 text-left font-bold">{t.teamName}</td>
               <td className="whitespace-nowrap border-b px-3 py-2 text-center">
                 <StatusBadge label={BATTLE_LABEL[t.battleResult]} size="sm" tone={BATTLE_TONE[t.battleResult]} />
@@ -392,7 +412,16 @@ const CREW_COLS = [
   "액트 체크율", "주차 성장률", "포인트 A", "포인트 B", "포인트 C", "성장성공(주차)",
 ];
 
-function CrewTable({ rows, hasResult }: { rows: CrewRow[]; hasResult: boolean }) {
+function CrewTable({
+  rows,
+  hasResult,
+  memberHref,
+}: {
+  rows: CrewRow[];
+  hasResult: boolean;
+  /** 크루명 → 회원 상세 href. 표에 이미 있는 userId 만 쓴다(추가 조회 없음). */
+  memberHref: (userId: string) => string;
+}) {
   // 정렬: 결과 있으면 등수→품계→성장률desc→이름→userId, 없으면 크루명 ko-KR(고객 앱 흉내 금지).
   const sorted = useMemo(() => {
     const arr = [...rows];
@@ -446,8 +475,16 @@ function CrewTable({ rows, hasResult }: { rows: CrewRow[]; hasResult: boolean })
                 <td className="whitespace-nowrap border-b px-3 py-2 text-center font-bold tabular-nums" data-col-rank>
                   {cell(c.rank)}
                 </td>
+                {/* 크루명 — 클릭 시 회원 상세로 이동(현재 탭). 어드민 컨텍스트(통합/개별 org·모드·
+                    테스트 대행/데모)는 공통 유틸이 그대로 전달한다 — 수동 문자열 연결 금지. */}
                 <td className={`whitespace-nowrap border-b px-3 py-2 text-left font-semibold sticky left-0 z-10 ${zebra || "bg-background"}`}>
-                  {c.crewDisplayName ?? c.crewCode ?? c.userId.slice(0, 8)}
+                  <Link
+                    href={memberHref(c.userId)}
+                    data-crew-name-link={c.userId}
+                    className="underline-offset-2 hover:underline focus-visible:underline focus-visible:outline-none"
+                  >
+                    {c.crewDisplayName ?? c.crewCode ?? c.userId.slice(0, 8)}
+                  </Link>
                 </td>
                 {/* 학적 = 학교·전공만(연락처·학번 미표시) */}
                 <td className="whitespace-nowrap border-b px-3 py-2 text-left" data-col-edu>
@@ -468,15 +505,15 @@ function CrewTable({ rows, hasResult }: { rows: CrewRow[]; hasResult: boolean })
                   )}
                 </td>
                 <td className="whitespace-nowrap border-b px-3 py-2 text-center">{c.classLabel ?? <span className="text-muted-foreground">-</span>}</td>
-                <td className="whitespace-nowrap border-b px-3 py-2 text-center">{c.teamName ?? <span className="text-muted-foreground">-</span>}</td>
-                <td className="whitespace-nowrap border-b px-3 py-2 text-center">{c.partName ?? <span className="text-muted-foreground">-</span>}</td>
+                <td className="whitespace-nowrap border-b px-3 py-2 text-center" data-col-team>{c.teamName ?? <span className="text-muted-foreground">-</span>}</td>
+                <td className="whitespace-nowrap border-b px-3 py-2 text-center" data-col-part>{c.partName ?? <span className="text-muted-foreground">-</span>}</td>
                 <td className="whitespace-nowrap border-b px-3 py-2 text-center">{c.gradeLabel ?? <span className="text-muted-foreground">-</span>}</td>
                 <td className="whitespace-nowrap border-b px-3 py-2 text-center tabular-nums" data-col-actrate>{cell(c.actCompletionRatePercent, "%")}</td>
                 <td className="whitespace-nowrap border-b px-3 py-2 text-center tabular-nums">{cell(c.weeklyGrowthRatePercent, "%")}</td>
                 <td className="whitespace-nowrap border-b px-3 py-2 text-center tabular-nums">{cell(c.earnedPointA)}</td>
                 <td className="whitespace-nowrap border-b px-3 py-2 text-center tabular-nums">{cell(c.pointB)}</td>
                 <td className="whitespace-nowrap border-b px-3 py-2 text-center tabular-nums">{cell(c.pointC)}</td>
-                <td className="whitespace-nowrap border-b px-3 py-2 text-center tabular-nums">{cell(c.cumulativeSuccessWeeks, "주")}</td>
+                <td className="whitespace-nowrap border-b px-3 py-2 text-center tabular-nums" data-col-cumweeks>{cell(c.cumulativeSuccessWeeks, "주")}</td>
               </tr>
             );
           })}
@@ -504,44 +541,73 @@ export default function CrewWeekPublishPanel({
   onChanged?: () => void;
 }) {
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const mode = readScopeMode(searchParams);
+  // 크루명 → 회원 상세. 표에 이미 있는 userId 를 그대로 쓴다(새 API·조회 없음).
+  const memberHref = useCallback(
+    (userId: string) =>
+      buildAdminContextHref({
+        targetPath: `/admin/members/${userId}`,
+        pathname,
+        searchParams,
+      }),
+    [pathname, searchParams],
+  );
   const qs = mode === "test" ? "?mode=test" : "";
   const base = `/api/admin/team-parts/info/crew-week-results/${organizationSlug}/${weekId}`;
 
   const [preview, setPreview] = useState<PreviewDto | null>(null);
   const [published, setPublished] = useState<PublishedDto | null>(null);
+  const [publication, setPublication] = useState<PublicationState | null>(null);
+  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<null | "preview" | "publish" | "unpublish">(null);
   // 기본 탭 = 크루 활동 결과. 탭 전환은 화면 표시만 바꾼다(쓰기·재계산 없음).
   const [tab, setTab] = useState<"crew" | "team">("crew");
   // 예비 전에도 보여야 하는 크루 전원 base row(결과 컬럼은 전부 null).
   const [baseRows, setBaseRows] = useState<CrewRow[] | null>(null);
+  // 공표/취소 후 서버 사실을 다시 읽기 위한 트리거.
+  const [refreshKey, setRefreshKey] = useState(0);
+  const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
-  const loadPublished = useCallback(async () => {
-    try {
-      const res = await fetch(`${base}${qs}`, { cache: "no-store" });
-      const json = await res.json();
-      if (!res.ok || !json.success) throw apiErrorFrom(res, json, `조회 실패 (${res.status})`);
-      setPublished((json.data?.published as PublishedDto | null) ?? null);
-    } catch {
-      setPublished(null);
-    }
-  }, [base, qs]);
-
+  // [1] 진입 즉시 공표 snapshot 조회 — 검수 완료 주차는 **예비 검수 없이** 값이 채워져야 한다.
+  //   순서가 중요하다: ① 공표 상태/스냅샷 → ② (스냅샷이 없을 때만) base row.
+  //   활성 snapshot 이 있으면 그 표가 곧 화면이므로 base row 재계산을 아예 하지 않는다(무거운 live 계산 회피).
   useEffect(() => {
+    let alive = true;
     // 외부(API)와 동기화하는 정석 effect — 공표 상태는 서버가 소유한다.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    void loadPublished();
-    // base row 는 진입 즉시 로드한다(결과 계산 노출 아님 — 서버가 결과 컬럼을 비워 보낸다).
+    setLoading(true);
     void (async () => {
+      let pub: PublicationState | null = null;
+      try {
+        const res = await fetch(`${base}${qs}`, { cache: "no-store" });
+        const json = await res.json();
+        if (!res.ok || !json.success) throw apiErrorFrom(res, json, `조회 실패 (${res.status})`);
+        if (!alive) return;
+        pub = (json.data?.publication as PublicationState | null) ?? null;
+        setPublished((json.data?.published as PublishedDto | null) ?? null);
+        setPublication(pub);
+      } catch {
+        if (!alive) return;
+        setPublished(null);
+        setPublication(null);
+      } finally {
+        if (alive) setLoading(false);
+      }
+      if (!alive || pub?.hasActiveSnapshot === true) return;
+      // base row — 결과 계산 노출이 아니다. 서버가 결과 컬럼을 비워 보낸다(결과 컬럼 "-").
       try {
         const res = await fetch(`${base}${qs ? `${qs}&` : "?"}action=base`, { cache: "no-store" });
         const json = await res.json();
-        if (res.ok && json.success) setBaseRows(json.data.baseRows as CrewRow[]);
+        if (alive && res.ok && json.success) setBaseRows(json.data.baseRows as CrewRow[]);
       } catch {
-        setBaseRows(null);
+        if (alive) setBaseRows(null);
       }
     })();
-  }, [loadPublished, base, qs]);
+    return () => {
+      alive = false;
+    };
+  }, [base, qs, refreshKey]);
 
   // [3] 예비 검수 — 매번 서버에서 최신 원천으로 재계산(캐시 금지).
   const onPreview = async () => {
@@ -554,8 +620,9 @@ export default function CrewWeekPublishPanel({
       await adminDialog.alert({
         variant: "info",
         title: "예비 결과 도출",
+        // 줄바꿈은 다이얼로그 본문의 whitespace-pre-line 이 그대로 렌더한다.
         description:
-          "누적된 데이터를 기준으로 예비 결과를 도출했습니다. 이 결과는 확인용이며, 다른 페이지에는 공표되지 않았습니다.",
+          "누적된 데이터를 기준하여, 결과를 도출했습니다.\n다른 페이지에는 공표되지 않았으며, ‘확인’ 용입니다.",
       });
     } catch (e) {
       pushToast("error", getApiErrorMessage(e, "예비 검수 실패"));
@@ -589,6 +656,8 @@ export default function CrewWeekPublishPanel({
       const json = await res.json();
       if (!res.ok || !json.success) throw apiErrorFrom(res, json, `공표 실패 (${res.status})`);
       setPublished(json.data.published as PublishedDto);
+      setPublication((json.data.publication as PublicationState | null) ?? null);
+      // [5] 재공표 성공 = 새 snapshot 이 활성 · 이전 run 은 이력. 화면은 공표 결과 한 벌만 보여준다.
       setPreview(null);
       pushToast("success", "공표되었습니다.");
       onChanged?.();
@@ -619,7 +688,13 @@ export default function CrewWeekPublishPanel({
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw apiErrorFrom(res, json, `공표 취소 실패 (${res.status})`);
+      // [4] 취소 후 이 화면 = base row 유지 · 결과 overlay 제거 · 결과 컬럼 "-".
+      //   예비 결과도 함께 비운다(공표를 내린 화면에 결과 숫자가 남아 있으면 안 된다).
       setPublished(null);
+      setPreview(null);
+      setPublication((json.data.publication as PublicationState | null) ?? null);
+      setBaseRows(null);
+      refresh(); // base row 재조회(스냅샷이 사라졌으므로 이제 필요하다)
       pushToast("success", "공표가 취소되었습니다.");
       onChanged?.();
     } catch (e) {
@@ -629,12 +704,44 @@ export default function CrewWeekPublishPanel({
     }
   };
 
-  // 버튼 상태표 — 진행 중에는 예비만 허용(공표는 서버도 422). 검수 완료면 공표 취소 가능.
-  // 하단 표의 결과 소스 — [5] 와 동일 우선순위(새 예비 > 활성 공표 snapshot > 없음).
-  const source: PreviewDto | PublishedDto | null = preview ?? published ?? null;
+  // ── [2] 표시 우선순위 ───────────────────────────────────────────────────────
+  //   ① 새 예비 결과 → ② 활성 공표 snapshot → ③ 둘 다 없으면 base row + 결과 컬럼 "-".
+  //   ⚠ snapshot 이 없는 legacy 공표본(snapshotUnavailable)은 **표시 소스가 아니다** —
+  //     live 결과로 조용히 폴백하지 않고 "표시할 수 없음"을 명시한다.
+  const hasActiveSnapshot = publication?.hasActiveSnapshot === true;
+  const publishedShown: PublishedDto | null =
+    hasActiveSnapshot && published && !published.snapshotUnavailable ? published : null;
+  const source: PreviewDto | PublishedDto | null = preview ?? publishedShown ?? null;
 
-  const canPublish = weekEnded && (preview != null || published != null) && busy == null;
-  const canUnpublish = published != null && busy == null;
+  // ── [6] legacy 검수 완료 주차 ───────────────────────────────────────────────
+  //   org 상태는 published 인데 표시 가능한 공표 snapshot 이 없다. 일반 집계 중처럼 취급하지 않는다.
+  const legacyCompleted = publication?.legacyCompletedWithoutSnapshot === true;
+  // 이미 한 번 공표된 주차인가(= 공표 버튼 문구를 "재공표"로 구분).
+  const alreadyPublished = hasActiveSnapshot || legacyCompleted;
+
+  // ── [3] 버튼 상태표 ─────────────────────────────────────────────────────────
+  //   예비 검수 : 항상 활성(검수 완료에서도 재실행 가능).
+  //   공표      : 주차 종료 + **새 예비 결과가 있을 때만** 활성.
+  //               → 검수 완료+snapshot(예비 없음)=비활성 · 검수 완료+새 예비=재공표 활성
+  //               → 집계 중+예비 없음=비활성 · 집계 중+예비 있음=활성 · 진행 중=비활성(weekEnded=false)
+  //   공표 취소 : **활성 공표(run)가 있을 때만 표시.** 집계 중/진행 중에서는 숨김.
+  //   주차 종료 판정은 두 곳이 같은 SoT(활동 기준일)를 쓴다 — 상세 GET 이 먼저 오므로 그 값을 우선한다.
+  const weekEndedNow = publication?.weekEnded ?? weekEnded;
+  const canPreview = busy == null;
+  const canPublish = weekEndedNow && preview != null && busy == null;
+  const showUnpublish = publication?.hasActiveRun === true;
+  const canUnpublish = showUnpublish && busy == null;
+
+  // 상단 단계 표시 — 공표/취소 직후 부모 번들 재조회를 기다리지 않도록 서버가 준 org 상태를 우선한다.
+  //   ⚠ 진행 중 vs 집계 중 구분은 시간 게이트라 부모 DTO 만 알고 있다 → 그 부분은 그대로 쓴다.
+  const stepStatus: CrewWeeklyResultDisplayStatus | null =
+    publication == null
+      ? displayStatus
+      : publication.orgStatus === "published"
+        ? "completed"
+        : displayStatus === "completed"
+          ? "aggregating"
+          : displayStatus;
 
   return (
     <div className="admin-section-stack-lg min-w-0" data-crew-week-publish>
@@ -649,7 +756,7 @@ export default function CrewWeekPublishPanel({
                 ["completed", "검수 완료"],
               ] as const
             ).map(([key, label], i) => {
-              const active = displayStatus === key;
+              const active = stepStatus === key;
               return (
                 <span key={key} className="flex items-center gap-2">
                   {i > 0 ? <span aria-hidden className="text-muted-foreground">···</span> : null}
@@ -687,59 +794,80 @@ export default function CrewWeekPublishPanel({
           <Button
             type="button"
             onClick={onPreview}
-            disabled={busy != null}
+            disabled={!canPreview}
             data-action-preview
             className={`h-13 w-full py-3 text-base font-bold ${ORGANIZATION_ACCENT[organizationSlug].button}`}
           >
             {busy === "preview" ? "계산 중…" : "클럽 활동 검수(예비)"}
           </Button>
-          {canUnpublish ? (
+          {/* 공표 버튼은 **항상 렌더**한다(비활성 상태도 보여야 상태표와 일치한다).
+              공표 취소는 대체가 아니라 아래에 **추가**된다 — 기존 버튼을 갈아치우지 않는다. */}
+          <Button
+            type="button"
+            onClick={onPublish}
+            disabled={!canPublish}
+            data-action-publish
+            data-publish-kind={alreadyPublished ? "republish" : "publish"}
+            title={
+              !weekEndedNow
+                ? "진행 중인 주차는 공표할 수 없습니다."
+                : preview == null
+                  ? "먼저 [클럽 활동 검수(예비)] 를 실행해주세요."
+                  : undefined
+            }
+            className={`h-13 w-full py-3 text-base font-bold ${ORGANIZATION_ACCENT[organizationSlug].button}`}
+          >
+            {busy === "publish"
+              ? "공표 중…"
+              : alreadyPublished
+                ? "클럽 활동 검수(재공표)"
+                : "클럽 활동 검수(공표)"}
+          </Button>
+          {showUnpublish ? (
             <Button
               type="button"
               variant="destructive"
               onClick={onUnpublish}
+              disabled={!canUnpublish}
               data-action-unpublish
               className="h-13 w-full py-3 text-base font-bold"
             >
-              공표 취소
+              {busy === "unpublish" ? "취소 중…" : "공표 취소"}
             </Button>
-          ) : (
-            <Button
-              type="button"
-              onClick={onPublish}
-              disabled={!canPublish}
-              data-action-publish
-              title={weekEnded ? undefined : "진행 중인 주차는 공표할 수 없습니다."}
-              className={`h-13 w-full py-3 text-base font-bold ${ORGANIZATION_ACCENT[organizationSlug].button}`}
-            >
-              {published ? "클럽 활동 검수(재공표)" : "클럽 활동 검수(공표)"}
-            </Button>
-          )}
+          ) : null}
           {preview ? (
             <Button
               type="button"
               variant="outline"
               onClick={onCancelPreview}
+              disabled={busy != null}
               data-action-preview-cancel
               className="w-full text-base font-semibold"
             >
               예비 검수 취소
             </Button>
           ) : null}
-          {canUnpublish && (preview != null || published != null) && weekEnded ? (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onPublish}
-              disabled={!canPublish}
-              data-action-publish
-              className="w-full text-base font-semibold"
-            >
-              재공표
-            </Button>
-          ) : null}
         </div>
       </div>
+
+      {/* [6] legacy 검수 완료 주차 — 완료 상태는 유지한 채 "표시할 수 없음"을 명시한다.
+          ⚠ 여기서 live 결과로 폴백하면 공표 당시 값과 다른 숫자를 확정처럼 보여주게 된다. 하지 않는다. */}
+      {legacyCompleted ? (
+        <div
+          data-legacy-completed
+          data-legacy-kind={publication?.hasActiveRun ? "run_without_snapshot" : "no_run"}
+          className="rounded-lg border-2 border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+        >
+          <strong className="block text-base">
+            기존 방식으로 검수 완료된 주차이지만, 공표 snapshot 이 없어 결과를 표시할 수 없습니다.
+          </strong>
+          <span className="mt-1 block text-amber-800">
+            이 주차는 검수 완료 상태 그대로입니다(집계 중이 아닙니다). 결과를 다시 표시하려면
+            [클럽 활동 검수(예비)] 로 현재 원천을 확인한 뒤 [클럽 활동 검수(재공표)] 를 실행해
+            공표 snapshot 을 생성해주세요.
+          </span>
+        </div>
+      ) : null}
 
       {/* [5] 주차 종합 인덱스 — 항상 렌더한다(최초 진입 = 전부 "-").
           표시 우선순위: ① 새 예비 결과 → ② 활성 공표 snapshot → ③ 둘 다 없으면 "-".
@@ -757,33 +885,40 @@ export default function CrewWeekPublishPanel({
                 계산 시각 {new Date(preview.calculatedAt).toLocaleString("ko-KR")} · 아직 공표되지 않았습니다.
               </span>
             </>
-          ) : published ? (
+          ) : publishedShown ? (
             <>
               <StatusBadge label="검수 완료" size="sm" />
               <span data-summary-source="published" className="text-sm font-semibold">
                 현재 공표 결과
               </span>
               <span className="text-xs text-muted-foreground">
-                공표 시각 {new Date(published.publishedAt).toLocaleString("ko-KR")} · 결과 버전{" "}
-                {published.calculationVersion} · run {published.runId.slice(0, 8)}
+                공표 시각 {new Date(publishedShown.publishedAt).toLocaleString("ko-KR")} · 결과 버전{" "}
+                {publishedShown.calculationVersion} · run {publishedShown.runId.slice(0, 8)}
+              </span>
+            </>
+          ) : legacyCompleted ? (
+            <>
+              <StatusBadge label="검수 완료" size="sm" />
+              <span data-summary-source="legacy" className="text-sm font-semibold text-amber-800">
+                공표 snapshot 없음
               </span>
             </>
           ) : (
             <span data-summary-source="none" className="text-xs text-muted-foreground">
-              [클럽 활동 검수(예비)] 를 실행하면 결과가 표시됩니다.
+              {loading ? "불러오는 중…" : "[클럽 활동 검수(예비)] 를 실행하면 결과가 표시됩니다."}
             </span>
           )}
         </div>
         <SummaryIndex
-          m={preview ?? published}
-          readiness={(preview ?? published)?.metricsReadiness ?? null}
+          m={preview ?? publishedShown}
+          readiness={(preview ?? publishedShown)?.metricsReadiness ?? null}
           org={organizationSlug}
-          teams={(preview ?? published)?.teamResults ?? null}
+          teams={(preview ?? publishedShown)?.teamResults ?? null}
         />
-        {published && preview ? (
+        {publishedShown && preview ? (
           <p className="mt-2 text-xs text-amber-800" data-summary-both>
             ⚠ 현재 공표 중인 결과와 새 예비 결과가 함께 존재합니다. 위 값은 <strong>새 예비 결과</strong>이며
-            아직 공표되지 않았습니다. 공표 결과는 아래에서 확인하세요.
+            아직 공표되지 않았습니다. 공표 결과는 [클럽 활동 검수(재공표)] 전까지 그대로 유지됩니다.
           </p>
         ) : null}
       </section>
@@ -833,38 +968,42 @@ export default function CrewWeekPublishPanel({
                 <span className="text-xs text-muted-foreground">
                   {preview
                     ? `계산 시각 ${new Date(preview.calculatedAt).toLocaleString("ko-KR")} · 아직 공표되지 않음`
-                    : `공표 시각 ${new Date(published!.publishedAt).toLocaleString("ko-KR")} · run ${published!.runId.slice(0, 8)}`}
+                    : `공표 시각 ${new Date(publishedShown!.publishedAt).toLocaleString("ko-KR")} · run ${publishedShown!.runId.slice(0, 8)}`}
                 </span>
               </div>
-              {published?.snapshotUnavailable ? (
-                <p className="py-8 text-center text-sm text-amber-800">
-                  이 공표본은 snapshot 이전에 생성되어 상세 결과를 표시할 수 없습니다(legacy).
-                </p>
-              ) : tab === "crew" ? (
-                <CrewTable rows={source.crewResults} hasResult />
+              {tab === "crew" ? (
+                <CrewTable rows={source.crewResults} hasResult memberHref={memberHref} />
               ) : (
                 <TeamTable rows={source.teamResults} />
               )}
             </>
           ) : tab === "crew" && baseRows ? (
             <>
+              {/* [2]③ 결과가 없으면 base row + 결과 컬럼 "-". legacy 완료 주차도 여기로 온다
+                  (live 결과를 결과 컬럼에 채우지 않는다 — 위 경고가 이유를 설명한다). */}
               <p className="mb-2 text-xs text-muted-foreground" data-details-base>
-                기본 정보만 표시 중입니다. [클럽 활동 검수(예비)] 를 실행하면 결과 컬럼이 채워집니다.
+                {legacyCompleted
+                  ? "공표 snapshot 이 없어 결과 컬럼을 표시할 수 없습니다. 기본 정보만 표시 중입니다."
+                  : "기본 정보만 표시 중입니다. [클럽 활동 검수(예비)] 를 실행하면 결과 컬럼이 채워집니다."}
               </p>
-              <CrewTable rows={baseRows} hasResult={false} />
+              <CrewTable rows={baseRows} hasResult={false} memberHref={memberHref} />
             </>
           ) : (
             <p className="py-10 text-center text-sm text-muted-foreground" data-details-empty>
-              예비 검수를 실행하면 이 주차의 결과가 표시됩니다.
+              {loading
+                ? "불러오는 중…"
+                : legacyCompleted
+                  ? "공표 snapshot 이 없어 이 주차의 결과를 표시할 수 없습니다."
+                  : "예비 검수를 실행하면 이 주차의 결과가 표시됩니다."}
             </p>
           )}
         </div>
       </section>
 
-      {!published && !preview ? (
+      {!publishedShown && !preview && !legacyCompleted && !loading ? (
         <p className="text-sm text-muted-foreground">
           [클럽 활동 검수(예비)] 를 눌러 현재 누적 데이터 기준 결과를 확인할 수 있습니다.
-          {displayStatus === "in_progress"
+          {stepStatus === "in_progress"
             ? " 진행 중인 주차는 공표할 수 없습니다."
             : null}
         </p>

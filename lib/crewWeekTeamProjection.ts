@@ -4,6 +4,12 @@
 //   집계 규칙을 그대로 옮긴 것이다(동일 테이블·동일 판정·동일 반올림). front/admin 은 별도 빌드라
 //   import 이 불가능해 포팅했다 — lib/crewWeeklyMetricsAggregation 과 같은 선례.
 //
+// ⚠ 소속 SoT(2026-07-23 정정): 팀/파트/클래스는 **크루 표와 같은 week-effective resolver**
+//   (lib/positionResolver) 산출값을 쓴다. 종전에는 이 파일만 현재 user_memberships 를 다시 읽어,
+//   같은 크루가 크루 표에서는 '사운드(T)'·팀 집계에서는 '미배정'으로 갈리는 실측 불일치가 있었다
+//   (멤버십 행에 team_name 이 비어 있고 override/UPH 로만 팀이 결정되는 사람). → [[position-resolver-sot]]
+//   이제 호출자가 crewResults 와 **동일한 값**을 positions 로 넘긴다(여기서 다시 조회하지 않는다).
+//
 // ── 이식한 규칙(front 398~470행) ─────────────────────────────────────────────
 //   버킷      = teamNameOf(userId). 빈값/"-" → "미배정".
 //   파트 수    = 1명 이상 배정된 distinct 파트명 수("-"/"미배정"/공백 제외).
@@ -25,13 +31,32 @@
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import type { OrganizationSlug } from "@/lib/organizations";
+import type { PositionCode } from "@/shared/crewClassPosition";
 
 export type TeamBattleResult = "win" | "lose" | "draw";
+
+/**
+ * 팀 집계에 쓰는 크루 1명의 소속 — **크루 표에 실제로 표시된 값과 같은 것**을 넘긴다.
+ *   teamName/partName = resolvePositionAtBatch 의 rawTeam/rawPart(프로필 폴백 포함, 크루 행과 동일 식).
+ *   positionCode      = 같은 resolver 의 클래스 코드. 심화/정규 버킷 분기는 **코드로만** 한다
+ *                       (라벨 문자열 비교 금지 — 어휘 2종이 섞이면 어느 버킷에도 안 걸려 사람이 사라진다).
+ */
+export type CrewWeekMemberPosition = {
+  teamName: string | null;
+  partName: string | null;
+  positionCode: PositionCode | null;
+};
+
+// 심화 버킷 = 심화 등급 내 직책(에이전트·파트장). 운영진/정규/미상은 정규 버킷.
+//   front isAdvancedLevel(membership_level) 과 같은 결과를 코드 어휘로 표현한 것이다
+//   (resolvePositionLabels 가 membership_level='심화*' → advanced_* 코드로 이미 정규화한다).
+const ADVANCED_CODES = new Set<PositionCode>(["advanced_agent", "advanced_part_leader"]);
 
 /** 크루 1명의 팀 판정 입력 — 크루 결과에서 파생한다. */
 export type TeamVerdict = "success" | "fail" | "rest";
 
 export type CrewWeekTeamResultDto = {
+  /** 반기 팀 카탈로그(cluster4_team_halves) 매칭 id. null = 실제 팀이 아님(가상 버킷). */
   teamId: string | null;
   teamName: string;
   /** 안정 키 — 등록팀=team_id · 미등록팀='name:'+정규화명. snapshot UNIQUE 키. */
@@ -66,25 +91,9 @@ export type CrewWeekTeamResultDto = {
   winRatePercent: number;
 };
 
-// front isAdvancedLevel 미러 — DB 원본 등급값 판정.
-function isAdvancedLevel(level: string | null | undefined): boolean {
-  if (!level) return false;
-  const v = level.trim();
-  return v.startsWith("심화") || v.includes("에이전트");
-}
-
 function normalizeTeamKey(name: string): string {
   return name.trim().replace(/\s+/g, " ");
 }
-
-type MembershipRow = {
-  user_id: string;
-  team_name: string | null;
-  part_name: string | null;
-  membership_level: string | null;
-  membership_state: string | null;
-  is_current: boolean | null;
-};
 
 type HalfTeamRow = {
   id: string;
@@ -95,50 +104,24 @@ type HalfTeamRow = {
 };
 
 export type CrewWeekTeamContext = {
-  /** user_id → 대표 멤버십(팀/파트/등급). */
-  membershipByUser: Map<string, MembershipRow>;
   /** team_name(정규화) → 반기 카탈로그. */
   catalogByName: Map<string, HalfTeamRow>;
   /** leader user_id → 표시 정보. */
   leaderById: Map<string, { displayName: string | null; school: string | null; major: string | null }>;
 };
 
-// front pickPrimaryMembership 미러 — is_current 우선, 그 외 첫 행.
-function pickPrimary(rows: MembershipRow[]): MembershipRow | null {
-  if (rows.length === 0) return null;
-  return rows.find((r) => r.is_current === true) ?? rows[0];
-}
-
+// ⚠ 여기서 user_memberships 를 읽지 않는다 — 크루 소속은 호출자가 넘기는 resolver 산출값이 SoT 다.
 export async function loadCrewWeekTeamContext(opts: {
   organization: OrganizationSlug;
-  userIds: string[];
   halfKey: string | null;
 }): Promise<CrewWeekTeamContext> {
-  const membershipByUser = new Map<string, MembershipRow>();
   const catalogByName = new Map<string, HalfTeamRow>();
   const leaderById = new Map<
     string,
     { displayName: string | null; school: string | null; major: string | null }
   >();
 
-  // 1) 멤버십(팀/파트/등급).
-  const byUser = new Map<string, MembershipRow[]>();
-  for (let i = 0; i < opts.userIds.length; i += 300) {
-    const { data } = await supabaseAdmin
-      .from("user_memberships")
-      .select("user_id,team_name,part_name,membership_level,membership_state,is_current")
-      .in("user_id", opts.userIds.slice(i, i + 300));
-    for (const r of (data ?? []) as MembershipRow[]) {
-      if (!byUser.has(r.user_id)) byUser.set(r.user_id, []);
-      byUser.get(r.user_id)!.push(r);
-    }
-  }
-  for (const [uid, rows] of byUser) {
-    const primary = pickPrimary(rows);
-    if (primary) membershipByUser.set(uid, primary);
-  }
-
-  // 2) 팀 카탈로그 — 정확 halfKey 우선, 없으면 최신 half 폴백(front 와 동일 정책).
+  // 1) 팀 카탈로그 — 정확 halfKey 우선, 없으면 최신 half 폴백(front 와 동일 정책).
   const { data: halves } = await supabaseAdmin
     .from("cluster4_team_halves")
     .select("id,team_name,display_order,leader_user_id,leader_name,half_key")
@@ -156,7 +139,7 @@ export async function loadCrewWeekTeamContext(opts: {
   }
   for (const [k, v] of latest) catalogByName.set(k, v.row);
 
-  // 3) 팀장 표시 정보 — user_educations 우선, user_profiles 폴백(front leaderById 규칙).
+  // 2) 팀장 표시 정보 — user_educations 우선, user_profiles 폴백(front leaderById 규칙).
   const leaderIds = [...catalogByName.values()]
     .map((c) => c.leader_user_id)
     .filter((v): v is string => !!v);
@@ -195,19 +178,40 @@ export async function loadCrewWeekTeamContext(opts: {
     }
   }
 
-  return { membershipByUser, catalogByName, leaderById };
+  return { catalogByName, leaderById };
 }
+
+/**
+ * 팀 projection 결과 — **실제 팀과 가상 버킷을 여기서 분리한다.**
+ *
+ * `미배정`(멤버십 team_name 이 비었거나 '-')은 팀이 아니라 카탈로그 미매칭 크루를 담는 가상 버킷이다.
+ *   팀 표·팀 수·파트 수·전적·승패 팀 수·공표 snapshot 어디에도 들어가면 안 된다.
+ *   ⚠ 소비 화면마다 각자 필터하지 않는다 — 분리는 이 projection 단계에서 **한 번만** 한다.
+ *   ⚠ 크루 자체는 버리지 않는다. 크루 활동 결과 표와 크루 종합 지표에는 그대로 남는다
+ *     (그 집계는 lib/crewWeeklyMetricsAggregation · buildCrewResults 소관이라 이 파일과 무관).
+ */
+export type CrewWeekTeamProjection = {
+  /** 카탈로그에 매칭된 실제 팀(teamId != null). 팀 활동 결과의 유일한 원천. */
+  teams: CrewWeekTeamResultDto[];
+  /** 카탈로그 미매칭 버킷('미배정' 등). 감사·진단용으로만 반환한다. */
+  unmatched: CrewWeekTeamResultDto[];
+};
 
 // ── 순수 집계 ───────────────────────────────────────────────────────────────
 // DB/시계 접근 없음 — 호출자가 이미 읽어 온 사실만 받는다.
 export function buildCrewWeekTeamResults(opts: {
   ctx: CrewWeekTeamContext;
+  /**
+   * user_id → 소속(팀·파트·클래스 코드). **크루 표에 표시된 값과 동일해야 한다.**
+   *   그래야 "크루 표의 팀별 인원 합 == 팀 표 totalCrew 합" 이 구조적으로 성립한다.
+   */
+  positions: Map<string, CrewWeekMemberPosition>;
   /** user_id → 팀 판정(크루 결과에서 파생). rest 는 시즌/개인 구분 위해 별도 집합을 함께 받는다. */
   verdicts: Map<string, TeamVerdict>;
   /** 시즌 휴식 user_id 집합(그 주차 시즌 기준). */
   seasonRestUserIds: Set<string>;
-}): CrewWeekTeamResultDto[] {
-  const { ctx, verdicts, seasonRestUserIds } = opts;
+}): CrewWeekTeamProjection {
+  const { ctx, positions, verdicts, seasonRestUserIds } = opts;
 
   type Bucket = {
     teamName: string;
@@ -239,13 +243,14 @@ export function buildCrewWeekTeamResults(opts: {
   };
 
   verdicts.forEach((verdict, userId) => {
-    const m = ctx.membershipByUser.get(userId);
-    const rawName = (m?.team_name ?? "").trim();
+    // 소속 = 크루 표와 같은 week-effective resolver 산출값(여기서 멤버십을 다시 읽지 않는다).
+    const p = positions.get(userId) ?? null;
+    const rawName = (p?.teamName ?? "").trim();
     const teamName = !rawName || rawName === "-" ? "미배정" : rawName;
     const b = bucketOf(teamName);
 
     // 파트 — 미배정 표기는 파트로 세지 않는다(front 와 동일).
-    const rawPart = (m?.part_name ?? "").trim();
+    const rawPart = (p?.partName ?? "").trim();
     if (rawPart && rawPart !== "-" && rawPart !== "미배정") {
       b.partCrewByName.set(rawPart, (b.partCrewByName.get(rawPart) ?? 0) + 1);
     }
@@ -255,7 +260,7 @@ export function buildCrewWeekTeamResults(opts: {
     else if (seasonRestUserIds.has(userId)) b.seasonRestCrew++;
     else b.personalRestCrew++;
 
-    if (isAdvancedLevel(m?.membership_level)) b.advancedCrew++;
+    if (p?.positionCode != null && ADVANCED_CODES.has(p.positionCode)) b.advancedCrew++;
     else b.regularCrew++;
   });
 
@@ -306,7 +311,12 @@ export function buildCrewWeekTeamResults(opts: {
       ? a.displayOrder - b.displayOrder
       : a.teamName.localeCompare(b.teamName, "ko"),
   );
-  return out;
+  // 실제 팀 / 가상 버킷 분리 — 판정 기준은 **카탈로그 매칭 여부(teamId)** 하나뿐이다.
+  //   ('미배정' 이라는 표시 문자열로 판정하지 않는다 — 팀명이 바뀌어도 규칙이 흔들리지 않도록.)
+  return {
+    teams: out.filter((t) => t.teamId != null),
+    unmatched: out.filter((t) => t.teamId == null),
+  };
 }
 
 /** 어드민 표 정렬 — 팀명 ko-KR 가나다순(고객 앱 display_order 와 별개). */
