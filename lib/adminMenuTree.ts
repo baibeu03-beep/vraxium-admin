@@ -271,7 +271,7 @@ export const MENU_ORG: MenuItem[] = [
         href: `/admin/team-parts/info/${slug}`,
         orgOnly: true,
       })),
-      { label: "시즌 관리", href: "/admin/team-parts/info/seasons" },
+      { label: "시즌 관리", href: "/admin/team-parts/info/seasons", disabled: true },
       { label: "주차 활동(클럽)", href: "/admin/team-parts/info/weeks" },
       // [주차 결과(크루)] 통합 트리와 동일 — 전용 페이지 부재로 disabled(준비 중).
       { label: "주차 결과(크루)", href: "/admin/team-parts/info/crew-week-results", disabled: true },
@@ -297,7 +297,7 @@ export const MENU_ORG: MenuItem[] = [
         orgOnly: true,
       })),
       { label: "휴식 관리", href: "/admin/rest-management" },
-      { label: "커뮤니케이션", href: "/admin/communications" },
+      { label: "커뮤니케이션", href: "/admin/communications", disabled: true },
     ],
   },
   // 5) 클럽 정보 — 카탈로그/정보 묶음. (팀 내역은 "클럽 진행"으로 이동 — 개별 페이지는 통합 목록이
@@ -318,8 +318,8 @@ export const MENU_ORG: MenuItem[] = [
     children: [
       // 기간 관리는 클럽 전역 데이터(org 컬럼 없음 → 데이터는 전체). ?org 는 사이드바 컨텍스트 유지용.
       { label: "기간 관리", href: "/admin/periods/register" },
-      { label: "허브와 라인", href: "/admin/lines/info" },
-      { label: "허브별 프로세스 목록", href: "/admin/processes/info" },
+      { label: "허브와 라인", href: "/admin/lines/info", disabled: true },
+      { label: "허브별 프로세스 목록", href: "/admin/processes/info", disabled: true },
     ],
   },
 ];
