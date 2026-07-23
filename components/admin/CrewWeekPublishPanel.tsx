@@ -648,6 +648,9 @@ export default function CrewWeekPublishPanel({
   const base = `/api/admin/team-parts/info/crew-week-results/${organizationSlug}/${weekId}`;
 
   const [preview, setPreview] = useState<PreviewDto | null>(null);
+  // 같은 화면에서 공표를 취소할 때 직전 예비 검수 상태로 되돌리기 위한 스냅샷.
+  // 서버 공표 snapshot과 별개인 UI 복원용이며, 새 예비 검수를 시작하면 폐기한다.
+  const [prePublishPreview, setPrePublishPreview] = useState<PreviewDto | null>(null);
   const [published, setPublished] = useState<PublishedDto | null>(null);
   const [publication, setPublication] = useState<PublicationState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -710,6 +713,7 @@ export default function CrewWeekPublishPanel({
   // [3] 예비 검수 — 매번 서버에서 최신 원천으로 재계산(캐시 금지).
   const onPreview = async () => {
     setBusy("preview");
+    setPrePublishPreview(null);
     try {
       const res = await fetch(`${base}${qs ? `${qs}&` : "?"}action=preview`, { cache: "no-store" });
       const json = await res.json();
@@ -756,6 +760,7 @@ export default function CrewWeekPublishPanel({
       setPublished(json.data.published as PublishedDto);
       setPublication((json.data.publication as PublicationState | null) ?? null);
       // [5] 재공표 성공 = 새 snapshot 이 활성 · 이전 run 은 이력. 화면은 공표 결과 한 벌만 보여준다.
+      setPrePublishPreview(preview);
       setPreview(null);
       pushToast("success", "공표되었습니다.");
       onChanged?.();
@@ -786,14 +791,19 @@ export default function CrewWeekPublishPanel({
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw apiErrorFrom(res, json, `공표 취소 실패 (${res.status})`);
-      // [4] 취소 후 이 화면 = base row 유지 · 결과 overlay 제거 · 결과 컬럼 "-".
-      //   예비 결과도 함께 비운다(공표를 내린 화면에 결과 숫자가 남아 있으면 안 된다).
+      // [4] 같은 화면에서 방금 공표한 경우에는 공표 직전 예비 검수 결과를 복원한다.
+      //   새로 진입한 공표 화면처럼 보존된 예비 결과가 없으면, 취소 직전 공표 snapshot을
+      //   예비 결과로 내려 받아 같은 수치를 계속 검토할 수 있게 한다.
+      const restoredPreview = prePublishPreview ?? published;
       setPublished(null);
-      setPreview(null);
+      setPreview(restoredPreview);
+      setPrePublishPreview(null);
       setPublication((json.data.publication as PublicationState | null) ?? null);
-      setBaseRows(null);
-      setBaseTeamRows(null);
-      refresh(); // base row 재조회(스냅샷이 사라졌으므로 이제 필요하다)
+      if (!restoredPreview) {
+        setBaseRows(null);
+        setBaseTeamRows(null);
+        refresh(); // 복원할 결과가 없는 legacy 공표만 base row를 다시 조회한다.
+      }
       pushToast("success", "공표가 취소되었습니다.");
       onChanged?.();
     } catch (e) {
