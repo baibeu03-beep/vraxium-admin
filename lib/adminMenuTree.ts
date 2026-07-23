@@ -247,14 +247,17 @@ export const MENU_ORG: MenuItem[] = [
       { label: "변동 액트", href: "/admin/processes/check/irregular" },
     ],
   },
-  // 3) 클럽 진행 — 개별 조직 운영진의 팀·시즌·주차 진행 조회. 통합 목록(클럽 현황 표)에서 클럽명을
+  // 3) 클럽 정보 — 개별 조직 운영진의 팀·시즌·주차 진행 조회. 통합 목록(클럽 현황 표)에서 클럽명을
   //   눌러 들어가는 상세와 **동일한 상세 페이지/DTO** 를, 개별 페이지에서는 현재 조직(orgFocus) 것만
   //   바로 열도록 연결한다. 통합 어드민이 설정한 이번 주 활동 허브·라인·검수 상태는 "주차 내역"에서
   //   자기 조직(?org) 스코프 조회 전용으로 열람한다(설정 변경은 통합 전용·서버 403). 통합 트리
   //   (MENU_INTEGRATED)는 기존 "클럽 정보 > 팀/시즌/주차 내역" 을 그대로 유지한다.
+  // [표시명 변경 2026-07-23] "클럽 진행" → "클럽 정보". 통합 트리와 같은 페이지(/admin/team-parts/info)
+  //   를 가리키므로 메뉴명도 통합과 동일하게 맞춘다(breadcrumb override 도 이미 "클럽 정보").
+  //   구 "클럽 정보"(기간 관리 묶음)는 아래 5) 에서 비노출 처리 — 라벨 충돌 없음. URL/라우트 무변경.
   {
     kind: "branch",
-    label: "클럽 진행",
+    label: "클럽 정보",
     icon: TrendingUp,
     // /admin/team-parts/info 전체(팀 내역 상세 /{org}·시즌 /seasons·주차 /weeks)를 이 분기로 묶는다.
     basePath: "/admin/team-parts/info",
@@ -306,28 +309,30 @@ export const MENU_ORG: MenuItem[] = [
       { label: "커뮤니케이션", href: "/admin/communications", disabled: true },
     ],
   },
-  // 5) 클럽 정보 — 카탈로그/정보 묶음. (팀 내역은 "클럽 진행"으로 이동 — 개별 페이지는 통합 목록이
-  //   아니라 현재 조직 상세로 바로 진입한다. /admin/team-parts 경로 매칭도 "클럽 진행"이 전담하므로
-  //   여기 matchPaths 에서 제거한다 — 이중 강조 방지.)
-  {
-    kind: "branch",
-    label: "클럽 정보",
-    icon: CalendarDays,
-    // [통합 2026-07-20] 구 /admin/season-weeks(주차와 시즌 목록)는 "기간 관리"(/admin/periods/register)
-    //   통합 페이지로 병합·redirect. 조직 모드 메뉴도 통합 페이지를 가리키도록 정정(라벨/href).
-    basePath: "/admin/periods",
-    matchPaths: [
-      "/admin/periods",
-      "/admin/lines/info",
-      "/admin/processes/info",
-    ],
-    children: [
-      // 기간 관리는 클럽 전역 데이터(org 컬럼 없음 → 데이터는 전체). ?org 는 사이드바 컨텍스트 유지용.
-      { label: "기간 관리", href: "/admin/periods/register" },
-      { label: "허브와 라인", href: "/admin/lines/info", disabled: true },
-      { label: "허브별 프로세스 목록", href: "/admin/processes/info", disabled: true },
-    ],
-  },
+  // 5) [비노출 2026-07-23] 구 "클럽 정보"(기간 관리 / 허브와 라인 / 허브별 프로세스 목록) 대분류는
+  //   [개별] 사이드바에서 메뉴만 숨긴다. /admin/periods·/admin/lines/info·/admin/processes/info
+  //   라우트/페이지/API 는 그대로 유지되며 직접 접근·기존 링크도 동작한다(통합 트리 "주차와 시즌 >
+  //   기간 관리" 에서 계속 노출). 재활성화하려면 아래 블록의 주석을 해제하세요.
+  //   ⚠ 3) 대분류가 "클럽 정보"로 개명되었으므로, 되살릴 때는 라벨 중복부터 정리할 것.
+  // {
+  //   kind: "branch",
+  //   label: "클럽 정보",
+  //   icon: CalendarDays,
+  //   // [통합 2026-07-20] 구 /admin/season-weeks(주차와 시즌 목록)는 "기간 관리"(/admin/periods/register)
+  //   //   통합 페이지로 병합·redirect. 조직 모드 메뉴도 통합 페이지를 가리키도록 정정(라벨/href).
+  //   basePath: "/admin/periods",
+  //   matchPaths: [
+  //     "/admin/periods",
+  //     "/admin/lines/info",
+  //     "/admin/processes/info",
+  //   ],
+  //   children: [
+  //     // 기간 관리는 클럽 전역 데이터(org 컬럼 없음 → 데이터는 전체). ?org 는 사이드바 컨텍스트 유지용.
+  //     { label: "기간 관리", href: "/admin/periods/register" },
+  //     { label: "허브와 라인", href: "/admin/lines/info", disabled: true },
+  //     { label: "허브별 프로세스 목록", href: "/admin/processes/info", disabled: true },
+  //   ],
+  // },
 ];
 
 export function isLeafActive(pathname: string, href: string) {
