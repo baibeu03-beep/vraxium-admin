@@ -24,6 +24,7 @@
     "verify:info-line-registration-render": "node scripts/browser-verify-info-line-registration-render.mjs",
     "verify:crew-week-results-http": "node scripts/browser-verify-crew-week-results-http.mjs",
     "verify:crew-week-results-render": "node scripts/browser-verify-crew-week-results-render.mjs",
+    "verify:toast-safe-area": "tsx --env-file=.env.local scripts/browser-verify-toast-safe-area.ts",
     "migrate:week-org-scope-check": "tsx --env-file=.env.local scripts/apply-week-org-result-states-scope.ts",
     "migrate:week-org-scope-data": "tsx --env-file=.env.local scripts/migrate-week-org-result-states-scope.ts",
     "regen:summer-org-cards": "tsx --env-file=.env.local scripts/regen-summer-org-weekly-card-snapshots.ts",

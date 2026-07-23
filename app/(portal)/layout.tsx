@@ -7,7 +7,7 @@ import { SidebarProvider } from "@/components/admin/sidebarContext";
 import { AdminRouteTitleProvider } from "@/components/admin/AdminRouteTitleProvider";
 import { ConfirmProvider } from "@/components/ui/confirm-dialog";
 import { AdminDialogViewport } from "@/components/ui/admin-dialog";
-import { ToastViewport } from "@/components/ui/toast";
+import { ToastSafeArea, ToastViewport } from "@/components/ui/toast";
 import HoverTooltipProvider from "@/components/admin/HoverTooltipProvider";
 import OrgEnvironmentBanner from "@/components/admin/OrgEnvironmentBanner";
 import AdminSessionProvider from "@/components/admin/AdminSessionProvider";
@@ -50,9 +50,10 @@ export default async function PortalLayout({
             상세 페이지가 이미 조회한 이름/주차명을 헤더 좌측 경로에 반영(중복 조회 없음). */}
         <AdminRouteTitleProvider>
         {/* 앱 셸을 뷰포트 높이(h-screen)로 고정한다. 문서(window) 스크롤 대신 콘텐츠 영역(main)이
-            자체 영역 안에서만 스크롤되게 하여, 화면 하단에 토스트 전용 영역을 "상시" 확보한다.
+            자체 영역 안에서만 스크롤되게 하여, 토스트가 뜰 때 화면 하단에 안전영역을 만들 수 있게 한다.
             (이전의 window 스크롤 + main pb-32 방식은 문서 맨 끝에만 여백이 생겨, 스크롤 중간·상단에서는
-             fixed 토스트가 여전히 콘텐츠를 덮었다 → 스크롤 컨테이너 자체를 분리해 근본 해결한다.) */}
+             fixed 토스트가 여전히 콘텐츠를 덮었다 → 스크롤 컨테이너 자체를 분리해 근본 해결한다.)
+            안전영역은 "상시 96px" 이 아니라 토스트가 떠 있는 동안에만 잡힌다 → 평소에는 하단 여백 0. */}
         <div className="flex h-screen bg-muted/40">
           <Sidebar />
           {/* min-w-0 lets this flex child shrink below intrinsic content width so
@@ -75,18 +76,20 @@ export default async function PortalLayout({
                 min-h-0: flex 자식의 기본 min-height:auto 를 풀어 콘텐츠가 넘칠 때 늘어나지 않고
                   실제로 내부 스크롤되게 한다(이게 없으면 overflow 가 무력화된다).
                 p-6 등 기존 여백은 그대로 유지 → 개별 페이지 수정 없음. */}
-            <main className="flex-1 min-h-0 min-w-0 overflow-y-auto p-6">
+            {/* data-admin-scroll-container: 어드민의 유일한 세로 스크롤 컨테이너 표식(단일 SoT).
+                ToastSafeArea 가 안전영역 높이 변화만큼 스크롤 위치를 보정할 때 이 표식으로 찾는다. */}
+            <main
+              data-admin-scroll-container
+              className="flex-1 min-h-0 min-w-0 overflow-y-auto p-6"
+            >
               {children}
             </main>
-            {/* 하단 토스트 전용 영역 — 고정 높이(--admin-toast-safe-area). main 스크롤 영역
-                "바깥"의 형제 요소라, 스크롤 위치(상단·중간·하단)와 무관하게 항상 이 높이만큼 화면
-                하단을 비워둔다. 화면 하단 고정 토스트(ToastViewport, bottom-6)가 이 영역 안에 떠
-                콘텐츠(텍스트·버튼·카드·테이블 행)를 절대 덮지 않는다. mode/org 분기 없이 전역 적용. */}
-            <div
-              aria-hidden="true"
-              className="shrink-0"
-              style={{ height: "var(--admin-toast-safe-area)" }}
-            />
+            {/* 하단 토스트 안전영역 — main 스크롤 영역 "바깥"의 형제 요소.
+                토스트가 떠 있을 때만(실측 높이만큼) 화면 하단을 비워 콘텐츠를 위로 밀어 올린다.
+                토스트가 없으면 높이 0 → 하단 죽은 여백 없이 세로 공간을 전부 콘텐츠에 쓴다.
+                스크롤 위치(상단·중간·하단) 무관하게 토스트가 콘텐츠를 덮지 않는 건 그대로 유지.
+                mode/org 분기 없이 전역 적용. */}
+            <ToastSafeArea />
           </div>
         </div>
         </AdminRouteTitleProvider>

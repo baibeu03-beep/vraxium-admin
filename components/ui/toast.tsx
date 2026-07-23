@@ -20,7 +20,15 @@
 //   기존 inline 배너(setBanner)를 이 인프라로 옮길 때는 얇은 shim 으로 감싸면
 //   호출부를 바꾸지 않고 그대로 재사용할 수 있다(ProcessUnifiedManager 참고).
 
-import { useCallback, useEffect, useState, useSyncExternalStore, type CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type CSSProperties,
+} from "react";
 import { createPortal } from "react-dom";
 import { Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -232,6 +240,98 @@ function Toast({ item, onClose }: { item: ToastItem; onClose: () => void }) {
   );
 }
 
+// ── 하단 안전영역(safe area) store ─────────────────────────────────────────
+// 토스트가 "떠 있을 때만" 화면 하단에 자리를 비운다(상시 확보 X).
+//   · 토스트 0개  → 0px  (하단 96px 죽은 여백 없음 = 세로 공간 전부 콘텐츠에 사용)
+//   · 토스트 1개+ → 실제 토스트 높이 + bottom 오프셋 + 여유 → 콘텐츠가 "가려지는" 게 아니라
+//                   위로 밀려 올라가 그대로 보이고 클릭도 된다.
+// 높이는 하드코딩하지 않고 ToastViewport 를 ResizeObserver 로 실측한다(여러 줄·다중 스택·
+//   로딩 토스트 문구 변경까지 자동 반영). --admin-toast-safe-area 는 "떠 있을 때 최소 높이"
+//   하한선으로만 쓴다(기존 단일 토스트 외형 유지).
+const TOAST_VIEWPORT_BOTTOM_PX = 24; // ToastViewport 의 bottom-6
+const TOAST_CONTENT_GAP_PX = 12; // 토스트 상단과 콘텐츠 사이 최소 간격
+
+// 어드민의 유일한 세로 스크롤 컨테이너(app/(portal)/layout.tsx 의 main) 표식.
+const SCROLLER_SELECTOR = "[data-admin-scroll-container]";
+
+let reservePx = 0;
+const reserveListeners = new Set<() => void>();
+let safeAreaFloorPx: number | null = null;
+// 안전영역 높이가 바뀌기 "직전"의 콘텐츠 하단 경계(scrollTop + clientHeight).
+//   보정을 delta(±)로 하면 안 된다 — 안전영역이 줄어들 때 브라우저가 scrollTop 을 먼저
+//   자동 clamp 해버려 보정이 이중 적용된다. 이 절대값을 목표로 되돌리면 그런 중복이 없다.
+let pendingBottomEdge: number | null = null;
+
+function readSafeAreaFloorPx(): number {
+  if (safeAreaFloorPx !== null) return safeAreaFloorPx;
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(
+    "--admin-toast-safe-area",
+  );
+  const parsed = Number.parseFloat(raw);
+  safeAreaFloorPx = Number.isFinite(parsed) ? parsed : 96;
+  return safeAreaFloorPx;
+}
+
+/** ToastViewport 실측 높이(px) → 하단에 비워둘 높이 발행. 0 이면 안전영역 자체를 없앤다. */
+function publishReserve(measuredPx: number) {
+  const next =
+    measuredPx <= 0
+      ? 0
+      : Math.max(
+          Math.ceil(measuredPx) + TOAST_VIEWPORT_BOTTOM_PX + TOAST_CONTENT_GAP_PX,
+          readSafeAreaFloorPx(),
+        );
+  if (next === reservePx) return;
+  // React 커밋(=높이 변경) 전에 호출되므로 여기서 읽은 값이 "변경 직전" 상태다.
+  const scroller = document.querySelector<HTMLElement>(SCROLLER_SELECTOR);
+  pendingBottomEdge = scroller ? scroller.scrollTop + scroller.clientHeight : null;
+  reservePx = next;
+  for (const l of reserveListeners) l();
+}
+
+function subscribeReserve(listener: () => void) {
+  reserveListeners.add(listener);
+  return () => {
+    reserveListeners.delete(listener);
+  };
+}
+
+const getReserveSnapshot = () => reservePx;
+const getReserveServerSnapshot = () => 0;
+
+// SSR 에서 useLayoutEffect 경고를 피하기 위한 isomorphic 레이아웃 이펙트.
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
+/**
+ * 셸 하단 토스트 안전영역 spacer. `app/(portal)/layout.tsx` 에서 main 의 형제로 한 번만 마운트한다.
+ *
+ * 토스트가 있을 때만 높이를 가지므로 main(유일한 세로 스크롤 컨테이너)의 높이가 그만큼 줄어든다.
+ * 이때 스크롤 위치를 같은 양만큼 보정해 "콘텐츠가 잘리는" 게 아니라 "위로 밀려 올라가는" 것처럼
+ * 보이게 한다 — 페이지 맨 아래에서 버튼을 눌러 토스트가 떠도 방금 누른 버튼이 화면에서 사라지지
+ * 않는다. 토스트가 닫히면 반대 방향으로 되돌린다(대칭).
+ */
+export function ToastSafeArea() {
+  const reserve = useSyncExternalStore(
+    subscribeReserve,
+    getReserveSnapshot,
+    getReserveServerSnapshot,
+  );
+  useIsomorphicLayoutEffect(() => {
+    const bottomEdge = pendingBottomEdge;
+    pendingBottomEdge = null;
+    if (bottomEdge === null) return;
+    const scroller = document.querySelector<HTMLElement>(SCROLLER_SELECTOR);
+    if (!scroller) return;
+    // 높이 변경이 DOM 에 반영된 뒤(레이아웃 이펙트) 읽으므로 clientHeight/scrollHeight 는 최신값.
+    // 목표: 보이던 콘텐츠의 "하단 경계"를 그대로 유지 → scrollTop + clientHeight 를 보존한다.
+    const max = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+    const next = Math.max(0, Math.min(bottomEdge - scroller.clientHeight, max));
+    if (next !== scroller.scrollTop) scroller.scrollTop = next;
+  }, [reserve]);
+
+  return <div aria-hidden="true" className="shrink-0" style={{ height: `${reserve}px` }} />;
+}
+
 // ── 뷰포트(포털) ───────────────────────────────────────────────────────────
 // 클라이언트 여부 감지(서버=false, 클라=true). useSyncExternalStore 로 처리하면
 //   setState-in-effect 없이 SSR/hydration 정합을 지킨다(서버는 null → 클라에서 포털).
@@ -257,10 +357,28 @@ export function ToastViewport() {
     ? "var(--admin-sidebar-width-open)"
     : "var(--admin-sidebar-width-collapsed)";
 
+  // 실제 토스트 묶음 높이를 실측해 하단 안전영역(<ToastSafeArea />)에 발행한다.
+  //   토스트 0개면 컨테이너 높이 0 → 안전영역도 0(하단 여백 없음).
+  //   ResizeObserver 라 토스트 추가/제거·줄바꿈·문구 변경(로딩 단계)까지 자동 반영된다.
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  useIsomorphicLayoutEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return;
+    const measure = () => publishReserve(el.getBoundingClientRect().height);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      publishReserve(0);
+    };
+  }, [isClient]);
+
   if (!isClient) return null;
 
   return createPortal(
     <div
+      ref={viewportRef}
       // fixed + bottom 고정 → 스크롤 위치와 무관하게 항상 화면 하단(콘텐츠 영역 폭).
       // 모바일: 좌우 16px 여백(사이드바 오프셋 없음). 데스크톱(sm+): 왼쪽=사이드바+콘텐츠 padding,
       //   오른쪽=콘텐츠 padding → 어드민 콘텐츠 영역의 좌우 경계와 정확히 정렬(별도 max-w 없음).
