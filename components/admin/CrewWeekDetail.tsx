@@ -46,7 +46,7 @@ type MemberHeaderDto = CrewIdentity & {
 
 const TABS = [
   { key: "acts", label: "액트 체크 내역" },
-  { key: "lines", label: "라인 강화 내역" },
+  { key: "lines", label: "2차 기입 마감" },
 ] as const;
 type TabKey = (typeof TABS)[number]["key"];
 
