@@ -30,12 +30,15 @@ import {
 //   lib/adminMenuTree.ts 로 이관(사이드바·전역 헤더 경로 표시 공용 SoT). 여기서는 렌더만 담당.
 
 // 마지막 세그먼트로 현재 조직을 path 인코딩하는 자식 메뉴의 org 를 뽑는다(없으면 null).
-//   대상: 크루 목록(/admin/crews/{org}), 팀 내역 상세(/admin/team-parts/info/{org}).
+//   대상: 크루 목록(/admin/crews/{org}), 팀 내역 상세(/admin/team-parts/info/{org}),
+//   주차 결과(크루)(/admin/team-parts/info/crew-week-results/{org}).
 //   이런 자식은 org 별로 생성되며 사이드바가 현재 orgFocus 것 하나만 노출한다(visibleChildren).
 //   ⚠ /admin/team-parts/info/{seasons|weeks} 처럼 org slug 가 아닌 정적 세그먼트는 스코프 자식이
 //     아니다 — isOrganizationSlug 로 구분해 seasons/weeks 메뉴가 실수로 숨겨지지 않게 한다.
 function orgScopedChildOrg(href: string): OrganizationSlug | null {
-  const m = href.match(/^\/admin\/(?:crews|team-parts\/info)\/([^/]+)$/);
+  const m = href.match(
+    /^\/admin\/(?:crews|team-parts\/info(?:\/crew-week-results)?)\/([^/]+)$/,
+  );
   return m && isOrganizationSlug(m[1]) ? m[1] : null;
 }
 

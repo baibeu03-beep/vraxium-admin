@@ -274,8 +274,13 @@ export const MENU_ORG: MenuItem[] = [
       })),
       { label: "시즌 관리", href: "/admin/team-parts/info/seasons", disabled: true },
       { label: "주차 활동(클럽)", href: "/admin/team-parts/info/weeks" },
-      // [주차 결과(크루)] 통합 트리와 동일 — 전용 페이지 부재로 disabled(준비 중).
-      { label: "주차 결과(크루)", href: "/admin/team-parts/info/crew-week-results", disabled: true },
+      // [주차 결과(크루)] 통합 화면의 조직 상세 라우트/DTO를 그대로 재사용한다.
+      //   org별 href를 만들고 Sidebar.visibleChildren에서 현재 orgFocus 항목 하나만 노출한다.
+      ...ORGANIZATIONS.map((slug) => ({
+        label: "주차 결과(크루)",
+        href: `/admin/team-parts/info/crew-week-results/${slug}`,
+        orgOnly: true,
+      })),
     ],
   },
   // 4) 크루 활동 — 크루 관리(해당 조직 목록), 휴식 관리, 커뮤니케이션.

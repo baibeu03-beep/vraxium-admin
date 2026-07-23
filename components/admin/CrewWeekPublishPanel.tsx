@@ -840,7 +840,10 @@ export default function CrewWeekPublishPanel({
             <span className="text-lg font-bold text-muted-foreground">
               {growthStandardLabel(growthStandardPoint.name)}
             </span>
-            <strong className="text-4xl font-extrabold tabular-nums" data-criterion-point-a>
+            <strong
+              className={`text-4xl font-extrabold tabular-nums ${ORGANIZATION_TEXT_CLASS[organizationSlug]}`}
+              data-criterion-point-a
+            >
               {criterionPointA ?? "-"}
             </strong>
           </div>
