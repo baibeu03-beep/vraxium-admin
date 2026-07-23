@@ -17,6 +17,7 @@ import {
   type OrganizationSlug,
 } from "@/lib/organizations";
 import type { CrewWeeklyResultDisplayStatus } from "@/lib/crewWeeklyResultTypes";
+import { growthStandardLabel, resolveGrowthStandardPoint } from "@/lib/orgPointMeta";
 
 // [3] 예비 검수 · [4] 공표 / 공표 취소 — 세 동작을 **각각 다른 업무**로 구현한다.
 //   · 예비 검수      = 서버 live 계산 결과를 화면 state 에만 보관. 저장 0 · 다른 화면 무영향.
@@ -74,17 +75,17 @@ type Readiness = Record<
 type TeamRow = {
   teamId: string | null;
   teamName: string;
-  battleResult: "win" | "lose" | "draw";
+  battleResult: "win" | "lose" | "draw" | null;
   leader: { displayName: string | null; schoolName: string | null; majorName: string | null };
   partCount: number;
   totalCrew: number;
   advancedCrew: number;
   regularCrew: number;
-  challengeCrew: number;
-  restCrew: number;
-  successCrew: number;
-  failCrew: number;
-  winRatePercent: number;
+  challengeCrew: number | null;
+  restCrew: number | null;
+  successCrew: number | null;
+  failCrew: number | null;
+  winRatePercent: number | null;
 };
 
 type PreviewDto = Metrics & {
@@ -325,13 +326,14 @@ function SummaryIndex({
   );
 }
 
-const BATTLE_LABEL: Record<TeamRow["battleResult"], string> = { win: "승", lose: "패", draw: "무" };
-const BATTLE_TONE: Record<TeamRow["battleResult"], "success" | "danger" | "neutral"> = {
+type BattleResult = Exclude<TeamRow["battleResult"], null>;
+const BATTLE_LABEL: Record<BattleResult, string> = { win: "승", lose: "패", draw: "무" };
+const BATTLE_TONE: Record<BattleResult, "success" | "danger" | "neutral"> = {
   win: "success", lose: "danger", draw: "neutral",
 };
 
 // 팀 활동 결과 표 — 행 순서는 **팀명 ko-KR 가나다순**(고객 앱 display_order 와 별개, 값은 동일).
-function TeamTable({ rows }: { rows: TeamRow[] }) {
+function TeamTable({ rows, hasResult = true }: { rows: TeamRow[]; hasResult?: boolean }) {
   const sorted = useMemo(
     () => [...rows].sort((a, b) => a.teamName.localeCompare(b.teamName, "ko-KR")),
     [rows],
@@ -367,7 +369,11 @@ function TeamTable({ rows }: { rows: TeamRow[] }) {
             >
               <td className="whitespace-nowrap border-b px-3 py-2 text-left font-bold">{t.teamName}</td>
               <td className="whitespace-nowrap border-b px-3 py-2 text-center">
-                <StatusBadge label={BATTLE_LABEL[t.battleResult]} size="sm" tone={BATTLE_TONE[t.battleResult]} />
+                {hasResult && t.battleResult ? (
+                  <StatusBadge label={BATTLE_LABEL[t.battleResult]} size="sm" tone={BATTLE_TONE[t.battleResult]} />
+                ) : (
+                  <span className="text-muted-foreground">-</span>
+                )}
               </td>
               {/* 팀장 — 이름/학교/전공만. 연락처·학번 등은 표시하지 않는다. */}
               <td className="whitespace-nowrap border-b px-3 py-2 text-left">
@@ -382,10 +388,14 @@ function TeamTable({ rows }: { rows: TeamRow[] }) {
                   <span className="text-muted-foreground">-</span>
                 )}
               </td>
-              {([t.partCount,t.totalCrew,t.advancedCrew,t.regularCrew,t.challengeCrew,t.restCrew,t.successCrew,t.failCrew] as number[]).map((v, k) => (
-                <td key={k} className="whitespace-nowrap border-b px-3 py-2 text-center tabular-nums">{v}</td>
+              {([t.partCount,t.totalCrew,t.advancedCrew,t.regularCrew,t.challengeCrew,t.restCrew,t.successCrew,t.failCrew] as Array<number | null>).map((v, k) => (
+                <td key={k} className="whitespace-nowrap border-b px-3 py-2 text-center tabular-nums">
+                  {v ?? <span className="text-muted-foreground">-</span>}
+                </td>
               ))}
-              <td className="whitespace-nowrap border-b px-3 py-2 text-center font-bold tabular-nums">{t.winRatePercent}%</td>
+              <td className="whitespace-nowrap border-b px-3 py-2 text-center font-bold tabular-nums">
+                {hasResult && t.winRatePercent != null ? `${t.winRatePercent}%` : <span className="text-muted-foreground">-</span>}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -543,6 +553,7 @@ export default function CrewWeekPublishPanel({
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const mode = readScopeMode(searchParams);
+  const growthStandardPoint = resolveGrowthStandardPoint(organizationSlug);
   // 크루명 → 회원 상세. 표에 이미 있는 userId 를 그대로 쓴다(새 API·조회 없음).
   const memberHref = useCallback(
     (userId: string) =>
@@ -565,6 +576,7 @@ export default function CrewWeekPublishPanel({
   const [tab, setTab] = useState<"crew" | "team">("crew");
   // 예비 전에도 보여야 하는 크루 전원 base row(결과 컬럼은 전부 null).
   const [baseRows, setBaseRows] = useState<CrewRow[] | null>(null);
+  const [baseTeamRows, setBaseTeamRows] = useState<TeamRow[] | null>(null);
   // 공표/취소 후 서버 사실을 다시 읽기 위한 트리거.
   const [refreshKey, setRefreshKey] = useState(0);
   const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
@@ -599,9 +611,15 @@ export default function CrewWeekPublishPanel({
       try {
         const res = await fetch(`${base}${qs ? `${qs}&` : "?"}action=base`, { cache: "no-store" });
         const json = await res.json();
-        if (alive && res.ok && json.success) setBaseRows(json.data.baseRows as CrewRow[]);
+        if (alive && res.ok && json.success) {
+          setBaseRows(json.data.baseRows as CrewRow[]);
+          setBaseTeamRows(json.data.baseTeamRows as TeamRow[]);
+        }
       } catch {
-        if (alive) setBaseRows(null);
+        if (alive) {
+          setBaseRows(null);
+          setBaseTeamRows(null);
+        }
       }
     })();
     return () => {
@@ -694,6 +712,7 @@ export default function CrewWeekPublishPanel({
       setPreview(null);
       setPublication((json.data.publication as PublicationState | null) ?? null);
       setBaseRows(null);
+      setBaseTeamRows(null);
       refresh(); // base row 재조회(스냅샷이 사라졌으므로 이제 필요하다)
       pushToast("success", "공표가 취소되었습니다.");
       onChanged?.();
@@ -747,7 +766,8 @@ export default function CrewWeekPublishPanel({
     <div className="admin-section-stack-lg min-w-0" data-crew-week-publish>
       {/* [2]+[3][4] — 데스크톱에서 한 행 2열: 좌=진행 상태·기준 Po.A / 우=버튼 2행 1열. */}
       <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
-        <div className="min-w-0 space-y-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-3">
           <nav aria-label="검수 진행 상태" className="flex flex-wrap items-center gap-2" data-review-steps>
             {(
               [
@@ -765,7 +785,7 @@ export default function CrewWeekPublishPanel({
                     data-step={key}
                     data-active={active ? "true" : "false"}
                     className={
-                      "rounded-lg border-2 px-3 py-2 text-base font-bold sm:px-5 sm:py-3 sm:text-lg " +
+                      "rounded-lg border-2 px-3 py-2 text-base font-bold " +
                       (active
                         ? `${ORGANIZATION_ACCENT[organizationSlug].solid}`
                         : "border-input text-muted-foreground")
@@ -779,13 +799,16 @@ export default function CrewWeekPublishPanel({
               );
             })}
           </nav>
-          <div className="flex flex-wrap items-center gap-3 rounded-lg border-2 px-4 py-3 sm:inline-flex sm:px-5">
-            <span className="text-sm font-semibold text-muted-foreground sm:text-base">
-              주차 &lt;성장 성공&gt; 단감 기준
+          <div
+            className={`flex min-h-[7.25rem] flex-wrap items-center gap-3 rounded-lg border-2 px-5 py-4 ${ORGANIZATION_COLUMN[organizationSlug].edge}`}
+          >
+            <span className="text-lg font-bold text-muted-foreground">
+              {growthStandardLabel(growthStandardPoint.name)}
             </span>
-            <strong className="text-3xl font-extrabold tabular-nums" data-criterion-point-a>
+            <strong className="text-4xl font-extrabold tabular-nums" data-criterion-point-a>
               {criterionPointA ?? "-"}
             </strong>
+          </div>
           </div>
         </div>
 
@@ -852,23 +875,6 @@ export default function CrewWeekPublishPanel({
 
       {/* [6] legacy 검수 완료 주차 — 완료 상태는 유지한 채 "표시할 수 없음"을 명시한다.
           ⚠ 여기서 live 결과로 폴백하면 공표 당시 값과 다른 숫자를 확정처럼 보여주게 된다. 하지 않는다. */}
-      {legacyCompleted ? (
-        <div
-          data-legacy-completed
-          data-legacy-kind={publication?.hasActiveRun ? "run_without_snapshot" : "no_run"}
-          className="rounded-lg border-2 border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900"
-        >
-          <strong className="block text-base">
-            기존 방식으로 검수 완료된 주차이지만, 공표 snapshot 이 없어 결과를 표시할 수 없습니다.
-          </strong>
-          <span className="mt-1 block text-amber-800">
-            이 주차는 검수 완료 상태 그대로입니다(집계 중이 아닙니다). 결과를 다시 표시하려면
-            [클럽 활동 검수(예비)] 로 현재 원천을 확인한 뒤 [클럽 활동 검수(재공표)] 를 실행해
-            공표 snapshot 을 생성해주세요.
-          </span>
-        </div>
-      ) : null}
-
       {/* [5] 주차 종합 인덱스 — 항상 렌더한다(최초 진입 = 전부 "-").
           표시 우선순위: ① 새 예비 결과 → ② 활성 공표 snapshot → ③ 둘 다 없으면 "-".
           예비와 공표를 **절대 섞지 않는다** — 배지와 제목으로 출처를 명시한다. */}
@@ -893,19 +899,16 @@ export default function CrewWeekPublishPanel({
               </span>
               <span className="text-xs text-muted-foreground">
                 공표 시각 {new Date(publishedShown.publishedAt).toLocaleString("ko-KR")} · 결과 버전{" "}
-                {publishedShown.calculationVersion} · run {publishedShown.runId.slice(0, 8)}
-              </span>
-            </>
-          ) : legacyCompleted ? (
-            <>
-              <StatusBadge label="검수 완료" size="sm" />
-              <span data-summary-source="legacy" className="text-sm font-semibold text-amber-800">
-                공표 snapshot 없음
+                {publishedShown.calculationVersion}
               </span>
             </>
           ) : (
             <span data-summary-source="none" className="text-xs text-muted-foreground">
-              {loading ? "불러오는 중…" : "[클럽 활동 검수(예비)] 를 실행하면 결과가 표시됩니다."}
+              {loading
+                ? "불러오는 중…"
+                : legacyCompleted
+                  ? "이 주차의 결과를 불러오지 못했습니다. 잠시 후 다시 확인해주세요."
+                  : "[클럽 활동 검수(예비)] 를 실행하면 결과가 표시됩니다."}
             </span>
           )}
         </div>
@@ -968,7 +971,7 @@ export default function CrewWeekPublishPanel({
                 <span className="text-xs text-muted-foreground">
                   {preview
                     ? `계산 시각 ${new Date(preview.calculatedAt).toLocaleString("ko-KR")} · 아직 공표되지 않음`
-                    : `공표 시각 ${new Date(publishedShown!.publishedAt).toLocaleString("ko-KR")} · run ${publishedShown!.runId.slice(0, 8)}`}
+                    : `공표 시각 ${new Date(publishedShown!.publishedAt).toLocaleString("ko-KR")}`}
                 </span>
               </div>
               {tab === "crew" ? (
@@ -983,17 +986,24 @@ export default function CrewWeekPublishPanel({
                   (live 결과를 결과 컬럼에 채우지 않는다 — 위 경고가 이유를 설명한다). */}
               <p className="mb-2 text-xs text-muted-foreground" data-details-base>
                 {legacyCompleted
-                  ? "공표 snapshot 이 없어 결과 컬럼을 표시할 수 없습니다. 기본 정보만 표시 중입니다."
+                  ? "이 주차의 결과를 불러오지 못했습니다. 잠시 후 다시 확인해주세요."
                   : "기본 정보만 표시 중입니다. [클럽 활동 검수(예비)] 를 실행하면 결과 컬럼이 채워집니다."}
               </p>
               <CrewTable rows={baseRows} hasResult={false} memberHref={memberHref} />
+            </>
+          ) : tab === "team" && baseTeamRows ? (
+            <>
+              <p className="mb-2 text-xs text-muted-foreground" data-details-base>
+                기본 정보만 표시 중입니다. [클럽 활동 검수(예비)] 를 실행하면 결과 컬럼이 채워집니다.
+              </p>
+              <TeamTable rows={baseTeamRows} hasResult={false} />
             </>
           ) : (
             <p className="py-10 text-center text-sm text-muted-foreground" data-details-empty>
               {loading
                 ? "불러오는 중…"
                 : legacyCompleted
-                  ? "공표 snapshot 이 없어 이 주차의 결과를 표시할 수 없습니다."
+                  ? "이 주차의 결과를 불러오지 못했습니다. 잠시 후 다시 확인해주세요."
                   : "예비 검수를 실행하면 이 주차의 결과가 표시됩니다."}
             </p>
           )}

@@ -103,7 +103,19 @@ export async function GET(request: NextRequest, { params }: Params) {
         weeklyGrowthRatePercent: null,
         cumulativeSuccessWeeks: null,
       }));
-      return Response.json({ success: true, data: { baseRows, scope: t.scope } });
+      const baseTeamRows = p0.teamResults.map((team) => ({
+        ...team,
+        battleResult: null,
+        challengeCrew: null,
+        restCrew: null,
+        successCrew: null,
+        failCrew: null,
+        winRatePercent: null,
+      }));
+      return Response.json({
+        success: true,
+        data: { baseRows, baseTeamRows, scope: t.scope },
+      });
     }
     if (action === "preview") {
       // [3] 예비 검수 — 저장하지 않는다. 응답 자체가 결과다.

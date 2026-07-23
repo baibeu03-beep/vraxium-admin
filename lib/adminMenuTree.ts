@@ -85,13 +85,14 @@ export const MENU_INTEGRATED: MenuItem[] = [
     basePath: "/admin/periods",
     matchPaths: [
       "/admin/periods",
-      "/admin/week-recognitions",
+      // 메뉴 노출만 중단한다. 라우트·직접 접근·기존 링크는 유지한다.
+      // "/admin/week-recognitions",
       // [비활성화 2026-07-04] 주차 카드 집계 확정 페이지 비노출 — 재활성화 시 주석 해제.
       // "/admin/weekly-card-finalization",
     ],
     children: [
       { label: "기간 관리", href: "/admin/periods/register" },
-      { label: "주차 인정 결과", href: "/admin/week-recognitions" },
+      // { label: "주차 인정 결과", href: "/admin/week-recognitions" },
       // [주차 카드 집계 확정] 메뉴 비노출(주석 처리) — /admin/weekly-card-finalization 라우트/컴포넌트는 유지.
       //   라우트도 page.tsx 에서 notFound() 처리됨. 재활성화하려면 아래 줄의 주석을 해제하세요.
       // { label: "주차 카드 집계 확정", href: "/admin/weekly-card-finalization" },

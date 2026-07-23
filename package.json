@@ -25,6 +25,7 @@
     "verify:crew-week-results-http": "node scripts/browser-verify-crew-week-results-http.mjs",
     "verify:crew-week-results-render": "node scripts/browser-verify-crew-week-results-render.mjs",
     "audit:crew-week-snapshot-migration": "tsx --env-file=.env.local scripts/audit-crew-week-publish-snapshot-migration.ts",
+    "backfill:crew-week-snapshots": "tsx --env-file=.env.local scripts/backfill-crew-week-publish-snapshots.ts",
     "verify:crew-week-team-position-sot": "tsx --env-file=.env.local scripts/verify-crew-week-team-position-sot.ts",
     "verify:crew-week-publish-states": "node scripts/browser-verify-crew-week-publish-states.mjs",
     "verify:toast-safe-area": "tsx --env-file=.env.local scripts/browser-verify-toast-safe-area.ts",

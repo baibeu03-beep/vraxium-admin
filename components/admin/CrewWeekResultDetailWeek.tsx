@@ -141,12 +141,6 @@ export default function CrewWeekResultDetailWeek({
               />
 
               {/* 팀 활동 결과 — SoT 미확인이라 가짜 숫자를 넣지 않는다. */}
-              <div
-                data-team-tab-pending
-                className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50 px-4 py-6 text-center text-sm text-muted-foreground"
-              >
-                팀 활동 결과는 준비 중입니다.
-              </div>
             </>
           )}
         </CardContent>
