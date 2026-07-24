@@ -1,10 +1,11 @@
 /**
- * 클럽 정보 > 주차 내역 브라우저 검증 (dev server 필요).
+ * 클럽 정보 > 주차 활동(클럽) 브라우저 검증 (dev server 필요).
  *   - 페이지 200 · 크래시 없음
- *   - 클럽 탭 4개(통합/엥크레/오랑캐/팔랑크스), 통합=준비중 안내
- *   - 현재 주차 배너 · 주차 표 렌더
+ *   - 클럽 탭 4개(통합/엥크레/오랑캐/팔랑크스). 기본 진입 = [통합] 빈 본문(표/배너/API 없음)
+ *   - 통합 탭 = 빈 본문 · 주차 활동 API 미호출 · 브레드크럼 "클럽 정보 > 통합 > 주차 활동(클럽)"
+ *   - 조직 탭(엥크레 등) 선택 시 현재 주차 배너 · 주차 표 렌더 · 브레드크럼 조직명 주입
  *   - 공식 휴식 주차 [활동 관리] → alert(이동 금지) / 공식 활동 주차 → 상세 라우팅
- *   - ?mode=test 요청 전파
+ *   - ?mode=test 요청 전파(조직 탭 선택 시)
  *   npx tsx --env-file=.env.local scripts/verify-team-parts-info-weeks-browser.ts
  */
 import { pathToFileURL } from "url";
@@ -63,21 +64,43 @@ async function main() {
   const tabs = await page.$$eval("[data-club-tab]", (els: any[]) => els.map((e) => e.getAttribute("data-club-tab")));
   ck("클럽 탭 4개(통합/엥크레/오랑캐/팔랑크스)", JSON.stringify(tabs) === JSON.stringify(["integrated", "encre", "oranke", "phalanx"]), tabs);
 
-  // 3) 기본(엥크레) 표 + 배너 렌더.
+  // 3) 기본 진입 = [통합] 빈 본문(상단 UI 유지 · 표/배너/API 없음 · 브레드크럼 "통합").
+  apiReqs.length = 0;
+  const emptyOnLanding = await page.$("[data-integrated-empty-content]");
+  const rowsOnLanding = await page.$$eval("[data-week-row]", (els: any[]) => els.length);
+  const bannerOnLanding = await page.$("[data-current-week]");
+  ck("기본 진입 = 통합 빈 본문(빈 컨텐츠 마커·표/배너 없음)", !!emptyOnLanding && rowsOnLanding === 0 && !bannerOnLanding, {
+    emptyMarker: !!emptyOnLanding, rowsOnLanding, banner: !!bannerOnLanding,
+  });
+  ck("기본 진입 = 주차 활동 API 미호출", apiReqs.length === 0, apiReqs.slice(0, 3));
+  const bcLanding = await page.$eval('nav[aria-label="현재 위치"]', (e: any) => (e.textContent ?? "").replace(/\s+/g, " ").trim()).catch(() => "");
+  ck("브레드크럼 = 클럽 정보 > 통합 > 주차 활동(클럽)", bcLanding.includes("클럽 정보") && bcLanding.includes("통합") && bcLanding.includes("주차 활동(클럽)"), { bcLanding });
+
+  // 4) 엥크레 탭 → 표 + 배너 + 브레드크럼 조직명 주입.
+  await page.click('[data-club-tab="encre"]');
+  await page.waitForTimeout(2500);
   const rowCount = await page.$$eval("[data-week-row]", (els: any[]) => els.length);
-  ck("주차 표 행 렌더(>0)", rowCount > 0, { rowCount });
+  ck("엥크레 탭 주차 표 행 렌더(>0)", rowCount > 0, { rowCount });
   const hasBanner = await page.$("[data-current-week]");
   ck("현재 주차 배너 렌더", !!hasBanner);
   const todayTxt = await page.$eval("[data-cw-today]", (e: any) => e.textContent).catch(() => null);
   ck("배너 오늘 날짜 표시", !!todayTxt && todayTxt.trim() !== "-", { today: todayTxt });
+  const bcEncre = await page.$eval('nav[aria-label="현재 위치"]', (e: any) => (e.textContent ?? "").replace(/\s+/g, " ").trim()).catch(() => "");
+  ck("브레드크럼 = 클럽 정보 > 엥크레 > 주차 활동(클럽)", bcEncre.includes("클럽 정보") && bcEncre.includes("엥크레") && bcEncre.includes("주차 활동(클럽)"), { bcEncre });
 
   await page.screenshot({ path: "claudedocs/qa-team-parts-weeks-encre.png", fullPage: true });
 
-  // 4) 통합 탭 → 준비중.
+  // 4b) 통합 탭 → 빈 본문(안내 문구 없음 · API 미호출 · 브레드크럼 통합).
+  apiReqs.length = 0;
   await page.click('[data-club-tab="integrated"]');
-  await page.waitForTimeout(500);
-  const pending = await page.$eval("[data-integrated-pending]", (e: any) => e.textContent).catch(() => null);
-  ck("통합 탭 = 준비 중 안내", !!pending && pending.includes("준비 중"), { pending: pending?.trim() });
+  await page.waitForTimeout(1000);
+  const emptyMarker = await page.$("[data-integrated-empty-content]");
+  const pendingGone = await page.$("[data-integrated-pending]");
+  const rowsIntegrated = await page.$$eval("[data-week-row]", (els: any[]) => els.length);
+  ck("통합 탭 = 빈 본문(안내 문구 없음·표 없음)", !!emptyMarker && !pendingGone && rowsIntegrated === 0, {
+    emptyMarker: !!emptyMarker, pendingPresent: !!pendingGone, rowsIntegrated,
+  });
+  ck("통합 탭 전환 = 주차 활동 API 미호출", apiReqs.length === 0, apiReqs.slice(0, 3));
 
   // 5) 오랑캐 탭으로 전환 후 공식 휴식/활동 주차 동작.
   await page.click('[data-club-tab="oranke"]');
@@ -132,11 +155,15 @@ async function main() {
   const reqs2: string[] = [];
   page2.on("request", (r: any) => { const url = r.url(); if (url.includes("/api/admin/team-parts/info/weeks")) reqs2.push(url.replace(BASE, "")); });
   const resp2 = await page2.goto(`${BASE}/admin/team-parts/info/weeks?mode=test`, { waitUntil: "domcontentloaded", timeout: 90000 });
+  await page2.waitForTimeout(2000);
+  // 기본 진입 = 통합 빈 본문 → API 미호출. 조직 탭 선택 후 API 요청에 mode=test 전파 확인.
+  ck("QA 기본 진입 = 통합 빈 본문(API 미호출)", reqs2.length === 0, reqs2.slice(0, 2));
+  await page2.click('[data-club-tab="encre"]');
   await page2.waitForTimeout(3000);
   const body2 = await page2.evaluate(() => document.body.innerText);
   const crash2 = /Jest worker|child process exceptions|Internal Server Error|Application error/i.test(body2);
   ck("QA(mode=test) 페이지 200 · 크래시 없음", resp2?.status() === 200 && !crash2, { status: resp2?.status(), crash: crash2 });
-  ck("QA 페이지 API 요청에 mode=test 전파", reqs2.length > 0 && reqs2.every((r) => r.includes("mode=test")), reqs2.slice(0, 2));
+  ck("QA 조직 탭 API 요청에 mode=test 전파", reqs2.length > 0 && reqs2.every((r) => r.includes("mode=test")), reqs2.slice(0, 2));
   await page2.screenshot({ path: "claudedocs/qa-team-parts-weeks-test.png", fullPage: true });
 
   await ctx.browser()?.close?.();

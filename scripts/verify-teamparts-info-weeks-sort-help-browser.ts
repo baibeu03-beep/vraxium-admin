@@ -194,7 +194,9 @@ async function main() {
         helpReqs.push({ mode: u.searchParams.get("mode"), org: u.searchParams.get("org") });
       }
     });
-    await page.goto(`${baseUrl}${PAGE_PATH}`, { waitUntil: "domcontentloaded" });
+    // 기본 진입 = [통합] 빈 본문(표 없음). 정렬/도움말 검증은 조직 탭 본문이 필요하므로 ?club=encre 로
+    //   진입한다(club 은 org/mode 와 무관 — help 요청 org/mode 누수 검증에 영향 없음).
+    await page.goto(`${baseUrl}${PAGE_PATH}?club=encre`, { waitUntil: "domcontentloaded" });
     await page.waitForSelector("[data-weeks-table]", { timeout: 30_000 });
     // 돋보기가 전부 렌더될 때까지 대기(dev 컴파일/하이드레이션 레이스 방지).
     await page.waitForFunction(

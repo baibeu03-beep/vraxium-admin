@@ -11,6 +11,8 @@ import {
 } from "@/components/admin/useAdminDevMode";
 import SessionCountdown from "@/components/admin/SessionCountdown";
 import { resolveAdminBreadcrumb } from "@/lib/adminMenuTree";
+import { readOrgParam } from "@/lib/adminOrgContext";
+import { isOrganizationSlug, organizationLabelKo } from "@/lib/organizations";
 import { useAdminRouteTitleForPath } from "@/components/admin/AdminRouteTitleProvider";
 import { buildAdminContextHref } from "@/lib/adminOrgContext";
 import { cn } from "@/lib/utils";
@@ -46,13 +48,39 @@ export default function Header({
   //   그 항목 수만큼 교체한다. 회원 상세=[회원명] 1칸, 주차 상세=[회원명(→회원상세 링크), 주차명] 2칸.
   //   없으면 고정 폴백("회원 상세" 등) 유지 — 중복 조회 없이 페이지가 이미 가진 상세 DTO 표시명을 재사용.
   const detailItems = useAdminRouteTitleForPath(pathname);
-  const breadcrumb =
+  const resolvedBreadcrumb =
     detailItems && detailItems.length > 0 && baseBreadcrumb.length > 0
       ? [
           ...baseBreadcrumb.slice(0, Math.max(0, baseBreadcrumb.length - detailItems.length)),
           ...detailItems,
         ]
       : baseBreadcrumb;
+  // 주차 활동(클럽) 목록은 통합 관리자의 조직 탭을 ?org 가 아니라 ?club 로 표현한다(?org 는 개별
+  //   조직 조회 전용 스코프 예약 — [[project_team-parts-info-weeks]]). 그래서 이 화면만 조직 라벨을
+  //   ?org(개별) → ?club(통합 탭) 순으로 해석한다. 다른 조직 스코프 섹션(허브와 라인·허브별 프로세스)은
+  //   기존대로 ?org 만 읽는다. 통합/무효면 "통합".
+  const teamPartsWeeksListSection = /^\/admin\/team-parts\/info\/weeks\/?$/.test(pathname);
+  const organizationScopedSection =
+    /^\/admin\/(?:integrated\/)?line-opening(?:\/|$)/.test(pathname) ||
+    /^\/admin\/(?:integrated\/)?processes\/check(?:\/|$)/.test(pathname) ||
+    teamPartsWeeksListSection;
+  const clubTabParam = teamPartsWeeksListSection
+    ? searchParams.get("club")?.trim() ?? ""
+    : "";
+  const selectedOrganization =
+    readOrgParam(searchParams) ??
+    (isOrganizationSlug(clubTabParam) ? clubTabParam : null);
+  const organizationLabel = selectedOrganization
+    ? organizationLabelKo(selectedOrganization)
+    : "통합";
+  const breadcrumb =
+    organizationScopedSection && resolvedBreadcrumb.length >= 2
+      ? [
+          resolvedBreadcrumb[0],
+          { label: organizationLabel },
+          ...resolvedBreadcrumb.slice(1),
+        ]
+      : resolvedBreadcrumb;
 
   // 사이드바 최하단에 있던 기존 로그아웃 로직을 그대로 이동 (auth/세션 로직 수정 없음).
   const handleLogout = async () => {

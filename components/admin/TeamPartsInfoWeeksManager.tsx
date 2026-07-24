@@ -39,7 +39,7 @@ import type {
 
 const PAGE_SIZE = DEFAULT_TABLE_PAGE_SIZE;
 
-// 통합 + 3개 클럽 탭. 통합은 기획 미정 → 준비 중 안내.
+// 통합 + 3개 클럽 탭. 통합 탭 = 빈 본문(상단 UI 유지 · 본문/ API 없음).
 type TabKey = "integrated" | OrganizationSlug;
 
 // 조직 탭 라벨 — 조직명은 lib/organizations 단일 SoT(organizationLabelKo). "통합"만 이 화면 고유.
@@ -213,10 +213,16 @@ export default function TeamPartsInfoWeeksManager({
     : clubParam === "integrated"
       ? "integrated"
       : null;
+  // 기본(요청 탭 없음) = [통합] 빈 본문. 통합 관리자의 진입/새로고침 기본값을 다른 통합 페이지
+  //   (허브와 라인 · 허브별 프로세스 = ?org 없음 → 통합 빈 본문)와 동일하게 맞춘다 —
+  //   본문/브레드크럼(헤더 ?club→조직명 주입)이 항상 정합한다. 통합 탭이 안 보이는(허용조직 부분) 경우만
+  //   첫 허용 조직으로 폴백한다. [[project_admin-org-optional-url-policy]]
   const activeTab: TabKey =
     requestedTab && visibleTabs.includes(requestedTab)
       ? requestedTab
-      : (allowedOrgs[0] ?? "integrated");
+      : visibleTabs.includes("integrated")
+        ? "integrated"
+        : (allowedOrgs[0] ?? "integrated");
   // 주차명 열 고정(단일 식별 열 — 나머지는 지표 열). col-1 없음 → col(2)가 left:0 + 경계선.
   const sticky = useStickyColumns({ headerSticky: true });
 
@@ -270,7 +276,7 @@ export default function TeamPartsInfoWeeksManager({
   );
 
   useEffect(() => {
-    // 통합 탭은 준비 중(자체 안내 블록 렌더) → API 호출/상태 갱신 없음.
+    // 통합 탭은 빈 본문 → API 호출/상태 갱신 없음.
     //   이전 클럽 데이터는 state 에 남아 있어도 통합 화면에선 렌더되지 않는다.
     //   권한 없음(허용 조직 0개/scoped 불일치)도 조회하지 않는다.
     if (isIntegrated || scopedMissing || noAccess) return;
@@ -399,14 +405,12 @@ export default function TeamPartsInfoWeeksManager({
           </div>
         </div>
 
-        {/* ── 통합 탭: 준비 중 ─────────────────────── */}
+        {/* ── 통합 탭: 빈 본문 ───────────────────────
+            통합 조직 스코프 공통 규칙(허브와 라인 · 허브별 프로세스와 동일) — 상단 UI(브레드크럼·클럽
+            탭)는 유지하고 본문만 렌더하지 않는다. 상태창/필터/표/매트릭스/카드/로그/안내문구 모두 없음.
+            API(주차 활동·팀/파트·snapshot)도 호출하지 않는다(위 effect 의 isIntegrated 게이트). */}
         {isIntegrated ? (
-          <div
-            data-integrated-pending
-            className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50 px-4 py-10 text-center text-sm text-muted-foreground"
-          >
-            통합 탭은 준비 중입니다.
-          </div>
+          <div aria-hidden className="min-h-1" data-integrated-empty-content />
         ) : (
           <>
             {/* ── 현재 주차 정보 배너 ── */}
