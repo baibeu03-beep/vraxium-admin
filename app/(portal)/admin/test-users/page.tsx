@@ -1,5 +1,5 @@
 import TestUsersManager from "@/components/admin/TestUsersManager";
-import AdminHelp from "@/components/admin/AdminHelp";
+import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import QaRunNowSnapshotPanels from "@/components/admin/QaRunNowSnapshotPanels";
 
 // /admin/test-users — 데모/테스트 미리보기 대상 유저 선택 화면.
@@ -8,10 +8,7 @@ import QaRunNowSnapshotPanels from "@/components/admin/QaRunNowSnapshotPanels";
 export default function TestUsersPage() {
   return (
     <div className="admin-section-stack">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-lg font-semibold">테스트 모드</h1>
-        <AdminHelp />
-      </div>
+      <AdminPageHeader title="테스트 모드" />
       <TestUsersManager />
       {/* (추가) QA 즉시 실행: weekly-cards snapshot 재계산(테스트 전수 / 선택 유저) 입구. */}
       <QaRunNowSnapshotPanels />

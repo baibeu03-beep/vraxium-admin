@@ -142,12 +142,35 @@ export const PROCESS_LINE_GROUP_MAX = 12;
 // 라인급명 / 액트명 최대 글자수.
 export const PROCESS_NAME_MAX = 30;
 
+// ── 라인급 범위(scope_type) — 팀 공통(TEAM) vs 파트 전용(PART) SoT ──────────────
+//   'TEAM' = 팀 공통(팀 총괄) 라인급 — 산하 액트가 팀 단위로 1개 존재.
+//   'PART' = 파트 전용 라인급 — 산하 액트가 각 파트별로 독립 체크/집계/포인트 대상.
+//   구 판정(라인급명에 "파트" 포함 = isPartLineGroupName)을 대체하는 명시적 저장 속성.
+//   런타임은 저장된 scope_type 만 참조한다(라인급명 문자열 추론 금지).
+//   파트 전용은 팀 구분 허브(experience)에서만 의미가 있다 — 그 외 허브는 항상 'TEAM'.
+export type ProcessLineGroupScope = "TEAM" | "PART";
+export const PROCESS_LINE_GROUP_SCOPES = ["TEAM", "PART"] as const;
+export function isProcessLineGroupScope(v: unknown): v is ProcessLineGroupScope {
+  return v === "TEAM" || v === "PART";
+}
+// 파트 전용 여부 — 저장된 scope_type 단일 판정. null/미지정 = 팀 공통(false).
+export function isPartScopeLineGroup(scope: ProcessLineGroupScope | null | undefined): boolean {
+  return scope === "PART";
+}
+// 파트 전용 옵션을 노출/허용하는 허브 — 팀 구분 허브(experience)만.
+//   isTeamBasedProcessHub(adminProcessCheckTypes) 와 동일 집합이나, 순환 import 회피 위해 여기서 판정.
+export function hubSupportsPartScope(hub: ProcessHub): boolean {
+  return hub === "experience";
+}
+
 // ── DTO ────────────────────────────────────────────────────────────────────
 export type ProcessLineGroupDto = {
   id: string;
   hub: ProcessHub;
   hubLabel: string;
   name: string;
+  // 라인급 범위(파트 전용 여부) SoT — 'TEAM'(팀 공통) | 'PART'(파트 전용).
+  scopeType: ProcessLineGroupScope;
   sortOrder: number;
   isActive: boolean;
   // 산하 액트 수 — 삭제 가능 여부(0 이어야 삭제) 판정용. 목록 조회 시 채워짐.
@@ -365,6 +388,8 @@ export type ProcessActDto = {
 export type ProcessLineGroupCreateInput = {
   hub: ProcessHub;
   name: string;
+  // 파트 전용 여부(등록 팝업 체크박스). experience 허브에서만 'PART' 허용 — 그 외는 데이터 계층에서 'TEAM' 강제.
+  scopeType: ProcessLineGroupScope;
 };
 
 export type ProcessActCreateInput = {
@@ -437,7 +462,15 @@ export function parseProcessLineGroupCreateBody(
   }
   const name = requiredText(body.name, "name", PROCESS_NAME_MAX);
   if (!name.ok) return name;
-  return { ok: true, value: { hub: body.hub, name: name.value } };
+  // scope_type — 미지정/누락 = 'TEAM'(하위호환). 'PART' 는 experience 허브에서만 유효(데이터 계층에서 재강제).
+  let scopeType: ProcessLineGroupScope = "TEAM";
+  if (body.scope_type !== undefined && body.scope_type !== null) {
+    if (!isProcessLineGroupScope(body.scope_type)) {
+      return { ok: false, status: 400, error: "scope_type must be 'TEAM' or 'PART'" };
+    }
+    scopeType = body.scope_type;
+  }
+  return { ok: true, value: { hub: body.hub, name: name.value, scopeType } };
 }
 
 // POST /api/admin/processes/acts body 파서.

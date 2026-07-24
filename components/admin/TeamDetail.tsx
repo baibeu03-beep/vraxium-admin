@@ -7,6 +7,7 @@ import { X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { AdminDetailTitle } from "@/components/admin/AdminRouteTitleProvider";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -682,8 +683,9 @@ export default function TeamDetail({
               />
             </section>
 
-            {/* [A] 선택 주차 요약 — 위 상태표와 독립(주차 select 로만 갱신). 구분선 후 중립 카드. */}
-            <div className="my-2 border-t" />
+            {/* [A] 선택 주차 요약 — 위 상태표와 독립(주차 select 로만 갱신). 구분선 후 중립 카드.
+                공통 Separator(기본 fade)로 교체 — my-2 여백 유지(위 상태표 section 과의 간격 불변). */}
+            <Separator className="my-2" />
             <section
               data-team-detail-week-summary
               className="space-y-5 rounded-lg border bg-muted/20 p-5"

@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { Separator } from "@/components/ui/separator";
 import type { StatusToken, StatusTokenKind } from "@/lib/lineOpeningStatusEngine";
 
 // 라인 개설 상태창 공용 표현 프리미티브.
@@ -101,7 +102,9 @@ export function StatusListItem({
 export function LineOpeningSectionDivider() {
   return (
     <div aria-hidden="true" className="py-4 lg:py-6">
-      <div className="border-t border-border" />
+      {/* 공통 Separator(기본 fade) — 양끝이 흐려지는 부드러운 섹션 구분선.
+          바깥 py- 래퍼가 상/하 대칭 여백을 유지(space-y 부모에서도 안전) → 간격 규칙 불변. */}
+      <Separator />
     </div>
   );
 }

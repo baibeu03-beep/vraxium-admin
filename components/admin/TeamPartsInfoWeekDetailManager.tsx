@@ -715,6 +715,7 @@ function StateCard({
 }
 
 // 정규 액트 카드 — 상태/표시 필드는 전부 서버 DTO(cardState 등)에서 온다.
+//   파트 전용 라인급 액트는 파트마다 독립 카드로 오며(각 파트 상태), partName 배지로 대상 파트를 구분한다.
 function ActCard({ act }: { act: ActCheckActDto }) {
   return (
     <StateCard
@@ -723,7 +724,14 @@ function ActCard({ act }: { act: ActCheckActDto }) {
       requiredLabel={act.requiredLabel}
       actualLabel={act.actualLabel}
       requesterLabel={act.requesterLabel}
-      dataAttrs={{ "data-act": act.actId }}
+      dataAttrs={{ "data-act": act.actId, ...(act.partName ? { "data-part": act.partName } : {}) }}
+      tag={
+        act.partName ? (
+          <span className="shrink-0 rounded-full border border-violet-300 bg-violet-100 px-2 py-px text-xs font-semibold text-violet-800">
+            {act.partName}
+          </span>
+        ) : undefined
+      }
     />
   );
 }
@@ -856,7 +864,9 @@ function ActCheckGroupTable({
                     {line.regularActsByDay[d.key].length === 0 ? (
                       <span className="text-xs text-muted-foreground/40">–</span>
                     ) : (
-                      line.regularActsByDay[d.key].map((act) => <ActCard key={act.actId} act={act} />)
+                      line.regularActsByDay[d.key].map((act) => (
+                        <ActCard key={`${act.actId}::${act.partName ?? ""}`} act={act} />
+                      ))
                     )}
                   </div>
                 </td>

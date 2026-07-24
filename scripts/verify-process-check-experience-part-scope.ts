@@ -75,8 +75,10 @@ async function cleanup() {
   }
 }
 
-const seedGroup = async (name: string) =>
-  (await api("/api/admin/processes/line-groups", { method: "POST", body: J({ hub: HUB, name }) })).json
+// 파트 전용 여부 = 저장된 scope_type SoT(라인급명 "파트" 추론 대체·2026-07-24). 파트 라인급은
+//   반드시 scope_type='PART' 로 시드한다(이름에 "파트"가 있어도 마이그 적용 후엔 이름으로 파트 판정 안 함).
+const seedGroup = async (name: string, scopeType: "TEAM" | "PART" = "TEAM") =>
+  (await api("/api/admin/processes/line-groups", { method: "POST", body: J({ hub: HUB, name, scope_type: scopeType }) })).json
     .data?.id as string | undefined;
 const seedAct = async (groupId: string, name: string) =>
   (
@@ -129,9 +131,9 @@ async function main() {
   // 다른 팀의 파트(이 팀 파트 아님) — 강제 422 용.
   const foreign = (await listTeamParts(ORG, "커머스", "operating")).find((p) => !parts.includes(p)) ?? "베네핏";
 
-  // 시드 — 총괄 라인급 + 파트 라인급(이름에 "파트").
-  const gOverall = await seedGroup(`${TAG} 총괄관리`);
-  const gPart = await seedGroup(`${TAG} 가공파트`);
+  // 시드 — 총괄 라인급(scope_type=TEAM) + 파트 라인급(scope_type=PART, SoT 명시).
+  const gOverall = await seedGroup(`${TAG} 총괄관리`, "TEAM");
+  const gPart = await seedGroup(`${TAG} 가공파트`, "PART");
   const O1 = await seedAct(gOverall!, `${TAG} 총괄액트`);
   const PA = await seedAct(gPart!, `${TAG} 가공파트액트`);
   ck("[시드] 총괄/파트 라인급 + 체크 액트", !!gOverall && !!gPart && !!O1 && !!PA);

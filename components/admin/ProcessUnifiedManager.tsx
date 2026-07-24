@@ -69,6 +69,7 @@ import {
   type ProcessCheckTarget,
   type ProcessHub,
   type ProcessLineGroupDto,
+  type ProcessLineGroupScope,
   type ProcessPointTriplet,
   type ProcessWeekRef,
 } from "@/lib/adminProcessesTypes";
@@ -427,6 +428,47 @@ function WhenInput({
   );
 }
 
+// 라인급 저장 확인 팝업의 [파트 전용] 배지(칩 목록 공용) — 가시성 있는 배지(작은 회색 보조문구 금지).
+function PartExclusiveBadge() {
+  return (
+    <span className="inline-flex items-center rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+      파트 전용
+    </span>
+  );
+}
+
+// 파트 전용 체크박스가 포함된 라인급 저장 확인 본문(experience 허브 전용).
+//   자체 상태를 가지고, 변경 시 부모 ref 로 값을 전달한다(confirm resolve 후 부모가 값을 읽는다).
+function PartExclusiveConfirmBody({
+  name,
+  onChange,
+}: {
+  name: string;
+  onChange: (v: boolean) => void;
+}) {
+  const [checked, setChecked] = useState(false);
+  return (
+    <div className="space-y-3 text-sm">
+      <p className="text-foreground">입력한 ‘{name}’을 저장하시겠습니까?</p>
+      <p className="text-muted-foreground">
+        저장하는 ‘{name}’이 각 파트에서 진행되는 ‘파트 전용’인가요?
+      </p>
+      <label className="inline-flex cursor-pointer items-center gap-2">
+        <Checkbox
+          aria-label="파트 전용"
+          checked={checked}
+          onChange={() => {
+            const next = !checked;
+            setChecked(next);
+            onChange(next);
+          }}
+        />
+        <span className={checkedTextClass(checked)}>파트 전용</span>
+      </label>
+    </div>
+  );
+}
+
 export default function ProcessUnifiedManager() {
   const confirm = useConfirm();
   // 안내 문구는 문서 흐름 안의 상단 배너가 아니라 화면 하단 고정 토스트로 띄운다.
@@ -447,6 +489,8 @@ export default function ProcessUnifiedManager() {
   const [groupsLoading, setGroupsLoading] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [addingGroup, setAddingGroup] = useState(false);
+  // 파트 전용 저장 확인 팝업(experience)의 체크박스 값 — confirm resolve 후 읽는다.
+  const partExclusiveRef = useRef(false);
 
   const [actName, setActName] = useState("");
   const [lineGroupId, setLineGroupId] = useState<string>("");
@@ -681,14 +725,35 @@ export default function ProcessUnifiedManager() {
       });
       return;
     }
-    if (!(await confirm(CONFIRM.save))) return;
+    // 실무 경험 허브만 '파트 전용' 옵션 팝업(체크박스) — 그 외 허브는 기존 단순 저장 확인.
+    let scopeType: ProcessLineGroupScope = "TEAM";
+    if (selectedHub === "experience") {
+      partExclusiveRef.current = false;
+      const ok = await confirm({
+        title: "저장",
+        description: (
+          <PartExclusiveConfirmBody
+            name={name}
+            onChange={(v) => {
+              partExclusiveRef.current = v;
+            }}
+          />
+        ),
+        confirmLabel: "저장",
+        cancelLabel: "취소",
+      });
+      if (!ok) return;
+      scopeType = partExclusiveRef.current ? "PART" : "TEAM";
+    } else {
+      if (!(await confirm(CONFIRM.save))) return;
+    }
     setAddingGroup(true);
     setBanner(null);
     try {
       const res = await fetch("/api/admin/processes/line-groups", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hub: selectedHub, name }),
+        body: JSON.stringify({ hub: selectedHub, name, scope_type: scopeType }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) throw apiErrorFrom(res, json, "라인급 등록에 실패했습니다");
@@ -1046,6 +1111,7 @@ export default function ProcessUnifiedManager() {
                             onChange={() => setLineGroupId(selected ? "" : g.id)}
                           />
                           <span className={checkedTextClass(selected)}>{g.name}</span>
+                          {g.scopeType === "PART" && <PartExclusiveBadge />}
                           <span className="text-xs text-muted-foreground">(액트 {g.actCount})</span>
                           <button
                             type="button"

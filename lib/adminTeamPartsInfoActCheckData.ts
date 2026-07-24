@@ -21,6 +21,7 @@ import { loadCurrentWeekOverrideLabels } from "@/lib/positionResolver";
 import { isActOpenAtTime } from "@/lib/weekOpenGate";
 import { loadWeekOpeningTimeline } from "@/lib/weekOpeningTimeline";
 import { listTeams } from "@/lib/adminExperienceLineData";
+import { listTeamParts } from "@/lib/adminExperiencePartInput";
 import {
   buildActCheckApplicationSummary,
   type ActCheckApplicationSummary,
@@ -80,6 +81,9 @@ export type ActCheckActDto = {
   // 완료 상태 2번째 줄 "[신청 시점(실제)] YY - MM - DD (요일) HH:mm".
   actualLabel: string | null;
   requesterLabel: string | null; // "홍길동 님(앰배서더)"
+  // 파트 전용(scope_type='PART') 라인급 액트의 파트명 — 파트별로 펼친 카드에만 채운다(그 외 null).
+  //   같은 액트가 파트마다 독립 카드/상태로 표시될 때 어느 파트 대상인지 구분(카드 배지).
+  partName: string | null;
   // (호환) 요약/요일 통계용. 표시 로직은 cardState 사용.
   scheduledLabel: string | null; // 신청 시점 "26 - 07 - 14 (화) 14:30"
   checkStatus: ActCheckStatus; // ontime / late / null(미신청)
@@ -320,16 +324,36 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
     isActOpenAtTime({ hub: "competency", timeline, occurMs, lineGroupId: null });
 
   // 2) 라인급(체크) 카탈로그 = process_line_groups(hub, is_active). sort_order → created_at 순(register 동일).
-  const loadLineGroups = async (hub: string): Promise<Array<{ id: string; name: string }>> => {
-    const { data, error } = await supabaseAdmin
+  // 라인급 = {id, name, isPart}. isPart = 저장된 scope_type='PART' SoT(미적용 스키마만 이름 폴백).
+  const loadLineGroups = async (
+    hub: string,
+  ): Promise<Array<{ id: string; name: string; isPart: boolean }>> => {
+    type LgRow = { id: string; name: string | null; scope_type?: string | null; sort_order: number | null; created_at: string | null };
+    const primary = await supabaseAdmin
       .from("process_line_groups")
-      .select("id,name,sort_order,created_at")
+      .select("id,name,scope_type,sort_order,created_at")
       .eq("hub", hub)
       .eq("is_active", true);
+    let data = primary.data as LgRow[] | null;
+    let error = primary.error as { code?: string; message: string } | null;
+    if (error && (error.code === "42703" || error.code === "PGRST204")) {
+      const fb = await supabaseAdmin
+        .from("process_line_groups")
+        .select("id,name,sort_order,created_at")
+        .eq("hub", hub)
+        .eq("is_active", true);
+      data = fb.data as LgRow[] | null;
+      error = fb.error as { code?: string; message: string } | null;
+    }
     if (error) { console.warn(`[act-check-management] process_line_groups(${hub}) unavailable:`, error.message); return []; }
-    return ((data ?? []) as Array<{ id: string; name: string | null; sort_order: number | null; created_at: string | null }>)
+    return ((data ?? []) as LgRow[])
       .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || (a.created_at ?? "").localeCompare(b.created_at ?? ""))
-      .map((r) => ({ id: r.id, name: r.name ?? r.id }));
+      .map((r) => {
+        const name = r.name ?? r.id;
+        // 파트 전용 = scope_type SoT. 컬럼 미적용 스키마만 백필과 동일 규칙(experience+이름"파트")으로 폴백.
+        const isPart = r.scope_type === "PART" || (r.scope_type == null && hub === "experience" && name.includes("파트"));
+        return { id: r.id, name, isPart };
+      });
   };
   const [infoLineGroups, expLineGroups, clubLineGroups, compLineGroups] = await Promise.all([
     loadLineGroups("info"), loadLineGroups("experience"), loadLineGroups("club"), loadLineGroups("competency"),
@@ -354,27 +378,49 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
   // 4) 체크 상태행. info/competency/club = act_id 단위(team_id null), experience = (act_id, team_id) 단위.
   const statusByAct = new Map<string, StatusRow>();
   // (구 appliedActIds 제거 — 비팀 허브 신청 판정은 공통 로더가 담당. 여기 상태행은 카드 표시 전용.)
-  const expStatusByActTeam = new Map<string, StatusRow>();
+  //   experience 는 파트 전용 라인급을 파트별 카드로 펼치므로 (act, team, part) 단위로 상태를 보관한다.
+  //   part = null(팀 총괄/비파트) → key 의 part 세그먼트는 "" 로 정규화.
+  const expStatusByActTeamPart = new Map<string, StatusRow>();
   const appliedExpSet = new Set<string>();
   const preferApplied = (prev: StatusRow | undefined, applied: boolean) =>
     !prev || (applied && !(prev.status === "pending" || prev.status === "completed"));
   {
-    const { data, error } = await supabaseAdmin
+    // part_name 컬럼(v4) 미적용 스키마 대비 폴백 — 없으면 part 없이(팀 단위) 조회.
+    const BASE_COLS = "act_id,hub,team_id,status,requested_at,completed_at,scheduled_check_at,requested_by";
+    type ExpStatusRow = StatusRow & { hub: string | null; team_id: string | null; part_name?: string | null };
+    const primary = await supabaseAdmin
       .from("process_check_statuses")
-      .select("act_id,hub,team_id,status,requested_at,completed_at,scheduled_check_at,requested_by")
+      .select(`${BASE_COLS},part_name`)
       .eq("organization_slug", organization)
       .in("hub", ACT_HUBS as unknown as string[])
       .eq("week_id", weekId);
+    let data = primary.data as ExpStatusRow[] | null;
+    let error = primary.error as { code?: string; message: string } | null;
+    if (error && (error.code === "42703" || error.code === "PGRST204")) {
+      const fb = await supabaseAdmin
+        .from("process_check_statuses")
+        .select(BASE_COLS)
+        .eq("organization_slug", organization)
+        .in("hub", ACT_HUBS as unknown as string[])
+        .eq("week_id", weekId);
+      data = fb.data as ExpStatusRow[] | null;
+      error = fb.error as { code?: string; message: string } | null;
+    }
     if (error) {
       console.warn("[act-check-management] check_statuses read unavailable:", error.message);
     } else {
-      for (const r of (data ?? []) as Array<StatusRow & { hub: string | null; team_id: string | null }>) {
+      for (const r of (data ?? []) as ExpStatusRow[]) {
         if (!r.act_id) continue;
         const applied = r.status === "pending" || r.status === "completed";
         if (r.hub === "experience" && r.team_id) {
-          const key = `${r.act_id}::${r.team_id}`;
-          if (applied) appliedExpSet.add(key);
-          if (preferApplied(expStatusByActTeam.get(key), applied)) expStatusByActTeam.set(key, r);
+          // 신청 판정(요약·appliedExpSet)은 파트 무관 (act, team) 단위 유지(기존 동작 보존).
+          const teamKey = `${r.act_id}::${r.team_id}`;
+          if (applied) appliedExpSet.add(teamKey);
+          // 카드 표시는 (act, team, part) 단위 — 파트별 독립 상태.
+          const partKey = `${teamKey}::${r.part_name ?? ""}`;
+          if (preferApplied(expStatusByActTeamPart.get(partKey), applied)) {
+            expStatusByActTeamPart.set(partKey, r);
+          }
         } else {
           if (preferApplied(statusByAct.get(r.act_id), applied)) statusByAct.set(r.act_id, r);
         }
@@ -424,7 +470,7 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
     new Set(
       [
         ...Array.from(statusByAct.values()).map((s) => s.requested_by),
-        ...Array.from(expStatusByActTeam.values()).map((s) => s.requested_by),
+        ...Array.from(expStatusByActTeamPart.values()).map((s) => s.requested_by),
         ...irr.map((r) => r.applicant_admin_id),
       ].filter((v): v is string => !!v),
     ),
@@ -533,6 +579,7 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
       isActiveThisWeek: isActive,
       isChecked: applied,
       requesterLabel: regularRequesterLabel(st?.requested_by ?? null),
+      partName: null, // info/competency/club = 파트 개념 없음.
       ...fields,
     };
   };
@@ -565,8 +612,9 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
   // 8b) 실무 경험 — 팀 × 라인급(process_line_groups hub=experience) × 요일. 가동 = openConfirmed && 팀별 라인급 체크.
   //   체크 = (act, team) 상태행 신청됨. 변동 액트는 팀 귀속 불가 → 경험 팀/허브 변동=0.
   const teams = await listTeams(organization, mode);
-  const expCardOf = (a: ActRow, teamId: string, lineOpen: boolean): ActCheckActDto => {
-    const st = expStatusByActTeam.get(`${a.id}::${teamId}`) ?? null;
+  // 파트 전용 라인급은 팀 파트마다 독립 카드/상태로 펼친다(part = null → 팀 총괄/비파트 단일 카드).
+  const expCardOf = (a: ActRow, teamId: string, lineOpen: boolean, partName: string | null): ActCheckActDto => {
+    const st = expStatusByActTeamPart.get(`${a.id}::${teamId}::${partName ?? ""}`) ?? null;
     const applied = st != null && (st.status === "pending" || st.status === "completed");
     const derivedDate = resolveRegularActRequiredDate({
       weekStart,
@@ -586,19 +634,30 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
     return {
       actId: a.id, actName: a.act_name, isActiveThisWeek: lineOpen, isChecked: applied,
       requesterLabel: regularRequesterLabel(st?.requested_by ?? null),
+      partName,
       ...fields,
     };
   };
-  const expTeams: ActCheckHubTeam[] = teams.map((t) => {
+  const expTeams: ActCheckHubTeam[] = await Promise.all(teams.map(async (t) => {
+    // 팀 실제 파트 목록(user_memberships · org+mode · "일반" 제외) — 파트 전용 라인급 펼침용.
+    const teamParts = await listTeamParts(organization, t.teamName, mode);
     const teamLines: ActCheckInfoLineDto[] = expLineGroups.map((lg) => {
       const lineOpen = expOpen(t.id, lg.id);
       const byDay = emptyByDay<ActCheckActDto>();
       for (const a of expActs) {
         if (a.line_group_id !== lg.id) continue;
-        const card = expCardOf(a, t.id, lineOpen);
-        const key = dayKeyForCard(card, a.occur_dow);
-        if (!key) continue;
-        byDay[key].push(card);
+        // 파트 전용(scope_type='PART') 라인급 → 팀 파트마다 카드 펼침(각 파트 독립 상태·파트명 배지).
+        //   파트 미배정(파트 0개)이면 파트명 없는 1장(기존 팀 단위 표시와 동일 위치).
+        //   일반(팀 공통) 라인급 → 파트명 없는 단일 카드(기존 동작 불변).
+        const partScopes: Array<string | null> = lg.isPart
+          ? (teamParts.length > 0 ? teamParts : [null])
+          : [null];
+        for (const part of partScopes) {
+          const card = expCardOf(a, t.id, lineOpen, part);
+          const key = dayKeyForCard(card, a.occur_dow);
+          if (!key) continue;
+          byDay[key].push(card);
+        }
       }
       return { lineId: lg.id, lineName: lg.name, isOpenThisWeek: lineOpen, regularActsByDay: byDay };
     });
@@ -617,7 +676,7 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
       lines: teamLines,
       variableActsByDay: emptyByDay<ActCheckVariableActDto>(),
     };
-  });
+  }));
 
   // 8c) 실무 역량 — process_line_groups(hub=competency). 가동/체크 = 공유 게이트(compChecked, (5) 정상 진행).
   //   변동 액트는 info 허브에 귀속 → 역량 변동=0(경험과 동일).

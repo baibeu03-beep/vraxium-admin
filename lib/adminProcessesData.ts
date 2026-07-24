@@ -10,6 +10,7 @@ import {
   computeProcessActSummary,
   enforcePointC,
   isProcessHub,
+  isProcessLineGroupScope,
   isProcessWeekRef,
   type ProcessActCreateInput,
   type ProcessActDto,
@@ -20,6 +21,7 @@ import {
   type ProcessInfoResult,
   type ProcessLineGroupCreateInput,
   type ProcessLineGroupDto,
+  type ProcessLineGroupScope,
   type ProcessWeekRef,
 } from "@/lib/adminProcessesTypes";
 
@@ -48,6 +50,7 @@ type LineGroupRow = {
   id: string;
   hub: string;
   name: string;
+  scope_type?: string | null; // 마이그 미적용(pre-migration) 시 미존재 — 폴백으로 이름 파생.
   sort_order: number;
   is_active: boolean;
   created_by: string | null;
@@ -56,7 +59,30 @@ type LineGroupRow = {
 };
 
 const LINE_GROUP_SELECT =
+  "id,hub,name,scope_type,sort_order,is_active,created_by,created_at,updated_at";
+// scope_type 컬럼 미적용 스키마(구 배포) 대비 폴백 SELECT.
+const LINE_GROUP_SELECT_LEGACY =
   "id,hub,name,sort_order,is_active,created_by,created_at,updated_at";
+
+// scope_type 컬럼 존재 여부 프로브(1회 캐시) — 마이그레이션 미적용 스키마에서 42703 회피.
+let _scopeColumnAvailable: boolean | null = null;
+async function scopeTypeColumnAvailable(): Promise<boolean> {
+  if (_scopeColumnAvailable !== null) return _scopeColumnAvailable;
+  const { error } = await supabaseAdmin
+    .from("process_line_groups")
+    .select("scope_type")
+    .limit(1);
+  // 42703=undefined column · PGRST204=컬럼 스키마 캐시 미반영. 그 외(테이블 자체 부재 등)는 상위에서 처리.
+  _scopeColumnAvailable = !(error && (error.code === "42703" || error.code === "PGRST204"));
+  return _scopeColumnAvailable;
+}
+
+// 저장된 scope_type 우선. 미존재(pre-migration)면 백필과 동일 규칙으로 파생(experience+이름"파트"→PART).
+//   ⚠ 이름 파생은 컬럼 미적용 기간 한정 폴백이다 — 마이그 적용 후에는 저장값만 사용(이 분기 도달 안 함).
+function resolveLineGroupScope(scopeRaw: unknown, hub: ProcessHub, name: string): ProcessLineGroupScope {
+  if (isProcessLineGroupScope(scopeRaw)) return scopeRaw;
+  return hub === "experience" && name.includes("파트") ? "PART" : "TEAM";
+}
 
 function lineGroupToDto(row: LineGroupRow, actCount: number): ProcessLineGroupDto {
   const hub: ProcessHub = isProcessHub(row.hub) ? row.hub : "club";
@@ -65,6 +91,7 @@ function lineGroupToDto(row: LineGroupRow, actCount: number): ProcessLineGroupDt
     hub,
     hubLabel: PROCESS_HUB_LABEL[hub],
     name: row.name,
+    scopeType: resolveLineGroupScope(row.scope_type, hub, row.name),
     sortOrder: row.sort_order,
     isActive: row.is_active,
     actCount,
@@ -78,9 +105,10 @@ function lineGroupToDto(row: LineGroupRow, actCount: number): ProcessLineGroupDt
 export async function listProcessLineGroups(
   hub: ProcessHub,
 ): Promise<ProcessLineGroupDto[]> {
+  const scopeAvail = await scopeTypeColumnAvailable();
   const { data, error } = await supabaseAdmin
     .from("process_line_groups")
-    .select(LINE_GROUP_SELECT)
+    .select(scopeAvail ? LINE_GROUP_SELECT : LINE_GROUP_SELECT_LEGACY)
     .eq("hub", hub)
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: true });
@@ -125,15 +153,28 @@ export async function createProcessLineGroup(
     );
   }
 
+  // 파트 전용('PART')은 팀 구분 허브(experience)에서만 허용 — 그 외 허브는 'TEAM' 강제(프론트 우회 방어).
+  const scopeType: ProcessLineGroupScope =
+    input.scopeType === "PART" && input.hub === "experience" ? "PART" : "TEAM";
+  const scopeAvail = await scopeTypeColumnAvailable();
+  // 컬럼 미적용 스키마인데 파트 전용을 요청하면 저장 불가 → 명확히 차단(이름 추론으로 우회 금지).
+  if (scopeType === "PART" && !scopeAvail) {
+    throw new ProcessMasterError(
+      500,
+      "파트 전용 저장에는 scope_type 컬럼이 필요합니다. db/migrations/2026-07-24_process_line_group_scope_type.sql 을 적용해주세요.",
+    );
+  }
+
   const { data, error } = await supabaseAdmin
     .from("process_line_groups")
     .insert({
       hub: input.hub,
       name: input.name,
+      ...(scopeAvail ? { scope_type: scopeType } : {}),
       sort_order: count ?? 0,
       created_by: actorAdminId,
     })
-    .select(LINE_GROUP_SELECT)
+    .select(scopeAvail ? LINE_GROUP_SELECT : LINE_GROUP_SELECT_LEGACY)
     .single();
   if (error || !data) {
     const hint = migrationHint(error);
