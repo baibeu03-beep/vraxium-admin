@@ -317,13 +317,15 @@ export default function Sidebar() {
                   if (leafLocked) e.preventDefault();
                 }}
                 className={cn(
-                  "group/leaf relative flex items-center rounded-md text-sm transition-colors",
+                  // border(두께 1px)는 항상 둔다 → 선택/비선택 전환 시 높이 흔들림 없음.
+                  //   비선택=투명 테두리, 선택=activeMenuClass 의 대표색 테두리(각 항목이 border-color 1개만 → 확실히 덮음).
+                  "group/leaf relative flex items-center rounded-md border text-sm transition-colors",
                   sidebarOpen
                     ? "gap-2 px-3 py-1.5"
                     : "h-9 w-9 justify-center self-center",
                   active
                     ? activeMenuClass
-                    : "text-sidebar-foreground/75 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
+                    : "border-transparent text-sidebar-foreground/75 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
                   leafLocked && "pointer-events-none",
                 )}
               >
@@ -435,10 +437,11 @@ export default function Sidebar() {
                             if (navLocked) e.preventDefault();
                           }}
                           className={cn(
-                            "block rounded-md px-2.5 py-1 text-xs transition-colors",
+                            // border(두께)는 항상 → 선택 전환 시 높이 흔들림 없음(비선택=투명, 선택=대표색).
+                            "block rounded-md border px-2.5 py-1 text-xs transition-colors",
                             childActive
                               ? activeMenuClass
-                              : "text-sidebar-foreground/70 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
+                              : "border-transparent text-sidebar-foreground/70 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
                             navLocked && "pointer-events-none",
                           )}
                         >

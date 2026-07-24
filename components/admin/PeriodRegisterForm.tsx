@@ -320,7 +320,9 @@ export default function PeriodRegisterForm({ rows, onRegistered }: Props) {
       {/* 섹션 제목(h2) — 페이지 제목(h1)/전역 도움말은 상위 통합 페이지(기간 관리)가 담당.
           기존 "기간 정보로 이동" 버튼은 제거(같은 페이지 하단에 기간 정보 목록이 함께 표시됨). */}
       <div className="flex flex-wrap items-center gap-3">
-        <h2 className="mr-auto inline-flex items-center gap-1 text-lg font-semibold tracking-normal text-foreground">
+        <h2 className="mr-auto inline-flex items-center gap-2 text-lg font-semibold tracking-normal text-foreground">
+          {/* 섹션 h2 좌측 액센트 바 — SectionHeading(section) 과 동일 스타일. 장식이므로 aria-hidden. */}
+          <span aria-hidden className="h-4 w-1 shrink-0 rounded-full bg-primary" />
           기간 등록
           <AdminHelpIconButton
             helpKey="admin.periods.register.section"

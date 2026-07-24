@@ -31,7 +31,9 @@ import {
 import { LoadingState } from "@/components/ui/loading-state";
 import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 import { cn } from "@/lib/utils";
-import AdminHelp from "@/components/admin/AdminHelp";
+import { useStickyColumns } from "@/components/ui/sticky-columns";
+import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import PageSection from "@/components/admin/PageSection";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import {
@@ -135,6 +137,8 @@ export default function OfficialRestPeriodsManager() {
   const [error, setError] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
   const confirm = useConfirm();
+  // 왼쪽 2열 고정(이름·유형) — 공통 sticky 계약. col-1 실측폭으로 col-2 offset.
+  const sticky = useStickyColumns({ headerSticky: true });
 
   // 영향 대상 snapshot 재계산(6-C): cron 제거로 공식휴식 변경 후 수동 재계산이 필요하다.
   const [rcStart, setRcStart] = useState("");
@@ -351,21 +355,21 @@ export default function OfficialRestPeriodsManager() {
 
   return (
     <div className="admin-section-stack">
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="mr-auto text-xl font-semibold tracking-normal text-foreground">
-          공식 휴식 관리
-        </h1>
-        <AdminHelp />
-        <Button
-          type="button"
-          variant="outline"
-          onClick={refresh}
-          disabled={loading}
-        >
-          <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
-          새로고침
-        </Button>
-      </div>
+      {/* [Step 1] 페이지 제목 통일 — 공통 AdminPageHeader(h1 canonical·도움말 내장). 새로고침은 actions 로. */}
+      <AdminPageHeader
+        title="공식 휴식 관리"
+        actions={
+          <Button
+            type="button"
+            variant="outline"
+            onClick={refresh}
+            disabled={loading}
+          >
+            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+            새로고침
+          </Button>
+        }
+      />
 
       <OfficialRestPolicyInfo />
 
@@ -512,6 +516,8 @@ export default function OfficialRestPeriodsManager() {
         </CardContent>
       </Card>
 
+      {/* [Step 1] 큰 섹션 경계 — wave-dot 구분선 + 56/72 여백. 카드 제목/구조 불변(카드 밖 승격 아님). */}
+      <PageSection divider="wave-dot">
       <Card>
         <CardHeader>
           <CardTitle>공식 휴식 기간</CardTitle>
@@ -526,11 +532,11 @@ export default function OfficialRestPeriodsManager() {
             </div>
           ) : (
             <div className="rounded-md border">
-              <Table>
+              <Table containerRef={sticky.ref} regionClassName={sticky.regionClassName} stickyLeft>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>이름</TableHead>
-                    <TableHead>유형</TableHead>
+                    <TableHead {...sticky.col(1)}>이름</TableHead>
+                    <TableHead {...sticky.col(2)}>유형</TableHead>
                     <TableHead>시작일</TableHead>
                     <TableHead>종료일</TableHead>
                     <TableHead>설명</TableHead>
@@ -544,8 +550,13 @@ export default function OfficialRestPeriodsManager() {
                       key={period.id}
                       className={cn(!period.isActive && "opacity-60")}
                     >
-                      <TableCell className="font-medium">{period.name}</TableCell>
-                      <TableCell>
+                      <TableCell
+                        {...sticky.col(1)}
+                        className={cn("font-medium", sticky.col(1).className)}
+                      >
+                        {period.name}
+                      </TableCell>
+                      <TableCell {...sticky.col(2)}>
                         {OFFICIAL_REST_PERIOD_TYPE_LABELS[period.type]}
                       </TableCell>
                       <TableCell>{formatClubDate(period.startDate)}</TableCell>
@@ -609,7 +620,10 @@ export default function OfficialRestPeriodsManager() {
           )}
         </CardContent>
       </Card>
+      </PageSection>
 
+      {/* [Step 1] 큰 섹션 경계 — wave-dot 구분선 + 56/72 여백. 카드 제목/구조 불변. */}
+      <PageSection divider="wave-dot">
       <Card className="border-amber-300/40 bg-amber-50/40">
         <CardHeader>
           <CardTitle>영향 대상 카드 정보 업데이트</CardTitle>
@@ -669,6 +683,7 @@ export default function OfficialRestPeriodsManager() {
           )}
         </CardContent>
       </Card>
+      </PageSection>
     </div>
   );
 }

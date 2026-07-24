@@ -4,13 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import { RefreshCw, Search, X } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,8 +26,10 @@ import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
+import { useStickyColumns } from "@/components/ui/sticky-columns";
 import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import PageSection from "@/components/admin/PageSection";
 import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 import {
   ORGANIZATIONS,
@@ -162,6 +158,8 @@ function SummaryCard({
 }
 
 export default function SeasonParticipationsView() {
+  // 왼쪽 2열 고정(이름·클럽) + 상단 헤더 고정 — 공통 sticky 계약.
+  const sticky = useStickyColumns({ headerSticky: true });
   const [data, setData] = useState<SeasonParticipationsDto | null>(null);
   const [loading, setLoading] = useState(true);
   useReportLoading(loading);
@@ -245,7 +243,9 @@ export default function SeasonParticipationsView() {
   const summary = data?.summary;
 
   return (
-    <div className="admin-section-stack-lg">
+    // [디자인 기준] divider(wave-dot) 경계 간격을 PageSection 이 부모 gap 상쇄로 책임지므로,
+    //   루트 stack 을 다른 기준 페이지와 동일한 admin-section-stack(32/40)으로 통일한다.
+    <div className="admin-section-stack">
       <div className="flex flex-wrap items-end gap-3">
         <div className="mr-auto">
           <h2 className="text-2xl font-semibold tracking-tight">시즌 참여/휴식</h2>
@@ -276,21 +276,29 @@ export default function SeasonParticipationsView() {
         <SummaryCard label="기타/미확인" value={summary?.unknown_count ?? null} tone="unknown" loading={loading} helpKey="admin.seasonParticipations.stat.unknown" />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="inline-flex items-center gap-1.5 text-base">
+      {/* [시범 적용] 기존 CardTitle 섹션을 PageSection 으로 표준화 —
+          제목이 카드 헤더 밖(h2·좌측 액센트 바)으로 승격되고, 카드는 본문 컨테이너로 유지된다.
+          제목 옆 도움말 아이콘·설명문은 그대로 title/description 슬롯으로 이관(문구 불변). */}
+      <PageSection
+        title={
+          <>
             시즌 참여 목록
             <AdminHelpIconButton
               helpKey="admin.seasonParticipations.section.list"
               title="시즌 참여 목록"
               size="sm"
             />
-          </CardTitle>
-          <CardDescription>
+          </>
+        }
+        description={
+          <>
             user_season_statuses 를 기준으로 시즌 정보·이름·클럽과 시즌별 주차 상태 집계를 조합했습니다.
             {data?.truncated && " (결과가 많아 일부만 표시됩니다.)"}
-          </CardDescription>
-        </CardHeader>
+          </>
+        }
+        divider="wave-dot"
+      >
+      <Card>
         <CardContent className="flex flex-col gap-4">
           {/* 필터 */}
           <div className="flex flex-wrap items-center gap-2">
@@ -375,17 +383,23 @@ export default function SeasonParticipationsView() {
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-lg border">
-            <Table>
+          <div className="rounded-lg border">
+            <Table containerRef={sticky.ref} regionClassName={sticky.regionClassName} stickyLeft>
               <TableHeader>
                 <TableRow>
-                  <TableHead>
+                  <TableHead
+                    className={sticky.col(1).className}
+                    data-sticky-col={sticky.col(1)["data-sticky-col"]}
+                  >
                     <span className="inline-flex items-center gap-1">
                       <span>이름</span>
                       <AdminHelpIconButton helpKey={ADMIN_SHARED_HELP_KEYS.crew.name} title="이름" size="xs" />
                     </span>
                   </TableHead>
-                  <TableHead>
+                  <TableHead
+                    className={sticky.col(2).className}
+                    data-sticky-col={sticky.col(2)["data-sticky-col"]}
+                  >
                     <span className="inline-flex items-center gap-1">
                       <span>클럽</span>
                       <AdminHelpIconButton helpKey={ADMIN_SHARED_HELP_KEYS.crew.organization} title="클럽" size="xs" />
@@ -458,10 +472,16 @@ export default function SeasonParticipationsView() {
                   <TableRow
                     key={`${row.user_id}-${row.season_key ?? idx}`}
                   >
-                    <TableCell className="whitespace-nowrap font-medium">
+                    <TableCell
+                      className={cn("whitespace-nowrap font-medium", sticky.col(1).className)}
+                      data-sticky-col={sticky.col(1)["data-sticky-col"]}
+                    >
                       {row.user_name ?? "—"}
                     </TableCell>
-                    <TableCell className="whitespace-nowrap">
+                    <TableCell
+                      className={cn("whitespace-nowrap", sticky.col(2).className)}
+                      data-sticky-col={sticky.col(2)["data-sticky-col"]}
+                    >
                       {orgLabel(row.organization_slug)}
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
@@ -528,6 +548,7 @@ export default function SeasonParticipationsView() {
           </div>
         </CardContent>
       </Card>
+      </PageSection>
 
       {editing && (
         <SeasonParticipationEditModal

@@ -108,7 +108,7 @@ export const ORGANIZATION_META: Record<OrganizationSlug, OrganizationMeta> = {
     cardHoverClass:
       "hover:bg-pink-200 hover:border-pink-400 dark:hover:bg-pink-900 dark:hover:border-pink-700",
     activeMenuClass:
-      "bg-pink-100 text-pink-900 font-semibold dark:bg-pink-900/50 dark:text-pink-100",
+      "bg-pink-100 text-pink-900 font-semibold border-pink-300 dark:bg-pink-900/50 dark:text-pink-100 dark:border-pink-700",
     activeMenuHoverClass: "hover:bg-pink-200 dark:hover:bg-pink-900/70",
   },
   oranke: {
@@ -120,7 +120,7 @@ export const ORGANIZATION_META: Record<OrganizationSlug, OrganizationMeta> = {
     cardHoverClass:
       "hover:bg-amber-200 hover:border-amber-400 dark:hover:bg-amber-900 dark:hover:border-amber-700",
     activeMenuClass:
-      "bg-amber-100 text-amber-900 font-semibold dark:bg-amber-900/50 dark:text-amber-100",
+      "bg-amber-100 text-amber-900 font-semibold border-amber-300 dark:bg-amber-900/50 dark:text-amber-100 dark:border-amber-700",
     activeMenuHoverClass: "hover:bg-amber-200 dark:hover:bg-amber-900/70",
   },
   phalanx: {
@@ -132,7 +132,7 @@ export const ORGANIZATION_META: Record<OrganizationSlug, OrganizationMeta> = {
     cardHoverClass:
       "hover:bg-emerald-200 hover:border-emerald-400 dark:hover:bg-emerald-900 dark:hover:border-emerald-700",
     activeMenuClass:
-      "bg-emerald-100 text-emerald-900 font-semibold dark:bg-emerald-900/50 dark:text-emerald-100",
+      "bg-emerald-100 text-emerald-900 font-semibold border-emerald-300 dark:bg-emerald-900/50 dark:text-emerald-100 dark:border-emerald-700",
     activeMenuHoverClass: "hover:bg-emerald-200 dark:hover:bg-emerald-900/70",
   },
 };
@@ -164,7 +164,7 @@ export const INTEGRATED_ENVIRONMENT_META: OrganizationMeta = {
   cardHoverClass:
     "hover:bg-violet-200 hover:border-violet-400 dark:hover:bg-violet-900 dark:hover:border-violet-700",
   activeMenuClass:
-    "bg-violet-100 text-violet-900 font-semibold dark:bg-violet-900/50 dark:text-violet-100",
+    "bg-violet-100 text-violet-900 font-semibold border-violet-300 dark:bg-violet-900/50 dark:text-violet-100 dark:border-violet-700",
   activeMenuHoverClass: "hover:bg-violet-200 dark:hover:bg-violet-900/70",
 };
 

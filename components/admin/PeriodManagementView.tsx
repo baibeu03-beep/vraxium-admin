@@ -1,7 +1,7 @@
 "use client";
 
-import { Separator } from "@/components/ui/separator";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import PageSection from "@/components/admin/PageSection";
 import PeriodRegisterForm from "@/components/admin/PeriodRegisterForm";
 import SeasonWeeksList from "@/components/admin/SeasonWeeksList";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
@@ -28,23 +28,27 @@ export default function PeriodManagementView() {
 
   return (
     <div className="admin-section-stack">
-      {/* 1) 최상위 제목 + 페이지 전역 도움말 — 공통 AdminPageHeader(도움말 내장·PageTitle 규격 통일) */}
+      {/* 최상위 제목 + 페이지 전역 도움말 — 공통 AdminPageHeader(도움말 내장·PageTitle 규격 통일) */}
       <AdminPageHeader title="기간 관리" />
 
-      {/* 2) 기간 등록 폼 */}
-      <PeriodRegisterForm rows={rows} onRegistered={refetch} />
+      {/* [시범 적용] 주요 섹션을 PageSection 으로 감싼다 — 제목(h2 "기간 등록"·"기간 정보")은
+          자식 컴포넌트(PeriodRegisterForm·SeasonWeeksList)가 이미 렌더하므로 PageSection 에는
+          title 을 주지 않는다(제목 중복 렌더 금지 — 제목 개수 변경 없음).
+          PageSection 은 ①섹션 사이 큰 간격(총 48/64px) ②두 번째 섹션 위 강화 fade 구분선만 담당한다.
+          기존의 단독 <Separator/>는 이 divider 로 대체(위치 의미 동일). */}
+      <PageSection>
+        <PeriodRegisterForm rows={rows} onRegistered={refetch} />
+      </PageSection>
 
-      {/* 3) 가로 구분선 — 위아래 여백은 admin-section-stack gap(40px@md)이 양쪽으로 확보 */}
-      <Separator />
-
-      {/* 4) 기간 정보 목록 */}
-      <SeasonWeeksList
-        rows={rows}
-        generatedAt={generatedAt}
-        loading={loading}
-        error={error}
-        onRefresh={refetch}
-      />
+      <PageSection divider="wave-dot">
+        <SeasonWeeksList
+          rows={rows}
+          generatedAt={generatedAt}
+          loading={loading}
+          error={error}
+          onRefresh={refetch}
+        />
+      </PageSection>
     </div>
   );
 }

@@ -22,6 +22,7 @@ import {
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { LoadingState } from "@/components/ui/loading-state";
 import { cn } from "@/lib/utils";
+import { useStickyColumns, type StickyColProps } from "@/components/ui/sticky-columns";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { formatClubDate } from "@/lib/clubDate";
 import { formatAdminDateTime } from "@/lib/adminDateTime";
@@ -377,14 +378,18 @@ function SortableHeader({
   helpKey,
   dir,
   onSort,
+  sticky,
 }: {
   label: string;
   helpKey: string;
   dir: "asc" | "desc" | null;
   onSort: () => void;
+  sticky?: StickyColProps;
 }) {
   return (
     <TableHead
+      className={sticky?.className}
+      data-sticky-col={sticky?.["data-sticky-col"]}
       aria-sort={
         dir === "asc" ? "ascending" : dir === "desc" ? "descending" : "none"
       }
@@ -446,6 +451,8 @@ export default function SeasonWeeksList({
   error,
   onRefresh,
 }: Props) {
+  // 왼쪽 2열 고정(주차 코드·기간) — 공통 sticky 계약. col-1 실측폭으로 col-2 offset.
+  const sticky = useStickyColumns({ headerSticky: true });
   // 필터/정렬 상태(섹션 로컬)
   const [sort, setSort] = useState<SortKey>("latest");
   const [yearFilter, setYearFilter] = useState<string>(ALL);
@@ -557,7 +564,9 @@ export default function SeasonWeeksList({
           "기간 정보" 옆 돋보기는 기존 /admin/season-weeks 페이지 도움말 내용을 그대로 노출한다
           (같은 저장 키 재사용 → 저장된 안내 유실 없이 통합 페이지에서 함께 볼 수 있게). */}
       <div className="flex flex-wrap items-center gap-3">
-        <h2 className="mr-auto inline-flex items-center gap-1 text-lg font-semibold tracking-normal text-foreground">
+        <h2 className="mr-auto inline-flex items-center gap-2 text-lg font-semibold tracking-normal text-foreground">
+          {/* 섹션 h2 좌측 액센트 바 — SectionHeading(section) 과 동일 스타일. 장식이므로 aria-hidden. */}
+          <span aria-hidden className="h-4 w-1 shrink-0 rounded-full bg-primary" />
           기간 정보
           <AdminHelpIconButton
             helpKey="/admin/season-weeks"
@@ -736,23 +745,30 @@ export default function SeasonWeeksList({
           조건에 맞는 주차 데이터가 없습니다.
         </div>
       ) : (
-        <div className="overflow-hidden rounded-md border">
+        <div className="rounded-md border">
           {/* 재요청 중 — 기존 데이터 유지 + 상단 미니 진행 표시. */}
           {loading && (
             <div className="border-b bg-muted/30 px-3 py-1.5">
               <LoadingState active variant="inline" />
             </div>
           )}
-          <Table>
+          <Table containerRef={sticky.ref} regionClassName={sticky.regionClassName} stickyLeft>
             <TableHeader>
               <TableRow>
-                {COLUMNS.map((col) => (
+                {COLUMNS.map((col, idx) => (
                   <SortableHeader
                     key={col.key}
                     label={col.label}
                     helpKey={col.helpKey}
                     dir={columnSort?.key === col.key ? columnSort.dir : null}
                     onSort={() => cycleSort(col.key)}
+                    sticky={
+                      idx === 0
+                        ? sticky.col(1)
+                        : idx === 1
+                          ? sticky.col(2)
+                          : undefined
+                    }
                   />
                 ))}
               </TableRow>
@@ -763,12 +779,17 @@ export default function SeasonWeeksList({
                 return (
                   <TableRow
                     key={row.week_id}
+                    // 현재 주차 옅은 강조 시 좌측 고정 셀도 같은 톤 유지(--stick-cell-bg).
+                    data-sticky-row-accent={row.is_current_week ? "primary" : undefined}
                     className={cn(row.is_current_week && "bg-primary/5")}
                   >
-                    <TableCell className="font-mono text-xs font-medium">
+                    <TableCell
+                      {...sticky.col(1)}
+                      className={cn("font-mono text-xs font-medium", sticky.col(1).className)}
+                    >
                       {rowWeekCode(row)}
                     </TableCell>
-                    <TableCell>
+                    <TableCell {...sticky.col(2)}>
                       {formatPeriod(row.week_start_date, row.week_end_date)}
                     </TableCell>
                     <TableCell>{year ? `${year}년` : "-"}</TableCell>
