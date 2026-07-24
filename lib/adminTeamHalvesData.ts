@@ -820,14 +820,19 @@ async function computePartWeekData(
   const uphWeeksByTeam = new Map<string, Set<number>>();
   for (const [team, byWeek] of assign) uphWeeksByTeam.set(team, new Set(byWeek.keys()));
 
-  // 4a) 진행 중 반기 폴백 — UPH가 없는 "진행 대상(경과) 주차"에 한해 현재 팀·파트 배정
-  //     (user_memberships, 사용자 화면과 동일 SoT)으로 셀을 채운다. **유저 단위**로 넣어야
-  //     그 위에 override 를 유저별로 얹을 수 있다.
+  // 4a) 진행 중 반기 폴백 — UPH가 없는 주차를 현재 팀·파트 배정(user_memberships)으로 채운다.
+  //     **유저 단위**로 넣어야 그 위에 override 를 유저별로 얹을 수 있다.
   //     · UPH가 있는 주차는 항상 UPH 우선(그 주차는 폴백 제외).
-  //     · 시작일 > 오늘(미래·미도래) 주차는 채우지 않음(전체 무조건 채움 금지).
+  //     · ⚠ 경과(≤오늘) 게이트 없음 — **미래 주차도 현재 배정을 투영(carry-forward)** 한다.
+  //       공통 resolver [[positionResolver]] resolvePositionAtBatch 와 **동일 규칙**
+  //       (override(≤W) → UPH(W) → 현재 멤버십, 경과 게이트 없음)의 벌크 형태다. 종전엔 여기만
+  //       경과 게이트를 남겨, override 는 미래까지 ●·멤버십만 있는 파트는 미래 빈칸이 되는
+  //       하이브리드 불일치가 있었다(2026-07-24 실측: 포토 W5~8 빈칸). 규칙을 하나로 통일한다.
+  //     · **현재 반기에서만** 폴백(applyMembershipFallback = 현재 반기) — 과거/미래 반기 불변.
   //     · 현재 멤버 없는 팀은 폴백 없음. mode/org 분기 없음·user_week_statuses 미생성.
+  //     · 팀 카드 요약(파트 수/파트명)은 미래 투영에 휩쓸리지 않도록 derivePartsFromMatrix 가
+  //       todayIso 이하 마지막 주차 기준으로 별도 산출한다(요약은 "현재까지 실제 운용" 유지).
   if (applyMembershipFallback) {
-    const cutoff = todayIso ?? getCurrentActivityDateIso();
     const memberAssignments = await currentMembershipAssignmentsByTeam(
       organization,
       teams.map((t) => t.teamName),
@@ -836,13 +841,10 @@ async function computePartWeekData(
       const rows = memberAssignments.get(t.teamName);
       if (!rows || rows.length === 0) continue;
       const uphWeeks = uphWeeksByTeam.get(t.teamName) ?? new Set<number>();
-      const elapsed = weekColumns
-        .map((c, wi) => ({ start: c.weekStartDate, wi }))
-        .filter(({ start, wi }) => start <= cutoff && !uphWeeks.has(wi))
-        .map(({ wi }) => wi);
-      if (elapsed.length === 0) continue;
-      for (const wi of elapsed)
+      for (let wi = 0; wi < weekColumns.length; wi++) {
+        if (uphWeeks.has(wi)) continue; // UPH 보유 주차는 UPH 우선.
         for (const r of rows) assignSlot(t.teamName, wi, r.userId).add(r.part);
+      }
     }
   }
 
@@ -921,12 +923,25 @@ async function computePartWeekData(
 //   파트×주차 존재표(②)와 동일 시점 — 그 주에 실제 존재한 파트만 노출(현재 멤버십 아님).
 //   순서 = 존재표 y축(matrix.partNames) 순 → 같은 box 안 행 순서와 일치.
 //   활동 주차 없음(전 반기 데이터 0) → "일반"(min 1) 폴백.
+//   ⚠ **탐색 상한 = todayIso 이하 마지막 주차 열**. 매트릭스 셀(present)은 현재 배정을 미래로
+//     투영(4a 게이트 제거)하지만, 팀 카드 요약은 "현재까지 실제 운용된 파트"를 유지해야 한다
+//     (사용자 결정 2026-07-24). 미래 투영이 요약값을 밀어내지 않도록 여기서 열을 오늘까지로 한정한다.
 function derivePartsFromMatrix(
   matrix: PartWeekMatrixDto,
-  weekCount: number,
+  weekColumns: PartWeekColumnDto[],
+  todayIso: string,
 ): { partCount: number; partNames: string[] } {
+  // 오늘 이하 마지막 주차 열까지만 요약 근거로 삼는다(없으면 전 열 — 전부 미래인 이례 케이스 방어).
+  let upperIdx = -1;
+  for (let wi = weekColumns.length - 1; wi >= 0; wi--) {
+    if (weekColumns[wi].weekStartDate <= todayIso) {
+      upperIdx = wi;
+      break;
+    }
+  }
+  if (upperIdx < 0) upperIdx = weekColumns.length - 1;
   let lastIdx = -1;
-  for (let wi = weekCount - 1; wi >= 0; wi--) {
+  for (let wi = upperIdx; wi >= 0; wi--) {
     if (matrix.present.some((row) => row[wi])) {
       lastIdx = wi;
       break;
@@ -1131,7 +1146,7 @@ export async function loadTeamPartsInfo(
       const m = byTeam.get(t.teamName) ?? null;
       t.partWeekMatrix = m;
       if (m) {
-        const derived = derivePartsFromMatrix(m, cols.length);
+        const derived = derivePartsFromMatrix(m, cols, todayIso);
         t.partCount = derived.partCount;
         t.partNames = derived.partNames;
       }
