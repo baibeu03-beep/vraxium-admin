@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { supabaseClient } from "@/lib/supabaseClient";
+import { setKeepSignedIn } from "@/lib/adminPersistSession";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,8 +13,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { CheckboxField } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+
+// 저장된 Admin Code(이메일)만 보관하는 localStorage 키. 비밀번호/토큰은 절대 저장하지
+// 않는다 — 비밀번호는 브라우저 비밀번호 관리자에 위임한다.
+const SAVED_EMAIL_KEY = "savedAdminEmail";
 
 function sleep(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -97,6 +103,8 @@ export default function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberEmail, setRememberEmail] = useState(false);
+  const [keepSignedIn, setKeepSignedInState] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [kakaoLoading, setKakaoLoading] = useState(false);
@@ -105,10 +113,54 @@ export default function LoginForm() {
     [searchParams],
   );
 
+  // 저장된 Admin Code(이메일)를 재방문 시 자동으로 채운다. localStorage 접근은 클라이언트
+  // 전용이라 effect 에서 읽어 하이드레이션 불일치를 피한다(초기 SSR 값은 "").
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(SAVED_EMAIL_KEY);
+      if (saved) {
+        // localStorage(외부 시스템)와 동기화 — 마운트 시 1회. 하이드레이션 후 실행돼
+        // SSR("")과 불일치가 없다.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setEmail(saved);
+        setRememberEmail(true);
+      }
+    } catch {
+      // localStorage 접근 불가(프라이빗 모드 등) — 무시하고 빈 값 유지.
+    }
+  }, []);
+
+  // "이메일(Admin Code) 저장" 토글: 해제 즉시 저장분을 삭제한다(요구사항 2).
+  const handleRememberEmailChange = (checked: boolean) => {
+    setRememberEmail(checked);
+    if (!checked) {
+      try {
+        window.localStorage.removeItem(SAVED_EMAIL_KEY);
+      } catch {
+        // 무시
+      }
+    }
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage("");
     setLoading(true);
+
+    // 이메일 저장 선호도 반영 — 비밀번호는 저장하지 않는다.
+    try {
+      if (rememberEmail) {
+        window.localStorage.setItem(SAVED_EMAIL_KEY, email);
+      } else {
+        window.localStorage.removeItem(SAVED_EMAIL_KEY);
+      }
+    } catch {
+      // localStorage 접근 불가 — 로그인 자체는 계속 진행.
+    }
+
+    // "로그인 상태 유지" 선호도를 signInWithPassword 이전에 확정해야, 로그인으로 발급되는
+    // 인증 쿠키가 곧바로 7일 지속 쿠키로 기록된다(미체크 시 기존 세션쿠키 정책).
+    setKeepSignedIn(keepSignedIn);
 
     const { data, error } = await supabaseClient.auth.signInWithPassword({
       email,
@@ -194,7 +246,9 @@ export default function LoginForm() {
               <Label htmlFor="email">Admin Code</Label>
               <Input
                 id="email"
+                name="email"
                 type="email"
+                autoComplete="username"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -206,7 +260,9 @@ export default function LoginForm() {
               <div className="relative">
                 <Input
                   id="password"
+                  name="password"
                   type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -226,6 +282,18 @@ export default function LoginForm() {
                   )}
                 </button>
               </div>
+            </div>
+            <div className="flex flex-col gap-2.5">
+              <CheckboxField
+                label="이메일(Admin Code) 저장"
+                checked={rememberEmail}
+                onChange={(e) => handleRememberEmailChange(e.target.checked)}
+              />
+              <CheckboxField
+                label="로그인 상태 유지"
+                checked={keepSignedIn}
+                onChange={(e) => setKeepSignedInState(e.target.checked)}
+              />
             </div>
             {errorMessage && (
               <p className="text-sm text-destructive">{errorMessage}</p>

@@ -1,6 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { toSessionCookieOptions } from "@/lib/sessionCookieOptions";
+import {
+  ADMIN_PERSIST_COOKIE,
+  applyAdminSessionCookieOptions,
+} from "@/lib/sessionCookieOptions";
 import {
   ADMIN_IDLE_TIMEOUT_MS,
   ADMIN_LAST_ACTIVE_COOKIE,
@@ -28,6 +31,11 @@ import { decodeJwtClaims } from "@/lib/jwtClaims";
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
 
+  // "로그인 상태 유지" opt-in: keep the refreshed auth cookies persistent (7-day
+  // window) instead of session cookies. Idle auto-logout below is unaffected.
+  const persistSession =
+    request.cookies.get(ADMIN_PERSIST_COOKIE)?.value === "1";
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -42,9 +50,14 @@ export async function middleware(request: NextRequest) {
           }
           response = NextResponse.next({ request });
           for (const { name, value, options } of cookiesToSet) {
-            // Session cookies: drop maxAge/expires so the refreshed auth cookies
-            // end on browser close. See lib/sessionCookieOptions.ts.
-            response.cookies.set(name, value, toSessionCookieOptions(options));
+            // Default: session cookies (end on browser close). With the "keep me
+            // signed in" opt-in: persistent 7-day cookies. See
+            // lib/sessionCookieOptions.ts.
+            response.cookies.set(
+              name,
+              value,
+              applyAdminSessionCookieOptions(options, persistSession),
+            );
           }
         },
       },
@@ -121,9 +134,14 @@ function buildIdleLogoutResponse(request: NextRequest) {
     res = NextResponse.redirect(loginUrl);
   }
 
-  // Expire every Supabase auth cookie chunk + the activity cookie.
+  // Expire every Supabase auth cookie chunk + the activity cookie + the
+  // "keep me signed in" preference (idle logout is a full logout).
   for (const cookie of request.cookies.getAll()) {
-    if (cookie.name.startsWith("sb-") || cookie.name === ADMIN_LAST_ACTIVE_COOKIE) {
+    if (
+      cookie.name.startsWith("sb-") ||
+      cookie.name === ADMIN_LAST_ACTIVE_COOKIE ||
+      cookie.name === ADMIN_PERSIST_COOKIE
+    ) {
       res.cookies.set(cookie.name, "", { path: "/", maxAge: 0 });
     }
   }

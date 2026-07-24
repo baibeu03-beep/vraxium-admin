@@ -60,6 +60,9 @@ export default function Header({
     // 페이지 레이아웃에 포함되므로, 로그아웃 클릭 시에만 동적 import 로 SDK 를 불러온다.
     const { getSupabaseBrowserClient } = await import("@/lib/supabaseBrowser");
     await getSupabaseBrowserClient().auth.signOut();
+    // "로그인 상태 유지" 선호도 쿠키도 즉시 폐기 — 로그아웃은 7일 이전이라도 세션을 완전 종료.
+    const { clearKeepSignedIn } = await import("@/lib/adminPersistSession");
+    clearKeepSignedIn();
     // 다른 모든 탭/창도 즉시 로그아웃 화면으로 보낸다(공유 쿠키는 이미 위 signOut 으로 제거됨).
     const { postAdminLogout } = await import("@/lib/adminAuthChannel");
     postAdminLogout();

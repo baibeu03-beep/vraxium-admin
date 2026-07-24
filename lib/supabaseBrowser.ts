@@ -1,5 +1,8 @@
 import { createBrowserClient } from "@supabase/ssr";
-import { toSessionCookieOptions } from "@/lib/sessionCookieOptions";
+import {
+  ADMIN_PERSIST_COOKIE,
+  applyAdminSessionCookieOptions,
+} from "@/lib/sessionCookieOptions";
 
 let browserClient: ReturnType<typeof createBrowserClient> | undefined;
 
@@ -92,11 +95,19 @@ export function getSupabaseBrowserClient() {
             if (typeof document === "undefined") {
               return;
             }
+            // Read the "keep me signed in" opt-in at write-time so a preference
+            // set right before signInWithPassword takes effect immediately.
+            const persist = readAllCookies().some(
+              (c) => c.name === ADMIN_PERSIST_COOKIE && c.value === "1",
+            );
             for (const { name, value, options } of cookiesToSet) {
               writeCookie(
                 name,
                 value,
-                toSessionCookieOptions(options as BrowserCookieOptions),
+                applyAdminSessionCookieOptions(
+                  options as BrowserCookieOptions,
+                  persist,
+                ),
               );
             }
           },

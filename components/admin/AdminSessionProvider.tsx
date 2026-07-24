@@ -60,6 +60,9 @@ export default function AdminSessionProvider({
         try {
           const { getSupabaseBrowserClient } = await import("@/lib/supabaseBrowser");
           await getSupabaseBrowserClient().auth.signOut({ scope: "local" });
+          // 미사용/원격 로그아웃도 완전 로그아웃 — 유지 선호도 쿠키 폐기.
+          const { clearKeepSignedIn } = await import("@/lib/adminPersistSession");
+          clearKeepSignedIn();
         } catch {
           // ignore — redirect below still leaves the admin area
         }
