@@ -13,9 +13,14 @@ import {
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/components/theme/ThemeProvider";
 import { orgHref, resolveAdminOrgFocus } from "@/lib/adminOrgContext";
-import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
+import {
+  adminEnvironmentTheme,
+  isOrganizationSlug,
+  type OrganizationSlug,
+} from "@/lib/organizations";
 import { useSidebar } from "@/components/admin/sidebarContext";
 import { useAdminMode } from "@/components/admin/AdminModeProvider";
+import OrgEnvironmentBanner from "@/components/admin/OrgEnvironmentBanner";
 import {
   MENU_INTEGRATED,
   MENU_ORG,
@@ -131,6 +136,15 @@ export default function Sidebar() {
   //   동일한 SoT 를 사용해 "상세로 이동하면 [통합]으로 새는" 유형의 불일치를 원천 차단한다.
   const orgFocus = resolveAdminOrgFocus(pathname, searchParams);
 
+  // 현재 환경(통합 vs 개별+조직) 테마 — 배지 색·선택 메뉴 강조색의 단일 SoT.
+  //   입력은 orgFocus 하나(통합=null / 개별=slug). mode(운영/test)·조직명 하드코딩 비교 없음.
+  const envTheme = adminEnvironmentTheme(orgFocus);
+  // 선택된(aria-current) 메뉴에 입힐 현재 환경 대표색(배경/글자/hover) — leaf·child 공용.
+  const activeMenuClass = cn(
+    envTheme.activeMenuClassName,
+    envTheme.activeMenuHoverClassName,
+  );
+
   // 대분류(leaf/branch) 노출 분기: integratedOnly=통합 모드만, orgOnly=조직 모드만.
   const isItemVisible = (item: MenuItem) => {
     if (item.integratedOnly && orgFocus) return false;
@@ -244,20 +258,16 @@ export default function Sidebar() {
             </Link>
             {/* HOME 화면(/admin)에서는 배지를 숨기고 HOME 만 노출. */}
             {!navLocked && (
-              <>
-                <span
-                  className={cn(
-                    "rounded-md px-2.5 py-0.5 text-sm font-semibold text-white",
-                    // 배경색도 사이드바 선택 SoT(orgFocus)로 함께 결정:
-                    //   조직 분기 = 회색 [개별], 통합 검수 시스템 = 진한 빨간색 [통합].
-                    orgFocus ? "bg-gray-600" : "bg-red-600",
-                  )}
-                >
-                  {orgFocus ? "개별" : "통합"}
-                </span>
-                {/* 조직명 배지는 제거 — 동일 정보를 조직 환경 배너(OrgEnvironmentBanner, 모든 페이지
-                    상단)에서 크게 표시하므로 여기서 중복 표시하지 않는다. 개별/통합 배지는 모드 표시로 유지. */}
-              </>
+              <span
+                className={cn(
+                  "rounded-md px-2.5 py-0.5 text-sm font-semibold",
+                  // 배지 색/라벨은 현재 환경 테마(단일 SoT)에서:
+                  //   개별 = 회색 [개별], 통합 검수 시스템 = 보라 [통합](빨강→보라, 2026-07-24).
+                  envTheme.badgeClassName,
+                )}
+              >
+                {envTheme.badgeLabel}
+              </span>
             )}
           </div>
         )}
@@ -276,6 +286,12 @@ export default function Sidebar() {
           )}
         </button>
       </div>
+
+      {/* 조직 환경 배너 — HOME/개별 헤더 박스 "바로 아래" 사이드바 폭을 꽉 채우는 평평한 색 띠.
+          지금 어떤 조직에서 작업 중인지를 조직 대표색 배경으로 견고하게(둥근모서리/여백 없이 edge-to-edge)
+          상시 표시한다. 접힘(!sidebarOpen)=아이콘만, 펼침=아이콘+"{한글} / {영문}". 통합/미상 org·
+          /admin 런처면 스스로 null 렌더한다(그 경우 이 슬롯은 사라지고 nav 가 헤더 박스에 바로 붙는다). */}
+      <OrgEnvironmentBanner collapsed={!sidebarOpen} />
 
       <nav
         className={cn(
@@ -306,7 +322,7 @@ export default function Sidebar() {
                     ? "gap-2 px-3 py-1.5"
                     : "h-9 w-9 justify-center self-center",
                   active
-                    ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
+                    ? activeMenuClass
                     : "text-sidebar-foreground/75 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
                   leafLocked && "pointer-events-none",
                 )}
@@ -421,7 +437,7 @@ export default function Sidebar() {
                           className={cn(
                             "block rounded-md px-2.5 py-1 text-xs transition-colors",
                             childActive
-                              ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
+                              ? activeMenuClass
                               : "text-sidebar-foreground/70 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
                             navLocked && "pointer-events-none",
                           )}

@@ -2,52 +2,82 @@
 
 import { usePathname, useSearchParams } from "next/navigation";
 import { resolveAdminOrgFocus } from "@/lib/adminOrgContext";
-import { organizationMeta, INTEGRATED_ENVIRONMENT_META } from "@/lib/organizations";
+import { adminEnvironmentTheme } from "@/lib/organizations";
 import { cn } from "@/lib/utils";
 
-// 조직 환경 배너 — 개별 조직 사이트에서 "지금 어떤 조직에서 작업 중인지"를 콘텐츠 영역 최상단에
-//   즉시 인지시키는 **전체폭 상단 띠(bar)**. 카드가 아니라 평평한 full-width bar 다.
+// 조직 환경 배너 — 개별 조직 사이트에서 "지금 어떤 조직에서 작업 중인지"를 즉시 인지시키는 표식.
 //
+//   · **배치(2026-07-24 변경)**: 좌측 사이드바 상단 HOME/개별 헤더 박스 "바로 아래", `<nav>` 위에
+//     **사이드바 폭을 꽉 채우는 평평한 색 띠(full-width flat band)** 로 둔다. 이전엔 우측 콘텐츠 영역
+//     전체폭 상단 띠였으나, 조직 정체성을 HOME 배지와 같은 좌측 상단으로 모으기 위해 이동했다.
+//     → 우측 본문에는 더 이상 렌더하지 않는다(중복 노출 없음).
+//   · **떠 있는 알약(rounded pill+여백)이 아니라, 좌우 끝까지 배경색이 꽉 찬 평평한 띠** — 사이드바에
+//     견고하게 박힌 느낌을 준다(둥근모서리/외부 margin 없음, bannerClass 배경이 edge-to-edge).
 //   · org 컨텍스트 SoT = resolveAdminOrgFocus(pathname, ?org / /admin/crews/{org}) — 사이드바·
 //     헤더 경로와 동일 출처. mode(운영/테스트)·demoUserId·actAsTestUserId 무관하게 동일 값/렌더.
-//   · org 미상(통합 모드/무효 slug)이면 아무것도 렌더하지 않는다(임의 조직 폴백 금지).
-//   · 조직명(ko/en)·아이콘·대표색은 lib/organizations 통합 SoT(ORGANIZATION_META) 한 곳만 참조
-//     — 하드코딩 금지. 색은 라이트/다크 동시 정의(bannerClass, 배경 opaque).
-//   · **배치**: main(스크롤 컨테이너) "바깥", Header 아래 전용 슬롯(app/(portal)/layout.tsx)에 둔다.
-//     → main 의 p-6 padding 밖이라 콘텐츠 영역 좌우 끝까지 꽉 차고(전체폭), main 이 아래에서 스크롤돼도
-//     배너는 항상 콘텐츠 최상단에 남는다(sticky 와 동일 효과 — 별도 position 불필요, 더 안전한 구조).
-//   · **카드 스타일 제거**: rounded/border/shadow/ring/외부 margin 없음. 평평한 bar. bg 만 조직 대표색.
-//   · z-index: main 바깥이라 콘텐츠와 겹치지 않음(오버레이 Dialog/Toast 등과도 무관).
-export default function OrgEnvironmentBanner() {
+//   · org 미상(통합 모드/무효 slug)이면 통합 배너(보라)를 동일 형태로 렌더. 단 조직 선택 런처(/admin)
+//     에서는 렌더하지 않는다(아직 어떤 시스템에도 진입 전).
+//   · 아이콘·명칭·대표색은 **공통 테마 SoT** adminEnvironmentTheme(org)(lib/organizations)에서만
+//     가져온다 — 하드코딩 금지. 색은 라이트/다크 동시 정의(bannerClassName, 배경 opaque).
+//     통합은 nameEn=null → "/ …" 접미를 붙이지 않는다(ko 만: "통합 검수 시스템").
+//   · **collapsed**: 사이드바가 접히면 아이콘만(폭 꽉 찬 좁은 띠·중앙 정렬), 펼치면 아이콘 + 명칭.
+//     어느 상태에서도 shrink-0 고정 띠라 레이아웃이 밀리거나 깨지지 않는다.
+//   · 조직 판정 로직/DTO 변경 없음 — 위치·표현만 담당.
+export default function OrgEnvironmentBanner({
+  collapsed = false,
+}: {
+  collapsed?: boolean;
+}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const org = resolveAdminOrgFocus(pathname, searchParams);
-  const orgMeta = organizationMeta(org);
 
-  // org(개별 조직) 배너 우선. org 미상(통합 검수 시스템)이면 통합 배너를 표시하되,
-  //   조직 선택 런처(/admin)에는 표시하지 않는다(아직 어떤 시스템에도 진입하지 않은 상태).
-  const isHomeLauncher = pathname === "/admin";
-  const meta = orgMeta ?? (isHomeLauncher ? null : INTEGRATED_ENVIRONMENT_META);
-  if (!meta) return null;
+  // 조직 선택 런처(/admin)에는 배너 미표시(아직 어떤 시스템에도 진입하지 않은 상태).
+  //   그 외에는 개별(org)·통합(null) 모두 공통 테마로 렌더한다.
+  if (!org && pathname === "/admin") return null;
 
+  const theme = adminEnvironmentTheme(org);
+  const label = theme.nameEn ? `${theme.nameKo} / ${theme.nameEn}` : theme.nameKo;
+  const testAttrs = {
+    "data-testid": "org-environment-banner",
+    "data-org": org ?? undefined,
+    "data-integrated": theme.isIntegrated ? true : undefined,
+  } as const;
+
+  // 접힘: 사이드바 폭이 좁아 라벨을 못 넣으므로 아이콘만(폭 꽉 찬 좁은 띠·중앙). 조직명은 title/aria.
+  if (collapsed) {
+    return (
+      <div
+        {...testAttrs}
+        title={label}
+        aria-label={label}
+        className={cn(
+          "flex min-h-11 w-full shrink-0 items-center justify-center border-b border-sidebar-border text-lg leading-none",
+          theme.bannerClassName,
+        )}
+      >
+        <span aria-hidden="true">{theme.icon}</span>
+      </div>
+    );
+  }
+
+  // 펼침: 사이드바 폭을 꽉 채우는 평평한 색 띠. 아이콘 + 명칭(통합은 ko 만). 긴 조직명은 truncate.
   return (
     <div
-      data-testid="org-environment-banner"
-      data-org={org ?? undefined}
-      data-integrated={orgMeta ? undefined : true}
-      // 전체폭 평평한 bar. min-h-12(48px)·items-center 로 수직 중앙 · px-6 로 콘텐츠(main p-6)와 좌측 정렬.
-      // shrink-0: flex 컬럼에서 높이 고정(위아래 빈틈/layout shift 없음). 좌측 정렬 · text-lg font-bold.
-      // bg 는 bannerClass(opaque)만 — 카드 잔재(rounded/border/shadow) 없음.
+      {...testAttrs}
       className={cn(
-        "flex min-h-12 w-full shrink-0 items-center gap-2.5 px-6 text-lg font-bold",
-        meta.bannerClass,
+        "flex min-h-11 w-full shrink-0 items-center gap-2 border-b border-sidebar-border px-4 text-sm font-bold",
+        theme.bannerClassName,
       )}
     >
-      <span className="text-xl leading-none" aria-hidden="true">
-        {meta.icon}
+      <span className="text-lg leading-none" aria-hidden="true">
+        {theme.icon}
       </span>
       <span className="min-w-0 truncate">
-        {meta.ko} <span className="font-medium opacity-80">/ {meta.en}</span>
+        {theme.nameKo}
+        {theme.nameEn && (
+          <span className="font-medium opacity-80"> / {theme.nameEn}</span>
+        )}
       </span>
     </div>
   );

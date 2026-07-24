@@ -84,12 +84,18 @@ export function organizationSelectOptions(
 //     ★ 배경은 라이트/다크 모두 **불투명(opaque)** — 배너가 sticky 로 콘텐츠 위에 겹칠 때 뒤가 비치면
 //       안 되기 때문(다크도 /40 반투명 금지). 배너·홈 카드가 이 클래스를 공유(단일 색 SoT).
 //   · cardHoverClass: 홈 조직 카드 hover 강조(배경·테두리). 배너에는 미사용(호버 없음).
+//   · activeMenuClass / activeMenuHoverClass: 사이드바에서 "현재 선택된(aria-current) 메뉴"에
+//     조직 대표색을 은은하게 입히는 클래스(배경 100 단계 + 글자 900 단계 + font-semibold, 다크는
+//     대표색 어두운 반투명 + 밝은 글자). bannerClass 와 동일 계열 팔레트 — 조직색 SoT 를 새로 만들지
+//     않는다. 여기(그리고 아래 adminEnvironmentTheme) 한 곳에서만 결정 → 메뉴별 하드코딩 금지.
 export type OrganizationMeta = {
   ko: string;
   en: string;
   icon: string;
   bannerClass: string;
   cardHoverClass: string;
+  activeMenuClass: string;
+  activeMenuHoverClass: string;
 };
 
 export const ORGANIZATION_META: Record<OrganizationSlug, OrganizationMeta> = {
@@ -101,6 +107,9 @@ export const ORGANIZATION_META: Record<OrganizationSlug, OrganizationMeta> = {
       "bg-pink-100 text-pink-900 border-pink-300 dark:bg-pink-950 dark:text-pink-100 dark:border-pink-800",
     cardHoverClass:
       "hover:bg-pink-200 hover:border-pink-400 dark:hover:bg-pink-900 dark:hover:border-pink-700",
+    activeMenuClass:
+      "bg-pink-100 text-pink-900 font-semibold dark:bg-pink-900/50 dark:text-pink-100",
+    activeMenuHoverClass: "hover:bg-pink-200 dark:hover:bg-pink-900/70",
   },
   oranke: {
     ko: ORGANIZATION_LABEL_KO.oranke,
@@ -110,6 +119,9 @@ export const ORGANIZATION_META: Record<OrganizationSlug, OrganizationMeta> = {
       "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950 dark:text-amber-100 dark:border-amber-800",
     cardHoverClass:
       "hover:bg-amber-200 hover:border-amber-400 dark:hover:bg-amber-900 dark:hover:border-amber-700",
+    activeMenuClass:
+      "bg-amber-100 text-amber-900 font-semibold dark:bg-amber-900/50 dark:text-amber-100",
+    activeMenuHoverClass: "hover:bg-amber-200 dark:hover:bg-amber-900/70",
   },
   phalanx: {
     ko: ORGANIZATION_LABEL_KO.phalanx,
@@ -119,6 +131,9 @@ export const ORGANIZATION_META: Record<OrganizationSlug, OrganizationMeta> = {
       "bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-100 dark:border-emerald-800",
     cardHoverClass:
       "hover:bg-emerald-200 hover:border-emerald-400 dark:hover:bg-emerald-900 dark:hover:border-emerald-700",
+    activeMenuClass:
+      "bg-emerald-100 text-emerald-900 font-semibold dark:bg-emerald-900/50 dark:text-emerald-100",
+    activeMenuHoverClass: "hover:bg-emerald-200 dark:hover:bg-emerald-900/70",
   },
 };
 
@@ -132,42 +147,110 @@ export function organizationMeta(
 // ── 통합 검수 시스템(개별 조직 아님) 환경 배너 메타 ─────────────────────────
 // 개별 조직 배너(ORGANIZATION_META)와 **동일한 컴포넌트/높이/정렬/고정 방식**으로, org-neutral
 //   통합 검수 시스템 하위 페이지(/admin/members 등) 상단에 "지금 통합 검수 시스템 안"임을 표시한다.
-//   · 명칭은 홈 런처의 "통합 검수 시스템" 카드와 동일(ko="통합 검수 시스템", icon="🗂️"). en 은
-//     배너 표기 규칙상 "Club"(홈 카드의 설명 en 과는 별개 — "🦔 Club"·"Club / All" 식 표기 금지).
-//   · 특정 조직색(분홍/황금/초록)이 아닌 중립(슬레이트) **불투명** 배경 — 라이트/다크 동시 정의.
+//   · 명칭은 홈 런처의 "통합 검수 시스템" 카드와 동일(ko="통합 검수 시스템", icon="🗂️"). 배너에는
+//     ko 만 표시한다(2026-07-24 "/ Club" 접미 제거 — en 은 홈 카드 등 다른 표기용으로만 남긴다).
+//   · 통합 시스템 대표색 = **보라(violet)**(2026-07-24 변경, 이전 중립 슬레이트). 빨강은 경고/오류로
+//     읽힐 수 있어 개별([개별]=회색)과 구분되는 보라로 통일 — 배지/배너/선택 메뉴 모두 같은 계열.
+//     배경은 라이트/다크 **불투명** — 라이트/다크 동시 정의.
 //   · Admin Home 런처(/admin)에는 표시하지 않는다(조직 선택 전) — OrgEnvironmentBanner 에서 제외.
 export const INTEGRATED_ENVIRONMENT_META: OrganizationMeta = {
   ko: "통합 검수 시스템",
   en: "Club",
   icon: "🗂️",
   bannerClass:
-    "bg-slate-100 text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700",
-  cardHoverClass: "",
+    "bg-violet-100 text-violet-900 border-violet-300 dark:bg-violet-950 dark:text-violet-100 dark:border-violet-800",
+  // 홈 통합 카드(HomeLaunchGrid) hover 강조 — 조직 카드(cardHoverClass)와 동일 패턴의 보라 계열
+  //   (배너는 hover 없어 미사용). 2026-07-24 중립→보라 통일에 맞춰 홈 카드도 보라로.
+  cardHoverClass:
+    "hover:bg-violet-200 hover:border-violet-400 dark:hover:bg-violet-900 dark:hover:border-violet-700",
+  activeMenuClass:
+    "bg-violet-100 text-violet-900 font-semibold dark:bg-violet-900/50 dark:text-violet-100",
+  activeMenuHoverClass: "hover:bg-violet-200 dark:hover:bg-violet-900/70",
 };
+
+// ── 어드민 "현재 환경"(통합 vs 개별+조직) 테마 단일 SoT ─────────────────────
+// 사이드바 배지([통합]/[개별])·조직 환경 배너·선택된 메뉴 강조색을 **한 곳에서** 결정한다.
+//   입력은 orgFocus(사이드바 선택 SoT: OrganizationSlug | null) 하나뿐 — mode(운영/test)나 URL
+//   문자열, 조직명 하드코딩 비교 없이 "통합/개별 여부 + 현재 조직"만으로 테마가 갈린다.
+//   · org === null  → 통합 환경(보라). INTEGRATED_ENVIRONMENT_META 참조.
+//   · org === slug  → 개별 환경(해당 조직 대표색). ORGANIZATION_META[slug] 참조.
+// 소비처: components/admin/Sidebar.tsx(배지·선택 메뉴), components/admin/OrgEnvironmentBanner.tsx(배너).
+export type AdminEnvironmentTheme = {
+  isIntegrated: boolean;
+  // HOME 옆 모드 배지 — 통합=보라(-600), 개별=현재 조직 대표색(-600 채움). 둘 다 흰 글자·쨍한 채움.
+  badgeLabel: string; // "통합" | "개별"
+  badgeClassName: string;
+  // 조직 환경 배너 표기·색.
+  icon: string;
+  nameKo: string;
+  nameEn: string | null; // 통합은 null → 배너에 접미("/ …") 미표시. 개별은 영문명 표시.
+  bannerClassName: string;
+  // 선택된(aria-current) 사이드바 메뉴 강조.
+  activeMenuClassName: string;
+  activeMenuHoverClassName: string;
+};
+
+export function adminEnvironmentTheme(
+  org: OrganizationSlug | null,
+): AdminEnvironmentTheme {
+  if (org) {
+    const meta = ORGANIZATION_META[org];
+    return {
+      isIntegrated: false,
+      badgeLabel: "개별",
+      // [개별] 배지도 현재 조직 대표색으로 채운다(-600 쨍한 채움 + 흰 글자, 파스텔 아님).
+      //   통합 [통합] 배지(violet-600)와 같은 채움 레벨. ORGANIZATION_ACCENT 단일 SoT 재사용.
+      badgeClassName: ORGANIZATION_ACCENT[org].badge,
+      icon: meta.icon,
+      nameKo: meta.ko,
+      nameEn: meta.en,
+      bannerClassName: meta.bannerClass,
+      activeMenuClassName: meta.activeMenuClass,
+      activeMenuHoverClassName: meta.activeMenuHoverClass,
+    };
+  }
+  const meta = INTEGRATED_ENVIRONMENT_META;
+  return {
+    isIntegrated: true,
+    badgeLabel: "통합",
+    badgeClassName: "bg-violet-600 text-white",
+    icon: meta.icon,
+    nameKo: meta.ko,
+    nameEn: null, // "/ Club" 미표시
+    bannerClassName: meta.bannerClass,
+    activeMenuClassName: meta.activeMenuClass,
+    activeMenuHoverClassName: meta.activeMenuHoverClass,
+  };
+}
 
 // ── 조직 대표색 "채움(solid)" 강조 — 단일 SoT ──────────────────────────────
 // 조직색으로 배경을 "채우는" 곳(선택된 캡슐 탭, 조직 스코프 강조 버튼)의 팔레트.
 //   · ORGANIZATION_TEXT_CLASS(pink/amber/emerald)와 동일 계열. encre=분홍 · oranke=황금(amber) · phalanx=초록.
 //   · 글자는 흰색 — 어드민 폰트 확대 스케일(≈large text)에서 -600 채움 대비를 확보한다.
 //   · 정적 문자열(Tailwind JIT 인식). 라이트/다크 공통(캡슐/버튼이 자체 배경을 가지므로 -600 유지).
-//   · solid  = 선택 캡슐(테두리+채움) · button = 강조 버튼(채움 + hover 진하게). 같은 계열이되 용도별로 분리.
+//   · solid  = 선택 캡슐(테두리+채움) · button = 강조 버튼(채움 + hover 진하게) · badge = 사이드바
+//     [개별] 모드 배지(채움만, hover 없음 — 비대화 span). 같은 -600 계열이되 용도별로 분리.
 export type OrganizationAccent = {
   solid: string;
   button: string;
+  badge: string;
 };
 
 export const ORGANIZATION_ACCENT: Record<OrganizationSlug, OrganizationAccent> = {
   encre: {
     solid: "border-pink-600 bg-pink-600 text-white hover:bg-pink-700",
     button: "border-transparent bg-pink-600 text-white hover:bg-pink-700 hover:text-white",
+    badge: "bg-pink-600 text-white",
   },
   oranke: {
     solid: "border-amber-600 bg-amber-600 text-white hover:bg-amber-700",
     button: "border-transparent bg-amber-600 text-white hover:bg-amber-700 hover:text-white",
+    badge: "bg-amber-600 text-white",
   },
   phalanx: {
     solid: "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700",
     button: "border-transparent bg-emerald-600 text-white hover:bg-emerald-700 hover:text-white",
+    badge: "bg-emerald-600 text-white",
   },
 };
 
@@ -270,8 +353,9 @@ export const HOME_LAUNCH_CARDS: HomeLaunchCard[] = [
     href: "/admin/members",
     icon: "🗂️",
     variant: "neutral",
-    cardClass: "bg-primary/5 text-foreground border-primary/30",
-    cardHoverClass: "hover:bg-primary/10 hover:border-primary/50",
+    // 통합 대표색 = 보라(2026-07-24). 배지·배너와 동일 SoT 재사용(하드코딩 금지, 이전 중립 primary).
+    cardClass: INTEGRATED_ENVIRONMENT_META.bannerClass,
+    cardHoverClass: INTEGRATED_ENVIRONMENT_META.cardHoverClass,
   },
   orgLaunchCard("encre", "/admin/crews/encre"),
   orgLaunchCard("oranke", "/admin/crews/oranke"),
