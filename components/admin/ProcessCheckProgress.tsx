@@ -6,20 +6,32 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
-import { statusTokenClass } from "@/components/admin/lineOpeningStatusUi";
 import type {
   ProcessCheckLineGroupDto,
   ProcessCheckSummary,
 } from "@/lib/adminProcessCheckTypes";
 
-// 진행 현황 강조 — 전부 빨강(<Red>) 단일 강조 폐지. 역할 구분:
-//   분모(전체 개수) = 정보성 → 색 없이 굵게만 / 신청 완료 개수 = 초록(statusTokenClass "crewOk").
-//   라인 개설·프로세스 체크 상태창과 동일한 색 SoT. 표시 계층 전용(summary 계산 무변).
-function Total({ children }: { children: React.ReactNode }) {
-  return <span className="font-semibold text-foreground">{children}</span>;
-}
-function Done({ children }: { children: React.ReactNode }) {
-  return <span className={statusTokenClass("crewOk")}>{children}</span>;
+function ProgressRow({
+  label,
+  totalCount,
+  completedCount,
+}: {
+  label: string;
+  totalCount: number;
+  completedCount: number;
+}) {
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-48">
+      <p className="text-sm">{label}</p>
+      <div className="flex shrink-0 items-baseline gap-1.5">
+        <span className="text-sm font-medium text-muted-foreground">{totalCount}개 중</span>
+        <span className="text-2xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+          {completedCount}개
+        </span>
+        <span className="text-sm font-medium text-foreground">체크 신청 완료</span>
+      </div>
+    </div>
+  );
 }
 
 export default function ProcessCheckProgress({
@@ -36,7 +48,7 @@ export default function ProcessCheckProgress({
 }) {
   return (
     <Card>
-      <CardHeader className="pb-2">
+      <CardHeader>
         <CardTitle className="text-base">
           <span className="inline-flex items-center gap-1">
             {title}
@@ -44,12 +56,13 @@ export default function ProcessCheckProgress({
           </span>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-5">
-        <div className="space-y-2">
-          <p className="text-sm">
-            이번 주 체크 필요 [라인 급] 프로세스 <Total>{summary.lineGroupTotal}</Total>개 중{" "}
-            <Done>{summary.lineGroupApplied}</Done>개 체크 신청 완료
-          </p>
+      <CardContent className="space-y-6">
+        <div className="space-y-3">
+          <ProgressRow
+            label="이번 주 체크 필요 [라인 급] 프로세스"
+            totalCount={summary.lineGroupTotal}
+            completedCount={summary.lineGroupApplied}
+          />
           {lineGroups.length === 0 ? (
             <p className="text-sm text-muted-foreground">체크 대상 라인급이 없습니다.</p>
           ) : (
@@ -71,11 +84,12 @@ export default function ProcessCheckProgress({
             </div>
           )}
         </div>
-        <div className="space-y-1 border-t border-border pt-4">
-          <p className="text-sm">
-            이번 주 체크 필요 [액트] 프로세스 <Total>{summary.actTotal}</Total>개 중{" "}
-            <Done>{summary.actApplied}</Done>개 체크 신청 완료
-          </p>
+        <div className="space-y-3 border-t border-border pt-5">
+          <ProgressRow
+            label="이번 주 체크 필요 [액트] 프로세스"
+            totalCount={summary.actTotal}
+            completedCount={summary.actApplied}
+          />
         </div>
       </CardContent>
     </Card>
