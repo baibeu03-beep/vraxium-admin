@@ -23,6 +23,8 @@ export function ScrollAffordance({
   containerClassName,
   hint = true,
   hintLabel = "좌우로 스크롤",
+  stickyLeft = false,
+  innerRef,
   children,
   ...props
 }: React.ComponentProps<"div"> & {
@@ -32,10 +34,24 @@ export function ScrollAffordance({
   hint?: boolean
   /** 힌트 문구(기본 "좌우로 스크롤"). */
   hintLabel?: React.ReactNode
+  /** 왼쪽 열 고정 표 — 좌측 edge-fade 를 억제한다(고정 밴드가 있으면 왼쪽 힌트가 무의미·충돌). */
+  stickyLeft?: boolean
+  /** 내부 스크롤 div 로 전달할 ref — useStickyColumns 가 여기에 --sticky-col-1-w 를 얹는다. */
+  innerRef?: React.Ref<HTMLElement>
 }) {
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const [edges, setEdges] = React.useState({ left: false, right: false })
   const [interacted, setInteracted] = React.useState(false)
+
+  // 외부 innerRef 를 내부 scrollRef 와 병합(측정용 훅과 어포던스 로직이 같은 div 를 참조).
+  const setScrollNode = React.useCallback(
+    (node: HTMLDivElement | null) => {
+      scrollRef.current = node
+      if (typeof innerRef === "function") innerRef(node)
+      else if (innerRef) (innerRef as React.RefObject<HTMLElement | null>).current = node
+    },
+    [innerRef],
+  )
 
   const measure = React.useCallback(() => {
     const el = scrollRef.current
@@ -69,7 +85,7 @@ export function ScrollAffordance({
   return (
     <div className={cn("relative", className)} {...props}>
       <div
-        ref={scrollRef}
+        ref={setScrollNode}
         onScroll={() => {
           if (!interacted) setInteracted(true)
           measure()
@@ -79,14 +95,18 @@ export function ScrollAffordance({
         {children}
       </div>
 
-      {/* 좌/우 가장자리 Fade — 스크롤 여지가 있는 쪽만 켜진다. */}
-      <div
-        aria-hidden
-        className={cn(
-          "pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-background to-transparent transition-opacity duration-200",
-          edges.left ? "opacity-100" : "opacity-0",
-        )}
-      />
+      {/* 좌/우 가장자리 Fade — 스크롤 여지가 있는 쪽만 켜진다.
+          왼쪽 열 고정(stickyLeft) 표에서는 좌측 fade 를 억제 — 고정 밴드가 이미 좌측을
+          덮으므로 "왼쪽에 더 있다"는 힌트가 무의미하고 고정 셀을 흐리게 덮는 충돌을 낳는다. */}
+      {!stickyLeft && (
+        <div
+          aria-hidden
+          className={cn(
+            "pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-background to-transparent transition-opacity duration-200",
+            edges.left ? "opacity-100" : "opacity-0",
+          )}
+        />
+      )}
       <div
         aria-hidden
         className={cn(

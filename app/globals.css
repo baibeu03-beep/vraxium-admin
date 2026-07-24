@@ -613,6 +613,92 @@ select:not([multiple]) {
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
+   Sticky table contract (project-wide, single source).
+   어드민 전역 표의 "왼쪽 식별 열 고정 + (옵트인) 상단 헤더 고정" 공통 계약.
+   페이지마다 sticky/left/z-index 클래스를 복붙하지 않도록 클래스·CSS 변수로 통일한다.
+   components/ui/sticky-columns.ts 의 useStickyColumns() 훅이 col-1 실측폭을
+   --sticky-col-1-w 로 발행하고, 셀에 .stick-col-1 / .stick-col-2 를 붙인다.
+
+   ⚠ 가로 스크롤을 표 안(overflow-x)에 가두면 헤더는 그 컨테이너 기준으로만 고정
+     가능하다(페이지 스크롤 헤더 고정은 순수 CSS 불가). 그래서 왼쪽 열 고정은 전역
+     기본, 헤더 고정은 .sticky-head-region(내부 max-height) 옵트인이다.
+
+   z-index 스케일(단일 SoT):
+     일반 셀 0 < 좌측 고정 본문 20 < 상단 고정 헤더 30 < 좌상단 corner 40
+     < 포털 팝오버(shadcn 기본) 50. → 셀 내 드롭다운/툴팁은 포털 variant 사용.
+
+   Unlayered — 유틸 레이어 위에서 안정 동작(!important 불필요, .admin-checkbox 와 동일 관행).
+   ─────────────────────────────────────────────────────────────────────────── */
+:root {
+  /* col-1(체크박스/# 등 폭 안정 열)의 실측폭. 훅이 인라인 style 로 덮어쓴다.
+     리딩 열이 없어 식별 열을 단독 고정하는 표는 0 → .stick-col-2 가 left:0 이 된다. */
+  --sticky-col-1-w: 0px;
+}
+
+.stick-col-1,
+.stick-col-2 {
+  position: sticky;
+  z-index: 20;
+  /* 불투명 배경 — 스크롤되는 뒤쪽 셀이 비쳐 보이지 않게. 기존 sticky 관행(bg-card)과 통일. */
+  background-color: var(--card);
+}
+.stick-col-1 {
+  left: 0;
+}
+.stick-col-2 {
+  left: var(--sticky-col-1-w);
+  /* 고정 밴드와 스크롤 영역의 경계 — 오른쪽 경계선 + 옅은 그림자. */
+  border-right: 1px solid var(--border);
+  box-shadow: 2px 0 4px -2px rgb(0 0 0 / 0.15);
+}
+
+/* zebra / hover / selected 를 고정 셀에도 재적용 — 고정 셀은 자체 불투명 배경을 칠하므로
+   재적용하지 않으면 행 상태색(짝수 zebra·hover·선택)이 고정 열에서만 끊긴다.
+   base table.tsx 의 bg-muted/30(zebra)·bg-accent/60(hover)·bg-muted(selected) 를
+   card 위에 합성한 불투명 등가색으로 맞춘다. */
+tr:nth-child(even) > .stick-col-1,
+tr:nth-child(even) > .stick-col-2 {
+  background-color: color-mix(in oklch, var(--muted) 30%, var(--card));
+}
+tr:hover > .stick-col-1,
+tr:hover > .stick-col-2 {
+  background-color: color-mix(in oklch, var(--accent) 60%, var(--card));
+}
+tr[data-state="selected"] > .stick-col-1,
+tr[data-state="selected"] > .stick-col-2 {
+  background-color: var(--muted);
+}
+
+/* 헤더/요약(tfoot) 행의 좌측 고정 셀 = corner. 헤더 톤(base bg-muted/60)과 일치하는
+   불투명색 + 가장 높은 z-index(좌·상 동시 고정 시 교차 셀). */
+thead > tr > .stick-col-1,
+thead > tr > .stick-col-2,
+tfoot > tr > .stick-col-1,
+tfoot > tr > .stick-col-2 {
+  z-index: 40;
+  background-color: color-mix(in oklch, var(--muted) 60%, var(--card));
+}
+
+/* ── 옵트인 상단 헤더 고정 (경계가 있는 내부 스크롤 영역) ──
+   훅의 headerSticky=true 일 때만 스크롤 컨테이너에 .sticky-head-region 이 붙는다.
+   viewport 상대 max-height + overscroll-contain(경계에서 페이지로 스크롤 체이닝)로
+   "상자 안 스크롤"의 이질감을 최소화한다. 짧은 표에는 적용하지 않는다. */
+.sticky-head-region {
+  max-height: var(--sticky-head-max-h, 70svh);
+  overscroll-behavior: contain;
+}
+.sticky-head-region thead > tr > th {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background-color: color-mix(in oklch, var(--muted) 60%, var(--card));
+}
+.sticky-head-region thead > tr > .stick-col-1,
+.sticky-head-region thead > tr > .stick-col-2 {
+  z-index: 40; /* corner 는 상단·좌측 고정 셀보다 위 */
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
    Interactive cursor baseline (project-wide, single source).
    실제로 "클릭 가능한" UI 요소에 hover 시 손모양(pointer) 커서를 준다. mode=test 를
    포함한 모든 경로가 이 전역 스타일 하나만 타므로, 페이지별 임시 패치가 필요 없다.

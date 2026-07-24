@@ -5,11 +5,31 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { ScrollAffordance } from "@/components/ui/scroll-affordance"
 
-function Table({ className, ...props }: React.ComponentProps<"table">) {
+function Table({
+  className,
+  containerRef,
+  regionClassName,
+  stickyLeft,
+  ...props
+}: React.ComponentProps<"table"> & {
+  /** 스크롤 컨테이너 div 로 전달되는 ref — useStickyColumns 의 ref 를 여기 연결. */
+  containerRef?: React.Ref<HTMLElement>
+  /** 내부 스크롤러 className — 헤더 고정 시 "sticky-head-region"(useStickyColumns.regionClassName). */
+  regionClassName?: string
+  /** 왼쪽 열 고정 표 — 좌측 edge-fade 억제. */
+  stickyLeft?: boolean
+}) {
   return (
     // 가로 스크롤 인지 UX(가장자리 Fade + 첫 진입 힌트)를 모든 표에 기본 배선.
-    // 오버플로가 실제로 있을 때만 표시된다.
-    <ScrollAffordance data-slot="table-container" className="w-full">
+    // 오버플로가 실제로 있을 때만 표시된다. sticky 관련 props 는 전부 optional —
+    // 기존 호출처(미지정)는 동작 무변경.
+    <ScrollAffordance
+      data-slot="table-container"
+      className="w-full"
+      containerClassName={regionClassName}
+      stickyLeft={stickyLeft}
+      innerRef={containerRef}
+    >
       <table
         data-slot="table"
         className={cn("w-full caption-bottom text-sm", className)}
