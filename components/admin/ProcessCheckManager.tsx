@@ -28,7 +28,9 @@ import { WeekSelectRow } from "@/components/admin/WeekSelectRow";
 import {
   StatusList,
   StatusListItem,
+  statusTokenClass,
 } from "@/components/admin/lineOpeningStatusUi";
+import type { StatusTokenKind } from "@/lib/lineOpeningStatusEngine";
 import {
   PROCESS_CHECK_HELP_KEYS,
   PROCESS_CHECK_LOG_ACTION_LABEL,
@@ -53,8 +55,11 @@ const PC_LOADING_MSG = {
   rollback: "검수 결과를 되돌리고 있습니다. 완료될 때까지 잠시 기다려주세요.",
 } as const;
 
-function Red({ children }: { children: React.ReactNode }) {
-  return <span className="font-semibold text-red-600">{children}</span>;
+// 상태창 문장 내부 강조 — 라인 개설 상태창과 동일한 역할별 색 SoT(statusTokenClass)를 쓴다.
+//   모든 강조를 빨강 하나로 칠하지 않는다: 날짜·주차=로즈 / 팀=블루 / 완료=초록 / 진행=앰버.
+//   상태 판정 로직·문구·배지·API/DTO 는 무관(표시 계층 전용).
+function Tok({ kind, children }: { kind: StatusTokenKind; children: React.ReactNode }) {
+  return <span className={statusTokenClass(kind)}>{children}</span>;
 }
 
 // 어드민 공통 섹션 타이틀 — 모든 허브(info/experience/competency/club)가 공유.
@@ -409,12 +414,13 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
           </CardHeader>
           <CardContent className="text-sm">
             {/* 상태 문장 = /admin/line-opening 과 동일한 공용 bullet 목록(StatusList). 문장별 박스
-                (rounded-md border bg-*) 제거 — 상태 구분은 bullet 색만, 핵심 텍스트만 <Red> 강조. */}
+                (rounded-md border bg-*) 제거 — bullet 은 목록 구분(중립)만, 강조는 역할별 색 토큰(Tok)으로
+                라인 개설 상태창과 동일하게(날짜·주차=로즈/팀=블루/완료=초록/진행=앰버). 빨강 단일 강조 폐지. */}
             <StatusList>
               {/* 오늘 + 이번 주 (정보성 → neutral bullet) */}
               <StatusListItem tone="neutral">
-                오늘은 <Red>{formatCheckTodayCompact(today)}</Red>
-                이며, 이번 주는 [<Red>{periodLabel}</Red>] 입니다. (월 ~ 일)
+                오늘은 <Tok kind="date">{formatCheckTodayCompact(today)}</Tok>
+                이며, 이번 주는 [<Tok kind="date">{periodLabel}</Tok>] 입니다. (월 ~ 일)
               </StatusListItem>
               {teamMode ? (
                 teams.length === 0 ? (
@@ -429,15 +435,15 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                       key={tm.teamId}
                       tone={tm.isAllCompleted ? "positive" : "warning"}
                     >
-                      이번 주 [<Red>{periodLabel}</Red>] <Red>{tm.teamName}</Red> 팀의 [{hubLabel} 급]
+                      이번 주 [<Tok kind="date">{periodLabel}</Tok>] <Tok kind="team">{tm.teamName}</Tok> 팀의 [{hubLabel} 급]
                       프로세스 액트가{" "}
                       {tm.isAllCompleted ? (
                         <>
-                          모두 ‘<Red>체크 완료</Red>’ 되었습니다.
+                          모두 ‘<Tok kind="openDone">체크 완료</Tok>’ 되었습니다.
                         </>
                       ) : (
                         <>
-                          ‘<Red>체크 중</Red>’ 에 있습니다.
+                          ‘<Tok kind="openNeed">체크 중</Tok>’ 에 있습니다.
                         </>
                       )}
                     </StatusListItem>
@@ -445,14 +451,14 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                 )
               ) : (
                 <StatusListItem tone={summary.isAllCompleted ? "positive" : "warning"}>
-                  이번 주 [<Red>{periodLabel}</Red>] [{hubLabel} 급] 프로세스 액트가{" "}
+                  이번 주 [<Tok kind="date">{periodLabel}</Tok>] [{hubLabel} 급] 프로세스 액트가{" "}
                   {summary.isAllCompleted ? (
                     <>
-                      모두 ‘<Red>체크 완료</Red>’ 되었습니다.
+                      모두 ‘<Tok kind="openDone">체크 완료</Tok>’ 되었습니다.
                     </>
                   ) : (
                     <>
-                      ‘<Red>체크 중</Red>’ 에 있습니다.
+                      ‘<Tok kind="openNeed">체크 중</Tok>’ 에 있습니다.
                     </>
                   )}
                 </StatusListItem>

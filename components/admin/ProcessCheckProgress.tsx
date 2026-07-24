@@ -6,13 +6,20 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import { statusTokenClass } from "@/components/admin/lineOpeningStatusUi";
 import type {
   ProcessCheckLineGroupDto,
   ProcessCheckSummary,
 } from "@/lib/adminProcessCheckTypes";
 
-function Red({ children }: { children: React.ReactNode }) {
-  return <span className="font-semibold text-red-600">{children}</span>;
+// 진행 현황 강조 — 전부 빨강(<Red>) 단일 강조 폐지. 역할 구분:
+//   분모(전체 개수) = 정보성 → 색 없이 굵게만 / 신청 완료 개수 = 초록(statusTokenClass "crewOk").
+//   라인 개설·프로세스 체크 상태창과 동일한 색 SoT. 표시 계층 전용(summary 계산 무변).
+function Total({ children }: { children: React.ReactNode }) {
+  return <span className="font-semibold text-foreground">{children}</span>;
+}
+function Done({ children }: { children: React.ReactNode }) {
+  return <span className={statusTokenClass("crewOk")}>{children}</span>;
 }
 
 export default function ProcessCheckProgress({
@@ -40,8 +47,8 @@ export default function ProcessCheckProgress({
       <CardContent className="space-y-5">
         <div className="space-y-2">
           <p className="text-sm">
-            이번 주 체크 필요 [라인 급] 프로세스 <Red>{summary.lineGroupTotal}</Red>개 중{" "}
-            <Red>{summary.lineGroupApplied}</Red>개 체크 신청 완료
+            이번 주 체크 필요 [라인 급] 프로세스 <Total>{summary.lineGroupTotal}</Total>개 중{" "}
+            <Done>{summary.lineGroupApplied}</Done>개 체크 신청 완료
           </p>
           {lineGroups.length === 0 ? (
             <p className="text-sm text-muted-foreground">체크 대상 라인급이 없습니다.</p>
@@ -66,8 +73,8 @@ export default function ProcessCheckProgress({
         </div>
         <div className="space-y-1 border-t border-border pt-4">
           <p className="text-sm">
-            이번 주 체크 필요 [액트] 프로세스 <Red>{summary.actTotal}</Red>개 중{" "}
-            <Red>{summary.actApplied}</Red>개 체크 신청 완료
+            이번 주 체크 필요 [액트] 프로세스 <Total>{summary.actTotal}</Total>개 중{" "}
+            <Done>{summary.actApplied}</Done>개 체크 신청 완료
           </p>
         </div>
       </CardContent>
