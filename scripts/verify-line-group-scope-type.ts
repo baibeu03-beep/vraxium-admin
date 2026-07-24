@@ -112,7 +112,7 @@ void (async () => {
 
     // ── D. 주차 상세 카드 파트 펼침 (/admin/team-parts/info/weeks/[weekId]) ────
     if (weekId) {
-      const detail = await loadTeamPartsInfoActCheckManagement(weekId, ORG as OrganizationSlug, MODE);
+      const detail = await loadTeamPartsInfoActCheckManagement({ weekId, organization: ORG as OrganizationSlug, mode: MODE });
       const team = detail.practicalExperience.teams.find((t) => t.teamId === TEAM_ID);
       const partLine = team?.lines.find((l) => l.lineId === gPart.id);
       const teamLine = team?.lines.find((l) => l.lineId === gTeam.id);
