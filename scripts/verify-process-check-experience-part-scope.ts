@@ -141,8 +141,8 @@ async function main() {
   ck("[드롭다운] HTTP teamParts == 실제 팀 파트(direct)", J([...bAll.teamParts].sort()) === J([...parts].sort()), J(bAll.teamParts));
   ck("[드롭다운] 파트 라인급 미등록이어도 실제 파트 노출", bAll.teamParts.includes(P1) && bAll.teamParts.includes(P2));
 
-  // ── 2. 팀 전체(team_all) = 총괄+파트 액트 모두 · 읽기 전용 ──
-  ck("[팀 전체] 총괄+파트 액트 모두 포함", !!findAct(bAll, O1!.id) && !!findAct(bAll, PA!.id));
+  // ── 2. 팀 종합(team_all) = 총괄+파트 액트 모두 · 읽기 전용 ──
+  ck("[팀 종합] 총괄+파트 액트 모두 포함", !!findAct(bAll, O1!.id) && !!findAct(bAll, PA!.id));
 
   // ── 3. 팀 총괄(team_overall) = 파트 아닌 액트만 ──
   const bOverall = (await board(team.id, "team_overall")).json.data;
@@ -153,7 +153,7 @@ async function main() {
   ck(`[파트 ${P1}] 파트액트만(총괄액트 제외)`, !!findAct(bPart1, PA!.id) && !findAct(bPart1, O1!.id));
   ck(`[파트 ${P1}] selectedPart 크루 수 노출`, !!bPart1.selectedPart && bPart1.selectedPart.name === P1 && bPart1.selectedPart.crewCount > 0, J(bPart1.selectedPart));
 
-  // ── 4b. "팀 & 파트" 컬럼(partLabel) — "팀 전체"는 값으로 안 씀 ──
+  // ── 4b. "파트 구분" 컬럼(partLabel) — "팀 종합"은 값으로 안 씀 ──
   const allRows = (b: any, id: string) => (b?.acts ?? []).filter((a: any) => a.actId === id);
   ck('[컬럼] team_all 총괄액트 partLabel="팀 총괄"', findAct(bAll, O1!.id)?.partLabel === "팀 총괄");
   const partRowsAll = allRows(bAll, PA!.id);
@@ -163,8 +163,8 @@ async function main() {
     J(partRowsAll.map((r: any) => r.partLabel)),
   );
   ck(
-    '[컬럼] team_all 어디에도 "팀 전체" 값 없음',
-    (bAll.acts ?? []).every((a: any) => a.partLabel !== "팀 전체"),
+    '[컬럼] team_all 어디에도 "팀 종합"/"팀 전체" 값 없음',
+    (bAll.acts ?? []).every((a: any) => a.partLabel !== "팀 종합" && a.partLabel !== "팀 전체"),
   );
   ck('[컬럼] team_overall 액트 partLabel="팀 총괄"', findAct(bOverall, O1!.id)?.partLabel === "팀 총괄");
   ck(`[컬럼] part(${P1}) 액트 partLabel=선택 파트명`, findAct(bPart1, PA!.id)?.partLabel === P1);

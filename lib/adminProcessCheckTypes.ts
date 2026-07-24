@@ -7,7 +7,12 @@
 //   - ⚠ user_weekly_points.points · 주차 성장 계산 · snapshot · checkGate 무접촉.
 //     포인트 부여/크롤링 연동(완료 트리거)은 후속 Phase — completed 저장 컬럼만 정의.
 
-import { PROCESS_HUB_LABEL, type ProcessActType, type ProcessHub } from "@/lib/adminProcessesTypes";
+import {
+  PROCESS_HUB_LABEL,
+  type ProcessActType,
+  type ProcessHub,
+  type ProcessLineGroupScope,
+} from "@/lib/adminProcessesTypes";
 import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
 import { formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
 import type { ScopeMode } from "@/lib/userScopeShared";
@@ -79,7 +84,7 @@ export function processCheckActStatusLabel(
 }
 
 // ── 팀·파트 스코프 (experience 섹션.1) ─────────────────────────────────────────
-//   team_all     = 팀 전체(팀 총괄 + 모든 파트 액트) — 읽기 전용(체크 신청/취소 불가).
+//   team_all     = 팀 종합(팀 총괄 + 모든 파트 액트) — 읽기 전용(체크 신청/취소 불가).
 //   team_overall = 팀 총괄(특정 파트에 속하지 않은 액트) — 체크 가능.
 //   part         = 특정 파트(소속 라인급명에 "파트" 포함) — 체크 가능(대상=그 파트 크루).
 // 정책(2026-06-15): "파트 액트" = 소속 라인급(process_line_groups.name)에 "파트" 문자 포함.
@@ -303,8 +308,35 @@ export function deriveCommentCollectionStatus(input: {
 
 // ── DTO ──────────────────────────────────────────────────────────────────────
 // [섹션.1] 액트 목록 테이블 한 행 — 마스터(process_acts) + 체크 상태(현재값).
-// "팀 & 파트" 컬럼 값 — 팀 총괄 액트 = "팀 총괄" / 파트 액트 = 파트명. ("팀 전체"는 값이 아님)
+// "파트 구분" 컬럼 값 — 팀 총괄 액트 = "팀 총괄" / 파트 액트 = 파트명. ("팀 종합"은 값이 아님)
 export const TEAM_OVERALL_LABEL = "팀 총괄";
+// scope_type='PART' 인데 파트명이 비어있는 데이터 오류 표시(조용히 "팀 총괄"로 바꾸지 않는다).
+export const PART_UNKNOWN_LABEL = "파트 미확인";
+
+// 파트명 표시 포맷 — 이미 "파트"로 끝나면 그대로, 아니면 " 파트"를 붙인다(중복 "파트 파트" 방지).
+//   예) "푸드" → "푸드 파트" · "촛불" → "촛불 파트" · "푸드 파트" → "푸드 파트".
+//   저장값(part_name)에 임의 접미 규칙을 부여하지 않고 표시 단계에서만 정규화(로그/컬럼 공용).
+export function formatPartName(partName: string | null | undefined): string {
+  const t = (partName ?? "").trim();
+  if (!t) return "";
+  return t.endsWith("파트") ? t : `${t} 파트`;
+}
+
+// 로그 범위 표시 판정(단일 SoT) — scopeType + partName 으로 {kind,label} 산출.
+//   TEAM                → 팀 총괄 · PART+파트명 → 실제 파트명 · PART+파트명없음 → 파트 미확인(데이터 오류).
+//   scopeType 이 null(비팀 허브) 이면 kind='none'(범위 세그먼트 미표시).
+export type LogScopeKind = "team" | "part" | "missing" | "none";
+export function resolveLogScopeDisplay(
+  scopeType: ProcessLineGroupScope | null | undefined,
+  partName: string | null | undefined,
+): { kind: LogScopeKind; label: string } {
+  if (scopeType == null) return { kind: "none", label: "" };
+  if (scopeType === "PART") {
+    const p = formatPartName(partName);
+    return p ? { kind: "part", label: p } : { kind: "missing", label: PART_UNKNOWN_LABEL };
+  }
+  return { kind: "team", label: TEAM_OVERALL_LABEL };
+}
 
 // 체크 완료 크루 1명 — 검수 링크/수동 입력 팝업의 "체크 완료" 상태 명단(이름·팀·파트·클래스).
 //   출처 = process_check_review_recipients(matched) → user_profiles(이름·role) + user_memberships
@@ -322,7 +354,7 @@ export type ProcessCheckActRowDto = {
   actId: string;
   lineGroupId: string;
   lineGroupName: string;
-  // 이 행의 실제 소속 인덱스(컬럼 "팀 & 파트") — "팀 총괄" 또는 파트명. 팀 전체 보기는 행마다 실제 값.
+  // 이 행의 실제 소속 인덱스(컬럼 "파트 구분") — "팀 총괄" 또는 파트명. 팀 종합 보기는 행마다 실제 값.
   partLabel: string;
   actName: string;
   durationMinutes: number;
@@ -415,6 +447,9 @@ export type ProcessCheckLogDto = {
   action: ProcessCheckLogAction;
   periodLabel: string;
   teamName: string | null; // 팀 구분 허브(experience)만 채움 — 그 외 null(팀 세그먼트 생략)
+  // 범위 SoT(라인급 scope_type denorm·frozen) — 'TEAM'(팀 총괄) | 'PART'(파트 전용) | null(비팀 허브).
+  //   표시 범위(팀 총괄 vs 파트)는 이 값으로 판정한다(part_name 유무 유추 대체). 마이그 미적용 시 폴백 파생.
+  scopeType: ProcessLineGroupScope | null;
   partName: string | null; // 파트 스코프 체크(experience)만 채움 — 그 외 null(파트 세그먼트 생략)
   lineGroupName: string;
   actName: string;
@@ -446,8 +481,8 @@ export const PROCESS_CHECK_HELP_KEYS = {
   sectionStatusBoard: "admin.processCheck.section.statusBoard",
   sectionLogBoard: "admin.processCheck.section.logBoard",
   filterWeek: "admin.processCheck.filter.week",
-  // 「팀 전체 & 파트 개별」 카드(experience) 제목 도움말 — 기존 범위 선택 도움말 경로를
-  //   재사용(팀 전체/팀 총괄/파트 스코프 선택을 동일하게 설명). 리터럴을 컴포넌트에 중복하지 않도록 여기서 관리.
+  // 「팀 종합 & 파트 개별」 카드(experience) 제목 도움말 — 기존 범위 선택 도움말 경로를
+  //   재사용(팀 종합/팀 총괄/파트 스코프 선택을 동일하게 설명). 리터럴을 컴포넌트에 중복하지 않도록 여기서 관리.
   teamPartScope: "admin.processCheck.manager.filter.scope",
   progressSummary: "admin.processCheck.progress.summary",
   statNeeded: "admin.processCheck.stat.needed",

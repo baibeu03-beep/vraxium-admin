@@ -136,9 +136,9 @@ export default function ProcessCheckActTable({
   weekDisabled: boolean;
   // po.A/B/C 표시명을 조직별로 치환하기 위한 현재 조직 slug(?org). 없으면 중립 표기.
   orgSlug?: string | null;
-  // 읽기 전용(팀 전체 스코프) — 상태를 버튼이 아닌 비클릭 배지로 표시(체크 신청/취소 불가).
+  // 읽기 전용(팀 종합 스코프) — 상태를 버튼이 아닌 비클릭 배지로 표시(체크 신청/취소 불가).
   readOnly?: boolean;
-  // "팀 & 파트" 컬럼 표시(experience 만) — 행의 partLabel("팀 총괄"/파트명) 노출.
+  // "파트 구분" 컬럼 표시(experience 만) — 행의 partLabel("팀 총괄"/파트명) 노출.
   showScopeColumn?: boolean;
   onOpenAct: (act: ProcessCheckActRowDto) => void;
   // QA '자동 검수'(행 단위) — '체크 대기' 행을 지금 즉시 검수. 미전달이면 버튼 미노출.
@@ -251,7 +251,7 @@ export default function ProcessCheckActTable({
               <TableHeader>
                 <TableRow>
                   {/* 전체 1~4열 고정: 신청 시점(필요) · 검수 시점(필요) · 상태 · 수동 실행.
-                      팀 & 파트(experience)·나머지 열은 그 뒤로. 정렬키/도움말/액션 동작 불변. */}
+                      파트 구분(experience)·나머지 열은 그 뒤로. 정렬키/도움말/액션 동작 불변. */}
                   {renderHead({
                     label: "신청 시점(필요)",
                     helpKey: "admin.processCheck.actTable.column.applyTimeRequired",
@@ -275,7 +275,7 @@ export default function ProcessCheckActTable({
                     })}
                   {showScopeColumn &&
                     renderHead({
-                      label: "팀 & 파트",
+                      label: "파트 구분",
                       helpKey: "admin.processCheck.actTable.column.teamPart",
                       sortKey: "partLabel",
                     })}
@@ -359,12 +359,12 @@ export default function ProcessCheckActTable({
                       ) : a.isCheckTarget ? (
                         <div className="inline-flex flex-col items-center gap-0.5">
                           {readOnly ? (
-                            // 팀 전체 스코프 — 읽기 전용 배지(클릭 불가).
+                            // 팀 종합 스코프 — 읽기 전용 배지(클릭 불가).
                             <StatusBadge
                               label={processCheckActStatusLabel(a.status, a.completionType)}
                               size="sm"
                               className="opacity-70"
-                              title="‘팀 전체’ 범위는 읽기 전용입니다. 팀 총괄/파트를 선택하면 체크할 수 있습니다."
+                              title="‘팀 종합’은 읽기 전용입니다. 팀 총괄 또는 파트를 선택하면 체크할 수 있습니다."
                             />
                           ) : (
                             <StatusBadge
@@ -425,7 +425,7 @@ export default function ProcessCheckActTable({
                         )}
                       </TableCell>
                     )}
-                    {/* 5열~ 팀 & 파트(experience) · 나머지 열. */}
+                    {/* 5열~ 파트 구분(experience) · 나머지 열. */}
                     {showScopeColumn && (
                       <TableCell className="whitespace-nowrap font-medium text-muted-foreground">
                         {a.partLabel}

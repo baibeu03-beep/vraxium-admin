@@ -15,10 +15,12 @@ import {
   PROCESS_HUB_LABEL,
   enforcePointC,
   formatProcessWhen,
+  isProcessLineGroupScope,
   isProcessPoint,
   type ProcessActType,
   type ProcessCafe,
   type ProcessHub,
+  type ProcessLineGroupScope,
   type ProcessWeekRef,
 } from "@/lib/adminProcessesTypes";
 import { resolveUserScope, assertUserIdsInScope } from "@/lib/userScope";
@@ -118,6 +120,26 @@ function isPartColumnMissing(error: { code?: string } | null): boolean {
   return code === "42703" || code === "PGRST204" || code === "PGRST205";
 }
 
+// ── 라인급 파트 전용 여부 = 저장된 scope_type SoT (라인급명 추론 대체) ──────────────
+//   process_line_groups.scope_type 컬럼 존재 여부 프로브(1회 캐시). 마이그(2026-07-24) 미적용 시 폴백.
+let _lgScopeColAvail: boolean | null = null;
+async function lineGroupScopeColumnAvailable(): Promise<boolean> {
+  if (_lgScopeColAvail !== null) return _lgScopeColAvail;
+  const { error } = await supabaseAdmin
+    .from("process_line_groups")
+    .select("scope_type")
+    .limit(1);
+  _lgScopeColAvail = !(error && (error.code === "42703" || error.code === "PGRST204"));
+  return _lgScopeColAvail;
+}
+
+// 파트 전용 여부 단일 판정 — 저장된 scope_type 우선. 미존재(pre-migration)면 이름 매칭으로만 폴백한다
+//   (백필과 동일 규칙: experience+이름"파트"→PART). ⚠ 마이그 적용 후에는 저장값만 사용(이름 미참조).
+function groupIsPartScope(scopeRaw: string | null | undefined, name: string): boolean {
+  if (isProcessLineGroupScope(scopeRaw)) return scopeRaw === "PART";
+  return isPartLineGroupName(name);
+}
+
 // process_check_logs.action CHECK 제약 위반(23514 + action 제약명) — 신규 액션값 미확장 신호.
 //   check_rolled_back 이 구 CHECK(3값) 에 걸릴 때 check_cancelled 폴백 판정에 쓴다.
 function isActionCheckConstraint(error: { code?: string; message?: string } | null): boolean {
@@ -141,6 +163,27 @@ async function partNameColumnAvailable(): Promise<boolean> {
 
 const PART_MIGRATION_HINT =
   "파트별 체크는 part_name 컬럼(v4)이 필요합니다. db/migrations/2026-06-15_process_check_v4_part_scope.sql 을 SQL Editor 에서 적용해주세요.";
+
+// process_check_logs.scope_type(범위 denorm) 컬럼 적용 여부 — true 만 캐시(적용 후 영구).
+//   미적용이면 로그 write 시 scope_type 을 생략(insert 성공 유지)하고, read 는 part_name 유무로 폴백 파생한다.
+let _logScopeColAvailable = false;
+async function checkLogScopeColumnAvailable(): Promise<boolean> {
+  if (_logScopeColAvailable) return true;
+  const { error } = await supabaseAdmin.from("process_check_logs").select("scope_type").limit(1);
+  if (!error) {
+    _logScopeColAvailable = true;
+    return true;
+  }
+  if (isPartColumnMissing(error)) return false;
+  return true; // 다른 에러(권한 등)면 있다고 보고 진행(실제 쿼리에서 표면화).
+}
+
+// 로그 범위(scope_type) denorm 값 파생 — 저장 시점 판정용 단일 helper.
+//   비팀 허브(teamId 없음) → null(범위 개념 없음). 팀 허브 → 라인급 파트 여부(isPart)로 'PART'|'TEAM'.
+function logScopeTypeFor(teamId: string | null, isPart: boolean): ProcessLineGroupScope | null {
+  if (!teamId) return null;
+  return isPart ? "PART" : "TEAM";
+}
 
 // completion_type/manual_point_* 컬럼(수동 부여) 적용 여부 — true 만 캐시(적용 후 영구).
 //   미적용이면 read 는 completion 미구분(degrade), 수동 부여 write 는 fail-closed(아래 힌트).
@@ -468,7 +511,7 @@ async function resolveWriteWeek(
 }
 
 // ── 마스터(활성) 읽기 ─────────────────────────────────────────────────────────
-type LineGroupRow = { id: string; name: string; sort_order: number };
+type LineGroupRow = { id: string; name: string; sort_order: number; scope_type?: string | null };
 type ActRow = {
   id: string;
   line_group_id: string;
@@ -490,10 +533,11 @@ type ActRow = {
 };
 
 async function loadActiveMaster(hub: ProcessHub): Promise<{ groups: LineGroupRow[]; acts: ActRow[] }> {
+  const scopeAvail = await lineGroupScopeColumnAvailable();
   const [{ data: groupData, error: gErr }, { data: actData, error: aErr }] = await Promise.all([
     supabaseAdmin
       .from("process_line_groups")
-      .select("id,name,sort_order")
+      .select(scopeAvail ? "id,name,sort_order,scope_type" : "id,name,sort_order")
       .eq("hub", hub)
       .eq("is_active", true)
       .order("sort_order", { ascending: true })
@@ -811,12 +855,13 @@ async function computeTeamAllCompleted(params: {
   mode: ScopeMode;
   acts: ActRow[];
   groupNameById: Map<string, string>;
+  groupScopeById: Map<string, string | null | undefined>;
   timeline: ActOpenTimeline;
   weekStart: string | null;
   partAvail: boolean;
   completionAvail: boolean;
 }): Promise<boolean> {
-  const { hub, organization, weekId, team, mode, acts, groupNameById, timeline, weekStart, partAvail, completionAvail } = params;
+  const { hub, organization, weekId, team, mode, acts, groupNameById, groupScopeById, timeline, weekStart, partAvail, completionAvail } = params;
   const [teamParts, rows] = await Promise.all([
     listTeamParts(organization, team.teamName, mode),
     loadStatusRows(organization, hub, weekId, team.teamId, partAvail, completionAvail),
@@ -841,7 +886,7 @@ async function computeTeamAllCompleted(params: {
     });
     if (!isActOpenAtTime({ hub, timeline, occurMs, lineGroupId: a.line_group_id, teamId: team.teamId })) continue;
     const groupName = groupNameById.get(a.line_group_id) ?? "-";
-    if (isPartLineGroupName(groupName)) {
+    if (groupIsPartScope(groupScopeById.get(a.line_group_id), groupName)) {
       if (teamParts.length === 0) { total++; continue; } // 파트(미배정) 1행 = NEEDED(미완료)
       for (const part of teamParts) {
         total++;
@@ -953,19 +998,24 @@ export async function getProcessCheckBoard(
       m.set(r.partName, r.state);
     }
   }
-  // 스코프별 액트 필터(표시 대상).
-  const inScope = (lineGroupName: string): boolean => {
-    if (effScope === "team_overall") return !isPartLineGroupName(lineGroupName);
-    if (effScope === "part") return isPartLineGroupName(lineGroupName);
-    return true; // team_all · 비팀(info)/섹션.0 → 전체
-  };
-
   const groupNameById = new Map<string, string>();
+  const groupScopeById = new Map<string, string | null | undefined>();
   const groupSort = new Map<string, number>();
   for (const g of groups) {
     groupNameById.set(g.id, g.name);
+    groupScopeById.set(g.id, g.scope_type);
     groupSort.set(g.id, g.sort_order);
   }
+  // 파트 전용 여부 = 저장된 scope_type SoT(라인급명 추론 대체·미적용 스키마만 이름 폴백).
+  const groupIsPart = (lineGroupId: string): boolean =>
+    groupIsPartScope(groupScopeById.get(lineGroupId), groupNameById.get(lineGroupId) ?? "");
+
+  // 스코프별 액트 필터(표시 대상).
+  const inScope = (lineGroupId: string): boolean => {
+    if (effScope === "team_overall") return !groupIsPart(lineGroupId);
+    if (effScope === "part") return groupIsPart(lineGroupId);
+    return true; // team_all · 비팀(info)/섹션.0 → 전체
+  };
 
   // 상태창1(팀별) 완료 판정 — 하드코딩 false 제거. 실제 체크 데이터로 팀마다 산정(summary 와 동일 SoT).
   //   teamBased 이고 가동 주차일 때만. 미가동/비체크 대상/타 팀/타 주차는 술어에서 자동 제외된다.
@@ -982,6 +1032,7 @@ export async function getProcessCheckBoard(
           mode,
           acts,
           groupNameById,
+          groupScopeById,
           timeline,
           weekStart: boardWeekStart,
           partAvail: partColAvail,
@@ -1061,13 +1112,13 @@ export async function getProcessCheckBoard(
     };
   };
 
-  // 행 생성 — partLabel("팀 총괄"/파트명) 부여. 팀 전체(team_all)의 파트 액트는 팀 파트마다 1행으로 펼친다
-  //   (액트가 특정 파트에 묶이지 않으므로, 각 파트의 독립 상태를 그대로 노출 — "팀 전체"는 값으로 안 씀).
+  // 행 생성 — partLabel("팀 총괄"/파트명) 부여. 팀 종합(team_all)의 파트 액트는 팀 파트마다 1행으로 펼친다
+  //   (액트가 특정 파트에 묶이지 않으므로, 각 파트의 독립 상태를 그대로 노출 — "팀 종합"은 값으로 안 씀).
   const flatActs: ProcessCheckActRowDto[] = [];
   for (const a of sortedActs) {
     const lineGroupName = groupNameById.get(a.line_group_id) ?? "-";
-    if (!inScope(lineGroupName)) continue;
-    const isPart = isPartLineGroupName(lineGroupName);
+    if (!inScope(a.line_group_id)) continue;
+    const isPart = groupIsPart(a.line_group_id);
 
     if (effScope === "part") {
       // 선택 파트만 — partLabel = 선택 파트명, 상태 = 그 파트 행. 로스터 = 그 파트 소속자.
@@ -1076,7 +1127,7 @@ export async function getProcessCheckBoard(
       // 팀 총괄 — 로스터 = 팀 전체 소속자(part=null).
       flatActs.push(buildRow(a, lineGroupName, nullMap.get(a.id) ?? NEEDED, TEAM_OVERALL_LABEL, null));
     } else if (effScope === "team_all" && isPart) {
-      // 팀 전체 — 파트 액트는 팀 파트마다 펼침(각 파트 독립 상태·로스터). 파트 없으면 1행(미배정).
+      // 팀 종합 — 파트 액트는 팀 파트마다 펼침(각 파트 독립 상태·로스터). 파트 없으면 1행(미배정).
       if (teamParts.length === 0) {
         flatActs.push(buildRow(a, lineGroupName, NEEDED, "파트(미배정)", null));
       } else {
@@ -1160,6 +1211,7 @@ type LogRow = {
   period_label: string;
   team_name?: string | null; // v3 미적용 fallback select 시 미포함
   part_name?: string | null; // v4 미적용 fallback select 시 미포함
+  scope_type?: string | null; // scope_type 마이그(2026-07-24) 미적용 fallback select 시 미포함
   line_group_name: string;
   act_name: string;
   actor_name: string;
@@ -1175,13 +1227,16 @@ export async function listProcessCheckLogs(
 ): Promise<ProcessCheckLogDto[]> {
   const cap = Math.min(Math.max(limit, 1), 500);
   const BASE = "id,action,period_label,line_group_name,act_name,actor_name,created_at";
+  // 범위(scope_type) 컬럼 적용 시 team 세그먼트에 함께 포함(팀명 있는 로그만 의미). 미적용이면 생략(폴백 파생).
+  const scopeAvail = await checkLogScopeColumnAvailable();
+  const scopeSeg = scopeAvail ? "scope_type," : "";
   // tier: 2=team_name+part_name(v4) · 1=team_name(v3) · 0=none(v2). 상위 실패(42703)면 하위로.
   const run = (tier: number) => {
     const sel =
       tier >= 2
-        ? `id,action,period_label,team_name,part_name,${BASE.slice(BASE.indexOf("line_group_name"))}`
+        ? `id,action,period_label,team_name,${scopeSeg}part_name,${BASE.slice(BASE.indexOf("line_group_name"))}`
         : tier === 1
-          ? `id,action,period_label,team_name,${BASE.slice(BASE.indexOf("line_group_name"))}`
+          ? `id,action,period_label,team_name,${scopeSeg}${BASE.slice(BASE.indexOf("line_group_name"))}`
           : BASE;
     let q = supabaseAdmin
       .from("process_check_logs")
@@ -1205,6 +1260,8 @@ export async function listProcessCheckLogs(
     action: r.action as ProcessCheckLogAction,
     periodLabel: r.period_label,
     teamName: r.team_name ?? null, // 팀 구분 허브(experience)만 채워짐 — info 등은 null
+    // 범위 SoT — 저장된 scope_type 우선. 미적용(폴백) 시 팀명 있는 로그만 part_name 유무로 파생.
+    scopeType: deriveLogRowScopeType(r),
     partName: r.part_name ?? null, // 파트 스코프 체크만 채워짐 — 팀 총괄/info 등은 null
     lineGroupName: r.line_group_name,
     actName: r.act_name,
@@ -1212,6 +1269,15 @@ export async function listProcessCheckLogs(
     createdAt: r.created_at,
   }));
   return rows.reverse(); // 위=과거, 아래=최신
+}
+
+// 로그 행의 범위(scope_type) 판정 — 저장값 우선. 미적용(컬럼 부재) 시 팀명 있는 로그만 part_name 유무로 파생.
+//   비팀 허브(팀명 없음)는 항상 null(범위 세그먼트 없음). read 폴백은 표시 연속성 목적(파트 미확인 감지는 저장값만).
+function deriveLogRowScopeType(r: LogRow): ProcessLineGroupScope | null {
+  if (isProcessLineGroupScope(r.scope_type)) return r.scope_type;
+  const team = (r.team_name ?? "").trim();
+  if (!team) return null;
+  return (r.part_name ?? null) != null ? "PART" : "TEAM";
 }
 
 // ── 액션 (체크 신청 / 취소) ───────────────────────────────────────────────────
@@ -1293,12 +1359,18 @@ export async function applyProcessCheckAction(input: {
   if (!act.is_active) throw new ProcessMasterError(409, "비활성 액트는 체크할 수 없습니다");
   if (act.check_target !== "check") throw new ProcessMasterError(409, "체크 대상이 아닌 액트입니다");
 
+  const lgScopeAvail = await lineGroupScopeColumnAvailable();
   const { data: groupData } = await supabaseAdmin
     .from("process_line_groups")
-    .select("name")
+    .select(lgScopeAvail ? "name,scope_type" : "name")
     .eq("id", act.line_group_id)
     .maybeSingle();
   const lineGroupName = (groupData as { name: string } | null)?.name ?? "-";
+  // 파트 전용 여부 = 저장된 scope_type SoT(미적용 스키마만 이름 폴백).
+  const actIsPart = groupIsPartScope(
+    (groupData as { scope_type?: string | null } | null)?.scope_type,
+    lineGroupName,
+  );
 
   // 이번 주 가동 여부(오픈 설정 SoT) — 활동 관리·보드와 동일 판정 함수(isActOpenAtTime). 미가동 액트는
   //   체크 신청 불가(서버 강제 — 프론트 숨김에 의존하지 않는다). mode 로 분기하지 않는다.
@@ -1337,10 +1409,9 @@ export async function applyProcessCheckAction(input: {
       throw new ProcessMasterError(422, "체크 범위(scope: team_overall|part)가 필요합니다");
     }
     if (!isCheckableScope(scope)) {
-      // team_all = 팀 전체 = 읽기 전용.
-      throw new ProcessMasterError(422, "‘팀 전체’ 범위에서는 체크 신청/취소를 할 수 없습니다");
+      // team_all = 팀 종합 = 읽기 전용.
+      throw new ProcessMasterError(422, "‘팀 종합’에서는 체크 신청/취소를 할 수 없습니다");
     }
-    const actIsPart = isPartLineGroupName(lineGroupName);
     if (scope === "team_overall") {
       if (actIsPart) {
         throw new ProcessMasterError(422, "팀 총괄 범위에서는 파트 액트를 체크할 수 없습니다");
@@ -1486,6 +1557,8 @@ export async function applyProcessCheckAction(input: {
     teamId,
     teamName,
     partName: teamBased ? partNameToStore : null,
+    // 범위 SoT = 라인급 scope_type(actIsPart) — 팀 허브만. 비팀 허브는 null(범위 세그먼트 없음).
+    scopeType: logScopeTypeFor(teamBased ? teamId : null, actIsPart),
     actId,
     lineGroupId: act.line_group_id,
     action: logAction,
@@ -1565,6 +1638,9 @@ async function insertProcessCheckLog(input: {
   teamId: string | null;
   teamName: string | null;
   partName: string | null;
+  // 범위 SoT(라인급 scope_type denorm) — 'TEAM'|'PART'(팀 허브) · null(비팀 허브·미판정).
+  //   part_name 유무 유추 대신 저장된 값으로 로그 범위를 구분한다(명세 §4). 컬럼 미적용 시 write 에서 생략.
+  scopeType: ProcessLineGroupScope | null;
   actId: string;
   lineGroupId: string;
   action: ProcessCheckLogAction;
@@ -1590,12 +1666,17 @@ async function insertProcessCheckLog(input: {
       if (dn) actorName = dn;
     }
 
+    // 범위(scope_type) denorm — 컬럼 적용 + 팀 허브(teamId) + 값 존재 시에만 기입. 그 외 생략(비팀 허브 NULL).
+    const scopeAvail = await checkLogScopeColumnAvailable();
+    const scopeField: { scope_type?: ProcessLineGroupScope } =
+      scopeAvail && input.teamId && input.scopeType ? { scope_type: input.scopeType } : {};
     const baseFields = {
       organization_slug: input.organization,
       hub: input.hub,
       week_id: input.weekId,
       // 팀 구분 허브만 team 필드 기입(info 등은 컬럼 미참조 — v3 무관·로그 회귀 방지).
       ...(input.teamId || input.teamName ? { team_id: input.teamId, team_name: input.teamName } : {}),
+      ...scopeField,
       act_id: input.actId,
       line_group_id: input.lineGroupId,
       period_label: input.periodLabel,
@@ -1654,6 +1735,8 @@ type RegularLogContext = {
   teamId: string | null;
   teamName: string | null;
   partName: string | null;
+  // 범위 SoT(라인급 scope_type) — 완료/실행취소 로그도 신청 로그와 동일 범위를 각인한다.
+  scopeType: ProcessLineGroupScope | null;
   actId: string;
   lineGroupId: string;
   periodLabel: string;
@@ -1739,6 +1822,22 @@ async function resolveRegularLogContext(statusRowId: string): Promise<RegularLog
 
   const teamName = teamId ? await resolveTeamName(teamId, r.organization_slug) : null;
 
+  // 범위 SoT — 팀 허브만. 라인급 scope_type(저장값 우선·미적용 스키마는 이름 폴백)로 판정.
+  //   완료/실행취소 로그가 신청 로그와 동일 범위를 각인하도록 여기서 확정한다(part_name 유추 대체).
+  let scopeType: ProcessLineGroupScope | null = null;
+  if (teamId) {
+    let scopeRaw: string | null | undefined;
+    if (lineGroupId && (await lineGroupScopeColumnAvailable())) {
+      const { data: g } = await supabaseAdmin
+        .from("process_line_groups")
+        .select("scope_type")
+        .eq("id", lineGroupId)
+        .maybeSingle();
+      scopeRaw = (g as { scope_type?: string | null } | null)?.scope_type;
+    }
+    scopeType = groupIsPartScope(scopeRaw, lineGroupName) ? "PART" : "TEAM";
+  }
+
   return {
     organization: r.organization_slug,
     hub,
@@ -1746,6 +1845,7 @@ async function resolveRegularLogContext(statusRowId: string): Promise<RegularLog
     teamId,
     teamName,
     partName,
+    scopeType,
     actId: r.act_id,
     lineGroupId,
     periodLabel,
@@ -1804,6 +1904,7 @@ export async function logProcessCheckCompletedForRegular(
       teamId: ctx.teamId,
       teamName: ctx.teamName,
       partName: ctx.partName,
+      scopeType: ctx.scopeType,
       actId: ctx.actId,
       lineGroupId: ctx.lineGroupId,
       action: "check_completed",
@@ -1837,6 +1938,7 @@ export async function logProcessCheckRolledBackForRegular(
       teamId: ctx.teamId,
       teamName: ctx.teamName,
       partName: ctx.partName,
+      scopeType: ctx.scopeType,
       actId: ctx.actId,
       lineGroupId: ctx.lineGroupId,
       action: "check_rolled_back",
@@ -1936,12 +2038,18 @@ export async function applyProcessManualGrant(input: {
     throw new ProcessMasterError(422, "수동 부여는 ‘선별’ 액트에만 가능합니다");
   }
 
+  const lgScopeAvail = await lineGroupScopeColumnAvailable();
   const { data: groupData } = await supabaseAdmin
     .from("process_line_groups")
-    .select("name")
+    .select(lgScopeAvail ? "name,scope_type" : "name")
     .eq("id", act.line_group_id)
     .maybeSingle();
   const lineGroupName = (groupData as { name: string } | null)?.name ?? "-";
+  // 파트 전용 여부 = 저장된 scope_type SoT(미적용 스키마만 이름 폴백).
+  const actIsPart = groupIsPartScope(
+    (groupData as { scope_type?: string | null } | null)?.scope_type,
+    lineGroupName,
+  );
 
   // 이번 주 가동 여부(오픈 설정 SoT) — 미가동 액트는 수동 부여 불가(서버 강제). 보드·활동 관리와 동일 판정.
   //   재실행 정책: 액트 occur 시각에 유효한 config 버전으로 판정.
@@ -1972,9 +2080,8 @@ export async function applyProcessManualGrant(input: {
     const scopeKind = isProcessCheckScopeKind(input.scope) ? input.scope : null;
     if (!scopeKind) throw new ProcessMasterError(422, "체크 범위(scope: team_overall|part)가 필요합니다");
     if (!isCheckableScope(scopeKind)) {
-      throw new ProcessMasterError(422, "‘팀 전체’ 범위에서는 수동 부여를 할 수 없습니다");
+      throw new ProcessMasterError(422, "‘팀 종합’에서는 수동 부여를 할 수 없습니다");
     }
-    const actIsPart = isPartLineGroupName(lineGroupName);
     if (scopeKind === "team_overall") {
       if (actIsPart) throw new ProcessMasterError(422, "팀 총괄 범위에서는 파트 액트를 부여할 수 없습니다");
       partNameToStore = null;
@@ -2173,6 +2280,8 @@ export async function applyProcessManualGrant(input: {
       teamId,
       teamName,
       partName: teamBased ? partNameToStore : null,
+      // 범위 SoT = 라인급 scope_type(actIsPart) — 팀 허브만. 비팀 허브는 null.
+      scopeType: logScopeTypeFor(teamBased ? teamId : null, actIsPart),
       actId,
       lineGroupId: act.line_group_id,
       action: "check_completed",

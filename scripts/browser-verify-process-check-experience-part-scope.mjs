@@ -1,5 +1,5 @@
 // 브라우저 검증 — 실무 경험 체크 팀·파트 스코프(실제 팀 구조 기준) (2026-06-15 개정).
-//   드롭다운 파트 = 실제 팀 파트(user_memberships) · 스코프별 액트 필터 · 팀 전체=읽기전용 ·
+//   드롭다운 파트 = 실제 팀 파트(user_memberships) · 스코프별 액트 필터 · 팀 종합=읽기전용 ·
 //   (v4 적용 시) 파트별 독립 체크 클릭. seed 후 검증, net-zero. snapshot/points 무접촉.
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
@@ -83,10 +83,10 @@ try {
   const fnbTab = page.locator("button", { hasText: new RegExp(`^${TEAM_NAME} 팀$`) }).first();
   if (await fnbTab.count()) { await fnbTab.click(); await page.waitForTimeout(1200); }
 
-  const select = page.locator('select[aria-label="팀 & 파트 범위"]');
+  const select = page.locator('select[aria-label="파트 구분 범위"]');
   await select.waitFor({ timeout: 8000 });
   const optLabels = await select.locator("option").allTextContents();
-  ck("[드롭다운] 팀 전체/팀 총괄 옵션", optLabels.some((t) => t.includes("팀 전체")) && optLabels.some((t) => t.includes("팀 총괄")));
+  ck("[드롭다운] 팀 종합/팀 총괄 옵션", optLabels.some((t) => t.includes("팀 종합")) && optLabels.some((t) => t.includes("팀 총괄")));
   ck("[드롭다운] 실제 팀 파트(맛집/음식·트렌드) 노출", optLabels.some((t) => t.includes("맛집/음식")) && optLabels.some((t) => t.includes("트렌드")), J(optLabels));
 
   // 스코프 전환 후 로딩(불러오는 중…)이 끝나고 테이블이 안정될 때까지 대기.
@@ -107,7 +107,7 @@ try {
       return { rowCount: rows.length, buttons, badges };
     }, TAG);
 
-  // "팀 & 파트" 컬럼 값 추출(TAG 행 한정, 첫 셀).
+  // "파트 구분" 컬럼 값 추출(TAG 행 한정, 첫 셀).
   const scopeCol = async () =>
     page.evaluate((tag) =>
       [...document.querySelectorAll("table tbody tr")]
@@ -118,13 +118,13 @@ try {
   await select.selectOption("all");
   await settle();
   let m = await measure();
-  // 팀 전체 = 총괄액트 1 + 파트액트 펼침(맛집/음식·트렌드) 2 = 3행, 전부 읽기전용 배지.
-  ck("[팀 전체] TAG 액트 3행(총괄 + 파트 펼침)", m.rowCount === 3, J(m));
-  ck("[팀 전체] 읽기전용 배지(버튼 0)", m.buttons === 0 && m.badges === 3, J(m));
+  // 팀 종합 = 총괄액트 1 + 파트액트 펼침(맛집/음식·트렌드) 2 = 3행, 전부 읽기전용 배지.
+  ck("[팀 종합] TAG 액트 3행(총괄 + 파트 펼침)", m.rowCount === 3, J(m));
+  ck("[팀 종합] 읽기전용 배지(버튼 0)", m.buttons === 0 && m.badges === 3, J(m));
   const colAll = await scopeCol();
   ck(
-    '[컬럼] 팀 전체 "팀 & 파트" = 팀 총괄/맛집·음식/트렌드 · "팀 전체" 미출현',
-    colAll.includes("팀 총괄") && colAll.includes("맛집/음식") && colAll.includes("트렌드") && !colAll.includes("팀 전체"),
+    '[컬럼] 팀 종합 "파트 구분" = 팀 총괄/맛집·음식/트렌드 · "팀 종합" 미출현',
+    colAll.includes("팀 총괄") && colAll.includes("맛집/음식") && colAll.includes("트렌드") && !colAll.includes("팀 종합"),
     J(colAll),
   );
 
@@ -132,13 +132,13 @@ try {
   await settle();
   m = await measure();
   ck("[팀 총괄] TAG 액트 1행(총괄만)·체크 버튼", m.rowCount === 1 && m.buttons === 1, J(m));
-  ck('[컬럼] 팀 총괄 "팀 & 파트" = 팀 총괄', J(await scopeCol()) === J(["팀 총괄"]), J(await scopeCol()));
+  ck('[컬럼] 팀 총괄 "파트 구분" = 팀 총괄', J(await scopeCol()) === J(["팀 총괄"]), J(await scopeCol()));
 
   await select.selectOption("맛집/음식");
   await settle();
   m = await measure();
   ck("[파트 맛집/음식] TAG 액트 1행(파트만)·체크 버튼", m.rowCount === 1 && m.buttons === 1, J(m));
-  ck('[컬럼] 파트 "팀 & 파트" = 맛집/음식', J(await scopeCol()) === J(["맛집/음식"]), J(await scopeCol()));
+  ck('[컬럼] 파트 "파트 구분" = 맛집/음식', J(await scopeCol()) === J(["맛집/음식"]), J(await scopeCol()));
   const body = (await page.locator("body").textContent()) ?? "";
   ck("[상태창2] 스코프 라벨(맛집/음식) 노출", /맛집\/음식/.test(body));
 

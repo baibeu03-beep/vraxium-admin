@@ -50,13 +50,13 @@ try {
   ck("팀 탭 노출(비주얼랩(T))", (await tab.count()) > 0);
   if (await tab.count()) { await tab.first().click(); await page.waitForTimeout(900); }
 
-  // 팀 전체(읽기전용) 기본 — 액트 행 + "체크 대기" 배지 확인.
+  // 팀 종합(읽기전용) 기본 — 액트 행 + "체크 대기" 배지 확인.
   const rowAll = page.locator("tr", { hasText: ACT });
   ck("액트 행 노출([브리핑] 팀 시작)", (await rowAll.count()) > 0);
   ck("해당 행 '체크 대기' 표시", ((await rowAll.first().textContent()) ?? "").includes("체크 대기"));
 
   // 팀 총괄 스코프로 전환 → 액트 클릭 → 팝업 "검수 진단" 확인.
-  await page.selectOption('select[aria-label="팀 & 파트 범위"]', "overall");
+  await page.selectOption('select[aria-label="파트 구분 범위"]', "overall");
   await page.waitForTimeout(900);
   const row = page.locator("tr", { hasText: ACT });
   ck("[팀 총괄] 액트 행 노출", (await row.count()) > 0);

@@ -62,7 +62,7 @@ try {
   ck("[브라우저] 행이 '체크 완료' 표시(체크 대기 아님)", rowTxt.includes("체크 완료") && !rowTxt.includes("체크 대기"), rowTxt.replace(/\s+/g, " ").slice(0, 80));
 
   // 팀 총괄 → 액트 클릭 → 팝업 "체크 크루 수 0" + 진단.
-  await page.selectOption('select[aria-label="팀 & 파트 범위"]', "overall");
+  await page.selectOption('select[aria-label="파트 구분 범위"]', "overall");
   await page.waitForTimeout(900);
   const row = page.locator("tr", { hasText: ACT });
   const btn = row.first().getByRole("button", { name: "체크 완료" });

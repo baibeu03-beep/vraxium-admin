@@ -19,6 +19,7 @@ import { readOrgParam } from "@/lib/adminOrgContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import { formatLogDateTime } from "@/lib/practicalInfoSection0Format";
 import { PROCESS_HUB_LABEL, type ProcessHub } from "@/lib/adminProcessesTypes";
+import TeamScopeLabel from "@/components/admin/TeamScopeLabel";
 import ProcessCheckActDialog from "@/components/admin/ProcessCheckActDialog";
 import ProcessCheckActTable from "@/components/admin/ProcessCheckActTable";
 import ProcessCheckManualGrantDialog from "@/components/admin/ProcessCheckManualGrantDialog";
@@ -41,6 +42,7 @@ import {
 } from "@/lib/adminProcessCheckTypes";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import SectionHeading from "@/components/admin/SectionHeading";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { useToast } from "@/components/ui/toast";
@@ -56,7 +58,9 @@ function Red({ children }: { children: React.ReactNode }) {
 }
 
 // 어드민 공통 섹션 타이틀 — 모든 허브(info/experience/competency/club)가 공유.
-//   좌측 액센트 바로 섹션 경계를 명확히(디자인 톤 정리 — 데이터/구조 무변).
+//   시각 규격(좌측 액센트 바·크기·굵기)은 공통 SectionHeading(section 위계) SoT 에 위임하고,
+//   이 래퍼는 섹션 상하 여백(mt-1 mb-3)과 club 전용 돋보기 도움말(helpKey)만 얹는다.
+//   → 렌더 결과/여백/동작 불변(기존 h2+바와 동일), 스타일 정의만 공통화(중복 제거).
 //   helpKey 전달 시(club 전용) 제목 옆 돋보기 도움말 — 미전달이면 미노출(기존 허브 동작 불변).
 function SectionTitle({
   children,
@@ -68,11 +72,10 @@ function SectionTitle({
   helpTitle?: string;
 }) {
   return (
-    <h2 className="mt-1 mb-3 flex items-center gap-2 text-base font-semibold tracking-tight text-foreground">
-      <span aria-hidden className="h-4 w-1 rounded-full bg-primary" />
+    <SectionHeading as="h2" className="mt-1 mb-3">
       {children}
       {helpKey && <AdminHelpIconButton helpKey={helpKey} title={helpTitle} size="sm" />}
-    </h2>
+    </SectionHeading>
   );
 }
 
@@ -136,7 +139,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
     emptyProcessCheckBoard(hub, org ?? ""),
   );
   const [teamLoading, setTeamLoading] = useState(false);
-  // 팀 & 파트 스코프 — "all"(팀 전체·읽기전용) / "overall"(팀 총괄) / <partLineGroupId>(파트).
+  // 파트 구분 스코프 — "all"(팀 종합·읽기전용) / "overall"(팀 총괄) / <partLineGroupId>(파트).
   const [scopeValue, setScopeValue] = useState<string>("all");
 
   const reqRef = useRef(0);
@@ -224,10 +227,10 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
   }, [teamMode, selectedTeamId, teams]);
   const effectiveTeamName = teams.find((t) => t.teamId === effectiveTeamId)?.teamName ?? null;
 
-  // 팀 & 파트 드롭다운 옵션 — 선택 팀의 실제 파트(user_memberships) · 서버 제공(teamParts).
+  // 파트 구분 드롭다운 옵션 — 선택 팀의 실제 파트(user_memberships) · 서버 제공(teamParts).
   //   process_line_groups 가 아니라 실제 팀 구조가 출처 — 파트 라인급 미등록이어도 노출.
   const teamParts = teamBoard.teamParts;
-  // 유효 스코프값 — 팀 전환/모드 변경으로 더 이상 없는 파트면 "all"(팀 전체)로 폴백(setState-in-effect 회피).
+  // 유효 스코프값 — 팀 전환/모드 변경으로 더 이상 없는 파트면 "all"(팀 종합)로 폴백(setState-in-effect 회피).
   const effectiveScopeValue = useMemo(() => {
     if (scopeValue === "all" || scopeValue === "overall") return scopeValue;
     return teamParts.includes(scopeValue) ? scopeValue : "all";
@@ -240,7 +243,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
         : "part";
   const scopePartName = scopeKind === "part" ? effectiveScopeValue : null;
   const scopeLabel =
-    scopeKind === "team_all" ? "팀 전체" : scopeKind === "team_overall" ? "팀 총괄" : effectiveScopeValue;
+    scopeKind === "team_all" ? "팀 종합" : scopeKind === "team_overall" ? "팀 총괄" : effectiveScopeValue;
   const scopeReadOnly = scopeKind === "team_all";
 
   // 선택 팀/스코프/파트 변경 시 섹션.1 팀 보드 재조회(서버가 스코프 필터·파트별 독립 상태 반환).
@@ -495,7 +498,17 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                   </span>
                   <span className="text-xs leading-relaxed text-foreground/80">
                     [{l.periodLabel}]
-                    {l.teamName ? ` - ${l.teamName} 팀${l.partName ? ` · ${l.partName}` : ""} -` : ""}{" "}
+                    {/* 팀명(일반 텍스트) + 범위 배지(팀 총괄=파랑 · 파트=보라 · 파트 미확인=빨강).
+                        전체를 한 문자열로 조립하지 않고 구조적으로 렌더(scopeType/partName 각각). 비팀 허브는 세그먼트 생략. */}
+                    {l.teamName ? (
+                      <>
+                        {" - "}
+                        <TeamScopeLabel teamName={l.teamName} scopeType={l.scopeType} partName={l.partName} />
+                        {" - "}
+                      </>
+                    ) : (
+                      " "
+                    )}
                     [{l.lineGroupName}] {l.actName} - {l.actorName} 님 - {formatLogDateTime(l.createdAt)}
                   </span>
                 </div>
@@ -535,7 +548,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                   aria-selected={effectiveTeamId === tm.teamId}
                   onClick={() => {
                     setSelectedTeamId(tm.teamId);
-                    setScopeValue("all"); // 팀 전환 시 팀 전체(읽기전용)로 초기화
+                    setScopeValue("all"); // 팀 전환 시 팀 종합(읽기전용)로 초기화
                   }}
                   className={cn(
                     // 비선택도 border-b-2(투명) 유지 → 선택 전환 시 레이아웃 시프트 없음.
@@ -553,7 +566,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
 
           {effectiveTeamId && (
             <>
-              {/* 상태창2(선택 팀 + 선택 스코프) — 좌: 상태창 / 우: 팀 & 파트 드롭다운. */}
+              {/* 상태창2(선택 팀 + 선택 스코프) — 좌: 상태창 / 우: 파트 구분 드롭다운. */}
               <div className="flex flex-col gap-3 lg:flex-row lg:items-stretch">
                 <div className="min-w-0 flex-1">
                   <ProcessCheckProgress
@@ -568,10 +581,10 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                     <CardHeader className="pb-2">
                       <CardTitle className="text-base">
                         <span className="inline-flex items-center gap-1">
-                          팀 전체 &amp; 파트 개별
+                          팀 종합 &amp; 파트 개별
                           <AdminHelpIconButton
                             helpKey={PROCESS_CHECK_HELP_KEYS.teamPartScope}
-                            title="팀 전체 & 파트 개별"
+                            title="팀 종합 & 파트 개별"
                             size="sm"
                           />
                         </span>
@@ -580,12 +593,12 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                     <CardContent className="space-y-2">
                       {/* 펼침 화살표는 어드민 전역 공통 <select> 스타일(globals.css)이 그린다. */}
                       <select
-                        aria-label="팀 & 파트 범위"
+                        aria-label="파트 구분 범위"
                         value={effectiveScopeValue}
                         onChange={(e) => setScopeValue(e.target.value)}
                         className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
                       >
-                        <option value="all">팀 전체 (읽기 전용)</option>
+                        <option value="all">팀 종합</option>
                         <option value="overall">팀 총괄</option>
                         {teamParts.map((p) => (
                           <option key={p} value={p}>
@@ -602,7 +615,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                   </Card>
                 </div>
               </div>
-              {/* 섹션.1 액트 목록 — 서버가 스코프 필터한 결과. 팀 전체는 읽기 전용. "팀 & 파트" 컬럼 표시. */}
+              {/* 섹션.1 액트 목록 — 서버가 스코프 필터한 결과. 팀 종합은 읽기 전용. "파트 구분" 컬럼 표시. */}
               <ProcessCheckActTable
                 acts={teamBoard.acts}
                 loading={teamLoading}
