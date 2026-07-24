@@ -263,19 +263,30 @@ export function organizationAccent(
 
 // ── 조직 선택 탭(캡슐)의 공통 클래스 — 단일 SoT ─────────────────────────────
 // 조직 선택 탭(통합·엥크레·오랑캐·팔랑크스)의 크기/padding/font/border/선택색/hover/focus ring 을
-//   한곳에서 정의한다. 선택 색은 **조직 종류·mode(일반/test) 무관**하게 항상 violet 이다 —
-//   과거의 조직별 색 분기(encre=pink · oranke=amber · phalanx=emerald · 통합=zinc)는 쓰지 않는다.
-//   조직 채움 강조가 필요한 다른 곳(사이드바 배지 등)은 여전히 ORGANIZATION_ACCENT 를 쓴다.
+//   한곳에서 정의한다. 어드민 전역(통합 페이지들·/admin/team-parts/info/weeks 등)이 이 함수를
+//   재사용하므로 화면별 색 하드코딩을 금지한다.
+//   · base/unselected/focus 는 **조직·mode 무관 공통**.
+//   · 선택색만 조직별(통합=보라 · 엥크레=빨강 · 오랑캐=주황 · 팔랑크스=초록) — mode(일반/test) 무관.
+//   조직 채움 강조가 필요한 다른 곳(사이드바 배지·표 열 구분 등)은 여전히 ORGANIZATION_ACCENT/
+//   ORGANIZATION_COLUMN 을 쓴다(탭 선택색과는 별도 팔레트).
+export type OrgTabKey = "integrated" | OrganizationSlug;
+
 export const ORG_TAB_BASE_CLASS =
   "rounded-md border px-4 py-1.5 text-sm font-bold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
-export const ORG_TAB_SELECTED_CLASS =
-  "border-violet-600 bg-violet-600 text-white";
+// 선택된 탭 색 — 조직별. 정적 문자열(Tailwind JIT 인식). border 는 -600, 채움은 통합만 -600·조직은 -500.
+export const ORG_TAB_SELECTED_CLASS: Record<OrgTabKey, string> = {
+  integrated: "border-violet-600 bg-violet-600 text-white",
+  encre: "border-red-600 bg-red-500 text-white",
+  oranke: "border-orange-600 bg-orange-500 text-white",
+  phalanx: "border-green-600 bg-green-500 text-white",
+};
 export const ORG_TAB_UNSELECTED_CLASS =
   "border-input bg-background text-muted-foreground hover:bg-muted hover:text-foreground";
 
-// 조직 선택 탭 버튼의 className — active 여부만 받는다(조직 slug/mode 분기 없음).
-export function orgTabClassName(active: boolean): string {
-  return `${ORG_TAB_BASE_CLASS} ${active ? ORG_TAB_SELECTED_CLASS : ORG_TAB_UNSELECTED_CLASS}`;
+// 조직 선택 탭 버튼의 className — 탭 정체성(통합/조직 slug)과 active 여부를 받는다.
+//   선택 시 조직별 색, 비선택 시 공통 중립색. 화면마다 색 분기를 재작성하지 말 것.
+export function orgTabClassName(tab: OrgTabKey, active: boolean): string {
+  return `${ORG_TAB_BASE_CLASS} ${active ? ORG_TAB_SELECTED_CLASS[tab] : ORG_TAB_UNSELECTED_CLASS}`;
 }
 
 // ── 조직별 "표 열(column) 구역" 색 — 단일 SoT ───────────────────────────────

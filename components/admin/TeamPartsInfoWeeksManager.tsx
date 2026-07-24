@@ -385,7 +385,7 @@ export default function TeamPartsInfoWeeksManager({
               disabled={scoped}
               onClick={() => onTabChange(tab)}
               className={
-                orgTabClassName(effectiveTab === tab) +
+                orgTabClassName(tab, effectiveTab === tab) +
                 (scoped ? " cursor-default" : "")
               }
             >

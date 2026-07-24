@@ -55,7 +55,7 @@ export default function AdminOrganizationTabs({
               aria-selected={active}
               data-club-tab={tab}
               onClick={() => select(tab)}
-              className={orgTabClassName(active)}
+              className={orgTabClassName(tab, active)}
             >
               {tab === "integrated" ? "통합" : organizationLabelKo(tab)}
             </button>
