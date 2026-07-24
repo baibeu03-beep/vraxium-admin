@@ -34,6 +34,7 @@ export default function PageSection({
   as = "h2",
   divider = "none",
   id,
+  tabIndex,
   className,
   children,
 }: {
@@ -43,6 +44,7 @@ export default function PageSection({
   as?: "h2" | "h3";
   divider?: DividerOption;
   id?: string;
+  tabIndex?: number;
   className?: string;
   children: React.ReactNode;
 }) {
@@ -54,6 +56,7 @@ export default function PageSection({
   return (
     <section
       id={id}
+      tabIndex={tabIndex}
       className={cn(
         "flex flex-col",
         // divider 가 있으면 부모 admin-section-stack 의 위쪽 gap(32/40)을 음수 마진으로 상쇄한다 →

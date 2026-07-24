@@ -268,7 +268,11 @@ function LogoUploadField({
 // Main
 // ──────────────────────────────────────────────────────────────
 
-export default function LineRegistrationManager() {
+export default function LineRegistrationManager({
+  integrated = false,
+}: {
+  integrated?: boolean;
+}) {
   const searchParams = useSearchParams();
   // URL org 컨텍스트(분기 등록). 유효 slug 가 있으면 소속 조직을 그 org 로 고정하고 드롭다운을 숨긴다.
   //   · scopedOrg(유효) → 소속 조직 select 숨김 + payload 는 URL org 로 고정.
@@ -627,7 +631,16 @@ export default function LineRegistrationManager() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{hubCardCopy(hub).title}</CardTitle>
+          <CardTitle>
+            {/* 통합(integrated) 화면에서는 상위 섹션 제목(h2 "라인 등록")이 이미 있으므로 카드가 "라인 등록"을
+                되풀이하지 않는다 — info 만 "실무 정보 정식 라인 등록"으로 성격을 밝히고, 그 외(미선택 포함)는
+                "등록 정보"로 표기(제목 중복 0건). 비통합 단독 화면은 기존 hubCardCopy 제목 그대로. */}
+            {integrated
+              ? hub === "info"
+                ? hubCardCopy(hub).title
+                : "등록 정보"
+              : hubCardCopy(hub).title}
+          </CardTitle>
           {hubCardCopy(hub).description && (
             <p className="text-sm text-muted-foreground">{hubCardCopy(hub).description}</p>
           )}
