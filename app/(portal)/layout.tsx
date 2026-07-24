@@ -9,7 +9,6 @@ import { ConfirmProvider } from "@/components/ui/confirm-dialog";
 import { AdminDialogViewport } from "@/components/ui/admin-dialog";
 import { ToastSafeArea, ToastViewport } from "@/components/ui/toast";
 import HoverTooltipProvider from "@/components/admin/HoverTooltipProvider";
-import OrgEnvironmentBanner from "@/components/admin/OrgEnvironmentBanner";
 import AdminSessionProvider from "@/components/admin/AdminSessionProvider";
 import { requireAdminPage } from "@/lib/adminAuth";
 import { loadAdminDisplayName } from "@/lib/adminMe";
@@ -64,12 +63,9 @@ export default async function PortalLayout({
               adminDisplayName={adminDisplayName}
               adminEmail={admin.email}
             />
-            {/* 조직 환경 배너 — 콘텐츠 영역 전체폭 상단 띠. main(스크롤 컨테이너) "바깥"의 전용 슬롯에
-                두어 main 의 p-6 padding 밖에서 좌우 끝까지 꽉 차고, main 이 아래에서 스크롤돼도 항상
-                콘텐츠 최상단에 남는다(카드 아님·둥근모서리/테두리/그림자 없음). 통합 모드/미상 org 면
-                스스로 null 렌더. 공통 레이아웃 한 곳에서만 마운트 → 개별 페이지 수정 없음. mode/org 무관. */}
-            <OrgEnvironmentBanner />
-            {/* 공통 로딩 배너 — 헤더/배너 바로 아래·콘텐츠 최상단 고정 위치(전역 단일 출처). */}
+            {/* 조직 환경 배너는 좌측 사이드바 상단(HOME/개별 아래)으로 이동했다(2026-07-24).
+                → 우측 콘텐츠 영역에는 더 이상 렌더하지 않는다. components/admin/Sidebar.tsx 참조. */}
+            {/* 공통 로딩 배너 — 헤더 바로 아래·콘텐츠 최상단 고정 위치(전역 단일 출처). */}
             <GlobalLoadingBanner />
             {/* 실제 페이지 콘텐츠 스크롤 영역 — 높이 = 뷰포트 − 헤더 − 배너 − 하단 토스트 영역.
                 overflow-y-auto: 여기(main)가 유일한 세로 스크롤 컨테이너가 된다(window 대신).
@@ -83,6 +79,13 @@ export default async function PortalLayout({
               className="flex-1 min-h-0 min-w-0 overflow-y-auto p-6"
             >
               {children}
+              {/* 푸터 예약 영역(전역 공통) — 향후 Footer 컴포넌트가 들어갈 자리만 미리 확보한다.
+                  현재는 내용 없음(빈 공간). 콘텐츠 스크롤 흐름의 맨 끝에 위치하므로:
+                    · 콘텐츠 영역/스크롤 컨테이너(main)를 별도로 줄이지 않는다 → 스크롤 동작 불변.
+                    · 배경은 상위(bg-muted/40)를 그대로 상속 → border/shadow/텍스트/아이콘 없음.
+                    · mode(일반/test)·org 분기 없이 어드민 전역 동일 적용(개별 페이지 수정 없음).
+                  실제 푸터를 붙일 때는 이 div 내부에 <Footer /> 를 렌더하면 된다(구조 유지). */}
+              <div aria-hidden className="h-48" data-admin-footer-reserved />
             </main>
             {/* 하단 토스트 안전영역 — main 스크롤 영역 "바깥"의 형제 요소.
                 토스트가 떠 있을 때만(실측 높이만큼) 화면 하단을 비워 콘텐츠를 위로 밀어 올린다.
