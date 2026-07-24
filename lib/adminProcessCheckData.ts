@@ -44,7 +44,8 @@ import { isActOpenAtTime, type ActOpenTimeline } from "@/lib/weekOpenGate";
 import { loadWeekOpeningTimeline } from "@/lib/weekOpeningTimeline";
 import { resolveRegularActOccurredAtMs } from "@/lib/regularActRequiredAt";
 import { filterTeamsByScope, isTestTeam } from "@/lib/cluster4ExperienceTestScope";
-import { listTeamParts, listPartCrews, listTeamCrews } from "@/lib/adminExperiencePartInput";
+import { listPartCrews, listTeamCrews } from "@/lib/adminExperiencePartInput";
+import { listOperatedTeamParts } from "@/lib/adminTeamSelectedWeekSummary";
 import { uncompleteResetStamp } from "@/lib/processCheckCollectionReset";
 import type { ScopeMode } from "@/lib/userScopeShared";
 import {
@@ -863,7 +864,8 @@ async function computeTeamAllCompleted(params: {
 }): Promise<boolean> {
   const { hub, organization, weekId, team, mode, acts, groupNameById, groupScopeById, timeline, weekStart, partAvail, completionAvail } = params;
   const [teamParts, rows] = await Promise.all([
-    listTeamParts(organization, team.teamName, mode),
+    // 운용 파트 = 조회 주차(weekId) 기준 배정 크루 ≥1(팀 상세 매트릭스와 동일 SoT). 현재 멤버십 아님.
+    listOperatedTeamParts({ organization: organization as OrganizationSlug, teamName: team.teamName, weekId, mode }),
     loadStatusRows(organization, hub, weekId, team.teamId, partAvail, completionAvail),
   ]);
   const nullMap = new Map<string, StatusState>();
@@ -942,7 +944,10 @@ export async function getProcessCheckBoard(
 
   // 실제 팀 파트 목록(드롭다운) — user_memberships(part_name) · org+mode 스코프. 팀 선택 시에만.
   const teamName = teamBased && teamId ? await resolveTeamName(teamId, organization) : null;
-  const teamParts = teamName ? await listTeamParts(organization, teamName, mode) : [];
+  // 파트 드롭다운 = 선택 주차(effectiveWeekId) 기준 운용 파트(배정 크루 ≥1). 현재 시점 아님·팀 상세와 동일 SoT.
+  const teamParts = teamName
+    ? await listOperatedTeamParts({ organization: organization as OrganizationSlug, teamName, weekId: effectiveWeekId, mode })
+    : [];
 
   // ── 체크 대상자 로스터(선택 팀/파트 실제 소속자) — 팀 구분 허브(experience)만 산출 ─────────────
   //   체크 완료 명단/매칭 수를 "카페 링크 집계 ∩ 실제 팀/파트 소속자"로 교집합할 때 쓴다(UI 숨김이 아닌
@@ -1425,9 +1430,10 @@ export async function applyProcessCheckAction(input: {
       const claimedPart =
         typeof input.partName === "string" && input.partName.trim() ? input.partName.trim() : null;
       if (!claimedPart) throw new ProcessMasterError(422, "파트(part_name)가 필요합니다");
-      // 선택 파트가 그 팀(org+mode)의 실제 파트인지 — 타 파트/타 org/타 mode 차단(fail-closed).
+      // 선택 파트가 그 팀·그 주차의 운용 파트인지 — 타 파트/타 org/타 mode/타 주차 차단(fail-closed).
+      //   드롭다운과 동일 주차 기준 SoT(listOperatedTeamParts) — 현재 멤버십 아님.
       const parts = teamName
-        ? await listTeamParts(organization, teamName, input.mode ?? "operating")
+        ? await listOperatedTeamParts({ organization: organization as OrganizationSlug, teamName, weekId, mode: input.mode ?? "operating" })
         : [];
       if (!parts.includes(claimedPart)) {
         throw new ProcessMasterError(422, "선택한 파트가 이 팀(현재 모드/클럽)의 파트가 아닙니다");
@@ -2090,7 +2096,10 @@ export async function applyProcessManualGrant(input: {
       const claimedPart =
         typeof input.partName === "string" && input.partName.trim() ? input.partName.trim() : null;
       if (!claimedPart) throw new ProcessMasterError(422, "파트(part_name)가 필요합니다");
-      const parts = teamName ? await listTeamParts(organization, teamName, mode) : [];
+      // 선택 파트 = 그 주차 운용 파트인지(드롭다운과 동일 주차 기준 SoT·현재 멤버십 아님).
+      const parts = teamName
+        ? await listOperatedTeamParts({ organization: organization as OrganizationSlug, teamName, weekId, mode })
+        : [];
       if (!parts.includes(claimedPart)) {
         throw new ProcessMasterError(422, "선택한 파트가 이 팀(현재 모드/클럽)의 파트가 아닙니다");
       }

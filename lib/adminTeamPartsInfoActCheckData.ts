@@ -21,7 +21,7 @@ import { loadCurrentWeekOverrideLabels } from "@/lib/positionResolver";
 import { isActOpenAtTime } from "@/lib/weekOpenGate";
 import { loadWeekOpeningTimeline } from "@/lib/weekOpeningTimeline";
 import { listTeams } from "@/lib/adminExperienceLineData";
-import { listTeamParts } from "@/lib/adminExperiencePartInput";
+import { listOperatedTeamParts } from "@/lib/adminTeamSelectedWeekSummary";
 import {
   buildActCheckApplicationSummary,
   type ActCheckApplicationSummary,
@@ -639,8 +639,9 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
     };
   };
   const expTeams: ActCheckHubTeam[] = await Promise.all(teams.map(async (t) => {
-    // 팀 실제 파트 목록(user_memberships · org+mode · "일반" 제외) — 파트 전용 라인급 펼침용.
-    const teamParts = await listTeamParts(organization, t.teamName, mode);
+    // 팀 운용 파트(조회 주차 weekId 기준 배정 크루 ≥1·"일반" 제외) — 파트 전용 라인급 펼침용.
+    //   현재 멤버십이 아니라 팀 상세 매트릭스와 동일한 주차 기준 SoT(listOperatedTeamParts).
+    const teamParts = await listOperatedTeamParts({ organization, teamName: t.teamName, weekId, mode });
     const teamLines: ActCheckInfoLineDto[] = expLineGroups.map((lg) => {
       const lineOpen = expOpen(t.id, lg.id);
       const byDay = emptyByDay<ActCheckActDto>();

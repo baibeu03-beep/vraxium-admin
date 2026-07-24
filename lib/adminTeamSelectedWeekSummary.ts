@@ -412,3 +412,28 @@ export async function getTeamSelectedWeekSummary(opts: {
 
   return { selectableWeeks, week, crew, growth, operatedParts, crewRows };
 }
+
+// ── 주차 기준 <운용> 파트명 목록 (실무 경험 파트 스코프 공용 SoT) ──────────────────
+//   getTeamSelectedWeekSummary.operatedParts(그 주차 배정 크루 ≥1) 파생 — 팀 상세 매트릭스와 동일 판정.
+//   '일반'(DEFAULT_PART_NAME)은 실제 파트가 아니므로 제외(experience 파트 드롭다운/확장 규칙과 동일).
+//   ⚠ 기준은 현재 시점이 아니라 조회 중인 weekId 다(과거/현재 주차별로 달라짐). weekId 미지정/목록밖이면
+//     현재 주차로 폴백(요약과 동일). mode 는 모집단 스코프에만 영향(operating/test 동일 판정 로직·§8).
+export async function listOperatedTeamParts(opts: {
+  organization: OrganizationSlug;
+  teamName: string;
+  weekId?: string | null;
+  mode?: ScopeMode;
+  today?: string;
+}): Promise<string[]> {
+  const summary = await getTeamSelectedWeekSummary({
+    organization: opts.organization,
+    teamName: opts.teamName,
+    weekId: opts.weekId ?? null,
+    mode: opts.mode,
+    today: opts.today,
+  });
+  return summary.operatedParts
+    .map((p) => p.partName)
+    .filter((p) => p !== DEFAULT_PART_NAME)
+    .sort((a, b) => a.localeCompare(b));
+}
