@@ -27,12 +27,13 @@ export type CrewSortKey =
   | "incompleteFirst"
   | "completeFirst";
 
+// 검수 크루 선택 화면의 정렬 드롭다운에 노출되는 옵션.
+//   프로필 작성 여부(incompleteFirst/completeFirst)는 컬럼으로만 확인하고 정렬 옵션에서는 제외.
+//   판정 로직(isCrewProfileComplete)·sortCafeCrews의 해당 case·컬럼 표시는 그대로 유지한다.
 export const CREW_SORT_OPTIONS: { value: CrewSortKey; label: string }[] = [
   { value: "comment", label: "댓글 시간순" },
   { value: "name", label: "이름순" },
   { value: "crewCode", label: "크루 코드순" },
-  { value: "incompleteFirst", label: "미작성 우선" },
-  { value: "completeFirst", label: "작성 완료 우선" },
 ];
 
 // 빈값 정규화: null/빈문자열/공백/"-" 는 모두 "미작성/빈값"으로 취급.
