@@ -261,6 +261,23 @@ export function organizationAccent(
   return isOrganizationSlug(slug) ? ORGANIZATION_ACCENT[slug] : null;
 }
 
+// ── 조직 선택 탭(캡슐)의 공통 클래스 — 단일 SoT ─────────────────────────────
+// 조직 선택 탭(통합·엥크레·오랑캐·팔랑크스)의 크기/padding/font/border/선택색/hover/focus ring 을
+//   한곳에서 정의한다. 선택 색은 **조직 종류·mode(일반/test) 무관**하게 항상 violet 이다 —
+//   과거의 조직별 색 분기(encre=pink · oranke=amber · phalanx=emerald · 통합=zinc)는 쓰지 않는다.
+//   조직 채움 강조가 필요한 다른 곳(사이드바 배지 등)은 여전히 ORGANIZATION_ACCENT 를 쓴다.
+export const ORG_TAB_BASE_CLASS =
+  "rounded-md border px-4 py-1.5 text-sm font-bold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
+export const ORG_TAB_SELECTED_CLASS =
+  "border-violet-600 bg-violet-600 text-white";
+export const ORG_TAB_UNSELECTED_CLASS =
+  "border-input bg-background text-muted-foreground hover:bg-muted hover:text-foreground";
+
+// 조직 선택 탭 버튼의 className — active 여부만 받는다(조직 slug/mode 분기 없음).
+export function orgTabClassName(active: boolean): string {
+  return `${ORG_TAB_BASE_CLASS} ${active ? ORG_TAB_SELECTED_CLASS : ORG_TAB_UNSELECTED_CLASS}`;
+}
+
 // ── 조직별 "표 열(column) 구역" 색 — 단일 SoT ───────────────────────────────
 // 한 표 안에 조직이 열로 나란히 서는 화면(주차 결과(크루) 통합 목록 등)에서, 각 조직 열을
 //   "옅은 세로 구역"으로 구분한다. 헤더만 원색으로 칠하는 방식 대신 헤더·본문·경계선을

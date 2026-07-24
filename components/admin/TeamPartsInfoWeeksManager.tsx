@@ -23,6 +23,7 @@ import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 import {
   ORGANIZATIONS,
   isOrganizationSlug,
+  orgTabClassName,
   organizationLabelKo,
   type OrganizationSlug,
 } from "@/lib/organizations";
@@ -48,14 +49,6 @@ const TAB_LABEL: Record<TabKey, string> = {
   encre: organizationLabelKo("encre"),
   oranke: organizationLabelKo("oranke"),
   phalanx: organizationLabelKo("phalanx"),
-};
-
-// 활성 탭 색상(팀 내역 화면 CHIP_CLS 미러 + 통합 다크).
-const TAB_ACTIVE_CLS: Record<TabKey, string> = {
-  integrated: "bg-zinc-800 text-white border-zinc-900",
-  encre: "bg-red-500 text-white border-red-600",
-  oranke: "bg-yellow-300 text-zinc-900 border-yellow-400",
-  phalanx: "bg-green-500 text-white border-green-600",
 };
 
 const TABS: TabKey[] = ["integrated", ...ORGANIZATIONS];
@@ -392,10 +385,7 @@ export default function TeamPartsInfoWeeksManager({
               disabled={scoped}
               onClick={() => onTabChange(tab)}
               className={
-                "rounded-md border px-4 py-1.5 text-sm font-bold transition-colors " +
-                (effectiveTab === tab
-                  ? TAB_ACTIVE_CLS[tab]
-                  : "border-input bg-background text-muted-foreground hover:bg-muted") +
+                orgTabClassName(effectiveTab === tab) +
                 (scoped ? " cursor-default" : "")
               }
             >
