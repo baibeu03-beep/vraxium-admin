@@ -33,6 +33,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { useStickyColumns, type StickyColProps } from "@/components/ui/sticky-columns";
 import { Checkbox, checkedTextClass, checkedRowClass } from "@/components/ui/checkbox";
 import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
 import { formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
@@ -263,15 +264,18 @@ function RegColumnHeader({
   col,
   dir,
   onSort,
+  sticky,
 }: {
   col: RegColumnDef;
   dir: "asc" | "desc" | null;
   onSort: () => void;
+  sticky?: StickyColProps;
 }) {
   const sortable = Boolean(col.sortValue);
   return (
     <TableHead
-      className={col.headClassName}
+      className={cn(col.headClassName, sticky?.className)}
+      data-sticky-col={sticky?.["data-sticky-col"]}
       aria-sort={
         dir === "asc" ? "ascending" : dir === "desc" ? "descending" : "none"
       }
@@ -601,6 +605,8 @@ export default function PracticalCareerManager() {
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
   const t = useActionToast();
+  // 왼쪽 2열 고정(라인 코드·라인명) — 공통 sticky 계약. col-1 실측폭으로 col-2 offset.
+  const sticky = useStickyColumns({ headerSticky: true });
 
   const cycleProjectSort = (key: RegColKey) => {
     setProjectSort((prev) => {
@@ -1453,10 +1459,10 @@ export default function PracticalCareerManager() {
                   등록된 경력 라인이 없습니다
                 </p>
               ) : (
-                <Table>
+                <Table containerRef={sticky.ref} regionClassName={sticky.regionClassName} stickyLeft>
                   <TableHeader>
                     <TableRow>
-                      {REG_COLUMNS.map((col) => (
+                      {REG_COLUMNS.map((col, idx) => (
                         <RegColumnHeader
                           key={col.key}
                           col={col}
@@ -1464,6 +1470,13 @@ export default function PracticalCareerManager() {
                             projectSort?.key === col.key ? projectSort.dir : null
                           }
                           onSort={() => cycleProjectSort(col.key)}
+                          sticky={
+                            idx === 0
+                              ? sticky.col(1)
+                              : idx === 1
+                                ? sticky.col(2)
+                                : undefined
+                          }
                         />
                       ))}
                     </TableRow>
@@ -1471,8 +1484,18 @@ export default function PracticalCareerManager() {
                   <TableBody>
                     {sortedRegisteredProjects.map((p) => (
                         <TableRow key={p.id}>
-                          <TableCell className="font-mono text-xs">{p.lineCode}</TableCell>
-                          <TableCell className="font-medium">{p.lineName ?? "-"}</TableCell>
+                          <TableCell
+                            {...sticky.col(1)}
+                            className={cn("font-mono text-xs", sticky.col(1).className)}
+                          >
+                            {p.lineCode}
+                          </TableCell>
+                          <TableCell
+                            {...sticky.col(2)}
+                            className={cn("font-medium", sticky.col(2).className)}
+                          >
+                            {p.lineName ?? "-"}
+                          </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
                               {p.companyLogoUrl && (

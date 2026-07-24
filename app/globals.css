@@ -639,8 +639,10 @@ select:not([multiple]) {
 .stick-col-2 {
   position: sticky;
   z-index: 20;
-  /* 불투명 배경 — 스크롤되는 뒤쪽 셀이 비쳐 보이지 않게. 기존 sticky 관행(bg-card)과 통일. */
-  background-color: var(--card);
+  /* 불투명 배경 — 스크롤되는 뒤쪽 셀이 비쳐 보이지 않게. 기본 card.
+     행 강조(현재 주차 등)가 있는 표는 <tr> 에 --stick-cell-bg 를 얹어 고정 셀도 같은 톤을 따르게 한다
+     (data-sticky-row-accent 헬퍼 참고). CSS 변수는 상속되므로 tr→고정 td 로 자연 전달된다. */
+  background-color: var(--stick-cell-bg, var(--card));
 }
 .stick-col-1 {
   left: 0;
@@ -655,18 +657,41 @@ select:not([multiple]) {
 /* zebra / hover / selected 를 고정 셀에도 재적용 — 고정 셀은 자체 불투명 배경을 칠하므로
    재적용하지 않으면 행 상태색(짝수 zebra·hover·선택)이 고정 열에서만 끊긴다.
    base table.tsx 의 bg-muted/30(zebra)·bg-accent/60(hover)·bg-muted(selected) 를
-   card 위에 합성한 불투명 등가색으로 맞춘다. */
-tr:nth-child(even) > .stick-col-1,
-tr:nth-child(even) > .stick-col-2 {
-  background-color: color-mix(in oklch, var(--muted) 30%, var(--card));
+   card 위에 합성한 불투명 등가색으로 맞춘다. tbody 로 스코프 → thead/tfoot corner 규칙과
+   충돌하지 않고, 우선순위(선택 > hover > zebra)를 특이도로 보장한다. */
+/* zebra/hover/selected 는 base 표(공통 TableBody = data-slot)만 — 원시 <table> 은 zebra/hover 가
+   없으므로 고정 셀에만 줄무늬가 생기는 불일치를 막는다. accent(아래)는 명시 opt-in 이라 공용. */
+tbody[data-slot="table-body"] > tr:nth-child(even) > .stick-col-1,
+tbody[data-slot="table-body"] > tr:nth-child(even) > .stick-col-2 {
+  --stick-cell-bg: color-mix(in oklch, var(--muted) 30%, var(--card));
 }
-tr:hover > .stick-col-1,
-tr:hover > .stick-col-2 {
-  background-color: color-mix(in oklch, var(--accent) 60%, var(--card));
+tbody[data-slot="table-body"] > tr:hover > .stick-col-1,
+tbody[data-slot="table-body"] > tr:hover > .stick-col-2 {
+  --stick-cell-bg: color-mix(in oklch, var(--accent) 60%, var(--card));
 }
-tr[data-state="selected"] > .stick-col-1,
-tr[data-state="selected"] > .stick-col-2 {
-  background-color: var(--muted);
+tbody[data-slot="table-body"] > tr[data-state="selected"] > .stick-col-1,
+tbody[data-slot="table-body"] > tr[data-state="selected"] > .stick-col-2 {
+  --stick-cell-bg: var(--muted);
+}
+
+/* 행 강조(현재 주차 등)를 고정 셀에도 반영 — 표에서 강조 <tr> 에 data-sticky-row-accent="sky" 를 얹으면
+   좌측 고정 셀이 행 배경(sky 계열)과 같은 톤을 유지한다(불투명·라이트/다크). zebra/hover 는 셀 규칙이 우선. */
+tbody > tr[data-sticky-row-accent="sky"] {
+  --stick-cell-bg: color-mix(in oklch, oklch(0.92 0.05 240) 80%, var(--card));
+}
+.dark tbody > tr[data-sticky-row-accent="sky"] {
+  --stick-cell-bg: color-mix(in oklch, oklch(0.29 0.07 250) 45%, var(--card));
+}
+/* primary 계열 옅은 강조(bg-primary/5 등)를 정확히 재현 — primary 는 테마 대응 토큰. */
+tbody > tr[data-sticky-row-accent="primary"] {
+  --stick-cell-bg: color-mix(in oklch, var(--primary) 5%, var(--card));
+}
+/* emerald 강조(운용 파트 셀 bg-emerald-100 등) — 고정 셀도 동일 톤 유지. */
+tbody > tr[data-sticky-row-accent="emerald"] {
+  --stick-cell-bg: color-mix(in oklch, oklch(0.905 0.088 165) 100%, var(--card));
+}
+.dark tbody > tr[data-sticky-row-accent="emerald"] {
+  --stick-cell-bg: color-mix(in oklch, oklch(0.5 0.1 165) 40%, var(--card));
 }
 
 /* 헤더/요약(tfoot) 행의 좌측 고정 셀 = corner. 헤더 톤(base bg-muted/60)과 일치하는
@@ -686,6 +711,8 @@ tfoot > tr > .stick-col-2 {
 .sticky-head-region {
   max-height: var(--sticky-head-max-h, 70svh);
   overscroll-behavior: contain;
+  /* 세로 스크롤바가 나타나도 열 폭이 흔들리지 않게 gutter 를 항상 예약(얇은 6px). */
+  scrollbar-gutter: stable;
 }
 .sticky-head-region thead > tr > th {
   position: sticky;
@@ -697,6 +724,44 @@ tfoot > tr > .stick-col-2 {
 .sticky-head-region thead > tr > .stick-col-2 {
   z-index: 40; /* corner 는 상단·좌측 고정 셀보다 위 */
 }
+
+/* ── 어드민 표 내부 스크롤바 (외부 페이지 스크롤과 구분) ──
+   표 내부(가로: 모든 표의 ScrollAffordance / 세로: headerSticky 경계 영역)의 스크롤바를
+   외부 페이지 스크롤보다 얇고 은은하게. currentColor 기반이라 라이트/다크 자동 대응.
+   외부 페이지(body/main) 스크롤바는 건드리지 않는다. 화살표 버튼 숨김·트랙 투명.
+   `.admin-table-scroll` = 공통 스크롤 컨테이너 클래스(scroll-affordance.tsx 내부 div + 원시표 스크롤 div). */
+/* webkit(Windows Chrome/Edge) — 정확히 6px 얇은 스크롤바. 트랙 투명·둥근 thumb·화살표 버튼 숨김.
+   ⚠ Chromium 은 scrollbar-width 를 지정하면 ::-webkit-scrollbar 를 무시하므로(≈10px 강제),
+     여기서는 웹킷 규칙만 두고 scrollbar-width 는 Firefox 폴백(@supports)으로만 준다. */
+.admin-table-scroll::-webkit-scrollbar,
+.sticky-head-region::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.admin-table-scroll::-webkit-scrollbar-track,
+.sticky-head-region::-webkit-scrollbar-track {
+  background: transparent; /* 진한 트랙 배경 금지 */
+}
+.admin-table-scroll::-webkit-scrollbar-thumb,
+.sticky-head-region::-webkit-scrollbar-thumb {
+  background: color-mix(in oklch, currentColor 18%, transparent);
+  border-radius: 999px;
+}
+.admin-table-scroll:hover::-webkit-scrollbar-thumb,
+.sticky-head-region:hover::-webkit-scrollbar-thumb,
+.admin-table-scroll:active::-webkit-scrollbar-thumb,
+.sticky-head-region:active::-webkit-scrollbar-thumb {
+  background: color-mix(in oklch, currentColor 34%, transparent);
+}
+.admin-table-scroll::-webkit-scrollbar-button,
+.sticky-head-region::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+/* ⚠ scrollbar-width/scrollbar-color 는 의도적으로 두지 않는다 — Chromium 은 그 값이 있으면
+   ::-webkit-scrollbar(6px)를 무시하고 자체 thin(≈10px)을 쓴다. 대상이 Windows Chrome 이므로
+   웹킷 규칙만 두어 정확히 6px 을 얻는다(Firefox 등은 기본 스크롤바로 폴백). */
 
 /* ───────────────────────────────────────────────────────────────────────────
    Interactive cursor baseline (project-wide, single source).

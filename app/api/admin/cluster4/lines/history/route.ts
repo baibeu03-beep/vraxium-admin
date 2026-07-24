@@ -8,6 +8,7 @@ import {
   Cluster4LineError,
   listCluster4OpenedLines,
 } from "@/lib/adminCluster4LinesData";
+import { DEFAULT_TABLE_PAGE_SIZE } from "@/lib/tablePagination";
 
 // ─────────────────────────────────────────────────────────────────────────
 // GET /api/admin/cluster4/lines/history
@@ -20,7 +21,7 @@ import {
 //   activityTypeId= 활동 유형 id                    (카테고리 필터; categoryId 대용)
 //   seasonKey     = 예) 2026-spring                 (시즌 필터; seasonName/Id 대용)
 //   q             = 라인명(main_title) 또는 라인 id 검색
-//   limit/offset  = 페이지네이션 (limit 1~200, 기본 50)
+//   limit/offset  = 페이지네이션 (limit 1~200, 기본 20)
 //
 // 정렬: startDate(submission_opens_at) desc → createdAt desc.
 // ─────────────────────────────────────────────────────────────────────────
@@ -51,7 +52,7 @@ export async function GET(request: NextRequest) {
   const activityTypeId = params.get("activityTypeId")?.trim() || null;
   const seasonKey = params.get("seasonKey")?.trim() || null;
   const q = params.get("q")?.trim() || null;
-  const limit = parseIntParam(params.get("limit"), 50, { min: 1, max: 200 });
+  const limit = parseIntParam(params.get("limit"), DEFAULT_TABLE_PAGE_SIZE, { min: 1, max: 200 });
   const offset = parseIntParam(params.get("offset"), 0, { min: 0, max: 100000 });
 
   if (statusRaw !== "past" && statusRaw !== "current" && statusRaw !== "all") {

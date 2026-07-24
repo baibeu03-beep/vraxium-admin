@@ -35,6 +35,7 @@ import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 import { cn } from "@/lib/utils";
+import { useStickyColumns } from "@/components/ui/sticky-columns";
 import { Checkbox, checkedTextClass } from "@/components/ui/checkbox";
 import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
@@ -222,6 +223,8 @@ function SummaryCard({
 }
 
 export default function WeekRecognitionsView() {
+  // 왼쪽 2열 고정(이름·클럽) + 상단 헤더 고정 — 공통 sticky 계약(메인 인정 결과 표).
+  const sticky = useStickyColumns({ headerSticky: true });
   const [data, setData] = useState<WeekRecognitionsDto | null>(null);
   const [loading, setLoading] = useState(true);
   useReportLoading(loading); // 전역 로딩 배너 보고
@@ -689,17 +692,23 @@ export default function WeekRecognitionsView() {
               );
             })()}
 
-          <div className="overflow-hidden rounded-lg border">
-            <Table>
+          <div className="rounded-lg border">
+            <Table containerRef={sticky.ref} regionClassName={sticky.regionClassName} stickyLeft>
               <TableHeader>
                 <TableRow>
-                  <TableHead>
+                  <TableHead
+                    className={sticky.col(1).className}
+                    data-sticky-col={sticky.col(1)["data-sticky-col"]}
+                  >
                     <span className="inline-flex items-center gap-1">
                       <span>이름</span>
                       <AdminHelpIconButton helpKey={ADMIN_SHARED_HELP_KEYS.crew.name} title="이름" size="xs" />
                     </span>
                   </TableHead>
-                  <TableHead>
+                  <TableHead
+                    className={sticky.col(2).className}
+                    data-sticky-col={sticky.col(2)["data-sticky-col"]}
+                  >
                     <span className="inline-flex items-center gap-1">
                       <span>클럽</span>
                       <AdminHelpIconButton helpKey={ADMIN_SHARED_HELP_KEYS.crew.organization} title="클럽" size="xs" />
@@ -766,10 +775,16 @@ export default function WeekRecognitionsView() {
                   <TableRow
                     key={`${row.user_id}-${row.week_id ?? row.week_start_date ?? idx}`}
                   >
-                    <TableCell className="whitespace-nowrap font-medium">
+                    <TableCell
+                      className={cn("whitespace-nowrap font-medium", sticky.col(1).className)}
+                      data-sticky-col={sticky.col(1)["data-sticky-col"]}
+                    >
                       {row.user_name ?? "—"}
                     </TableCell>
-                    <TableCell className="whitespace-nowrap">
+                    <TableCell
+                      className={cn("whitespace-nowrap", sticky.col(2).className)}
+                      data-sticky-col={sticky.col(2)["data-sticky-col"]}
+                    >
                       {orgLabel(row.organization_slug)}
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
@@ -950,6 +965,8 @@ function RecognitionCriteriaManager({
   loading: boolean;
   mode: "operating" | "test";
 }) {
+  // 조직별 동적 N 컬럼 매트릭스 — 식별 열(시즌) 한 개만 고정. col(2) 사용(col1 미사용 → left:0).
+  const sticky = useStickyColumns({ headerSticky: true });
   const seasonLabelByKey = useMemo(() => {
     const m = new Map<string, string>();
     for (const s of seasons) m.set(s.season_key, s.season_label ?? s.season_key);
@@ -976,11 +993,14 @@ function RecognitionCriteriaManager({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto rounded-lg border">
-          <Table>
+        <div className="rounded-lg border">
+          <Table containerRef={sticky.ref} regionClassName={sticky.regionClassName} stickyLeft>
             <TableHeader>
               <TableRow>
-                <TableHead>
+                <TableHead
+                  className={sticky.col(2).className}
+                  data-sticky-col={sticky.col(2)["data-sticky-col"]}
+                >
                   <span className="inline-flex items-center gap-1">
                     <span>시즌</span>
                     <AdminHelpIconButton helpKey="admin.weekRecognitions.recognitionN.column.season" title="시즌" size="xs" />
@@ -1033,7 +1053,10 @@ function RecognitionCriteriaManager({
             <TableBody>
               {weeks.map((w) => (
                 <TableRow key={w.week_id}>
-                  <TableCell className="whitespace-nowrap">
+                  <TableCell
+                    className={cn("whitespace-nowrap", sticky.col(2).className)}
+                    data-sticky-col={sticky.col(2)["data-sticky-col"]}
+                  >
                     {w.season_key
                       ? seasonLabelByKey.get(w.season_key) ?? w.season_key
                       : "—"}

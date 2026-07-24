@@ -1,9 +1,11 @@
 "use client";
 
+import { PaginatedNativeTable } from "@/components/ui/table-pagination";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { useStickyColumns } from "@/components/ui/sticky-columns";
 import { buildAdminContextHref } from "@/lib/adminOrgContext";
 import type { OrganizationSlug } from "@/lib/organizations";
 import { getProcessPointLabels } from "@/lib/pointLabels";
@@ -59,6 +61,8 @@ export default function CrewWeekResultsDetailTable({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const pointLabels = getProcessPointLabels(organizationSlug);
+  // 좌측 식별 열 고정 — 상태(col1) + 주차명(col2).
+  const sticky = useStickyColumns({ headerSticky: true });
 
   // 주차 세부 페이지 링크 — 불변 식별자(organizationSlug/weekId)만 URL 에 쓴다.
   //   표시 문자열·배열 인덱스 사용 금지. 어드민 컨텍스트(mode 등)는 공통 헬퍼로 승계.
@@ -86,30 +90,41 @@ export default function CrewWeekResultsDetailTable({
   ];
 
   return (
-    <div className="overflow-x-auto">
+    <div
+      ref={sticky.ref}
+      className={"overflow-x-auto" + (sticky.regionClassName ? " " + sticky.regionClassName : "")}
+    >
+      <PaginatedNativeTable>
       <table
         className="w-full min-w-[64rem] border-separate border-spacing-0 text-sm"
         data-crew-week-results-detail={organizationSlug}
       >
         <thead>
           <tr>
-            {COLS.map(([label, key]) => (
-              <th
-                key={key}
-                scope="col"
-                className={`whitespace-nowrap border-b bg-muted/60 px-3 py-2 font-semibold ${
-                  label === "주차명" || label === "기간" ? "text-left" : "text-center"
-                }`}
-              >
-                <span className="inline-flex items-center gap-1">
-                  {label}
-                  <AdminHelpIconButton
-                    helpKey={`admin.teamParts.crewWeekResults.column.${key}`}
-                    title={label}
-                  />
-                </span>
-              </th>
-            ))}
+            {COLS.map(([label, key], colIndex) => {
+              const stickyProps =
+                colIndex === 0 ? sticky.col(1) : colIndex === 1 ? sticky.col(2) : null;
+              return (
+                <th
+                  key={key}
+                  scope="col"
+                  data-sticky-col={stickyProps?.["data-sticky-col"]}
+                  className={
+                    `whitespace-nowrap border-b bg-muted/60 px-3 py-2 font-semibold ${
+                      label === "주차명" || label === "기간" ? "text-left" : "text-center"
+                    }` + (stickyProps ? " " + stickyProps.className : "")
+                  }
+                >
+                  <span className="inline-flex items-center gap-1">
+                    {label}
+                    <AdminHelpIconButton
+                      helpKey={`admin.teamParts.crewWeekResults.column.${key}`}
+                      title={label}
+                    />
+                  </span>
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody>
@@ -145,7 +160,8 @@ export default function CrewWeekResultsDetailTable({
                 >
                   {/* 1 상태 — 통합 목록과 동일한 서버 displayStatus/Label 을 그대로 출력. */}
                   <td
-                    className="whitespace-nowrap border-b px-3 py-2 text-center"
+                    data-sticky-col={sticky.col(1)["data-sticky-col"]}
+                    className={"whitespace-nowrap border-b px-3 py-2 text-center " + sticky.col(1).className}
                     data-display-status={cell.displayStatus}
                     data-lifecycle-status={cell.lifecycleStatus}
                     data-review-status={cell.reviewStatus}
@@ -154,7 +170,11 @@ export default function CrewWeekResultsDetailTable({
                   </td>
 
                   {/* 2 주차명 — 클릭 시 주차 세부 페이지(다음 단계에서 내용 추가). */}
-                  <td className="whitespace-nowrap border-b px-3 py-2 text-left" data-week-name>
+                  <td
+                    data-sticky-col={sticky.col(2)["data-sticky-col"]}
+                    className={"whitespace-nowrap border-b px-3 py-2 text-left " + sticky.col(2).className}
+                    data-week-name
+                  >
                     <Link
                       href={weekHref(week.weekId)}
                       data-week-link={week.weekId}
@@ -224,6 +244,7 @@ export default function CrewWeekResultsDetailTable({
           )}
         </tbody>
       </table>
+      </PaginatedNativeTable>
     </div>
   );
 }

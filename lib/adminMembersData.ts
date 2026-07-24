@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { DEFAULT_TABLE_PAGE_SIZE } from "@/lib/tablePagination";
 import { isUuid } from "@/lib/isUuid";
 import { SUPER_ADMIN_EXCLUDE_OR } from "@/lib/superAdmins";
 import { resolveUserScope, type UserScope } from "@/lib/userScope";
@@ -742,7 +743,10 @@ export async function listMembersRoster(options: {
 }): Promise<ListMembersRosterResult> {
   const mode = options.mode ?? "operating";
   const page = Math.max(1, options.page ?? 1);
-  const pageSize = Math.min(200, Math.max(1, options.pageSize ?? 50));
+  const pageSize = Math.min(
+    200,
+    Math.max(1, options.pageSize ?? DEFAULT_TABLE_PAGE_SIZE),
+  );
   const t = (label: string, ms: number) => {
     if (options.profile) console.log(`[roster][profile] ${label}=${ms}ms`);
   };
@@ -906,7 +910,7 @@ export async function listMembersRoster(options: {
     sort: options.sort ?? undefined,
   });
   const filteredTotal = filteredSorted.length;
-  // 페이지 슬라이스 — 해당 페이지 행만 응답(50/page 기본).
+  // 페이지 슬라이스 — 해당 페이지 행만 응답(20/page 기본).
   const offset = (page - 1) * pageSize;
   const members = filteredSorted.slice(offset, offset + pageSize);
   t("filter+sort+page", filteredTotal);

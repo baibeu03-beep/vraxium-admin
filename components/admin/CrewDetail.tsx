@@ -1,6 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { DEFAULT_TABLE_PAGE_SIZE } from "@/lib/tablePagination";
+import {
+  PaginatedNativeTable,
+  TablePagination,
+} from "@/components/ui/table-pagination";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -21,6 +26,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
+import { useStickyColumns, type StickyColProps } from "@/components/ui/sticky-columns";
 import { pointColorClass } from "@/components/ui/point-value";
 import { type ScopeMode } from "@/lib/userScopeShared";
 import {
@@ -150,7 +156,7 @@ function dashPct(value: number | null | undefined): string {
 // 시즌 결과(4종)·주차 성장 결과(7종) 배지 색은 lib/statusBadge 레지스트리(단일 SoT)가
 // 담당한다 — 같은 상태=같은 색을 전 페이지에서 보장. 여기서 별도 색 맵을 두지 않는다.
 
-const WEEKLY_PAGE_SIZE = 15;
+const WEEKLY_PAGE_SIZE = DEFAULT_TABLE_PAGE_SIZE;
 
 // ── 요소 단위 도움말 키(org/mode/test 무관 공통) ──────────────────────────────
 //   · SoT 는 admin_page_help_contents(page_path=키, content) — 여기선 "키 문자열"만 중앙화.
@@ -253,6 +259,7 @@ function SortTh({
   onSort,
   align = "center",
   className,
+  sticky,
 }: {
   label: string;
   help: string;
@@ -260,14 +267,18 @@ function SortTh({
   onSort?: () => void;
   align?: "left" | "center";
   className?: string;
+  // 왼쪽 열 고정 계약 — useStickyColumns().col(1|2) 를 그대로 전달.
+  sticky?: StickyColProps;
 }) {
   return (
     <th
       aria-sort={dir === "asc" ? "ascending" : dir === "desc" ? "descending" : "none"}
+      data-sticky-col={sticky?.["data-sticky-col"]}
       className={cn(
         "px-2 py-2 font-medium",
         align === "left" ? "text-left" : "text-center",
         className,
+        sticky?.className,
       )}
     >
       <span
@@ -620,6 +631,8 @@ function SeasonResultsTable({
   rows: CrewSeasonResultRow[];
   orgSlug: string | null;
 }) {
+  // 왼쪽 2열 고정(시즌명·시즌 결과) + 상단 헤더 고정 — 공통 sticky 계약.
+  const sticky = useStickyColumns({ headerSticky: true });
   const poLabels = getProcessPointLabels(orgSlug);
   const [sort, setSort] = useState<{ key: SeasonSortKey; dir: SortDir } | null>(null);
   const cycleSort = useCallback((key: SeasonSortKey) => {
@@ -645,13 +658,14 @@ function SeasonResultsTable({
   }
   const pct = (v: number | null) => (v == null ? "-" : `${v}%`);
   return (
-    <div className="mt-4 overflow-x-auto">
+    <div ref={sticky.ref} className={cn("mt-4 overflow-x-auto", sticky.regionClassName)}>
       {/* 헤더·셀 전부 가운데 정렬(예외 없음) — table text-center 상속, 셀은 override 금지. */}
+      <PaginatedNativeTable>
       <table className="w-full border-collapse text-center text-sm">
         <thead>
           <tr className="border-b text-xs text-muted-foreground">
-            <SortTh label="시즌명" help={DETAIL_HELP.season.name} dir={dirOf("seasonName")} onSort={() => cycleSort("seasonName")} className="whitespace-nowrap" />
-            <SortTh label="시즌 결과" help={DETAIL_HELP.season.result} dir={dirOf("result")} onSort={() => cycleSort("result")} className="whitespace-nowrap" />
+            <SortTh label="시즌명" help={DETAIL_HELP.season.name} dir={dirOf("seasonName")} onSort={() => cycleSort("seasonName")} className="whitespace-nowrap" sticky={sticky.col(1)} />
+            <SortTh label="시즌 결과" help={DETAIL_HELP.season.result} dir={dirOf("result")} onSort={() => cycleSort("result")} className="whitespace-nowrap" sticky={sticky.col(2)} />
             <SortTh label={poLabels.a} help={DETAIL_HELP.metric.poA} dir={dirOf("poA")} onSort={() => cycleSort("poA")} className="whitespace-nowrap" />
             <SortTh label={poLabels.b} help={DETAIL_HELP.metric.poB} dir={dirOf("poB")} onSort={() => cycleSort("poB")} className="whitespace-nowrap" />
             <SortTh label={poLabels.c} help={DETAIL_HELP.metric.poC} dir={dirOf("poC")} onSort={() => cycleSort("poC")} className="whitespace-nowrap" />
@@ -665,8 +679,16 @@ function SeasonResultsTable({
         <tbody>
           {sortedRows.map((r) => (
             <tr key={r.seasonKey} className="border-b align-top last:border-0">
-              <td className="whitespace-nowrap px-2 py-2 font-medium">{r.seasonNameShort}</td>
-              <td className="whitespace-nowrap px-2 py-2">
+              <td
+                className={cn("whitespace-nowrap px-2 py-2 font-medium", sticky.col(1).className)}
+                data-sticky-col={sticky.col(1)["data-sticky-col"]}
+              >
+                {r.seasonNameShort}
+              </td>
+              <td
+                className={cn("whitespace-nowrap px-2 py-2", sticky.col(2).className)}
+                data-sticky-col={sticky.col(2)["data-sticky-col"]}
+              >
                 <StatusBadge label={r.seasonResultLabel} size="sm" />
               </td>
               <td className={cn("whitespace-nowrap px-2 py-2 tabular-nums", pointColorClass("a"))}>{r.poA}</td>
@@ -683,6 +705,7 @@ function SeasonResultsTable({
           ))}
         </tbody>
       </table>
+      </PaginatedNativeTable>
     </div>
   );
 }
@@ -783,6 +806,8 @@ function WeeklyResultsTable({
   orgSlug: string | null;
   weekDetailHref: (weekId: string) => string;
 }) {
+  // 왼쪽 2열 고정(주차명·성장 결과) + 상단 헤더 고정 — 공통 sticky 계약.
+  const sticky = useStickyColumns({ headerSticky: true });
   const poLabels = getProcessPointLabels(orgSlug);
   const totalPages = Math.max(1, Math.ceil(rows.length / WEEKLY_PAGE_SIZE));
   // 기본 = 1페이지(최신 주차). rows.length 변화 시 1페이지로 리셋.
@@ -826,13 +851,13 @@ function WeeklyResultsTable({
 
   return (
     <div className="mt-4">
-      <div className="overflow-x-auto">
+      <div ref={sticky.ref} className={cn("overflow-x-auto", sticky.regionClassName)}>
         {/* 헤더·셀 전부 가운데 정렬(예외 없음) — table text-center 상속, 셀은 override 금지. */}
         <table className="w-full border-collapse text-center text-sm">
           <thead>
             <tr className="border-b text-xs text-muted-foreground">
-              <SortTh label="주차명" help={DETAIL_HELP.week.name} dir={dirOf("weekName")} onSort={() => cycleSort("weekName")} className="whitespace-nowrap" />
-              <SortTh label="성장 결과" help={DETAIL_HELP.week.growthResult} dir={dirOf("growthResult")} onSort={() => cycleSort("growthResult")} className="whitespace-nowrap" />
+              <SortTh label="주차명" help={DETAIL_HELP.week.name} dir={dirOf("weekName")} onSort={() => cycleSort("weekName")} className="whitespace-nowrap" sticky={sticky.col(1)} />
+              <SortTh label="성장 결과" help={DETAIL_HELP.week.growthResult} dir={dirOf("growthResult")} onSort={() => cycleSort("growthResult")} className="whitespace-nowrap" sticky={sticky.col(2)} />
               <SortTh label="성장 성공 주차" help={DETAIL_HELP.week.cumulativeSuccess} dir={dirOf("cumulativeSuccess")} onSort={() => cycleSort("cumulativeSuccess")} className="whitespace-nowrap" />
               <SortTh label="팀" help={DETAIL_HELP.metric.team} dir={dirOf("team")} onSort={() => cycleSort("team")} className="whitespace-nowrap" />
               <SortTh label="파트" help={DETAIL_HELP.metric.part} dir={dirOf("part")} onSort={() => cycleSort("part")} className="whitespace-nowrap" />
@@ -849,7 +874,10 @@ function WeeklyResultsTable({
           <tbody>
             {pageRows.map((r, i) => (
               <tr key={r.weekId ?? `${r.weekName}-${start + i}`} className="border-b last:border-0">
-                <td className="whitespace-nowrap px-2 py-2 font-medium">
+                <td
+                  className={cn("whitespace-nowrap px-2 py-2 font-medium", sticky.col(1).className)}
+                  data-sticky-col={sticky.col(1)["data-sticky-col"]}
+                >
                   {/* 주차명 클릭 → 회원별·주차별 상세(관리) 페이지. 텍스트만 클릭(행 전체 아님).
                       키보드 포커스·hover/focus-visible 표시. weekId 없으면 링크 없이 텍스트만. */}
                   {r.weekId ? (
@@ -863,7 +891,10 @@ function WeeklyResultsTable({
                     r.weekName
                   )}
                 </td>
-                <td className="whitespace-nowrap px-2 py-2">
+                <td
+                  className={cn("whitespace-nowrap px-2 py-2", sticky.col(2).className)}
+                  data-sticky-col={sticky.col(2)["data-sticky-col"]}
+                >
                   <StatusBadge label={r.growthResultLabel} size="sm" />
                 </td>
                 <td className="whitespace-nowrap px-2 py-2 tabular-nums">{num(r.cumulativeSuccessWeeks)}</td>
@@ -883,20 +914,14 @@ function WeeklyResultsTable({
         </table>
       </div>
 
-      {/* 페이지네이션 — 1페이지가 최신 주차. */}
-      {totalPages > 1 && (
-        <div className="mt-3 flex items-center justify-center gap-1.5 text-sm">
-          <Button variant="outline" size="sm" disabled={safePage <= 1} onClick={() => setPage(safePage - 1)}>
-            이전
-          </Button>
-          <span className="px-2 text-muted-foreground">
-            {safePage} / {totalPages} 페이지 ({rows.length}주차)
-          </span>
-          <Button variant="outline" size="sm" disabled={safePage >= totalPages} onClick={() => setPage(safePage + 1)}>
-            다음
-          </Button>
-        </div>
-      )}
+      <TablePagination
+        page={safePage}
+        pageSize={WEEKLY_PAGE_SIZE}
+        totalCount={rows.length}
+        totalPages={totalPages}
+        showPagination={rows.length > WEEKLY_PAGE_SIZE}
+        onPageChange={setPage}
+      />
     </div>
   );
 }
@@ -933,4 +958,3 @@ function SummaryCell({
     </div>
   );
 }
-

@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { DEFAULT_TABLE_PAGE_SIZE } from "@/lib/tablePagination";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowDown, ArrowUp, ArrowUpDown, RefreshCw, RotateCcw, Search } from "lucide-react";
 import {
@@ -27,6 +29,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { classTone, rankTone } from "@/lib/statusBadge";
 import { cn } from "@/lib/utils";
+import { useStickyColumns, type StickyColProps } from "@/components/ui/sticky-columns";
 import { pointColorClass } from "@/components/ui/point-value";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
@@ -418,6 +421,8 @@ export default function MembersList({
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
+  // 왼쪽 2열 고정(이름·클럽명) + 상단 헤더 고정(경계 스크롤 영역) — 공통 sticky 계약.
+  const sticky = useStickyColumns({ headerSticky: true });
   const mode = readScopeMode(searchParams);
 
   // 탭은 ?tab 으로 구동된다 — 본문은 URL 만 읽는다.
@@ -454,7 +459,7 @@ export default function MembersList({
   const [refreshTick, setRefreshTick] = useState(0);
 
   // 서버 페이지네이션 상태 — 모집단/필터결과 카운트 + 현재 페이지.
-  const PAGE_SIZE = 50;
+  const PAGE_SIZE = DEFAULT_TABLE_PAGE_SIZE;
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0); // operationalSeasonKey 모집단(필터 전)
   const [filteredTotal, setFilteredTotal] = useState(0); // 검색/상태필터 후 결과 수
@@ -565,6 +570,7 @@ export default function MembersList({
         setPartialFailure((d.partialFailure ?? null) as RosterPartialFailureClient | null);
         setTotal(d.total ?? 0);
         setFilteredTotal(d.filteredTotal ?? 0);
+        if (typeof d.page === "number" && d.page !== page) setPage(d.page);
         setStatusCounts({
           active: d.statusCounts?.active ?? 0,
           rest: d.statusCounts?.rest ?? 0,
@@ -584,7 +590,7 @@ export default function MembersList({
     return () => {
       cancelled = true;
     };
-  }, [hydrated, fetchOrg, mode, appliedFilter, appliedSearch, sortParam, page, refreshTick]);
+  }, [hydrated, fetchOrg, mode, appliedFilter, appliedSearch, sortParam, page, refreshTick, PAGE_SIZE]);
 
   // 서버가 필터/정렬/슬라이스를 끝낸 페이지 — 클라이언트는 그대로 렌더.
   const rows = roster;
@@ -800,8 +806,8 @@ export default function MembersList({
               <LoadingState active={loading} variant="inline" className="px-1" />
             )}
 
-            <div className="overflow-auto rounded-lg border">
-              <Table>
+            <div className="rounded-lg border">
+              <Table containerRef={sticky.ref} regionClassName={sticky.regionClassName} stickyLeft>
                 <TableHeader>
                   <TableRow>
                     {COLUMNS.map((c, idx) => {
@@ -821,9 +827,8 @@ export default function MembersList({
                           priority={priority >= 0 ? priority + 1 : null}
                           showPriority={sortStack.length > 1}
                           onSort={() => handleSort(c.key)}
-                          className={
-                            idx === 0 ? "sticky left-0 z-20 bg-card border-r" : undefined
-                          }
+                          // 왼쪽 2열(이름·클럽명) 고정 — 공통 계약. col-1 실측폭으로 col-2 offset.
+                          sticky={idx === 0 ? sticky.col(1) : idx === 1 ? sticky.col(2) : undefined}
                         />
                       );
                     })}
@@ -837,11 +842,19 @@ export default function MembersList({
                         return (
                           <TableCell
                             key={c.key}
+                            data-sticky-col={
+                              idx === 0
+                                ? sticky.col(1)["data-sticky-col"]
+                                : idx === 1
+                                  ? sticky.col(2)["data-sticky-col"]
+                                  : undefined
+                            }
                             className={cn(
                               "whitespace-nowrap text-center align-middle",
                               c.align === "right" && "tabular-nums",
                               c.cellClassName,
-                              idx === 0 && "sticky left-0 z-10 bg-card border-r font-medium",
+                              idx === 0 && cn(sticky.col(1).className, "font-medium"),
+                              idx === 1 && sticky.col(2).className,
                             )}
                           >
                             {c.key === "name" ? (
@@ -912,22 +925,15 @@ export default function MembersList({
               </Table>
             </div>
 
-            {/* 페이지네이션 — 서버 페이지(50/page). 검색/필터/정렬 결과 기준. */}
-            {filteredTotal > 0 && (
-              <div className="flex items-center justify-between gap-4 text-xs text-muted-foreground">
-                <span>
-                  {((page - 1) * PAGE_SIZE + 1).toLocaleString()}–
-                  {Math.min(page * PAGE_SIZE, filteredTotal).toLocaleString()} / {filteredTotal.toLocaleString()}
-                </span>
-                <div className="flex items-center gap-1">
-                  <Button variant="outline" size="sm" disabled={loading || page <= 1} onClick={() => setPage(1)}>처음</Button>
-                  <Button variant="outline" size="sm" disabled={loading || page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>이전</Button>
-                  <span className="px-2 font-mono text-foreground">{page} / {totalPages}</span>
-                  <Button variant="outline" size="sm" disabled={loading || page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>다음</Button>
-                  <Button variant="outline" size="sm" disabled={loading || page >= totalPages} onClick={() => setPage(totalPages)}>마지막</Button>
-                </div>
-              </div>
-            )}
+            <TablePagination
+              page={page}
+              pageSize={PAGE_SIZE}
+              totalCount={filteredTotal}
+              totalPages={totalPages}
+              showPagination={filteredTotal > PAGE_SIZE}
+              disabled={loading}
+              onPageChange={setPage}
+            />
           </CardContent>
         </Card>
       )}
@@ -1084,7 +1090,7 @@ function MembersInfoTab({
 //   데이터 = /api/admin/members/info-stats(백엔드 DTO 단일 SoT). 프론트 임의 계산 없음.
 //   값 null = 미확정/placeholder → "-" 표시. 20주차/page 페이지네이션(최신 상단).
 
-const WEEKS_PER_PAGE = 20;
+const WEEKS_PER_PAGE = DEFAULT_TABLE_PAGE_SIZE;
 
 // 1-B 컬럼 정의 — 라벨 + InfoWeekRow 셀 렌더(숫자/배지/Oldest). 표시 전용.
 const fmtNumCell = (v: number | null): string => (v == null ? "-" : v.toLocaleString());
@@ -1358,31 +1364,14 @@ function InfoStatsPanel({ org, mode }: { org: InfoClubTab; mode: "operating" | "
                 </Table>
               </div>
 
-              {/* 페이지네이션 — 20주차/page */}
-              <div className="flex items-center justify-end gap-3 text-sm">
-                <span className="inline-flex items-center gap-1 text-muted-foreground">
-                  <span>
-                    {weeks.length.toLocaleString()}주차 · {page + 1} / {totalPages}
-                  </span>
-                  <AdminHelpIconButton helpKey={`${INFO_HELP}.action.pagination`} title="페이지 이동 · 주차 수" />
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage((p) => Math.max(0, p - 1))}
-                  disabled={page <= 0}
-                >
-                  이전
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                  disabled={page >= totalPages - 1}
-                >
-                  다음
-                </Button>
-              </div>
+              <TablePagination
+                page={page + 1}
+                pageSize={WEEKS_PER_PAGE}
+                totalCount={sortedWeeks.length}
+                totalPages={totalPages}
+                showPagination={sortedWeeks.length > WEEKS_PER_PAGE}
+                onPageChange={(nextPage) => setPage(nextPage - 1)}
+              />
             </>
           )}
         </CardContent>
@@ -1466,6 +1455,7 @@ function SortableHeader({
   showPriority,
   onSort,
   className,
+  sticky,
 }: {
   label: string;
   help?: { helpKey: string; title?: string };
@@ -1474,12 +1464,14 @@ function SortableHeader({
   showPriority: boolean;
   onSort: () => void;
   className?: string;
+  sticky?: StickyColProps;
 }) {
   const active = dir != null;
   return (
     <TableHead
       aria-sort={dir === "asc" ? "ascending" : dir === "desc" ? "descending" : "none"}
-      className={cn("text-center align-middle", className)}
+      className={cn("text-center align-middle", className, sticky?.className)}
+      data-sticky-col={sticky?.["data-sticky-col"]}
     >
       {/* 정렬 트리거(button) 와 도움말(button) 은 형제로 둔다 — 버튼 중첩(무효 HTML) 방지. */}
       <span className="inline-flex w-full items-center justify-center gap-1">

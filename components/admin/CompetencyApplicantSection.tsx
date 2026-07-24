@@ -26,6 +26,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { LoadingState } from "@/components/ui/loading-state";
+import { useStickyColumns, type StickyColProps } from "@/components/ui/sticky-columns";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { Checkbox, checkedTextClass, checkedRowClass } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
@@ -234,15 +235,19 @@ function AppColumnHeader({
   col,
   dir,
   onSort,
+  sticky,
 }: {
   col: AppColumnDef;
   dir: "asc" | "desc" | null;
   onSort: () => void;
+  // 왼쪽 식별 열 고정(공통 계약) — 지정 시 해당 셀에 stick-col-* 클래스/속성을 얹는다.
+  sticky?: StickyColProps;
 }) {
   const sortable = Boolean(col.sortValue);
   return (
     <TableHead
-      className={col.headClassName}
+      className={cn(col.headClassName, sticky?.className)}
+      data-sticky-col={sticky?.["data-sticky-col"]}
       aria-sort={
         dir === "asc" ? "ascending" : dir === "desc" ? "descending" : "none"
       }
@@ -293,6 +298,8 @@ export default function CompetencyApplicantSection({
   const searchParams = useSearchParams();
   const org = readOrgParam(searchParams);
   const { toast } = useToast();
+  // 왼쪽 2열 고정(크루명·라인명) — 공통 sticky 계약. col-1 실측폭으로 col-2 offset.
+  const sticky = useStickyColumns({ headerSticky: true });
 
   const [apps, setApps] = useState<ApplicationDto[]>([]);
   const [summary, setSummary] = useState<Summary>(EMPTY_SUMMARY);
@@ -777,10 +784,10 @@ export default function CompetencyApplicantSection({
             신청 데이터가 없습니다. (크루 신청 또는 수동 추가 시 표시됩니다)
           </p>
         ) : (
-          <div className="overflow-x-auto">
+          <div>
             {/* table-fixed + colgroup 로 컬럼 폭을 명시 배분 — 크루명은 좁히고 제출 링크는 넓혀
                 URL 을 말줄임(...) 없이 2~3줄 줄바꿈으로 끝까지 노출한다(폭 %는 컨테이너 기준 반응형). */}
-            <Table className="table-fixed">
+            <Table className="table-fixed" containerRef={sticky.ref} regionClassName={sticky.regionClassName} stickyLeft>
               <colgroup>
                 <col style={{ width: "17%" }} />{/* 크루명(축소) */}
                 <col style={{ width: "15%" }} />{/* 라인명 */}
@@ -792,12 +799,14 @@ export default function CompetencyApplicantSection({
               </colgroup>
               <TableHeader>
                 <TableRow>
-                  {APP_COLUMNS.map((col) => (
+                  {APP_COLUMNS.map((col, idx) => (
                     <AppColumnHeader
                       key={col.key}
                       col={col}
                       dir={columnSort?.key === col.key ? columnSort.dir : null}
                       onSort={() => cycleSort(col.key)}
+                      // 왼쪽 2열(크루명·라인명) 고정 — 공통 계약.
+                      sticky={idx === 0 ? sticky.col(1) : idx === 1 ? sticky.col(2) : undefined}
                     />
                   ))}
                 </TableRow>
@@ -819,8 +828,11 @@ export default function CompetencyApplicantSection({
                     </TableRow>
                     {g.apps.map((a) => (
                   <TableRow key={a.id} className={cn(checkedRowClass(a.approvalChecked))}>
-                    {/* 크루명 — 좁아진 컬럼(colgroup 17%)에서 자연 줄바꿈 허용(전역 whitespace-nowrap 덮음). */}
-                    <TableCell className="align-top whitespace-normal break-words font-medium">
+                    {/* 크루명 — 좁아진 컬럼(colgroup 17%)에서 자연 줄바꿈 허용(전역 whitespace-nowrap 덮음). 좌측 고정 col-1. */}
+                    <TableCell
+                      {...sticky.col(1)}
+                      className={cn("align-top whitespace-normal break-words font-medium", sticky.col(1).className)}
+                    >
                       <span className={cn(checkedTextClass(a.approvalChecked))}>{a.crewLabel}</span>
                       {a.source === "manual" && (
                         <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
@@ -828,7 +840,11 @@ export default function CompetencyApplicantSection({
                         </span>
                       )}
                     </TableCell>
-                    <TableCell className="align-top whitespace-normal break-words">
+                    {/* 라인명 — 좌측 고정 col-2. */}
+                    <TableCell
+                      {...sticky.col(2)}
+                      className={cn("align-top whitespace-normal break-words", sticky.col(2).className)}
+                    >
                       <div className="font-medium">{a.lineName}</div>
                       {a.lineCode && (
                         <div className="font-mono text-[10px] text-muted-foreground">{a.lineCode}</div>

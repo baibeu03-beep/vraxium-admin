@@ -5,7 +5,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 // /admin/periods/register + /admin/season-weeks 요소별 도움말(돋보기) & 테이블 정렬 브라우저 검증.
 //   A) periods/register: 돋보기 9개 렌더 · 클릭→편집/저장 모달 · 저장→새로고침 유지
-//   B) season-weeks: 필터 4 + 컬럼 7 도움말 렌더 · 컬럼 정렬 오름/내림/기본 복귀 · 도움말≠정렬 간섭
+//   B) season-weeks: 필터 3 + 컬럼 7 도움말 렌더 · 컬럼 정렬 오름/내림/기본 복귀 · 도움말≠정렬 간섭
 //   C) /api/admin/help 요청에 org/mode 파라미터 없음(공통 키)
 
 const baseUrl = process.env.SMOKE_BASE_URL ?? "http://localhost:3000";
@@ -170,9 +170,10 @@ async function main() {
     await page.waitForTimeout(500);
     const magsB = page.getByRole("button", { name: "이 항목 도움말" });
     const countB = await magsB.count();
-    // 필터 4(정렬/년도/시즌/활동) + 새로고침 1 + 초기화 1 + 컬럼 7 = 13
-    assert(countB === 13, `season-weeks 돋보기 13개 기대(필터4+버튼2+컬럼7), 실제 ${countB}`);
-    console.log(`PASS B1 season-weeks 돋보기 ${countB}개 렌더(필터4+버튼2+컬럼7)`);
+    // 필터 3(년도/시즌/활동) + 새로고침 1 + 초기화 1 + 컬럼 7 = 12
+    //   (구 "정렬" 드롭다운 폐지 — 컬럼 헤더 클릭 정렬과 중복이라 제거. 필터 4→3.)
+    assert(countB === 12, `season-weeks 돋보기 12개 기대(필터3+버튼2+컬럼7), 실제 ${countB}`);
+    console.log(`PASS B1 season-weeks 돋보기 ${countB}개 렌더(필터3+버튼2+컬럼7)`);
     await page.screenshot({ path: `${SHOT_DIR}/qa-season-weeks-help.png`, fullPage: true });
 
     // 컬럼 헤더 도움말 클릭 → 모달 (정렬 트리거와 간섭 없음: 클릭 전후 년도 순서 동일)

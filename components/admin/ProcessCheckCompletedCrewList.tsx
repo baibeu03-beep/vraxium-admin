@@ -12,6 +12,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useStickyColumns } from "@/components/ui/sticky-columns";
+import { cn } from "@/lib/utils";
 import { type ProcessCheckCrewDto } from "@/lib/adminProcessCheckTypes";
 
 export default function ProcessCheckCompletedCrewList({
@@ -19,18 +21,20 @@ export default function ProcessCheckCompletedCrewList({
 }: {
   crews: ProcessCheckCrewDto[];
 }) {
+  // 왼쪽 2열 고정(이름·소속 팀) — 공통 sticky 계약. col-1 실측폭으로 col-2 offset.
+  const sticky = useStickyColumns({ headerSticky: true });
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-muted-foreground">체크 크루</span>
         <span className="text-xs font-semibold tabular-nums text-foreground">{crews.length}명</span>
       </div>
-      <div className="overflow-x-auto rounded-md border">
-        <Table>
+      <div className="rounded-md border">
+        <Table containerRef={sticky.ref} regionClassName={sticky.regionClassName} stickyLeft>
           <TableHeader>
             <TableRow>
-              <TableHead>이름</TableHead>
-              <TableHead>소속 팀</TableHead>
+              <TableHead {...sticky.col(1)} className={sticky.col(1).className}>이름</TableHead>
+              <TableHead {...sticky.col(2)} className={sticky.col(2).className}>소속 팀</TableHead>
               <TableHead>소속 파트</TableHead>
               <TableHead>클래스</TableHead>
             </TableRow>
@@ -45,8 +49,15 @@ export default function ProcessCheckCompletedCrewList({
             ) : (
               crews.map((c, i) => (
                 <TableRow key={c.userId ?? `nick-${i}`}>
-                  <TableCell className="font-medium">{c.name}</TableCell>
-                  <TableCell>{c.teamName ?? "-"}</TableCell>
+                  <TableCell
+                    {...sticky.col(1)}
+                    className={cn("font-medium", sticky.col(1).className)}
+                  >
+                    {c.name}
+                  </TableCell>
+                  <TableCell {...sticky.col(2)} className={sticky.col(2).className}>
+                    {c.teamName ?? "-"}
+                  </TableCell>
                   <TableCell>{c.partName ?? "-"}</TableCell>
                   <TableCell>{c.className}</TableCell>
                 </TableRow>

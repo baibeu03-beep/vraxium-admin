@@ -1,5 +1,6 @@
 "use client";
 
+import { PaginatedNativeTable } from "@/components/ui/table-pagination";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Ban, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import { type ScopeMode } from "@/lib/userScopeShared";
 import ActSupplementDialog from "@/components/admin/ActSupplementDialog";
 import WeekTallyingNotice from "@/components/admin/WeekTallyingNotice";
 import { SortableTh } from "@/components/admin/SortableTh";
+import { useStickyColumns, type UseStickyColumns } from "@/components/ui/sticky-columns";
 import {
   cycleSort,
   sortActRows,
@@ -83,6 +85,8 @@ export default function CrewWeekActHistory({
   const [supplementOpen, setSupplementOpen] = useState(false);
   const [cancelFlip, setCancelFlip] = useState<GrowthFlip | null>(null);
   const { toast } = useToast();
+  // 좌측 식별 열 고정 — 체크박스(col1) + 결과(col2). 물리적 인접 2열(액트명은 3열째라 비인접 → 제외).
+  const sticky = useStickyColumns({ headerSticky: true });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -285,12 +289,19 @@ export default function CrewWeekActHistory({
           이번 주 수행·적립된 액트 내역이 없습니다.
         </p>
       ) : (
-        <div className="overflow-x-auto">
+        <div
+          ref={sticky.ref}
+          className={"overflow-x-auto" + (sticky.regionClassName ? " " + sticky.regionClassName : "")}
+        >
           {/* 헤더·셀 전부 가운데 정렬(예외 없음) — table text-center 상속, 셀은 override 금지. */}
+          <PaginatedNativeTable>
           <table className="w-full border-collapse text-center text-sm">
             <thead>
               <tr className="border-b text-xs text-muted-foreground">
-                <th className="px-2 py-2 text-center">
+                <th
+                  data-sticky-col={sticky.col(1)["data-sticky-col"]}
+                  className={"px-2 py-2 text-center " + sticky.col(1).className}
+                >
                   <Checkbox
                     indeterminate={someSelected && !allSelected}
                     aria-label="취소 가능 액트 전체 선택"
@@ -299,7 +310,7 @@ export default function CrewWeekActHistory({
                     onChange={toggleAll}
                   />
                 </th>
-                <SortableTh label="결과" dir={dirOf("result")} onSort={() => onSortKey("result")} className="whitespace-nowrap" />
+                <SortableTh label="결과" dir={dirOf("result")} onSort={() => onSortKey("result")} className="whitespace-nowrap" sticky={sticky.col(2)} />
                 <SortableTh label="액트명" dir={dirOf("name")} onSort={() => onSortKey("name")} className="whitespace-nowrap" />
                 <SortableTh label="발생 시점" dir={dirOf("occurredAt")} onSort={() => onSortKey("occurredAt")} className="whitespace-nowrap" />
                 <SortableTh label="소속 허브" dir={dirOf("hub")} onSort={() => onSortKey("hub")} className="whitespace-nowrap" />
@@ -320,10 +331,12 @@ export default function CrewWeekActHistory({
                   editable={editable}
                   checked={selected.has(a.awardId)}
                   onToggle={() => toggleOne(a.awardId)}
+                  sticky={sticky}
                 />
               ))}
             </tbody>
           </table>
+          </PaginatedNativeTable>
         </div>
       )}
 
@@ -533,16 +546,21 @@ function ActRowView({
   editable,
   checked,
   onToggle,
+  sticky,
 }: {
   row: CrewWeekActRow;
   editable: boolean;
   checked: boolean;
   onToggle: () => void;
+  sticky: UseStickyColumns;
 }) {
   const disabled = !editable || !row.cancellable;
   return (
     <tr className={cn("border-b last:border-0", checkedRowClass(checked), row.cancelled && "opacity-50")}>
-      <td className="px-2 py-2 text-center">
+      <td
+        data-sticky-col={sticky.col(1)["data-sticky-col"]}
+        className={"px-2 py-2 text-center " + sticky.col(1).className}
+      >
         <Checkbox
           aria-label={`${row.actName} 선택`}
           checked={checked}
@@ -550,7 +568,10 @@ function ActRowView({
           onChange={onToggle}
         />
       </td>
-      <td className="whitespace-nowrap px-2 py-2">
+      <td
+        data-sticky-col={sticky.col(2)["data-sticky-col"]}
+        className={"whitespace-nowrap px-2 py-2 " + sticky.col(2).className}
+      >
         {row.cancelled ? (
           <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground" title={row.cancelReason ?? undefined}>
             취소됨
@@ -570,7 +591,10 @@ function ActRowView({
           </span>
         )}
       </td>
-      <td className={cn("max-w-[220px] truncate px-2 py-2", checkedTextClass(checked), row.cancelled && "line-through")} title={row.actName}>
+      <td
+        className={cn("max-w-[220px] truncate px-2 py-2", checkedTextClass(checked), row.cancelled && "line-through")}
+        title={row.actName}
+      >
         {row.actName}
       </td>
       <td className="whitespace-nowrap px-2 py-2">

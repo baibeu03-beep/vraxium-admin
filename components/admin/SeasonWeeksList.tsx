@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { DEFAULT_TABLE_PAGE_SIZE } from "@/lib/tablePagination";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { ArrowDown, ArrowUp, ArrowUpDown, RefreshCw, RotateCcw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,14 +39,7 @@ import type { SeasonWeekRow } from "@/components/admin/seasonWeeksData";
 
 // ── 필터/정렬 상수 ───────────────────────────────────────────────────────────
 const ALL = "__all__";
-const PAGE_SIZE = 20;
-
-type SortKey = "latest" | "oldest";
-
-const SORT_OPTIONS: { key: SortKey; label: string }[] = [
-  { key: "latest", label: "최신 순" },
-  { key: "oldest", label: "오래된 순" },
-];
+const PAGE_SIZE = DEFAULT_TABLE_PAGE_SIZE;
 
 // 연도(기획 고정값 2022~2026)·계절 label 은 공용 SoT(@/lib/seasonSelectOptions) 재사용.
 //   데이터 유무와 무관하게 노출. 보이드(-) 아래 최신 연도순.
@@ -64,7 +59,6 @@ const ACTIVITY_OPTIONS: { key: ActivityKey; label: string }[] = [
 
 // base-ui Select 는 items 매핑이 있어야 닫힌 트리거에 라벨(값 아님)을 표시한다.
 // 옵션 목록 렌더와 트리거 라벨 해석이 동일 배열(items SoT)을 쓰도록 한다.
-const SORT_ITEMS = SORT_OPTIONS.map((o) => ({ value: o.key, label: o.label }));
 const YEAR_ITEMS = [{ value: ALL, label: "-" }, ...YEAR_OPTIONS];
 const SEASON_ITEMS = [
   { value: ALL, label: "-" },
@@ -419,17 +413,6 @@ function SortableHeader({
   );
 }
 
-// 페이지 번호 목록(현재 페이지 주변 windowing, 최대 5개).
-function pageNumbers(current: number, total: number): number[] {
-  const window = 5;
-  let start = Math.max(1, current - Math.floor(window / 2));
-  const end = Math.min(total, start + window - 1);
-  start = Math.max(1, end - window + 1);
-  const pages: number[] = [];
-  for (let p = start; p <= end; p++) pages.push(p);
-  return pages;
-}
-
 // ── 기간 정보 목록 섹션 ───────────────────────────────────────────────────────
 //   통합 페이지(/admin/periods/register)의 하단 "기간 정보" 조회 영역. 데이터(rows/생성시각/
 //   로딩/에러)는 상위(PeriodManagementView)에서 등록 폼과 공유하는 단일 조회를 props 로 받는다.
@@ -454,12 +437,11 @@ export default function SeasonWeeksList({
   // 왼쪽 2열 고정(주차 코드·기간) — 공통 sticky 계약. col-1 실측폭으로 col-2 offset.
   const sticky = useStickyColumns({ headerSticky: true });
   // 필터/정렬 상태(섹션 로컬)
-  const [sort, setSort] = useState<SortKey>("latest");
   const [yearFilter, setYearFilter] = useState<string>(ALL);
   const [seasonFilter, setSeasonFilter] = useState<string>(ALL);
   const [activityFilter, setActivityFilter] = useState<string>(ALL);
   const [page, setPage] = useState(1);
-  // 컬럼 헤더 클릭 정렬. null = 기본 순서(상단 정렬 드롭다운 기준).
+  // 컬럼 헤더 클릭 정렬. null = 기본 순서(주차 시작일 최신순).
   //   클릭 순환: 없음 → 오름차순 → 내림차순 → 기본 복귀.
   const [columnSort, setColumnSort] = useState<{
     key: ColKey;
@@ -477,10 +459,6 @@ export default function SeasonWeeksList({
     setPage(1);
   };
 
-  const handleSortChange = (value: SortKey) => {
-    setSort(value);
-    setPage(1);
-  };
   const handleYearFilterChange = (value: string) => {
     setYearFilter(value);
     setPage(1);
@@ -509,7 +487,7 @@ export default function SeasonWeeksList({
     });
   }, [rows, yearFilter, seasonFilter, activityFilter]);
 
-  // 정렬: 컬럼 정렬이 활성이면 그 기준, 아니면 상단 드롭다운(최신/오래된) 기본 순서.
+  // 정렬: 컬럼 정렬이 활성이면 그 기준, 아니면 기본 순서(주차 시작일 최신순).
   //   원본(filtered) 을 mutate 하지 않도록 복사본을 정렬한다.
   const sorted = useMemo(() => {
     const list = [...filtered];
@@ -529,17 +507,18 @@ export default function SeasonWeeksList({
         return list;
       }
     }
-    // 기본 순서: 주차 시작일(월요일) 기준. 최신 순=미래가 맨 위(desc). null 은 항상 뒤.
+    // 기본 순서: 주차 시작일(월요일) 기준 최신순(미래가 맨 위, desc). null 은 항상 뒤.
+    //   (상단 정렬 드롭다운은 폐지 — 컬럼 헤더 클릭 정렬과 중복이라 제거. 기본 표시 순서는 불변.)
     list.sort((a, b) => {
       const as = a.week_start_date;
       const bs = b.week_start_date;
       if (as === bs) return (a.week_number ?? 0) - (b.week_number ?? 0);
       if (!as) return 1;
       if (!bs) return -1;
-      return sort === "latest" ? bs.localeCompare(as) : as.localeCompare(bs);
+      return bs.localeCompare(as);
     });
     return list;
-  }, [filtered, columnSort, sort]);
+  }, [filtered, columnSort]);
 
   const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -549,7 +528,6 @@ export default function SeasonWeeksList({
   );
 
   const resetFilters = () => {
-    setSort("latest");
     setYearFilter(ALL);
     setSeasonFilter(ALL);
     setActivityFilter(ALL);
@@ -606,27 +584,6 @@ export default function SeasonWeeksList({
       <Card size="sm">
         <CardContent className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3 py-3">
           <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-x-8 gap-y-3">
-            <FilterField label="정렬" helpKey="admin.seasonWeeks.filter.sort">
-              <Select
-                items={SORT_ITEMS}
-                value={sort}
-                onValueChange={(v) => handleSortChange((v as SortKey) ?? "latest")}
-              >
-                <SelectTrigger size="sm">
-                  <SelectValue>
-                    {(v) => itemLabel(SORT_ITEMS, v as string)}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {SORT_ITEMS.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>
-                      {item.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </FilterField>
-
             <FilterField label="연도" helpKey="admin.seasonWeeks.filter.year">
               <Select
                 items={YEAR_ITEMS}
@@ -815,44 +772,15 @@ export default function SeasonWeeksList({
         </div>
       )}
 
-      {/* 하단: 페이지네이션 */}
-      {!loading && filtered.length > PAGE_SIZE && (
-        <div className="flex flex-wrap items-center justify-center gap-1.5">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={safePage <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
-            이전
-          </Button>
-          {pageNumbers(safePage, totalPages).map((p) => (
-            <Button
-              key={p}
-              type="button"
-              size="sm"
-              variant={p === safePage ? "default" : "outline"}
-              onClick={() => setPage(p)}
-              className="tabular-nums"
-            >
-              {p}
-            </Button>
-          ))}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={safePage >= totalPages}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-          >
-            다음
-          </Button>
-          <span className="ml-2 text-xs text-muted-foreground tabular-nums">
-            {safePage} / {totalPages} 페이지
-          </span>
-        </div>
-      )}
+      <TablePagination
+        page={safePage}
+        pageSize={PAGE_SIZE}
+        totalCount={filtered.length}
+        totalPages={totalPages}
+        showPagination={!loading && filtered.length > PAGE_SIZE}
+        disabled={loading}
+        onPageChange={setPage}
+      />
 
       {generatedAt && (
         <p className="text-xs text-muted-foreground">

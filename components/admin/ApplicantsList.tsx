@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/table";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { cn } from "@/lib/utils";
+import { useStickyColumns } from "@/components/ui/sticky-columns";
 import { formatAdminDateTime } from "@/lib/adminDateTime";
 import { APPLICANT_STATUSES } from "@/lib/adminApplicantTypes";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
@@ -109,6 +110,8 @@ export default function ApplicantsList({ mode }: { mode: ScopeMode }) {
   const confirm = useConfirm();
   const t = useActionToast();
   const devMode = useAdminDevMode();
+  // 왼쪽 2열 고정(이름·이메일) — 공통 sticky 계약.
+  const sticky = useStickyColumns({ headerSticky: true });
   const [applicants, setApplicants] = useState<Applicant[]>([]);
   const [loading, setLoading] = useState(true);
   useReportLoading(loading);
@@ -365,12 +368,22 @@ export default function ApplicantsList({ mode }: { mode: ScopeMode }) {
             </div>
           )}
 
-          <div className="overflow-hidden rounded-lg border">
-            <Table>
+          <div className="rounded-lg border">
+            <Table containerRef={sticky.ref} regionClassName={sticky.regionClassName} stickyLeft>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="sticky left-0 z-20 bg-card border-r">이름</TableHead>
-                  <TableHead>{devMode ? "Email" : "이메일"}</TableHead>
+                  <TableHead
+                    className={sticky.col(1).className}
+                    data-sticky-col={sticky.col(1)["data-sticky-col"]}
+                  >
+                    이름
+                  </TableHead>
+                  <TableHead
+                    className={sticky.col(2).className}
+                    data-sticky-col={sticky.col(2)["data-sticky-col"]}
+                  >
+                    {devMode ? "Email" : "이메일"}
+                  </TableHead>
                   <TableHead>{devMode ? "Provider" : "로그인 수단"}</TableHead>
                   <TableHead>상태</TableHead>
                   <TableHead>{devMode ? "연결된 user_id" : "연결된 회원"}</TableHead>
@@ -385,10 +398,16 @@ export default function ApplicantsList({ mode }: { mode: ScopeMode }) {
                   const isRejecting = rejectingId === applicant.id;
                   return (
                     <TableRow key={applicant.id}>
-                      <TableCell className="sticky left-0 z-10 bg-card border-r max-w-[224px] truncate font-medium">
+                      <TableCell
+                        data-sticky-col={sticky.col(1)["data-sticky-col"]}
+                        className={cn("max-w-[224px] truncate font-medium", sticky.col(1).className)}
+                      >
                         {fmt(applicant.name)}
                       </TableCell>
-                      <TableCell className="max-w-[220px] truncate">
+                      <TableCell
+                        data-sticky-col={sticky.col(2)["data-sticky-col"]}
+                        className={cn("max-w-[220px] truncate", sticky.col(2).className)}
+                      >
                         {fmt(applicant.email)}
                       </TableCell>
                       <TableCell>{fmt(applicant.provider)}</TableCell>

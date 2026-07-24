@@ -22,6 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
+import { useStickyColumns } from "@/components/ui/sticky-columns";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { useActionToast } from "@/lib/actionToast";
 import { formatAdminDateTime } from "@/lib/adminDateTime";
@@ -55,6 +56,8 @@ function fmtDate(value: string | null | undefined) {
 
 export default function ApplicantManager() {
   const [applicants, setApplicants] = useState<Applicant[]>([]);
+  // Pending Queue 표의 왼쪽 2열 고정(Name·Email) — 공통 sticky 계약.
+  const sticky = useStickyColumns({ headerSticky: true });
   const [loading, setLoading] = useState(true);
   useReportLoading(loading);
   const t = useActionToast();
@@ -222,11 +225,21 @@ export default function ApplicantManager() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
+            <Table containerRef={sticky.ref} regionClassName={sticky.regionClassName} stickyLeft>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
+                  <TableHead
+                    className={sticky.col(1).className}
+                    data-sticky-col={sticky.col(1)["data-sticky-col"]}
+                  >
+                    Name
+                  </TableHead>
+                  <TableHead
+                    className={sticky.col(2).className}
+                    data-sticky-col={sticky.col(2)["data-sticky-col"]}
+                  >
+                    Email
+                  </TableHead>
                   <TableHead>Provider</TableHead>
                   <TableHead>Applied</TableHead>
                 </TableRow>
@@ -254,10 +267,16 @@ export default function ApplicantManager() {
                         setQuery(applicant.name?.trim() || applicant.email?.trim() || "");
                       }}
                     >
-                      <TableCell className="max-w-[224px] truncate font-medium">
+                      <TableCell
+                        data-sticky-col={sticky.col(1)["data-sticky-col"]}
+                        className={cn("max-w-[224px] truncate font-medium", sticky.col(1).className)}
+                      >
                         {fmt(applicant.name)}
                       </TableCell>
-                      <TableCell className="max-w-[220px] truncate">
+                      <TableCell
+                        data-sticky-col={sticky.col(2)["data-sticky-col"]}
+                        className={cn("max-w-[220px] truncate", sticky.col(2).className)}
+                      >
                         {fmt(applicant.email)}
                       </TableCell>
                       <TableCell>{fmt(applicant.provider)}</TableCell>

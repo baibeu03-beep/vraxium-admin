@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/table";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { cn } from "@/lib/utils";
+import { useStickyColumns } from "@/components/ui/sticky-columns";
 import { formatAdminDateTime } from "@/lib/adminDateTime";
 import { ORGANIZATION_COMMON_LABEL } from "@/lib/organizations";
 import { ACCOUNT_STATUSES } from "@/lib/adminAppUsersTypes";
@@ -73,6 +74,8 @@ function fmtDate(value: string | null | undefined) {
 export default function AppUsersList({ mode }: { mode: ScopeMode }) {
   const devMode = useAdminDevMode();
   const t = useActionToast();
+  // 왼쪽 2열 고정(이름·연락 이메일) — 공통 sticky 계약.
+  const sticky = useStickyColumns({ headerSticky: true });
   const [users, setUsers] = useState<AppUser[]>([]);
   const [total, setTotal] = useState(0);
   const [displayedCount, setDisplayedCount] = useState(0);
@@ -327,11 +330,14 @@ export default function AppUsersList({ mode }: { mode: ScopeMode }) {
             </div>
           )}
 
-          <div className="overflow-hidden rounded-lg border">
-            <Table>
+          <div className="rounded-lg border">
+            <Table containerRef={sticky.ref} regionClassName={sticky.regionClassName} stickyLeft>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="sticky left-0 z-20 bg-card border-r">
+                  <TableHead
+                    className={sticky.col(1).className}
+                    data-sticky-col={sticky.col(1)["data-sticky-col"]}
+                  >
                     <span className="inline-flex items-center gap-1">
                       <span>이름</span>
                       <AdminHelpIconButton
@@ -341,7 +347,10 @@ export default function AppUsersList({ mode }: { mode: ScopeMode }) {
                       />
                     </span>
                   </TableHead>
-                  <TableHead>
+                  <TableHead
+                    className={sticky.col(2).className}
+                    data-sticky-col={sticky.col(2)["data-sticky-col"]}
+                  >
                     <span className="inline-flex items-center gap-1">
                       <span>연락 이메일</span>
                       <AdminHelpIconButton
@@ -422,7 +431,10 @@ export default function AppUsersList({ mode }: { mode: ScopeMode }) {
                   const selectValue = currentSlug ?? ORG_NONE;
                   return (
                     <TableRow key={user.userId}>
-                      <TableCell className="sticky left-0 z-10 bg-card border-r max-w-[248px]">
+                      <TableCell
+                        data-sticky-col={sticky.col(1)["data-sticky-col"]}
+                        className={cn("max-w-[248px]", sticky.col(1).className)}
+                      >
                         <div className="truncate font-medium">{fmt(user.displayName)}</div>
                         {devMode && (
                           <div className="truncate font-mono text-[10px] text-muted-foreground">
@@ -430,7 +442,10 @@ export default function AppUsersList({ mode }: { mode: ScopeMode }) {
                           </div>
                         )}
                       </TableCell>
-                      <TableCell className="max-w-[220px] truncate">
+                      <TableCell
+                        data-sticky-col={sticky.col(2)["data-sticky-col"]}
+                        className={cn("max-w-[220px] truncate", sticky.col(2).className)}
+                      >
                         {fmt(user.contactEmail)}
                       </TableCell>
                       <TableCell className="max-w-[220px] truncate">

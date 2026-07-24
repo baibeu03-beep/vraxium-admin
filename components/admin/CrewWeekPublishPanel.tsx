@@ -1,5 +1,6 @@
 "use client";
 
+import { PaginatedNativeTable } from "@/components/ui/table-pagination";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
@@ -8,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { buildAdminContextHref } from "@/lib/adminOrgContext";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { useStickyColumns } from "@/components/ui/sticky-columns";
 import { adminDialog } from "@/components/ui/admin-dialog";
 import { pushToast } from "@/components/ui/toast";
 import { readScopeMode } from "@/lib/userScopeShared";
@@ -382,6 +384,8 @@ function TeamTable({
     () => [...rows].sort((a, b) => a.teamName.localeCompare(b.teamName, "ko-KR")),
     [rows],
   );
+  // 좌측 식별 열 고정 — 팀명(col1) + 팀 결과(col2).
+  const sticky = useStickyColumns({ headerSticky: true });
   if (sorted.length === 0) {
     return (
       <p className="py-8 text-center text-sm text-muted-foreground" data-team-empty>
@@ -392,17 +396,24 @@ function TeamTable({
   const COLS = ["팀명","팀 결과","팀장","파트 수","소속 크루","심화 크루","정규 크루","성장 도전","성장 휴식","성장 성공","성장 실패","승률"];
   const COL_KEYS = ["name","result","leader","partCount","crewCount","advancedCrew","regularCrew","growthChallenge","growthRest","growthSuccess","growthFailure","winRate"];
   return (
-    <div className="overflow-x-auto">
+    <div
+      ref={sticky.ref}
+      className={"overflow-x-auto" + (sticky.regionClassName ? " " + sticky.regionClassName : "")}
+    >
+      <PaginatedNativeTable>
       <table className="w-full min-w-[1200px] border-separate border-spacing-0 text-sm" data-team-table>
         <thead>
           <tr>
-            {COLS.map((h, index) => (
-              <th key={h} className={`whitespace-nowrap border-b bg-muted/60 px-3 py-2 font-semibold ${h==="팀명"||h==="팀장"?"text-left":"text-center"}`}>
-                <HelpLabel helpKey={`admin.teamParts.crewWeekResults.teamColumn.${COL_KEYS[index]}`}>
-                  {h}
-                </HelpLabel>
-              </th>
-            ))}
+            {COLS.map((h, index) => {
+              const stickyProps = index === 0 ? sticky.col(1) : index === 1 ? sticky.col(2) : null;
+              return (
+                <th key={h} data-sticky-col={stickyProps?.["data-sticky-col"]} className={`whitespace-nowrap border-b bg-muted/60 px-3 py-2 font-semibold ${h==="팀명"||h==="팀장"?"text-left":"text-center"}${stickyProps ? " " + stickyProps.className : ""}`}>
+                  <HelpLabel helpKey={`admin.teamParts.crewWeekResults.teamColumn.${COL_KEYS[index]}`}>
+                    {h}
+                  </HelpLabel>
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody>
@@ -414,7 +425,10 @@ function TeamTable({
               data-team-total={t.totalCrew}
               data-team-parts={t.partCount}
             >
-              <td className="whitespace-nowrap border-b px-3 py-2 text-left font-bold">
+              <td
+                data-sticky-col={sticky.col(1)["data-sticky-col"]}
+                className={"whitespace-nowrap border-b px-3 py-2 text-left font-bold " + sticky.col(1).className}
+              >
                 {t.teamId && teamHref ? (
                   <Link
                     href={teamHref(t.teamId)}
@@ -427,7 +441,10 @@ function TeamTable({
                   t.teamName
                 )}
               </td>
-              <td className="whitespace-nowrap border-b px-3 py-2 text-center">
+              <td
+                data-sticky-col={sticky.col(2)["data-sticky-col"]}
+                className={"whitespace-nowrap border-b px-3 py-2 text-center " + sticky.col(2).className}
+              >
                 {hasResult && t.battleResult ? (
                   <StatusBadge label={BATTLE_LABEL[t.battleResult]} size="sm" tone={BATTLE_TONE[t.battleResult]} />
                 ) : (
@@ -459,6 +476,7 @@ function TeamTable({
           ))}
         </tbody>
       </table>
+      </PaginatedNativeTable>
     </div>
   );
 }
@@ -514,6 +532,8 @@ function CrewTable({
     );
   }, [rows, hasResult]);
 
+  // 좌측 식별 열 고정 — 등수(col1) + 크루명(col2). 물리적 인접 2열(기존 ad-hoc `sticky left-0 z-10` 대체).
+  const sticky = useStickyColumns({ headerSticky: true });
   if (sorted.length === 0) {
     return (
       <p className="py-8 text-center text-sm text-muted-foreground" data-crew-empty>
@@ -522,24 +542,32 @@ function CrewTable({
     );
   }
   return (
-    <div className="overflow-x-auto">
+    <div
+      ref={sticky.ref}
+      className={"overflow-x-auto" + (sticky.regionClassName ? " " + sticky.regionClassName : "")}
+    >
+      <PaginatedNativeTable>
       <table className="w-full min-w-[1400px] border-separate border-spacing-0 text-sm" data-crew-table>
         <thead>
           <tr>
-            {CREW_COLS.map((h, index) => (
-              <th
-                key={h}
-                className={
-                  "whitespace-nowrap border-b bg-muted/60 px-3 py-2 font-semibold " +
-                  (h === "크루명" || h === "학적" ? "text-left" : "text-center") +
-                  (h === "크루명" ? " sticky left-0 z-10 bg-muted" : "")
-                }
-              >
-                <HelpLabel helpKey={`admin.teamParts.crewWeekResults.crewColumn.${CREW_COL_KEYS[index]}`}>
-                  {h}
-                </HelpLabel>
-              </th>
-            ))}
+            {CREW_COLS.map((h, index) => {
+              const stickyProps = h === "등수" ? sticky.col(1) : h === "크루명" ? sticky.col(2) : null;
+              return (
+                <th
+                  key={h}
+                  data-sticky-col={stickyProps?.["data-sticky-col"]}
+                  className={
+                    "whitespace-nowrap border-b bg-muted/60 px-3 py-2 font-semibold " +
+                    (h === "크루명" || h === "학적" ? "text-left" : "text-center") +
+                    (stickyProps ? " " + stickyProps.className : "")
+                  }
+                >
+                  <HelpLabel helpKey={`admin.teamParts.crewWeekResults.crewColumn.${CREW_COL_KEYS[index]}`}>
+                    {h}
+                  </HelpLabel>
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody>
@@ -547,12 +575,19 @@ function CrewTable({
             const zebra = i % 2 === 1 ? "bg-muted/30" : "";
             return (
               <tr key={c.userId} className={zebra} data-crew-row={c.userId}>
-                <td className="whitespace-nowrap border-b px-3 py-2 text-center font-bold tabular-nums" data-col-rank>
+                <td
+                  data-sticky-col={sticky.col(1)["data-sticky-col"]}
+                  className={"whitespace-nowrap border-b px-3 py-2 text-center font-bold tabular-nums " + sticky.col(1).className}
+                  data-col-rank
+                >
                   {cell(c.rank)}
                 </td>
                 {/* 크루명 — 클릭 시 회원 상세로 이동(현재 탭). 어드민 컨텍스트(통합/개별 org·모드·
                     테스트 대행/데모)는 공통 유틸이 그대로 전달한다 — 수동 문자열 연결 금지. */}
-                <td className={`whitespace-nowrap border-b px-3 py-2 text-left font-semibold sticky left-0 z-10 ${zebra || "bg-background"}`}>
+                <td
+                  data-sticky-col={sticky.col(2)["data-sticky-col"]}
+                  className={"whitespace-nowrap border-b px-3 py-2 text-left font-semibold " + sticky.col(2).className}
+                >
                   <Link
                     href={memberHref(c.userId)}
                     data-crew-name-link={c.userId}
@@ -562,7 +597,10 @@ function CrewTable({
                   </Link>
                 </td>
                 {/* 학적 = 학교·전공만(연락처·학번 미표시) */}
-                <td className="whitespace-nowrap border-b px-3 py-2 text-left" data-col-edu>
+                <td
+                  className="whitespace-nowrap border-b px-3 py-2 text-left"
+                  data-col-edu
+                >
                   {c.schoolName || c.majorName ? (
                     <>
                       <div>{c.schoolName ?? "-"}</div>
@@ -594,6 +632,7 @@ function CrewTable({
           })}
         </tbody>
       </table>
+      </PaginatedNativeTable>
     </div>
   );
 }

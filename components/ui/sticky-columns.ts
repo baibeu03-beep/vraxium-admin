@@ -35,8 +35,12 @@ export type StickyColProps = {
 }
 
 export type UseStickyColumns = {
-  /** 스크롤 컨테이너(또는 <table>)에 거는 ref — col-1 실측폭을 이 요소의 --sticky-col-1-w 로 얹는다. */
-  ref: React.RefObject<HTMLElement | null>
+  /**
+   * 스크롤 컨테이너(또는 <table>)에 거는 **콜백 ref** — 노드가 마운트/언마운트될 때마다
+   * 측정 옵저버를 설치/해제한다. 표가 로딩/빈 상태로 조건부 렌더되어 나중에 나타나도
+   * (한 번짜리 mount effect 와 달리) 확실히 --sticky-col-1-w 를 발행한다.
+   */
+  ref: React.RefCallback<HTMLElement>
   /** headerSticky 시 스크롤 컨테이너에 얹을 className("sticky-head-region"), 아니면 "". */
   regionClassName: string
   /** 헤더/본문/요약 셀(th/td/TableHead/TableCell)에 spread — 예: <TableHead {...col(2)}>. */
@@ -49,40 +53,47 @@ export function useStickyColumns(opts?: {
   /** headerSticky 시 내부 스크롤 영역 max-height(기본 70svh, CSS 변수로 주입). */
   maxHeight?: string
 }): UseStickyColumns {
-  const ref = React.useRef<HTMLElement | null>(null)
   const headerSticky = opts?.headerSticky ?? false
   const maxHeight = opts?.maxHeight
+  const cleanupRef = React.useRef<(() => void) | null>(null)
 
-  // col-1 실측 → --sticky-col-1-w 발행. 없으면 0 유지(단독 고정 표).
-  React.useEffect(() => {
-    const host = ref.current
-    if (!host) return
+  // 노드에 옵저버 설치 — col-1(체크박스/# 등 폭 안정 열) 실측폭을 --sticky-col-1-w 로 발행.
+  const setup = React.useCallback(
+    (host: HTMLElement): (() => void) => {
+      // headerSticky 의 max-height override 를 컨테이너에 주입(계약 기본은 70svh).
+      if (headerSticky && maxHeight) host.style.setProperty("--sticky-head-max-h", maxHeight)
 
-    // headerSticky 의 max-height override 를 컨테이너에 주입(계약 기본은 70svh).
-    if (headerSticky && maxHeight) {
-      host.style.setProperty("--sticky-head-max-h", maxHeight)
-    }
+      const measure = () => {
+        const cell = host.querySelector<HTMLElement>('[data-sticky-col="1"]')
+        const w = cell ? cell.getBoundingClientRect().width : 0
+        host.style.setProperty("--sticky-col-1-w", `${w}px`)
+        // 관찰 대상이 새로 나타났으면 함께 관찰(행/헤더가 늦게 렌더되는 경우).
+        if (cell && ro) ro.observe(cell)
+      }
+      const ro = new ResizeObserver(measure)
+      ro.observe(host)
+      // 폰트 로드/필터/행 변화로 col-1 폭·존재가 바뀌면 재측정.
+      const mo = new MutationObserver(measure)
+      mo.observe(host, { childList: true, subtree: true })
+      measure()
 
-    const measure = () => {
-      const cell = host.querySelector<HTMLElement>('[data-sticky-col="1"]')
-      const w = cell ? cell.getBoundingClientRect().width : 0
-      host.style.setProperty("--sticky-col-1-w", `${w}px`)
-    }
-    measure()
+      return () => {
+        ro.disconnect()
+        mo.disconnect()
+      }
+    },
+    [headerSticky, maxHeight],
+  )
 
-    const ro = new ResizeObserver(measure)
-    ro.observe(host)
-    const cell = host.querySelector<HTMLElement>('[data-sticky-col="1"]')
-    if (cell) ro.observe(cell)
-    // 비동기 로드로 col-1 셀이 나중에 나타나는 경우(행 추가/필터) 재측정.
-    const mo = new MutationObserver(measure)
-    mo.observe(host, { childList: true, subtree: true })
-
-    return () => {
-      ro.disconnect()
-      mo.disconnect()
-    }
-  }, [headerSticky, maxHeight])
+  // 콜백 ref — 노드 부착 시 setup, 탈착(null) 시 teardown. 조건부 마운트에 안전.
+  const ref = React.useCallback<React.RefCallback<HTMLElement>>(
+    (node) => {
+      cleanupRef.current?.()
+      cleanupRef.current = null
+      if (node) cleanupRef.current = setup(node)
+    },
+    [setup],
+  )
 
   return {
     ref,

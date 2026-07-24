@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/table";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { cn } from "@/lib/utils";
+import { useStickyColumns } from "@/components/ui/sticky-columns";
 import { formatAdminDateTime } from "@/lib/adminDateTime";
 import { ADMIN_READ_ROLES } from "@/lib/adminAuthRoles";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
@@ -83,6 +84,8 @@ function roleBadgeClass(role: string | null) {
 
 export default function AdminUsersList() {
   const devMode = useAdminDevMode();
+  // 왼쪽 2열 고정(이메일·역할) — 공통 sticky 계약.
+  const sticky = useStickyColumns({ headerSticky: true });
   const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   useReportLoading(loading);
@@ -227,14 +230,22 @@ export default function AdminUsersList() {
             </div>
           )}
 
-          <div className="overflow-hidden rounded-lg border">
-            <Table>
+          <div className="rounded-lg border">
+            <Table containerRef={sticky.ref} regionClassName={sticky.regionClassName} stickyLeft>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="sticky left-0 z-20 bg-card border-r">
+                  <TableHead
+                    className={sticky.col(1).className}
+                    data-sticky-col={sticky.col(1)["data-sticky-col"]}
+                  >
                     {devMode ? "Email" : "이메일"}
                   </TableHead>
-                  <TableHead>역할</TableHead>
+                  <TableHead
+                    className={sticky.col(2).className}
+                    data-sticky-col={sticky.col(2)["data-sticky-col"]}
+                  >
+                    역할
+                  </TableHead>
                   <TableHead>활성</TableHead>
                   <TableHead>생성일</TableHead>
                   <TableHead>최근 수정</TableHead>
@@ -244,10 +255,16 @@ export default function AdminUsersList() {
               <TableBody>
                 {filtered.map((user) => (
                   <TableRow key={user.id}>
-                    <TableCell className="sticky left-0 z-10 bg-card border-r max-w-[260px] truncate font-medium">
+                    <TableCell
+                      data-sticky-col={sticky.col(1)["data-sticky-col"]}
+                      className={cn("max-w-[260px] truncate font-medium", sticky.col(1).className)}
+                    >
                       {fmt(user.email)}
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      data-sticky-col={sticky.col(2)["data-sticky-col"]}
+                      className={sticky.col(2).className}
+                    >
                       <span
                         className={cn(
                           "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset",

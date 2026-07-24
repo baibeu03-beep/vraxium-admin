@@ -76,6 +76,7 @@
     "verify:lines-register-error-toast": "tsx --env-file=.env.local scripts/browser-verify-lines-register-error-toast.ts",
     "test:crew-act-summary": "tsx scripts/test-crew-act-summary.ts",
     "test:detail-log-sort": "tsx scripts/test-detail-log-sort.ts",
+    "test:table-pagination": "tsx scripts/test-table-pagination.ts",
     "verify:detail-log-sort-parity": "tsx scripts/verify-detail-log-sort-parity.ts",
     "verify:detail-log-sort-http": "tsx --env-file=.env.local scripts/verify-detail-log-sort-http.ts",
     "verify:detail-log-sort-browser": "tsx --env-file=.env.local scripts/browser-verify-detail-log-sort.ts",

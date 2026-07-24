@@ -767,7 +767,7 @@ export default function ExperienceTeamOverallBoard({
         </p>
       ) : (
         <div ref={lineSelectionSectionRef} className="overflow-x-auto">
-          <Table className="min-w-[1340px] table-fixed">
+          <Table className="min-w-[1340px] table-fixed" pagination="off">
             <BoardColgroup />
             <TableHeader>
               <TableRow>

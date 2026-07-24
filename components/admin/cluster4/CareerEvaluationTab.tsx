@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import { cn } from "@/lib/utils";
+import { useStickyColumns, type StickyColProps } from "@/components/ui/sticky-columns";
 import {
   Card,
   CardContent,
@@ -144,14 +145,18 @@ function ColumnHeader({
   col,
   dir,
   onSort,
+  sticky,
 }: {
   col: ColumnDef;
   dir: "asc" | "desc" | null;
   onSort: () => void;
+  sticky?: StickyColProps;
 }) {
   const sortable = Boolean(col.sortValue);
   return (
     <TableHead
+      className={sticky?.className}
+      data-sticky-col={sticky?.["data-sticky-col"]}
       aria-sort={
         dir === "asc" ? "ascending" : dir === "desc" ? "descending" : "none"
       }
@@ -194,6 +199,8 @@ export default function CareerEvaluationTab({
   lines: CareerLineOption[];
 }) {
   const t = useActionToast();
+  // 왼쪽 2열 고정(대상자·등급) — 공통 sticky 계약. col-1 실측폭으로 col-2 offset.
+  const sticky = useStickyColumns({ headerSticky: true });
   const [selectedLineId, setSelectedLineId] = useState<string>("");
   const [targets, setTargets] = useState<CareerEvaluationTargetDto[]>([]);
   const [loading, setLoading] = useState(false);
@@ -387,15 +394,22 @@ export default function CareerEvaluationTab({
                 이 라인에 배정된 대상자가 없습니다.
               </p>
             ) : (
-              <Table>
+              <Table containerRef={sticky.ref} regionClassName={sticky.regionClassName} stickyLeft>
                 <TableHeader>
                   <TableRow>
-                    {COLUMNS.map((col) => (
+                    {COLUMNS.map((col, idx) => (
                       <ColumnHeader
                         key={col.key}
                         col={col}
                         dir={columnSort?.key === col.key ? columnSort.dir : null}
                         onSort={() => cycleSort(col.key)}
+                        sticky={
+                          idx === 0
+                            ? sticky.col(1)
+                            : idx === 1
+                              ? sticky.col(2)
+                              : undefined
+                        }
                       />
                     ))}
                   </TableRow>
@@ -405,10 +419,13 @@ export default function CareerEvaluationTab({
                     const draft = draftGrade[t.lineTargetId] ?? "";
                     return (
                       <TableRow key={t.lineTargetId}>
-                        <TableCell className="font-medium">
+                        <TableCell
+                          {...sticky.col(1)}
+                          className={cn("font-medium", sticky.col(1).className)}
+                        >
                           {t.displayName ?? t.userId}
                         </TableCell>
-                        <TableCell>
+                        <TableCell {...sticky.col(2)}>
                           <select
                             className="rounded-md border border-input bg-background px-2 py-1 text-sm"
                             value={draft}

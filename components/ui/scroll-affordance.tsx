@@ -90,7 +90,7 @@ export function ScrollAffordance({
           if (!interacted) setInteracted(true)
           measure()
         }}
-        className={cn("w-full overflow-x-auto", containerClassName)}
+        className={cn("admin-table-scroll w-full overflow-x-auto", containerClassName)}
       >
         {children}
       </div>

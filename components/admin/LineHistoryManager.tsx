@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { DEFAULT_TABLE_PAGE_SIZE } from "@/lib/tablePagination";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { Search, History } from "lucide-react";
 import {
   Card,
@@ -21,6 +23,7 @@ import {
 } from "@/components/ui/table";
 import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 import { cn } from "@/lib/utils";
+import { useStickyColumns } from "@/components/ui/sticky-columns";
 import { formatClubDate } from "@/lib/clubDate";
 import { formatAdminDate } from "@/lib/adminDateTime";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
@@ -52,7 +55,7 @@ const HUB_OPTIONS: { value: "" | Cluster4LinePartType; label: string }[] = [
   { value: "career", label: CLUSTER4_HUB_LABEL.career },
 ];
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = DEFAULT_TABLE_PAGE_SIZE;
 
 // 라인 생성일(createdAt) 메타 날짜 — 항상 서울 표준시(KST) "YYYY-MM-DD".
 function formatDate(iso: string | null): string {
@@ -88,6 +91,8 @@ export default function LineHistoryManager() {
   const [loading, setLoading] = useState<boolean>(true);
   useReportLoading(loading);
   const [error, setError] = useState<string | null>(null);
+  // 왼쪽 2열 고정(라인명·허브/카테고리) — 공통 sticky 계약. col-1 실측폭으로 col-2 offset.
+  const sticky = useStickyColumns({ headerSticky: true });
 
   // 시즌 드롭다운 옵션 — 마운트 시 1회(status=all, 넉넉한 limit) 로드해 고정한다.
   const [seasonOptions, setSeasonOptions] = useState<
@@ -112,8 +117,12 @@ export default function LineHistoryManager() {
       if (!res.ok || !json.success) {
         throw apiErrorFrom(res, json, "개설 이력을 불러오지 못했습니다");
       }
+      const nextTotal = json.data.total ?? 0;
       setRows(json.data.rows ?? []);
-      setTotal(json.data.total ?? 0);
+      setTotal(nextTotal);
+      if (offset > 0 && offset >= nextTotal) {
+        setOffset(Math.max(0, (Math.ceil(nextTotal / PAGE_SIZE) - 1) * PAGE_SIZE));
+      }
     } catch (e) {
       console.error("[line-history] load failed", e);
       setRows([]);
@@ -169,9 +178,6 @@ export default function LineHistoryManager() {
 
   const pageStart = total === 0 ? 0 : offset + 1;
   const pageEnd = Math.min(offset + rows.length, total);
-  const canPrev = offset > 0;
-  const canNext = offset + PAGE_SIZE < total;
-
   const hasFilters = useMemo(
     () => status !== "all" || partType !== "" || seasonKey !== "" || query !== "",
     [status, partType, seasonKey, query],
@@ -285,12 +291,12 @@ export default function LineHistoryManager() {
 
           {/* 표 */}
           {loading || rows.length > 0 ? (
-            <div className="overflow-x-auto">
-              <Table>
+            <div>
+              <Table containerRef={sticky.ref} regionClassName={sticky.regionClassName} stickyLeft>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>라인명</TableHead>
-                    <TableHead>허브 / 카테고리</TableHead>
+                    <TableHead {...sticky.col(1)} className={sticky.col(1).className}>라인명</TableHead>
+                    <TableHead {...sticky.col(2)} className={sticky.col(2).className}>허브 / 카테고리</TableHead>
                     <TableHead>시즌 / 주차</TableHead>
                     <TableHead>시작일</TableHead>
                     <TableHead>종료일</TableHead>
@@ -305,7 +311,10 @@ export default function LineHistoryManager() {
                   ) : (
                     rows.map((row) => (
                     <TableRow key={row.id}>
-                      <TableCell className="max-w-[18rem] truncate font-medium">
+                      <TableCell
+                        {...sticky.col(1)}
+                        className={cn("max-w-[18rem] truncate font-medium", sticky.col(1).className)}
+                      >
                         {row.lineName}
                         {!row.isActive && (
                           <span className="ml-2 text-xs text-muted-foreground">
@@ -313,7 +322,10 @@ export default function LineHistoryManager() {
                           </span>
                         )}
                       </TableCell>
-                      <TableCell className="text-sm">
+                      <TableCell
+                        {...sticky.col(2)}
+                        className={cn("text-sm", sticky.col(2).className)}
+                      >
                         <span>{row.hubName}</span>
                         {row.categoryName && (
                           <span className="text-muted-foreground">
@@ -352,29 +364,15 @@ export default function LineHistoryManager() {
             </p>
           )}
 
-          {/* 페이지네이션 */}
-          {total > PAGE_SIZE && (
-            <div className="flex items-center justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={!canPrev || loading}
-                onClick={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))}
-              >
-                이전
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={!canNext || loading}
-                onClick={() => setOffset((o) => o + PAGE_SIZE)}
-              >
-                다음
-              </Button>
-            </div>
-          )}
+          <TablePagination
+            page={Math.floor(offset / PAGE_SIZE) + 1}
+            pageSize={PAGE_SIZE}
+            totalCount={total}
+            totalPages={Math.max(1, Math.ceil(total / PAGE_SIZE))}
+            showPagination={total > PAGE_SIZE}
+            disabled={loading}
+            onPageChange={(nextPage) => setOffset((nextPage - 1) * PAGE_SIZE)}
+          />
         </CardContent>
       </Card>
     </div>

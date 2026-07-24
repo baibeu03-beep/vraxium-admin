@@ -31,6 +31,7 @@ import {
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
+import { useStickyColumns } from "@/components/ui/sticky-columns";
 import { Checkbox, checkedTextClass } from "@/components/ui/checkbox";
 import {
   ORGANIZATIONS,
@@ -142,6 +143,8 @@ export default function CrewManager({
   // 운영/테스트 모드 — URL ?mode=test 면 test, 그 외 operating(기본). ?mode 는 URL 직접 진입으로만 설정.
   const searchParams = useSearchParams();
   const mode = readScopeMode(searchParams);
+  // 왼쪽 2열 고정(상태·이름) — 공통 sticky 계약. col-1 실측폭으로 col-2 offset.
+  const sticky = useStickyColumns({ headerSticky: true });
   const [data, setData] = useState<Crew[]>([]);
   const [loading, setLoading] = useState(true);
   useReportLoading(loading); // 전역 로딩 배너 보고
@@ -456,11 +459,14 @@ export default function CrewManager({
             </span>
           </div>
 
-          <div className="overflow-hidden rounded-md border">
-            <Table>
+          <div className="rounded-md border">
+            <Table containerRef={sticky.ref} regionClassName={sticky.regionClassName} stickyLeft>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="sticky left-0 z-20 bg-card w-16">
+                  <TableHead
+                    {...sticky.col(1)}
+                    className={cn("w-16", sticky.col(1).className)}
+                  >
                     <span className="inline-flex items-center justify-center gap-1">
                       {devMode ? "Status" : "상태"}
                       <AdminHelpIconButton
@@ -470,7 +476,7 @@ export default function CrewManager({
                       />
                     </span>
                   </TableHead>
-                  <TableHead className="sticky left-16 z-20 bg-card border-r">
+                  <TableHead {...sticky.col(2)} className={sticky.col(2).className}>
                     {devMode ? "Name" : "이름"}
                   </TableHead>
                   <TableHead>{devMode ? "Gender" : "성별"}</TableHead>
@@ -577,7 +583,10 @@ export default function CrewManager({
                     key={String(crew.legacyUserId)}
                     className={cn(!crew.isVisible && "opacity-60")}
                   >
-                    <TableCell className="sticky left-0 z-10 bg-card w-16">
+                    <TableCell
+                      {...sticky.col(1)}
+                      className={cn("w-16", sticky.col(1).className)}
+                    >
                       <span
                         className={cn(
                           "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
@@ -595,7 +604,10 @@ export default function CrewManager({
                             : "숨김"}
                       </span>
                     </TableCell>
-                    <TableCell className="sticky left-16 z-10 bg-card border-r font-medium">
+                    <TableCell
+                      {...sticky.col(2)}
+                      className={cn("font-medium", sticky.col(2).className)}
+                    >
                       {crew.displayName}
                     </TableCell>
                     <TableCell>{formatValue(crew.gender)}</TableCell>

@@ -7,6 +7,8 @@ import {
   useRef,
   useState,
 } from "react";
+import { DEFAULT_TABLE_PAGE_SIZE } from "@/lib/tablePagination";
+import { TablePagination } from "@/components/ui/table-pagination";
 import {
   Pencil,
   Plus,
@@ -38,6 +40,7 @@ import {
 import { LoadingState } from "@/components/ui/loading-state";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { cn } from "@/lib/utils";
+import { useStickyColumns } from "@/components/ui/sticky-columns";
 import { formatAdminDateTime } from "@/lib/adminDateTime";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
@@ -49,7 +52,7 @@ import {
 } from "@/lib/adminCareerProjectsTypes";
 import { getApiErrorMessage } from "@/lib/apiError";
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = DEFAULT_TABLE_PAGE_SIZE;
 
 type ListResponseData = {
   rows: CareerProjectDto[];
@@ -202,6 +205,8 @@ function formToPayload(form: UpsertFormState): Record<string, unknown> {
 
 export default function CareerProjectsManager() {
   const confirm = useConfirm();
+  // 왼쪽 2열 고정(회사·프로젝트·직무 / 라인) — 공통 sticky 계약. col-1 실측폭으로 col-2 offset.
+  const sticky = useStickyColumns({ headerSticky: true });
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [rows, setRows] = useState<CareerProjectDto[]>([]);
@@ -256,6 +261,9 @@ export default function CareerProjectsManager() {
         const data = json.data as ListResponseData;
         setRows(data.rows);
         setTotal(data.total);
+        if (offset > 0 && offset >= data.total) {
+          setOffset(Math.max(0, (Math.ceil(data.total / PAGE_SIZE) - 1) * PAGE_SIZE));
+        }
         setIsSuperAdmin(Boolean(data.isSuperAdmin));
       } catch (err) {
         if (cancelled) return;
@@ -384,17 +392,17 @@ export default function CareerProjectsManager() {
               {error}
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-md border">
-              <Table>
+            <div className="rounded-md border">
+              <Table containerRef={sticky.ref} regionClassName={sticky.regionClassName} stickyLeft>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[36%]">
+                    <TableHead {...sticky.col(1)} className={cn("w-[36%]", sticky.col(1).className)}>
                       <span className="inline-flex items-center gap-1">
                         <span>회사 · 프로젝트 · 직무</span>
                         <AdminHelpIconButton helpKey="admin.careerProjects.column.company" title="회사 · 프로젝트 · 직무" size="xs" />
                       </span>
                     </TableHead>
-                    <TableHead>
+                    <TableHead {...sticky.col(2)}>
                       <span className="inline-flex items-center gap-1">
                         <span>라인</span>
                         <AdminHelpIconButton helpKey="admin.careerProjects.column.line" title="라인" size="xs" />
@@ -442,7 +450,7 @@ export default function CareerProjectsManager() {
                   ) : (
                     rows.map((row) => (
                       <TableRow key={row.id}>
-                        <TableCell className="align-top">
+                        <TableCell {...sticky.col(1)} className={cn("align-top", sticky.col(1).className)}>
                           <div className="flex items-start gap-2">
                             {row.companyLogoUrl ? (
                               // eslint-disable-next-line @next/next/no-img-element
@@ -467,7 +475,7 @@ export default function CareerProjectsManager() {
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="align-top">
+                        <TableCell {...sticky.col(2)} className={cn("align-top", sticky.col(2).className)}>
                           <div className="text-sm">{fmt(row.lineCode)}</div>
                           <div className="text-xs text-muted-foreground">
                             {fmt(row.lineName)}
@@ -524,35 +532,15 @@ export default function CareerProjectsManager() {
             </div>
           )}
 
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <div>
-              {loading ? (
-                <LoadingState active variant="inline" />
-              ) : (
-                `총 ${total.toLocaleString()}개 · ${currentPage}/${totalPages} 페이지`
-              )}
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
-                disabled={offset === 0 || loading}
-              >
-                이전
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setOffset(offset + PAGE_SIZE)}
-                disabled={offset + PAGE_SIZE >= total || loading}
-              >
-                다음
-              </Button>
-            </div>
-          </div>
+          <TablePagination
+            page={currentPage}
+            pageSize={PAGE_SIZE}
+            totalCount={total}
+            totalPages={totalPages}
+            showPagination={total > PAGE_SIZE}
+            disabled={loading}
+            onPageChange={(nextPage) => setOffset((nextPage - 1) * PAGE_SIZE)}
+          />
         </CardContent>
       </Card>
 

@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { DEFAULT_TABLE_PAGE_SIZE } from "@/lib/tablePagination";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 import {
@@ -10,11 +12,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { adminDialog } from "@/components/ui/admin-dialog";
-import { Button } from "@/components/ui/button";
 import AdminHelp from "@/components/admin/AdminHelp";
 import { LoadingState } from "@/components/ui/loading-state";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
+import { useStickyColumns, type StickyColProps } from "@/components/ui/sticky-columns";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
@@ -35,7 +37,7 @@ import type {
   WeeksSortKey,
 } from "@/lib/adminTeamPartsInfoWeeksData";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = DEFAULT_TABLE_PAGE_SIZE;
 
 // 통합 + 3개 클럽 탭. 통합은 기획 미정 → 준비 중 안내.
 type TabKey = "integrated" | OrganizationSlug;
@@ -120,6 +122,7 @@ function WeekTh({
   sortKey,
   sort,
   onSort,
+  sticky,
 }: {
   label: string;
   helpKey: string;
@@ -127,6 +130,7 @@ function WeekTh({
   sortKey?: WeeksSortKey;
   sort: WeeksSort | null;
   onSort: (key: WeeksSortKey) => void;
+  sticky?: StickyColProps;
 }) {
   const justify =
     align === "left" ? "justify-start" : align === "right" ? "justify-end" : "justify-center";
@@ -141,7 +145,12 @@ function WeekTh({
   return (
     <th
       aria-sort={sortKey ? ariaSort : undefined}
-      className={"border-b px-3 py-2 font-semibold whitespace-nowrap " + textAlign}
+      data-sticky-col={sticky?.["data-sticky-col"]}
+      className={
+        "border-b px-3 py-2 font-semibold whitespace-nowrap " +
+        textAlign +
+        (sticky ? " " + sticky.className : "")
+      }
     >
       <span className={"inline-flex items-center gap-1 " + justify}>
         {sortKey ? (
@@ -208,6 +217,9 @@ export default function TeamPartsInfoWeeksManager({
     requestedTab && visibleTabs.includes(requestedTab)
       ? requestedTab
       : (allowedOrgs[0] ?? "integrated");
+  // 주차명 열 고정(단일 식별 열 — 나머지는 지표 열). col-1 없음 → col(2)가 left:0 + 경계선.
+  const sticky = useStickyColumns({ headerSticky: true });
+
   const [page, setPage] = useState(1);
   // 서버사이드 정렬 상태(전체 목록 기준). null = 기본순(최신 주차 최상단).
   const [sort, setSort] = useState<WeeksSort | null>(null);
@@ -244,7 +256,9 @@ export default function TeamPartsInfoWeeksManager({
         if (!res.ok || !json.success) {
           throw apiErrorFrom(res, json, `조회 실패 (${res.status})`);
         }
-        setData(json.data as TeamPartsInfoWeeksData);
+        const nextData = json.data as TeamPartsInfoWeeksData;
+        setData(nextData);
+        if (nextData.pagination.page !== pageNum) setPage(nextData.pagination.page);
       } catch (e) {
         setData(null);
         setError(getApiErrorMessage(e, "조회 실패"));
@@ -464,7 +478,13 @@ export default function TeamPartsInfoWeeksManager({
             {loading ? (
               <LoadingState active />
             ) : (
-              <div className="overflow-x-auto rounded-lg border border-zinc-200">
+              <div
+                ref={sticky.ref}
+                className={
+                  "overflow-x-auto rounded-lg border border-zinc-200" +
+                  (sticky.regionClassName ? " " + sticky.regionClassName : "")
+                }
+              >
                 <table className="w-full border-collapse text-sm" data-weeks-table>
                   <thead>
                     <tr className="bg-zinc-50 text-xs text-muted-foreground">
@@ -475,6 +495,7 @@ export default function TeamPartsInfoWeeksManager({
                         sortKey="weekName"
                         sort={sort}
                         onSort={onSort}
+                        sticky={sticky.col(2)}
                       />
                       <WeekTh
                         label="클럽 활동"
@@ -559,6 +580,8 @@ export default function TeamPartsInfoWeeksManager({
                         <tr
                           key={item.weekId}
                           data-week-row={item.weekId}
+                          // 현재 주차 강조 시 좌측 고정 셀도 같은 sky 톤을 유지(--stick-cell-bg).
+                          data-sticky-row-accent={item.isCurrentWeek ? "sky" : undefined}
                           className={
                             "border-b last:border-b-0 " +
                             // 현재 주차 강조 — 과거·미래 주차는 배경 없음. 다크 모드까지 대비.
@@ -568,7 +591,13 @@ export default function TeamPartsInfoWeeksManager({
                               : "")
                           }
                         >
-                          <td className="px-3 py-2 whitespace-nowrap text-center font-medium">
+                          <td
+                            data-sticky-col={sticky.col(2)["data-sticky-col"]}
+                            className={
+                              "px-3 py-2 whitespace-nowrap text-center font-medium " +
+                              sticky.col(2).className
+                            }
+                          >
                             {/* 주차명 = 상세 이동 요소(기존 [활동 관리] 버튼과 동일 동작 재사용).
                                 버튼(현재 탭 이동)·Tab 포커스·Enter 지원·hover 로 클릭 가능 표시.
                                 공식 휴식 주차는 onManageActivity 가 이동 대신 안내 모달을 띄운다. */}
@@ -617,42 +646,16 @@ export default function TeamPartsInfoWeeksManager({
               </div>
             )}
 
-            {/* ── 페이지네이션 ── */}
-            {pagination && pagination.totalCount > 0 ? (
-              <div className="flex items-center justify-between text-sm">
-                <span className="inline-flex items-center gap-1 text-muted-foreground">
-                  <span>
-                    전체 {pagination.totalCount}개 · {pagination.page}/{totalPages}
-                    페이지
-                  </span>
-                  <AdminHelpIconButton
-                    helpKey="admin.teamPartsInfoWeeks.action.pagination"
-                    title="페이지 이동 · 결과 건수"
-                  />
-                </span>
-                <div className="flex gap-1">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    data-page-prev
-                    disabled={loading || pagination.page <= 1}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  >
-                    이전
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    data-page-next
-                    disabled={loading || pagination.page >= totalPages}
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  >
-                    다음
-                  </Button>
-                </div>
-              </div>
+            {pagination ? (
+              <TablePagination
+                page={pagination.page}
+                pageSize={pagination.pageSize}
+                totalCount={pagination.totalCount}
+                totalPages={totalPages}
+                showPagination={pagination.totalCount > pagination.pageSize}
+                disabled={loading}
+                onPageChange={setPage}
+              />
             ) : null}
           </>
         )}

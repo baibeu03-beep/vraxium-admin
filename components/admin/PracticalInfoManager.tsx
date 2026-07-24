@@ -36,6 +36,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { useStickyColumns } from "@/components/ui/sticky-columns";
 import { Checkbox, checkedTextClass, checkedRowClass } from "@/components/ui/checkbox";
 import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
 import { formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
@@ -800,6 +801,9 @@ export default function PracticalInfoManager() {
   // 일반 모드: weekSelect 미렌더 + 서버가 개설 대상 주차(금요일 경계) 강제.
   const devMode = useAdminDevMode();
 
+  // 왼쪽 2열(주차·메인 타이틀) 고정 + 상단 헤더 고정 — 공통 sticky 계약(라인 목록 표).
+  const sticky = useStickyColumns({ headerSticky: true });
+
   // ── State ──
   const [currentWeek, setCurrentWeek] = useState<CurrentWeekData | null>(null);
   const [weekOptions, setWeekOptions] = useState<WeekOption[]>([]);
@@ -1551,12 +1555,18 @@ export default function PracticalInfoManager() {
                 필터 결과가 없습니다.
               </p>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
+              <div>
+                <Table containerRef={sticky.ref} regionClassName={sticky.regionClassName} stickyLeft>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>주차</TableHead>
-                      <TableHead>메인 타이틀</TableHead>
+                      <TableHead
+                        className={sticky.col(1).className}
+                        data-sticky-col={sticky.col(1)["data-sticky-col"]}
+                      >주차</TableHead>
+                      <TableHead
+                        className={sticky.col(2).className}
+                        data-sticky-col={sticky.col(2)["data-sticky-col"]}
+                      >메인 타이틀</TableHead>
                       <TableHead className="text-center">강화 상태</TableHead>
                       <TableHead>대상자</TableHead>
                       <TableHead className="text-center">대상</TableHead>
@@ -1579,10 +1589,16 @@ export default function PracticalInfoManager() {
                           className="cursor-pointer"
                           onClick={() => setDetailLineId(line.id)}
                         >
-                          <TableCell className="whitespace-nowrap text-xs">
+                          <TableCell
+                            data-sticky-col={sticky.col(1)["data-sticky-col"]}
+                            className={cn("whitespace-nowrap text-xs", sticky.col(1).className)}
+                          >
                             {line.weekLabel ?? "—"}
                           </TableCell>
-                          <TableCell className="max-w-[220px]">
+                          <TableCell
+                            data-sticky-col={sticky.col(2)["data-sticky-col"]}
+                            className={cn("max-w-[220px]", sticky.col(2).className)}
+                          >
                             <div className="truncate font-medium">{line.mainTitle}</div>
                             <div className="truncate font-mono text-[10px] text-muted-foreground">
                               {line.id}

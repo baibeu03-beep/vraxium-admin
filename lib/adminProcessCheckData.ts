@@ -44,7 +44,7 @@ import { isActOpenAtTime, type ActOpenTimeline } from "@/lib/weekOpenGate";
 import { loadWeekOpeningTimeline } from "@/lib/weekOpeningTimeline";
 import { resolveRegularActOccurredAtMs } from "@/lib/regularActRequiredAt";
 import { filterTeamsByScope, isTestTeam } from "@/lib/cluster4ExperienceTestScope";
-import { listPartCrews, listTeamCrews } from "@/lib/adminExperiencePartInput";
+import { listPartCrews, listTeamCrews, listTeamParts } from "@/lib/adminExperiencePartInput";
 import { listOperatedTeamParts } from "@/lib/adminTeamSelectedWeekSummary";
 import { uncompleteResetStamp } from "@/lib/processCheckCollectionReset";
 import type { ScopeMode } from "@/lib/userScopeShared";

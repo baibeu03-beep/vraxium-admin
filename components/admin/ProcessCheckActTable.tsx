@@ -21,8 +21,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { SelectBadge, StatusBadge } from "@/components/ui/status-badge";
+import { useStickyColumns } from "@/components/ui/sticky-columns";
+import { cn } from "@/lib/utils";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import CommentCollectionStatusView from "@/components/admin/CommentCollectionStatusView";
+import ExecutionTimeCell from "@/components/admin/ExecutionTimeCell";
 import { ActionControl, INSTANT_REVIEW_BUTTON_CLASS } from "@/components/admin/ActionControl";
 import { ACTION_CONTROL_REGISTRY } from "@/lib/actionControl/registry";
 import {
@@ -163,6 +166,9 @@ export default function ProcessCheckActTable({
   const neededCount = openTargets.length - completedCount;
   const poLabels = getProcessPointLabels(orgSlug);
 
+  // 왼쪽 2열 고정(이행 시점(필요)·상태) — 공통 sticky 계약. col-1 실측폭으로 col-2 offset.
+  const sticky = useStickyColumns({ headerSticky: true });
+
   // 정렬 상태 — null = 서버 기본 순서(신청 시점 필요 순). 모든 허브 공통 활성.
   const [sort, setSort] = useState<{ key: ActSortKey; dir: ActSortDir } | null>(null);
   const cycleSort = useCallback((key: ActSortKey) => {
@@ -192,11 +198,16 @@ export default function ProcessCheckActTable({
     helpKey: string;
     sortKey?: ActSortKey;
     className?: string;
+    stickyCol?: 1 | 2;
   }) => {
     const canSort = Boolean(opts.sortKey);
     const activeDir = sort && opts.sortKey === sort.key ? sort.dir : null;
+    const stickyProps = opts.stickyCol ? sticky.col(opts.stickyCol) : null;
     return (
-      <TableHead className={opts.className}>
+      <TableHead
+        className={cn(opts.className, stickyProps?.className)}
+        data-sticky-col={stickyProps?.["data-sticky-col"]}
+      >
         <span className="inline-flex items-center justify-center gap-1">
           {canSort ? (
             <button
@@ -227,7 +238,7 @@ export default function ProcessCheckActTable({
             등록된 액트가 없습니다. 프로세스 등록 페이지에서 먼저 등록해주세요.
           </p>
         ) : (
-          <div className="overflow-x-auto">
+          <div>
             {/* 액트 목록 요약 — 테이블 바로 위 스탯 칩(체크 필요·체크 완료·항목 수). 집계 로직 무변.
                 통계 라벨 돋보기는 라벨 1회(반복 행 아님) — 4개 허브 공용 key. */}
             <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
@@ -247,25 +258,24 @@ export default function ProcessCheckActTable({
                 <span className="font-semibold tabular-nums text-foreground">{acts.length}</span>
               </span>
             </div>
-            <Table>
+            <Table containerRef={sticky.ref} regionClassName={sticky.regionClassName} stickyLeft>
               <TableHeader>
                 <TableRow>
-                  {/* 전체 1~4열 고정: 신청 시점(필요) · 검수 시점(필요) · 상태 · 수동 실행.
-                      파트 구분(experience)·나머지 열은 그 뒤로. 정렬키/도움말/액션 동작 불변. */}
+                  {/* 전체 1~3열 고정: 이행 시점(필요) · 상태 · 수동 실행.
+                      이행 시점(필요) = 신청 시점(필요)+검수 시점(필요) 통합(셀 안 2행).
+                      정렬은 신청(occurWhen) 기준 — 검수(checkWhen) 단독 정렬은 제거.
+                      파트 구분(experience)·나머지 열은 그 뒤로. 도움말/액션 동작 불변. */}
                   {renderHead({
-                    label: "신청 시점(필요)",
-                    helpKey: "admin.processCheck.actTable.column.applyTimeRequired",
+                    label: "이행 시점(필요)",
+                    helpKey: "admin.processCheck.actTable.column.executionTimeRequired",
                     sortKey: "occurWhen",
-                  })}
-                  {renderHead({
-                    label: "검수 시점(필요)",
-                    helpKey: "admin.processCheck.actTable.column.reviewTimeRequired",
-                    sortKey: "checkWhen",
+                    stickyCol: 1,
                   })}
                   {renderHead({
                     label: "상태",
                     helpKey: "admin.processCheck.actTable.column.status",
                     sortKey: "status",
+                    stickyCol: 2,
                   })}
                   {(onAutoReview || onRollback) &&
                     renderHead({
@@ -319,15 +329,12 @@ export default function ProcessCheckActTable({
                     helpKey: "admin.processCheck.actTable.column.cafe",
                     sortKey: "cafeLabel",
                   })}
+                  {/* 이행 시점(실제) = 신청 시점(실제)+검수 시점(실제) 통합(셀 안 2행).
+                      정렬은 신청(requestedAt) 기준 — 검수(completedAt) 단독 정렬은 제거. */}
                   {renderHead({
-                    label: "신청 시점(실제)",
-                    helpKey: "admin.processCheck.actTable.column.applyTimeActual",
+                    label: "이행 시점(실제)",
+                    helpKey: "admin.processCheck.actTable.column.executionTimeActual",
                     sortKey: "requestedAt",
-                  })}
-                  {renderHead({
-                    label: "검수 시점(실제)",
-                    helpKey: "admin.processCheck.actTable.column.reviewTimeActual",
-                    sortKey: "completedAt",
                   })}
                 </TableRow>
               </TableHeader>
@@ -342,12 +349,19 @@ export default function ProcessCheckActTable({
                         : "bg-muted/60 text-muted-foreground [&>td]:opacity-70"
                     }
                   >
-                    {/* 1열 신청 시점(필요) · 2열 검수 시점(필요) — 헤더와 동일 순서. */}
-                    <TableCell className="whitespace-nowrap">{a.occurWhen}</TableCell>
-                    <TableCell className="whitespace-nowrap">{a.checkWhen}</TableCell>
-                    {/* 3열 상태 — 미가동이면 '미가동' 배지(클릭 불가). 그 외는 클릭/읽기전용/도움말 동작 불변.
-                        배지 아래 보조: 댓글 수집/매칭 카운트 + 수집 상태(정상 0·매칭 없음·일시 오류 구분). */}
-                    <TableCell className="text-center">
+                    {/* 1열 이행 시점(필요) — 신청(occurWhen)/검수(checkWhen) 2행. 좌측 고정 col-1. */}
+                    <TableCell
+                      {...sticky.col(1)}
+                      className={cn("whitespace-nowrap text-left", sticky.col(1).className)}
+                    >
+                      <ExecutionTimeCell apply={a.occurWhen} review={a.checkWhen} />
+                    </TableCell>
+                    {/* 2열 상태 — 미가동이면 '미가동' 배지(클릭 불가). 그 외는 클릭/읽기전용/도움말 동작 불변.
+                        배지 아래 보조: 댓글 수집/매칭 카운트 + 수집 상태(정상 0·매칭 없음·일시 오류 구분). 좌측 고정 col-2. */}
+                    <TableCell
+                      {...sticky.col(2)}
+                      className={cn("text-center", sticky.col(2).className)}
+                    >
                       {!a.isOpenThisWeek ? (
                         <StatusBadge
                           label="미가동"
@@ -454,13 +468,13 @@ export default function ProcessCheckActTable({
                       <SelectBadge label={a.crewReactionLabel} size="sm" />
                     </TableCell>
                     <TableCell>{a.cafeLabel}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">
-                      {a.requestedAt ? formatCheckDateTimeKo(a.requestedAt) : "—"}
-                    </TableCell>
-                    {/* 검수 시점(실제) = 실제 검수 완료 서버 시각(completed_at). 미완료면 "—"
-                        (예정 시각 scheduled_check_at 을 실제로 위장 표시하지 않는다). */}
-                    <TableCell className="whitespace-nowrap text-muted-foreground">
-                      {a.completedAt ? formatCheckDateTimeKo(a.completedAt) : "—"}
+                    {/* 이행 시점(실제) — 신청(requestedAt)/검수(completedAt=실제 완료 서버시각) 2행.
+                        미완료 검수는 "—"(예정 시각 scheduled_check_at 을 실제로 위장하지 않는다). */}
+                    <TableCell className="whitespace-nowrap text-left text-muted-foreground">
+                      <ExecutionTimeCell
+                        apply={a.requestedAt ? formatCheckDateTimeKo(a.requestedAt) : null}
+                        review={a.completedAt ? formatCheckDateTimeKo(a.completedAt) : null}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}

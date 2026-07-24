@@ -21,6 +21,7 @@ import {
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
+import { useStickyColumns } from "@/components/ui/sticky-columns";
 import { pointColorClass } from "@/components/ui/point-value";
 import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
@@ -130,6 +131,8 @@ export default function UserWeeklyStatusView({
 }: {
   userId: string;
 }) {
+  // 왼쪽 2열 고정(시즌·주차) + 상단 헤더 고정 — 공통 sticky 계약.
+  const sticky = useStickyColumns({ headerSticky: true });
   const [data, setData] = useState<UserWeeklyStatusDto | null>(null);
   const [loading, setLoading] = useState(true);
   useReportLoading(loading);
@@ -225,17 +228,23 @@ export default function UserWeeklyStatusView({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-hidden rounded-lg border">
-            <Table>
+          <div className="rounded-lg border">
+            <Table containerRef={sticky.ref} regionClassName={sticky.regionClassName} stickyLeft>
               <TableHeader>
                 <TableRow>
-                  <TableHead>
+                  <TableHead
+                    className={sticky.col(1).className}
+                    data-sticky-col={sticky.col(1)["data-sticky-col"]}
+                  >
                     <span className="inline-flex items-center gap-1">
                       <span>시즌</span>
                       <AdminHelpIconButton helpKey="admin.members.weeklyStatus.column.season" title="시즌" size="xs" />
                     </span>
                   </TableHead>
-                  <TableHead>
+                  <TableHead
+                    className={sticky.col(2).className}
+                    data-sticky-col={sticky.col(2)["data-sticky-col"]}
+                  >
                     <span className="inline-flex items-center gap-1">
                       <span>주차</span>
                       <AdminHelpIconButton helpKey="admin.members.weeklyStatus.column.week" title="주차" size="xs" />
@@ -306,10 +315,16 @@ export default function UserWeeklyStatusView({
               <TableBody>
                 {rows.map((row, idx) => (
                   <TableRow key={row.week_id ?? `${row.week_start_date}-${idx}`}>
-                    <TableCell className="whitespace-nowrap">
+                    <TableCell
+                      className={cn("whitespace-nowrap", sticky.col(1).className)}
+                      data-sticky-col={sticky.col(1)["data-sticky-col"]}
+                    >
                       {row.season_label ?? "—"}
                     </TableCell>
-                    <TableCell className="whitespace-nowrap font-medium">
+                    <TableCell
+                      className={cn("whitespace-nowrap font-medium", sticky.col(2).className)}
+                      data-sticky-col={sticky.col(2)["data-sticky-col"]}
+                    >
                       {row.week_label}
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-xs text-muted-foreground">

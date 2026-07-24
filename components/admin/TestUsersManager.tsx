@@ -19,6 +19,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
+import { cn } from "@/lib/utils";
+import { useStickyColumns } from "@/components/ui/sticky-columns";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
@@ -67,6 +69,8 @@ function growthSummary(user: TestUser) {
 
 export default function TestUsersManager() {
   const router = useRouter();
+  // 왼쪽 2열 고정(이름·이메일) — 공통 sticky 계약.
+  const sticky = useStickyColumns({ headerSticky: true });
   const [users, setUsers] = useState<TestUser[]>([]);
   const [loading, setLoading] = useState(true);
   useReportLoading(loading);
@@ -159,11 +163,14 @@ export default function TestUsersManager() {
           </div>
         ) : null}
 
-        <div className="overflow-x-auto">
-          <Table>
+        <div>
+          <Table containerRef={sticky.ref} regionClassName={sticky.regionClassName} stickyLeft>
             <TableHeader>
               <TableRow>
-                <TableHead>
+                <TableHead
+                  className={sticky.col(1).className}
+                  data-sticky-col={sticky.col(1)["data-sticky-col"]}
+                >
                   <span className="inline-flex items-center gap-1">
                     <span>이름</span>
                     <AdminHelpIconButton
@@ -173,7 +180,10 @@ export default function TestUsersManager() {
                     />
                   </span>
                 </TableHead>
-                <TableHead>
+                <TableHead
+                  className={sticky.col(2).className}
+                  data-sticky-col={sticky.col(2)["data-sticky-col"]}
+                >
                   <span className="inline-flex items-center gap-1">
                     <span>이메일</span>
                     <AdminHelpIconButton
@@ -280,8 +290,16 @@ export default function TestUsersManager() {
               ) : (
                 users.map((user) => (
                   <TableRow key={user.userId}>
-                    <TableCell className="font-medium">{dash(user.name)}</TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell
+                      data-sticky-col={sticky.col(1)["data-sticky-col"]}
+                      className={cn("font-medium", sticky.col(1).className)}
+                    >
+                      {dash(user.name)}
+                    </TableCell>
+                    <TableCell
+                      data-sticky-col={sticky.col(2)["data-sticky-col"]}
+                      className={cn("text-muted-foreground", sticky.col(2).className)}
+                    >
                       {dash(user.email)}
                     </TableCell>
                     <TableCell>{dash(user.organizationName)}</TableCell>

@@ -10,6 +10,7 @@
 
 import type { OrganizationSlug } from "@/lib/organizations";
 import type { OrgResultScope, WeekOrgResultStatus } from "@/lib/weekOrgResultState";
+import { DEFAULT_TABLE_PAGE_SIZE } from "@/lib/tablePagination";
 
 // ── 활동 유형 ────────────────────────────────────────────────────────────────
 export type CrewWeeklyActivityKind = "official_activity" | "official_rest";
@@ -231,7 +232,7 @@ export type CrewWeeklyResultsBundleDto = {
   populationSize: number;
 };
 
-export const CREW_WEEKLY_RESULTS_DEFAULT_PAGE_SIZE = 20;
+export const CREW_WEEKLY_RESULTS_DEFAULT_PAGE_SIZE = DEFAULT_TABLE_PAGE_SIZE;
 export const CREW_WEEKLY_RESULTS_MAX_PAGE_SIZE = 100;
 
 /** 셀 조회 키 — 목록/상세가 동일 규칙으로 셀을 찾는다. */

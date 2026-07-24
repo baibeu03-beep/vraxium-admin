@@ -35,6 +35,8 @@ import { cn } from "@/lib/utils";
 import { pointColorClass } from "@/components/ui/point-value";
 import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import ExecutionTimeCell from "@/components/admin/ExecutionTimeCell";
+import { useStickyColumns, type StickyColProps } from "@/components/ui/sticky-columns";
 import { statusTone } from "@/lib/statusBadge";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
@@ -147,17 +149,22 @@ function HeadCell({
   sortKey,
   activeDir,
   onSort,
+  sticky,
 }: {
   label: string;
   helpKey: string;
   className?: string;
+  sticky?: StickyColProps;
   sortKey?: IrregularSortKey;
   activeDir?: IrregularSortDir | null;
   onSort?: (key: IrregularSortKey) => void;
 }) {
   const canSort = Boolean(sortKey && onSort);
   return (
-    <TableHead className={className}>
+    <TableHead
+      className={cn(className, sticky?.className)}
+      data-sticky-col={sticky?.["data-sticky-col"]}
+    >
       <span className="inline-flex items-center justify-center gap-1">
         {canSort ? (
           <button
@@ -350,6 +357,9 @@ export default function ProcessIrregularManager() {
   // 현재 select 표시값 — 사용자가 막 고른 값(weekParam) 우선, 없으면 서버 선택값.
   const selValue = weekParam ?? selectedWeekId ?? "";
 
+  // 왼쪽 2열 고정(종류·액트 종류) — 공통 sticky 계약.
+  const sticky = useStickyColumns({ headerSticky: true });
+
   // 3단계 정렬 상태 — null = 서버 기본 순서(최신순/생성 역순). 원본 acts 는 mutate 하지 않는다.
   const [sort, setSort] = useState<{ key: IrregularSortKey; dir: IrregularSortDir } | null>(null);
   const cycleSort = useCallback((key: IrregularSortKey) => {
@@ -505,12 +515,12 @@ export default function ProcessIrregularManager() {
           ) : acts.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">변동 액트가 없습니다.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
+            <div>
+              <Table containerRef={sticky.ref} regionClassName={sticky.regionClassName} stickyLeft>
                 <TableHeader>
                   <TableRow>
-                    <HeadCell label="종류" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnKind} {...headSort("kind")} />
-                    <HeadCell label="액트 종류" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnActType} {...headSort("crewReaction")} />
+                    <HeadCell label="종류" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnKind} sticky={sticky.col(1)} {...headSort("kind")} />
+                    <HeadCell label="액트 종류" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnActType} sticky={sticky.col(2)} {...headSort("crewReaction")} />
                     <HeadCell label="액트명(비정규)" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnActName} {...headSort("actName")} />
                     <HeadCell label="신청자" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnApplicant} {...headSort("applicant")} />
                     <HeadCell label="소요 시간(m)" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnDuration} {...headSort("duration")} />
@@ -518,8 +528,9 @@ export default function ProcessIrregularManager() {
                     <HeadCell label="po A" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnPoA} {...headSort("pointA")} />
                     <HeadCell label="po B" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnPoB} {...headSort("pointB")} />
                     <HeadCell label="po C" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnPoC} {...headSort("pointC")} />
-                    <HeadCell label="신청 시점(실제)" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnApplyTimeActual} {...headSort("createdAt")} />
-                    <HeadCell label="검수 시점(실제)" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnReviewTimeActual} {...headSort("completedAt")} />
+                    {/* 이행 시점(실제) = 신청 시점(실제)+검수 시점(실제) 통합(셀 안 2행).
+                        정렬은 신청(createdAt) 기준 — 검수(completedAt) 단독 정렬은 제거. */}
+                    <HeadCell label="이행 시점(실제)" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnExecutionTimeActual} {...headSort("createdAt")} />
                     <HeadCell label="체크 상태" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnStatus} {...headSort("status")} />
                     {/* 즉시 검수 = 액션 컬럼(정렬 제외) — 도움말만. */}
                     <HeadCell
@@ -542,6 +553,8 @@ export default function ProcessIrregularManager() {
                       rollingBack={rollingBackId === a.id}
                       actionBusy={anyActionBusy}
                       editable={editable}
+                      stickyCol1={sticky.col(1)}
+                      stickyCol2={sticky.col(2)}
                     />
                   ))}
                 </TableBody>
@@ -669,6 +682,8 @@ function IrregularRow({
   rollingBack,
   actionBusy,
   editable,
+  stickyCol1,
+  stickyCol2,
 }: {
   act: ProcessIrregularActRowDto;
   onOpenDetail: () => void;
@@ -680,6 +695,9 @@ function IrregularRow({
   // 즉시 검수/실행 취소 중 하나라도 진행 중이면 이 행 버튼도 함께 비활성화(상충 요청 차단).
   actionBusy: boolean;
   editable: boolean;
+  // 왼쪽 2열 고정(종류·액트 종류) 공통 sticky 계약 props.
+  stickyCol1?: StickyColProps;
+  stickyCol2?: StickyColProps;
 }) {
   // 즉시 검수 = '체크 대기'(pending) 링크 신청(review_request) + 검수 링크가 있는 행만.
   const canReviewNow =
@@ -698,10 +716,16 @@ function IrregularRow({
   };
   return (
     <TableRow>
-      <TableCell>
+      <TableCell
+        {...stickyCol1}
+        className={cn(stickyCol1?.className)}
+      >
         <StatusBadge label={act.kindLabel} size="sm" />
       </TableCell>
-      <TableCell>
+      <TableCell
+        {...stickyCol2}
+        className={cn(stickyCol2?.className)}
+      >
         <span className={cn("rounded border px-1.5 py-0.5 text-xs font-medium", crewTone[act.crewReaction])}>
           {act.crewReactionLabel}
         </span>
@@ -715,13 +739,13 @@ function IrregularRow({
       <TableCell className={cn("tabular-nums", pointColorClass("a"))}>{act.pointA}</TableCell>
       <TableCell className={cn("tabular-nums", pointColorClass("b"))}>{act.pointB}</TableCell>
       <TableCell className={cn("tabular-nums", pointColorClass("c"))}>{act.pointC}</TableCell>
-      <TableCell className="whitespace-nowrap text-muted-foreground">
-        {act.createdAt ? formatCheckDateTimeKo(act.createdAt) : "—"}
-      </TableCell>
-      {/* 검수 시점(실제) = 실제 검수 완료 서버 시각(completed_at). 미완료면 "—"
-          (예정 시각 scheduled_check_at 을 실제로 위장 표시하지 않는다). */}
-      <TableCell className="whitespace-nowrap text-muted-foreground">
-        {act.completedAt ? formatCheckDateTimeKo(act.completedAt) : "—"}
+      {/* 이행 시점(실제) — 신청(createdAt)/검수(completedAt=실제 완료 서버시각) 2행.
+          미완료 검수는 "—"(예정 시각 scheduled_check_at 을 실제로 위장하지 않는다). */}
+      <TableCell className="whitespace-nowrap text-left text-muted-foreground">
+        <ExecutionTimeCell
+          apply={act.createdAt ? formatCheckDateTimeKo(act.createdAt) : null}
+          review={act.completedAt ? formatCheckDateTimeKo(act.completedAt) : null}
+        />
       </TableCell>
       <TableCell className="text-center">
         {/* 상태 배지 클릭 → 상세 모달(체크 취소/삭제·검수 링크는 모달 내). */}

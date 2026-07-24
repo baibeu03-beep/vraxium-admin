@@ -13,6 +13,7 @@ import {
   type CreateAccountPayload,
 } from "@/lib/adminAccountsData";
 import { publicErrorMessage } from "@/lib/apiError";
+import { DEFAULT_TABLE_PAGE_SIZE } from "@/lib/tablePagination";
 
 // admin_users.role='owner' = logical super_admin (단일 매핑 지점).
 const SUPER_ADMIN_ROLES = ["owner"] as const;
@@ -37,7 +38,7 @@ function parseIntParam(
 //   q                 검색어 (admin_users.email ilike + id UUID 일치)
 //   admin_role        owner | admin | viewer
 //   active            true | false  (admin_users.is_active)
-//   limit / offset    페이지네이션 (limit 최대 200, 기본 50)
+//   limit / offset    페이지네이션 (limit 최대 200, 기본 20)
 export async function GET(request: NextRequest) {
   let admin;
   try {
@@ -71,7 +72,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const limit = parseIntParam(params.get("limit"), 50, { min: 1, max: 200 });
+  const limit = parseIntParam(params.get("limit"), DEFAULT_TABLE_PAGE_SIZE, { min: 1, max: 200 });
   const offset = parseIntParam(params.get("offset"), 0, { min: 0, max: 100000 });
 
   const isSuperAdmin = admin.role === "owner";

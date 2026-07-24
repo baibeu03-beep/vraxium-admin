@@ -1,6 +1,6 @@
 // 브라우저 검증 — /admin/processes/check/irregular 변동 액트 (신규 UI).
 //   주차 드롭다운(현재 시즌 W1~현재·날짜범위·상태) · [전원][부분] 버튼 · 통계 7칸 ·
-//   표 헤더 12열(종류|액트 종류|액트명(비정규)|신청자|소요 시간(m)|액트 신청 사유|po A|po B|po C|신청 시점(실제)|검수 시점(실제)|체크 상태) ·
+//   표 헤더 12열(종류|액트 종류|액트명(비정규)|신청자|소요 시간(m)|액트 신청 사유|po A|po B|po C|이행 시점(실제)|체크 상태|즉시 검수) ·
 //   검수 시점 자동 완료 · 부분>수동 입력 모달(X 초기화·중복 팝업) · 과거 주차 조회 전용.
 //   전제: dev 서버 + 2026-06-15_process_irregular_acts.sql 적용.
 import { createRequire } from "node:module";
@@ -103,9 +103,9 @@ try {
   ck("[주차] (YYYY-MM-DD ~ YYYY-MM-DD) 날짜범위 표시", /\(\d{4}-\d{2}-\d{2} ~ \d{4}-\d{2}-\d{2}\)/.test(body));
   ck("[주차] 주차 상태(공식 활동/휴식 주차) 표시", body.includes("공식 활동 주차") || body.includes("공식 휴식 주차"));
 
-  // ── 표 헤더 12열 순서 ──
+  // ── 표 헤더 12열 순서 (신청/검수 시점(실제) → 이행 시점(실제) 통합, 마지막은 즉시 검수 액션열) ──
   const h = (await page.locator("thead th").allTextContents()).map((t) => t.trim());
-  const expected = ["종류", "액트 종류", "액트명(비정규)", "신청자", "소요 시간(m)", "액트 신청 사유", "po A", "po B", "po C", "신청 시점(실제)", "검수 시점(실제)", "체크 상태"];
+  const expected = ["종류", "액트 종류", "액트명(비정규)", "신청자", "소요 시간(m)", "액트 신청 사유", "po A", "po B", "po C", "이행 시점(실제)", "체크 상태", "즉시 검수"];
   ck("[헤더] 12열 순서 정확", JSON.stringify(h) === JSON.stringify(expected), JSON.stringify(h));
 
   // ── 시드 행 표시 ──

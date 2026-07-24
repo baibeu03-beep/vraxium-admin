@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { DEFAULT_TABLE_PAGE_SIZE } from "@/lib/tablePagination";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { RefreshCw, Save, Trash2 } from "lucide-react";
 import {
   Card,
@@ -1084,7 +1086,7 @@ export default function Cluster4Editor({
   const [wlSeason, setWlSeason] = useState("all");
   const [wlResult, setWlResult] = useState("all");
   const [wlPage, setWlPage] = useState(1);
-  const WL_PAGE_SIZE = 4;
+  const WL_PAGE_SIZE = DEFAULT_TABLE_PAGE_SIZE;
 
   const weeklyCards: WeeklyCardDto[] = weeklyGrowth?.weeklyCards ?? [];
 
@@ -1988,32 +1990,14 @@ export default function Cluster4Editor({
               </div>
             )}
 
-            {/* pagination */}
-            {wlFiltered.length > WL_PAGE_SIZE && (
-              <div className="flex items-center justify-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={wlPageClamped <= 1}
-                  onClick={() => setWlPage((p) => Math.max(1, p - 1))}
-                >
-                  이전
-                </Button>
-                <span className="text-xs tabular-nums text-muted-foreground">
-                  {wlPageClamped} / {wlTotalPages}
-                </span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={wlPageClamped >= wlTotalPages}
-                  onClick={() => setWlPage((p) => Math.min(wlTotalPages, p + 1))}
-                >
-                  다음
-                </Button>
-              </div>
-            )}
+            <TablePagination
+              page={wlPageClamped}
+              pageSize={WL_PAGE_SIZE}
+              totalCount={wlFiltered.length}
+              totalPages={wlTotalPages}
+              showPagination={wlFiltered.length > WL_PAGE_SIZE}
+              onPageChange={setWlPage}
+            />
           </CardContent>
         </Card>
         </>

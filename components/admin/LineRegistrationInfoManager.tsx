@@ -46,6 +46,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { useStickyColumns, type StickyColProps } from "@/components/ui/sticky-columns";
 import { Checkbox, checkedTextClass, checkedRowClass } from "@/components/ui/checkbox";
 import {
   COMMON_CLUB_LABEL,
@@ -332,6 +333,7 @@ function InfoSortableHeader({
   center,
   sortable,
   onSort,
+  sticky,
 }: {
   label: string;
   helpKey: string;
@@ -339,10 +341,13 @@ function InfoSortableHeader({
   center?: boolean;
   sortable: boolean;
   onSort: () => void;
+  // 왼쪽 식별 열 고정(공통 계약) — 지정 시 해당 셀에 stick-col-* 클래스/속성을 얹는다.
+  sticky?: StickyColProps;
 }) {
   return (
     <TableHead
-      className={cn(center && "text-center")}
+      className={cn(center && "text-center", sticky?.className)}
+      data-sticky-col={sticky?.["data-sticky-col"]}
       aria-sort={
         !sortable
           ? undefined
@@ -410,6 +415,8 @@ export default function LineRegistrationInfoManager({
   // 수정 모달 — 편집 대상 행(null = 닫힘). 저장 성공 시 목록 재조회로 즉시 반영.
   const [editingRow, setEditingRow] = useState<LineRegistrationDto | null>(null);
   useReportLoading(loading);
+  // 왼쪽 2열 고정(적용 클럽·라인 코드) — 공통 sticky 계약. col-1 실측폭으로 col-2 offset.
+  const sticky = useStickyColumns({ headerSticky: true });
 
   // ── 개설 연결(브리지) ──────────────────────────────────────────────
   //   요청 중인 행 id(중복 클릭 차단·버튼 비활성화) + 행별 실패 사유(행 내 인라인 표시).
@@ -851,11 +858,11 @@ export default function LineRegistrationInfoManager({
           {error}
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-md border">
-          <Table>
+        <div className="rounded-md border">
+          <Table containerRef={sticky.ref} regionClassName={sticky.regionClassName} stickyLeft>
             <TableHeader>
               <TableRow>
-                {INFO_COLUMNS.map((col) => (
+                {INFO_COLUMNS.map((col, idx) => (
                   <InfoSortableHeader
                     key={col.key}
                     label={col.label}
@@ -868,6 +875,8 @@ export default function LineRegistrationInfoManager({
                         : null
                     }
                     onSort={() => cycleSort(col.key)}
+                    // 왼쪽 2열(적용 클럽·라인 코드) 고정 — 공통 계약.
+                    sticky={idx === 0 ? sticky.col(1) : idx === 1 ? sticky.col(2) : undefined}
                   />
                 ))}
               </TableRow>
@@ -900,11 +909,16 @@ export default function LineRegistrationInfoManager({
                   return (
                     <TableRow key={row.id}>
                       {/* 적용 클럽 — 표시 배지(색상 매핑 SoT = LineRegistrationBadges).
-                          정렬/필터/원본값은 무변경(clubKo·displayClub 그대로 사용). */}
-                      <TableCell>
+                          정렬/필터/원본값은 무변경(clubKo·displayClub 그대로 사용). 좌측 고정 col-1. */}
+                      <TableCell {...sticky.col(1)} className={sticky.col(1).className}>
                         <ClubBadge value={displayClub}>{clubKo(displayClub)}</ClubBadge>
                       </TableCell>
-                      <TableCell className="font-mono text-xs">{row.lineCode}</TableCell>
+                      <TableCell
+                        {...sticky.col(2)}
+                        className={cn("font-mono text-xs", sticky.col(2).className)}
+                      >
+                        {row.lineCode}
+                      </TableCell>
                       <TableCell className="max-w-72 font-medium">
                         <span className="block truncate" title={row.lineName}>
                           {row.lineName}

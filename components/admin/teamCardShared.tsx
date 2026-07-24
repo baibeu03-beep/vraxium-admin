@@ -2,6 +2,7 @@
 
 import { type ReactNode } from "react";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import { useStickyColumns } from "@/components/ui/sticky-columns";
 
 // ── 팀 카드 공용 조각 — 클럽 상세(다중 팀 카드)와 팀 상세(단일 팀) 양쪽이 재사용한다 ──────────
 //   정보 밀도 분리(사용자 정의):
@@ -217,6 +218,8 @@ export function TeamPartWeekMatrix({
   //   없으면 null(강조 없음). 과거 주차 체크만 있는 행은 강조하지 않는다(현재 주차 셀 기준).
   currentWeekStartDate?: string | null;
 }) {
+  // 파트명 단독 고정(식별 1열) + 상단 주차 헤더 고정 — 공통 sticky 계약.
+  const sticky = useStickyColumns({ headerSticky: true });
   if (!matrix || weekColumns.length === 0) {
     return (
       <div className="rounded-md border border-dashed border-zinc-300 px-4 py-6 text-center text-sm text-muted-foreground">
@@ -230,13 +233,23 @@ export function TeamPartWeekMatrix({
     : -1;
   return (
     <div
-      className="overflow-x-auto rounded-md border border-zinc-200"
+      ref={sticky.ref}
+      className={
+        "overflow-x-auto rounded-md border border-zinc-200" +
+        (sticky.regionClassName ? " " + sticky.regionClassName : "")
+      }
       data-part-week-table={teamName}
     >
       <table className="min-w-max border-collapse text-sm">
         <thead>
           <tr>
-            <th className="sticky left-0 z-10 min-w-[120px] border-b border-r bg-zinc-50 px-4 py-2.5 text-left text-sm font-semibold whitespace-nowrap">
+            <th
+              data-sticky-col={sticky.col(2)["data-sticky-col"]}
+              className={
+                sticky.col(2).className +
+                " min-w-[120px] border-b px-4 py-2.5 text-left text-sm font-semibold whitespace-nowrap"
+              }
+            >
               <span className="inline-flex items-center gap-1">
                 파트 \ 주차
                 <AdminHelpIconButton
@@ -269,13 +282,17 @@ export function TeamPartWeekMatrix({
                 key={p}
                 data-pw-row={p}
                 data-pw-current-operated={currentWeekOperated ? "1" : "0"}
+                // 운용 파트 강조(emerald)를 고정 셀에도 유지(--stick-cell-bg).
+                data-sticky-row-accent={currentWeekOperated ? "emerald" : undefined}
               >
                 <td
+                  data-sticky-col={sticky.col(2)["data-sticky-col"]}
                   className={
-                    "sticky left-0 z-10 min-w-[120px] border-b border-r px-4 py-2.5 text-sm whitespace-nowrap " +
+                    sticky.col(2).className +
+                    " min-w-[120px] border-b px-4 py-2.5 text-sm whitespace-nowrap " +
                     (currentWeekOperated
-                      ? "bg-emerald-100 font-bold text-emerald-800"
-                      : "bg-white font-medium")
+                      ? "font-bold text-emerald-800"
+                      : "font-medium")
                   }
                 >
                   {p}

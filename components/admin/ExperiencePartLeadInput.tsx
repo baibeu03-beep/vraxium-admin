@@ -1214,7 +1214,7 @@ function PartGrid({
             → 실질 여유가 있는 이름만 10%→9.1%(102.3px)로 축소하고 확보한 0.9% 를 라인 3열에 균등 배분(24%→24.3%).
             ⚠ 폰트 스케일(표 텍스트 21px)이 바뀌면 floor 도 바뀐다 —
               scripts/browser-verify-experience-name-col-widths.mjs 로 재측정할 것. */}
-        <Table className="min-w-[900px] table-fixed">
+        <Table className="min-w-[900px] table-fixed" pagination="off">
           <colgroup>
             <col style={{ width: "9.1%" }} />{/* 이름 */}
             <col style={{ width: "8%" }} />{/* 파트명 */}

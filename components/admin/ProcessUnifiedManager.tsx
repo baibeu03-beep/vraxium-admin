@@ -10,6 +10,8 @@
 // 조직/모드(demoUserId·mode=test) 구분 없음 — 허브×라인급×액트 전역 1세트(동일 DTO).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { DEFAULT_TABLE_PAGE_SIZE } from "@/lib/tablePagination";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { ArrowDown, ArrowUp, ArrowUpDown, X } from "lucide-react";
 import {
   Card,
@@ -83,7 +85,7 @@ type Banner = { kind: "success" | "error"; message: string } | null;
 const SELECT_CLS =
   "h-9 w-full rounded-md border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60";
 const FILTER_SELECT_CLS = "h-9 rounded-md border border-input bg-background px-3 text-sm";
-const PAGE_SIZE = 15;
+const PAGE_SIZE = DEFAULT_TABLE_PAGE_SIZE;
 
 const EMPTY_SUMMARY: ProcessActSummary = {
   actCount: 0,
@@ -245,16 +247,6 @@ function PointTripletCells({ t }: { t: ProcessPointTriplet }) {
       ))}
     </div>
   );
-}
-
-function pageItems(current: number, total: number): (number | "...")[] {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-  const items: (number | "...")[] = [1];
-  if (current > 3) items.push("...");
-  for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) items.push(i);
-  if (current < total - 2) items.push("...");
-  items.push(total);
-  return items;
 }
 
 // 독립 통계 셀 — 라벨(좌) + 값(우, 우측정렬). 그리드로 나열해 박스 전체 폭을 균등 분산한다.
@@ -513,8 +505,8 @@ export default function ProcessUnifiedManager() {
   const [hubFilter, setHubFilter] = useState<HubFilterKey>("all");
   const [page, setPage] = useState(1);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  // 왼쪽 식별 열(허브 급) 단독 고정 — 공통 sticky 계약(col(2)만 사용).
-  const sticky = useStickyColumns();
+  // 왼쪽 2열 고정 + 상단 헤더 고정(경계 스크롤 영역) — 공통 sticky 계약.
+  const sticky = useStickyColumns({ headerSticky: true });
   // 컬럼 헤더 클릭 정렬. null = 기본 순서(신청 시점 기준).
   //   클릭 순환: 없음 → 오름차순 → 내림차순 → 기본 복귀.
   const [columnSort, setColumnSort] = useState<{ key: ProcColKey; dir: "asc" | "desc" } | null>(null);
@@ -1450,7 +1442,7 @@ export default function ProcessUnifiedManager() {
             </p>
           ) : (
             <>
-              <Table containerRef={sticky.ref} stickyLeft>
+              <Table containerRef={sticky.ref} regionClassName={sticky.regionClassName} stickyLeft>
                 <TableHeader>
                   <TableRow>
                     {PROC_COLUMNS.map((col, idx) => (
@@ -1514,51 +1506,14 @@ export default function ProcessUnifiedManager() {
                 </TableBody>
               </Table>
 
-              {/* 페이지네이션 — 15개 기준 */}
-              {pageCount > 1 && (
-                <div className="flex items-center justify-center gap-1 pt-2" aria-label="페이지네이션">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={safePage <= 1}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    aria-label="이전 페이지"
-                  >
-                    ‹
-                  </Button>
-                  {pageItems(safePage, pageCount).map((it, i) =>
-                    it === "..." ? (
-                      <span key={`e${i}`} className="px-2 text-sm text-muted-foreground">
-                        …
-                      </span>
-                    ) : (
-                      <Button
-                        key={it}
-                        type="button"
-                        variant={it === safePage ? "default" : "outline"}
-                        size="sm"
-                        className="min-w-9"
-                        aria-label={`${it} 페이지`}
-                        aria-current={it === safePage ? "page" : undefined}
-                        onClick={() => setPage(it)}
-                      >
-                        {it}
-                      </Button>
-                    ),
-                  )}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={safePage >= pageCount}
-                    onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
-                    aria-label="다음 페이지"
-                  >
-                    ›
-                  </Button>
-                </div>
-              )}
+              <TablePagination
+                page={safePage}
+                pageSize={PAGE_SIZE}
+                totalCount={visibleActs.length}
+                totalPages={pageCount}
+                showPagination={visibleActs.length > PAGE_SIZE}
+                onPageChange={setPage}
+              />
             </>
           )}
         </CardContent>

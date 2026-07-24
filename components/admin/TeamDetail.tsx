@@ -1,5 +1,6 @@
 "use client";
 
+import { PaginatedNativeTable } from "@/components/ui/table-pagination";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -797,6 +798,7 @@ export default function TeamDetail({
                   </Button>
                 </div>
                 <div className="overflow-x-auto rounded-md border">
+                  <PaginatedNativeTable>
                   <table className="w-full min-w-[1500px] border-collapse text-sm">
                     <thead>
                       <tr className="bg-muted/60">
@@ -883,6 +885,7 @@ export default function TeamDetail({
                       )}
                     </tbody>
                   </table>
+                  </PaginatedNativeTable>
                 </div>
               </section>
             ) : null}

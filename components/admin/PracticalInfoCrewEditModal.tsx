@@ -1,5 +1,6 @@
 "use client";
 
+import { PaginatedNativeTable } from "@/components/ui/table-pagination";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Undo2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -320,6 +321,7 @@ export default function PracticalInfoCrewEditModal({
             </p>
           ) : (
             <div className="max-h-60 overflow-y-auto rounded-md border">
+              <PaginatedNativeTable>
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-muted/60">
                   <tr className="border-b text-left text-xs text-muted-foreground">
@@ -427,6 +429,7 @@ export default function PracticalInfoCrewEditModal({
                   })}
                 </tbody>
               </table>
+              </PaginatedNativeTable>
             </div>
           )}
         </div>

@@ -13,6 +13,7 @@ import {
   isEditableResourceKey,
 } from "@/lib/adminEditWindowsTypes";
 import { readScopeMode } from "@/lib/userScopeShared";
+import { DEFAULT_TABLE_PAGE_SIZE } from "@/lib/tablePagination";
 
 function parseIntParam(
   raw: string | null,
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const limit = parseIntParam(params.get("limit"), 50, { min: 1, max: 200 });
+  const limit = parseIntParam(params.get("limit"), DEFAULT_TABLE_PAGE_SIZE, { min: 1, max: 200 });
   const offset = parseIntParam(params.get("offset"), 0, { min: 0, max: 100000 });
   const weekId = params.get("week_id")?.trim() || null;
 

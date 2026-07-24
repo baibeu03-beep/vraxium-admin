@@ -40,6 +40,7 @@
 //     2026-07-17 이전엔 변동을 아예 안 세어 "값까지 동일"했다(= 변동 누락 버그의 부작용).
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { DEFAULT_TABLE_PAGE_SIZE } from "@/lib/tablePagination";
 import { loadSeasonWeeks, type SeasonWeekDto } from "@/lib/adminSeasonWeeksData";
 import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import { formatClubDate } from "@/lib/clubDate";
@@ -116,7 +117,7 @@ export type TeamPartsInfoWeeksData = {
   pagination: TeamPartsInfoWeeksPagination;
 };
 
-export const DEFAULT_WEEKS_PAGE_SIZE = 20;
+export const DEFAULT_WEEKS_PAGE_SIZE = DEFAULT_TABLE_PAGE_SIZE;
 const MAX_WEEKS_PAGE_SIZE = 100;
 
 // ── 정렬(서버사이드) ─────────────────────────────────────────────────────────

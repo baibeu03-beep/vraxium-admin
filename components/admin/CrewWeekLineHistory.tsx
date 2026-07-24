@@ -1,5 +1,6 @@
 "use client";
 
+import { PaginatedNativeTable } from "@/components/ui/table-pagination";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -18,6 +19,7 @@ import type { BadgeTone } from "@/components/ui/badge";
 import { rawOpenLineGrowthRate } from "@/lib/lineHistoryGrowthRate";
 import { formatLineDuration } from "@/lib/adminLineRegistrationsTypes";
 import { SortableTh } from "@/components/admin/SortableTh";
+import { useStickyColumns } from "@/components/ui/sticky-columns";
 import {
   cycleSort,
   sortLineRows,
@@ -705,12 +707,21 @@ function HubLineTable({
 }) {
   // 기본(sort=null)이면 서버 결정적 순서 유지 · 사용자 정렬 시 공통 comparator 적용(허브 내부 정렬).
   const sortedRows = sort ? sortLineRows(rows, sort, toLineSortRow) : rows;
+  // 좌측 식별 열 고정 — 유형(col1) + 라인명(col2). 허브 표마다 독립 훅.
+  const sticky = useStickyColumns({ headerSticky: true });
   return (
-    <div className="overflow-x-auto rounded-md border">
+    <div
+      ref={sticky.ref}
+      className={
+        "overflow-x-auto rounded-md border" +
+        (sticky.regionClassName ? " " + sticky.regionClassName : "")
+      }
+    >
       {/* table-fixed + colgroup: 헤더/바디 동일 폭. 허브 컬럼 제거로 라인명 폭 확보(좌측 정렬),
           나머지 상태·숫자 컬럼은 가운데 정렬. 좁은 화면은 min-w 로 가로 스크롤 유지.
           소요 시간 컬럼 추가(2026-07-17) — 라인명이 좁아지지 않도록 min-w 를 56→60rem 으로 함께
           올려 라인명 실폭을 유지한다(32%×56rem ≈ 28%×60rem). */}
+      <PaginatedNativeTable>
       <table className="w-full min-w-[60rem] table-fixed border-collapse text-sm">
         <colgroup>
           <col style={{ width: "8%" }} />
@@ -725,8 +736,8 @@ function HubLineTable({
         </colgroup>
         <thead>
           <tr className="border-b bg-muted/40 text-xs text-muted-foreground">
-            <SortableTh label="유형" dir={dirOf("kind")} onSort={() => onSortKey("kind")} className="px-3" />
-            <SortableTh label="라인명" dir={dirOf("name")} onSort={() => onSortKey("name")} className="px-3" />
+            <SortableTh label="유형" dir={dirOf("kind")} onSort={() => onSortKey("kind")} className="px-3" sticky={sticky.col(1)} />
+            <SortableTh label="라인명" dir={dirOf("name")} onSort={() => onSortKey("name")} className="px-3" sticky={sticky.col(2)} />
             <SortableTh label="소요 시간" dir={dirOf("duration")} onSort={() => onSortKey("duration")} className="px-3" />
             <SortableTh label="클럽 오픈" dir={dirOf("clubOpen")} onSort={() => onSortKey("clubOpen")} className="px-3" />
             <SortableTh label="강화 결과" dir={dirOf("result")} onSort={() => onSortKey("result")} className="px-3" />
@@ -742,10 +753,16 @@ function HubLineTable({
               key={row.lineId ?? `ph-${idx}`}
               className="border-b align-middle last:border-b-0 hover:bg-muted/20"
             >
-              <td className="truncate px-3 py-2 text-center text-muted-foreground">
+              <td
+                data-sticky-col={sticky.col(1)["data-sticky-col"]}
+                className={"truncate px-3 py-2 text-center text-muted-foreground " + sticky.col(1).className}
+              >
                 {row.type ?? "-"}
               </td>
-              <td className="px-3 py-2 text-left">
+              <td
+                data-sticky-col={sticky.col(2)["data-sticky-col"]}
+                className={"px-3 py-2 text-left " + sticky.col(2).className}
+              >
                 {/* 라인명 본문만 좌측 정렬(헤더는 중앙 유지). 클릭 영역은 셀 폭 전체 사용,
                     부모 가용 폭까지 채우고 정말 넘칠 때만 말줄임(tooltip 유지). */}
                 <button
@@ -823,6 +840,7 @@ function HubLineTable({
           ))}
         </tbody>
       </table>
+      </PaginatedNativeTable>
     </div>
   );
 }

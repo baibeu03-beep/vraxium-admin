@@ -1,11 +1,14 @@
 "use client";
 
+import { PaginatedNativeTable } from "@/components/ui/table-pagination";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, Search, Users, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import { useStickyColumns } from "@/components/ui/sticky-columns";
+import { cn } from "@/lib/utils";
 import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 import {
   sortCafeCrews,
@@ -85,6 +88,8 @@ export default function CafeCrewPicker({
   const [manualSearching, setManualSearching] = useState(false);
   // 검수 크루 목록 표시 정렬(클라이언트 전용). 기본 = 댓글 시간순(원본 순서).
   const [sortKey, setSortKey] = useState<CrewSortKey>("comment");
+  // 왼쪽 2열 고정(크루 코드·이름) — 공통 sticky 계약. col-1 실측폭으로 col-2 offset.
+  const sticky = useStickyColumns({ headerSticky: true });
 
   // 표시용 정렬 뷰 — candidates(SoT)는 mutate 하지 않고 순수 helper 로 복사본만 정렬한다.
   //   추가/제거/저장은 여전히 candidates 로 동작(표시 순서만 변경).
@@ -477,11 +482,18 @@ export default function CafeCrewPicker({
         {candidates.length === 0 ? (
           <p className="py-3 text-center text-sm text-muted-foreground">후보가 없습니다.</p>
         ) : (
-          <div className="overflow-x-auto">
+          <div
+            ref={sticky.ref}
+            className={"overflow-x-auto" + (sticky.regionClassName ? " " + sticky.regionClassName : "")}
+          >
+            <PaginatedNativeTable>
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-left text-xs text-muted-foreground">
-                  <th className="px-2 py-1.5">
+                  <th
+                    {...sticky.col(1)}
+                    className={cn("px-2 py-1.5", sticky.col(1).className)}
+                  >
                     <span className="inline-flex items-center gap-1">
                       크루 코드
                       <AdminHelpIconButton
@@ -491,7 +503,10 @@ export default function CafeCrewPicker({
                       />
                     </span>
                   </th>
-                  <th className="px-2 py-1.5">
+                  <th
+                    {...sticky.col(2)}
+                    className={cn("px-2 py-1.5", sticky.col(2).className)}
+                  >
                     <span className="inline-flex items-center gap-1">
                       이름
                       <AdminHelpIconButton
@@ -556,8 +571,18 @@ export default function CafeCrewPicker({
               <tbody>
                 {sortedCandidates.map((c) => (
                   <tr key={c.userId} className="border-b last:border-0">
-                    <td className="px-2 py-1.5 font-mono text-xs">{c.crewCode ?? "-"}</td>
-                    <td className="px-2 py-1.5 font-medium">{c.name || "-"}</td>
+                    <td
+                      {...sticky.col(1)}
+                      className={cn("px-2 py-1.5 font-mono text-xs", sticky.col(1).className)}
+                    >
+                      {c.crewCode ?? "-"}
+                    </td>
+                    <td
+                      {...sticky.col(2)}
+                      className={cn("px-2 py-1.5 font-medium", sticky.col(2).className)}
+                    >
+                      {c.name || "-"}
+                    </td>
                     <td className="px-2 py-1.5 text-xs">{c.teamName ?? "-"}</td>
                     <td className="px-2 py-1.5 text-xs">{c.partName ?? "-"}</td>
                     <td className="px-2 py-1.5 text-xs">{c.schoolName ?? "-"}</td>
@@ -579,6 +604,7 @@ export default function CafeCrewPicker({
                 ))}
               </tbody>
             </table>
+            </PaginatedNativeTable>
           </div>
         )}
       </div>

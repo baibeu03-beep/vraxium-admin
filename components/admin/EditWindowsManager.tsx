@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { DEFAULT_TABLE_PAGE_SIZE } from "@/lib/tablePagination";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { useSearchParams } from "next/navigation";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import { RefreshCw, Search, X } from "lucide-react";
@@ -32,6 +34,7 @@ import {
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { Checkbox, checkedTextClass, checkedRowClass } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { useStickyColumns } from "@/components/ui/sticky-columns";
 import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
@@ -60,7 +63,7 @@ import { formatAdminDateTime } from "@/lib/adminDateTime";
 import { useActionToast } from "@/lib/actionToast";
 import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = DEFAULT_TABLE_PAGE_SIZE;
 const RESOURCE_OPTIONS = [...EDITABLE_RESOURCES].sort((a, b) => a.order - b.order);
 
 function fmt(value: string | null | undefined) {
@@ -105,6 +108,9 @@ function statusBadgeClass(status: EditWindowStatus): string {
 export default function EditWindowsManager() {
   const searchParams = useSearchParams();
   const devMode = useAdminDevMode();
+  // 왼쪽 2열 고정(선택 체크박스·이름) — 공통 sticky 계약. col-1 실측폭으로 col-2 offset.
+  //   (기존 sticky left-0 / left-10 하드코딩 offset 대체.)
+  const sticky = useStickyColumns({ headerSticky: true });
 
   const initialQuery = useMemo(
     () => searchParams.get("q")?.trim() ?? "",
@@ -211,8 +217,12 @@ export default function EditWindowsManager() {
           throw apiErrorFrom(res, json, "수정 기간 목록을 불러오지 못했습니다.");
         }
         if (!cancelled) {
+          const nextTotal = Number(json.data?.total ?? 0);
           setRows((json.data?.rows ?? []) as EditWindowUserRow[]);
-          setTotal(Number(json.data?.total ?? 0));
+          setTotal(nextTotal);
+          if (offset > 0 && offset >= nextTotal) {
+            setOffset(Math.max(0, (Math.ceil(nextTotal / PAGE_SIZE) - 1) * PAGE_SIZE));
+          }
         }
       } catch (err) {
         if (!cancelled) {
@@ -393,10 +403,6 @@ export default function EditWindowsManager() {
     },
     [applyWindowToRow, devMode, resourceKey, effectiveWeekId, t],
   );
-
-  const pageEnd = offset + rows.length;
-  const hasPrev = offset > 0;
-  const hasNext = pageEnd < total;
 
   return (
     <div className="admin-section-stack-lg">
@@ -631,14 +637,14 @@ export default function EditWindowsManager() {
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-lg border">
-            <Table>
+          <div className="rounded-lg border">
+            <Table containerRef={sticky.ref} regionClassName={sticky.regionClassName} stickyLeft>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="sticky left-0 z-20 bg-card w-10">
+                  <TableHead {...sticky.col(1)} className={cn("w-10", sticky.col(1).className)}>
                     <span className="sr-only">선택</span>
                   </TableHead>
-                  <TableHead className="sticky left-10 z-20 bg-card border-r">
+                  <TableHead {...sticky.col(2)}>
                     <span className="inline-flex items-center gap-1">
                       <span>{devMode ? "이름 / user_id" : "이름"}</span>
                       <AdminHelpIconButton
@@ -727,7 +733,7 @@ export default function EditWindowsManager() {
                     allMatchingSelected || selectedUserIds.has(row.userId);
                   return (
                     <TableRow key={row.userId} className={cn(checkedRowClass(rowChecked))}>
-                      <TableCell className="sticky left-0 z-10 bg-card w-10">
+                      <TableCell {...sticky.col(1)} className={cn("w-10", sticky.col(1).className)}>
                         <Checkbox
                           checked={rowChecked}
                           onChange={(e) =>
@@ -736,7 +742,10 @@ export default function EditWindowsManager() {
                           aria-label={(row.displayName ?? row.userId) + " 선택"}
                         />
                       </TableCell>
-                      <TableCell className="sticky left-10 z-10 bg-card border-r max-w-[220px]">
+                      <TableCell
+                        {...sticky.col(2)}
+                        className={cn("max-w-[220px]", sticky.col(2).className)}
+                      >
                         <div className={cn("truncate font-medium", checkedTextClass(rowChecked))}>{fmt(row.displayName)}</div>
                         {devMode && (
                           <div className="truncate font-mono text-[10px] text-muted-foreground">
@@ -859,36 +868,15 @@ export default function EditWindowsManager() {
             </Table>
           </div>
 
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>
-              {total === 0
-                ? "0건"
-                : String(offset + 1) +
-                  "-" +
-                  String(pageEnd) +
-                  " / " +
-                  String(total) +
-                  "건"}
-            </span>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!hasPrev || loading}
-                onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
-              >
-                이전
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!hasNext || loading}
-                onClick={() => setOffset(offset + PAGE_SIZE)}
-              >
-                다음
-              </Button>
-            </div>
-          </div>
+          <TablePagination
+            page={Math.floor(offset / PAGE_SIZE) + 1}
+            pageSize={PAGE_SIZE}
+            totalCount={total}
+            totalPages={Math.max(1, Math.ceil(total / PAGE_SIZE))}
+            showPagination={total > PAGE_SIZE}
+            disabled={loading}
+            onPageChange={(nextPage) => setOffset((nextPage - 1) * PAGE_SIZE)}
+          />
         </CardContent>
       </Card>
 

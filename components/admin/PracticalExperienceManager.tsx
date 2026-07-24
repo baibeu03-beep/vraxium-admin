@@ -36,6 +36,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { useStickyColumns } from "@/components/ui/sticky-columns";
 import { Checkbox, checkedTextClass, checkedRowClass } from "@/components/ui/checkbox";
 import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
 import { formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
@@ -533,6 +534,14 @@ export default function PracticalExperienceManager() {
   const confirm = useConfirm();
   const { toast } = useToast();
   const t = useActionToast();
+
+  // 왼쪽 2열 고정 + 상단 헤더 고정 — 공통 sticky 계약. 표마다 독립 훅(공유 금지).
+  //   sticky1=라인 등록 · sticky2=Draft 목록 · sticky3=검수 목록 · sticky4=최종 개설 · sticky5=개설된 경험 라인.
+  const sticky1 = useStickyColumns({ headerSticky: true });
+  const sticky2 = useStickyColumns({ headerSticky: true });
+  const sticky3 = useStickyColumns({ headerSticky: true });
+  const sticky4 = useStickyColumns({ headerSticky: true });
+  const sticky5 = useStickyColumns({ headerSticky: true });
 
   // 헤더 [라인 관리]/[라인 개설] 2탭은 **조직 분기 모드(?org 있음)** 에서만 적용한다 (실무 정보와 동일 UX).
   // 통합 검수 시스템(원본, ?org 없음)에서는 기존 단일 화면 그대로 — 헤더 탭/분기 없음.
@@ -1471,10 +1480,13 @@ export default function PracticalExperienceManager() {
                   등록된 라인이 없습니다
                 </p>
               ) : (
-                <Table>
+                <Table containerRef={sticky1.ref} regionClassName={sticky1.regionClassName} stickyLeft>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>
+                      <TableHead
+                        className={sticky1.col(1).className}
+                        data-sticky-col={sticky1.col(1)["data-sticky-col"]}
+                      >
                         <span className="inline-flex items-center justify-center gap-1">
                           클럽
                           <AdminHelpIconButton
@@ -1483,7 +1495,10 @@ export default function PracticalExperienceManager() {
                           />
                         </span>
                       </TableHead>
-                      <TableHead>
+                      <TableHead
+                        className={sticky1.col(2).className}
+                        data-sticky-col={sticky1.col(2)["data-sticky-col"]}
+                      >
                         <span className="inline-flex items-center justify-center gap-1">
                           라인 코드
                           <AdminHelpIconButton
@@ -1552,8 +1567,14 @@ export default function PracticalExperienceManager() {
                   <TableBody>
                     {masters.map((m) => (
                       <TableRow key={m.id}>
-                        <TableCell className="text-xs">{formatOrgLabel(m.organizationSlug)}</TableCell>
-                        <TableCell className="font-mono text-xs">{m.lineCode}</TableCell>
+                        <TableCell
+                          data-sticky-col={sticky1.col(1)["data-sticky-col"]}
+                          className={cn("text-xs", sticky1.col(1).className)}
+                        >{formatOrgLabel(m.organizationSlug)}</TableCell>
+                        <TableCell
+                          data-sticky-col={sticky1.col(2)["data-sticky-col"]}
+                          className={cn("font-mono text-xs", sticky1.col(2).className)}
+                        >{m.lineCode}</TableCell>
                         <TableCell className="text-xs whitespace-nowrap">
                           {formatExperienceSlotLabel(m.experienceCategory, m.experienceSlotOrder)}
                         </TableCell>
@@ -1865,10 +1886,13 @@ export default function PracticalExperienceManager() {
                   표시할 항목이 없습니다
                 </p>
               ) : (
-                <Table>
+                <Table containerRef={sticky2.ref} regionClassName={sticky2.regionClassName} stickyLeft>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>
+                      <TableHead
+                        className={sticky2.col(1).className}
+                        data-sticky-col={sticky2.col(1)["data-sticky-col"]}
+                      >
                         <span className="inline-flex items-center justify-center gap-1">
                           사용자명
                           <AdminHelpIconButton
@@ -1877,7 +1901,10 @@ export default function PracticalExperienceManager() {
                           />
                         </span>
                       </TableHead>
-                      <TableHead>
+                      <TableHead
+                        className={sticky2.col(2).className}
+                        data-sticky-col={sticky2.col(2)["data-sticky-col"]}
+                      >
                         <span className="inline-flex items-center justify-center gap-1">
                           팀
                           <AdminHelpIconButton
@@ -1937,10 +1964,16 @@ export default function PracticalExperienceManager() {
                   <TableBody>
                     {inputDrafts.map((d) => (
                       <TableRow key={d.id}>
-                        <TableCell className="font-medium">
+                        <TableCell
+                          data-sticky-col={sticky2.col(1)["data-sticky-col"]}
+                          className={cn("font-medium", sticky2.col(1).className)}
+                        >
                           {d.targetUserName ?? "-"}
                         </TableCell>
-                        <TableCell>{d.teamName ?? "-"}</TableCell>
+                        <TableCell
+                          data-sticky-col={sticky2.col(2)["data-sticky-col"]}
+                          className={sticky2.col(2).className}
+                        >{d.teamName ?? "-"}</TableCell>
                         <TableCell>{d.partName ?? "-"}</TableCell>
                         <TableCell>
                           <div>
@@ -2327,10 +2360,13 @@ export default function PracticalExperienceManager() {
                   검수할 항목이 없습니다
                 </p>
               ) : (
-                <Table>
+                <Table containerRef={sticky3.ref} regionClassName={sticky3.regionClassName} stickyLeft>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>
+                      <TableHead
+                        className={sticky3.col(1).className}
+                        data-sticky-col={sticky3.col(1)["data-sticky-col"]}
+                      >
                         <span className="inline-flex items-center justify-center gap-1">
                           사용자명
                           <AdminHelpIconButton
@@ -2339,7 +2375,10 @@ export default function PracticalExperienceManager() {
                           />
                         </span>
                       </TableHead>
-                      <TableHead>
+                      <TableHead
+                        className={sticky3.col(2).className}
+                        data-sticky-col={sticky3.col(2)["data-sticky-col"]}
+                      >
                         <span className="inline-flex items-center justify-center gap-1">
                           팀
                           <AdminHelpIconButton
@@ -2402,10 +2441,16 @@ export default function PracticalExperienceManager() {
                         key={d.id}
                         className={cn(reviewingDraftId === d.id && "bg-muted/40")}
                       >
-                        <TableCell className="font-medium">
+                        <TableCell
+                          data-sticky-col={sticky3.col(1)["data-sticky-col"]}
+                          className={cn("font-medium", sticky3.col(1).className)}
+                        >
                           {d.targetUserName ?? "-"}
                         </TableCell>
-                        <TableCell>{d.teamName ?? "-"}</TableCell>
+                        <TableCell
+                          data-sticky-col={sticky3.col(2)["data-sticky-col"]}
+                          className={sticky3.col(2).className}
+                        >{d.teamName ?? "-"}</TableCell>
                         <TableCell>{d.partName ?? "-"}</TableCell>
                         <TableCell>
                           <div>
@@ -2684,11 +2729,17 @@ export default function PracticalExperienceManager() {
                   개설할 항목이 없습니다 (검수 승인 완료 시 표시됩니다)
                 </p>
               ) : (
-                <Table>
+                <Table containerRef={sticky4.ref} regionClassName={sticky4.regionClassName} stickyLeft>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-10" />
-                      <TableHead>
+                      <TableHead
+                        className={cn("w-10", sticky4.col(1).className)}
+                        data-sticky-col={sticky4.col(1)["data-sticky-col"]}
+                      />
+                      <TableHead
+                        className={sticky4.col(2).className}
+                        data-sticky-col={sticky4.col(2)["data-sticky-col"]}
+                      >
                         <span className="inline-flex items-center justify-center gap-1">
                           사용자명
                           <AdminHelpIconButton
@@ -2759,14 +2810,20 @@ export default function PracticalExperienceManager() {
                       const sel = openSelectedIds.has(d.id);
                       return (
                         <TableRow key={d.id} className={cn(opened && "opacity-70", checkedRowClass(sel))}>
-                          <TableCell>
+                          <TableCell
+                            data-sticky-col={sticky4.col(1)["data-sticky-col"]}
+                            className={sticky4.col(1).className}
+                          >
                             <Checkbox
                               checked={sel}
                               disabled={opened || saving}
                               onChange={() => toggleOpenSelect(d.id)}
                             />
                           </TableCell>
-                          <TableCell className={cn("font-medium", checkedTextClass(sel))}>
+                          <TableCell
+                            data-sticky-col={sticky4.col(2)["data-sticky-col"]}
+                            className={cn("font-medium", checkedTextClass(sel), sticky4.col(2).className)}
+                          >
                             {d.targetUserName ?? "-"}
                           </TableCell>
                           <TableCell>{d.teamName ?? "-"}</TableCell>
@@ -2856,11 +2913,14 @@ export default function PracticalExperienceManager() {
                     : "필터 결과가 없습니다."}
                 </p>
               ) : (
-                <div className="overflow-x-auto">
-                  <Table>
+                <div>
+                  <Table containerRef={sticky5.ref} regionClassName={sticky5.regionClassName} stickyLeft>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="whitespace-nowrap">
+                        <TableHead
+                          className={cn("whitespace-nowrap", sticky5.col(1).className)}
+                          data-sticky-col={sticky5.col(1)["data-sticky-col"]}
+                        >
                           <span className="inline-flex items-center justify-center gap-1">
                             주차
                             <AdminHelpIconButton
@@ -2869,7 +2929,10 @@ export default function PracticalExperienceManager() {
                             />
                           </span>
                         </TableHead>
-                        <TableHead>
+                        <TableHead
+                          className={sticky5.col(2).className}
+                          data-sticky-col={sticky5.col(2)["data-sticky-col"]}
+                        >
                           <span className="inline-flex items-center justify-center gap-1">
                             경험 라인명
                             <AdminHelpIconButton
@@ -2926,10 +2989,16 @@ export default function PracticalExperienceManager() {
                     <TableBody>
                       {expTargetRows.map((r) => (
                         <TableRow key={r.key}>
-                          <TableCell className="whitespace-nowrap text-xs">
+                          <TableCell
+                            data-sticky-col={sticky5.col(1)["data-sticky-col"]}
+                            className={cn("whitespace-nowrap text-xs", sticky5.col(1).className)}
+                          >
                             {r.weekLabel ?? "—"}
                           </TableCell>
-                          <TableCell className="max-w-[220px]">
+                          <TableCell
+                            data-sticky-col={sticky5.col(2)["data-sticky-col"]}
+                            className={cn("max-w-[220px]", sticky5.col(2).className)}
+                          >
                             <div className="truncate font-medium">{r.lineName}</div>
                             {r.lineCode && (
                               <div className="truncate font-mono text-[10px] text-muted-foreground">

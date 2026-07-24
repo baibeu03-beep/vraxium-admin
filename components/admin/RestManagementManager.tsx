@@ -16,6 +16,8 @@
 //   조회 흐름을 타며 로직/모집단을 바꾸지 않는다(URL 보존만).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { DEFAULT_TABLE_PAGE_SIZE } from "@/lib/tablePagination";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { useSearchParams } from "next/navigation";
 import { ArrowDown, ArrowUp, ArrowUpDown, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -54,6 +56,7 @@ import {
 } from "@/lib/seasonCalendar";
 import { classTone } from "@/lib/statusBadge";
 import { cn } from "@/lib/utils";
+import { useStickyColumns, type StickyColProps } from "@/components/ui/sticky-columns";
 import type {
   RestManagementSummary,
   RestManagementSeasonOption,
@@ -62,7 +65,7 @@ import type {
 } from "@/lib/adminRestManagementData";
 import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = DEFAULT_TABLE_PAGE_SIZE;
 
 // 클럽 표시명 = lib/organizations 단일 SoT(organizationLabelKo). 화면별 한글 매핑 재작성 금지.
 const CLUB_LABEL_KO: Record<OrganizationSlug, string> = {
@@ -245,14 +248,18 @@ function ColumnHeader({
   col,
   dir,
   onSort,
+  sticky,
 }: {
   col: ColumnDef;
   dir: "asc" | "desc" | null;
   onSort: () => void;
+  sticky?: StickyColProps;
 }) {
   const sortable = Boolean(col.sortValue);
   return (
     <TableHead
+      className={sticky?.className}
+      data-sticky-col={sticky?.["data-sticky-col"]}
       aria-sort={
         dir === "asc" ? "ascending" : dir === "desc" ? "descending" : "none"
       }
@@ -342,6 +349,8 @@ export default function RestManagementManager() {
   //   · urlOrg 없음(통합 경로): 통합 컨텍스트 — 4탭·selectedOrg 내부 상태 전환.
   const urlOrg = readOrgParam(searchParams);
   const confirm = useConfirm();
+  // 왼쪽 2열 고정(진행 상태·주차) — 공통 sticky 계약. col-1 실측폭으로 col-2 offset.
+  const sticky = useStickyColumns({ headerSticky: true });
 
   // 통합 경로의 선택 조직 탭 = 페이지 내부 상태. null = [통합](빈 본문·API 미호출).
   //   개별 경로(urlOrg 있음)에서는 이 상태를 쓰지 않는다(activeOrg 가 urlOrg 로 고정).
@@ -756,11 +765,11 @@ export default function RestManagementManager() {
                 <div className="py-4 text-sm text-destructive">{listError}</div>
               ) : (
                 <div className="flex flex-col gap-3">
-                  <div className="overflow-hidden rounded-lg border">
-                    <Table>
+                  <div className="rounded-lg border">
+                    <Table containerRef={sticky.ref} regionClassName={sticky.regionClassName} stickyLeft>
                       <TableHeader>
                         <TableRow>
-                          {COLUMNS.map((col) => (
+                          {COLUMNS.map((col, idx) => (
                             <ColumnHeader
                               key={col.key}
                               col={col}
@@ -770,6 +779,13 @@ export default function RestManagementManager() {
                                   : null
                               }
                               onSort={() => cycleSort(col.key)}
+                              sticky={
+                                idx === 0
+                                  ? sticky.col(1)
+                                  : idx === 1
+                                    ? sticky.col(2)
+                                    : undefined
+                              }
                             />
                           ))}
                         </TableRow>
@@ -796,12 +812,15 @@ export default function RestManagementManager() {
                         ) : (
                           pageRows.map((row) => (
                             <TableRow key={row.id}>
-                              <TableCell>
+                              <TableCell {...sticky.col(1)}>
                                 <Badge tone={STATUS_TONE[row.displayStatus]}>
                                   {STATUS_LABEL[row.displayStatus]}
                                 </Badge>
                               </TableCell>
-                              <TableCell className="font-medium">
+                              <TableCell
+                                {...sticky.col(2)}
+                                className={cn("font-medium", sticky.col(2).className)}
+                              >
                                 {row.weekLabel}
                               </TableCell>
                               <TableCell>
@@ -857,30 +876,14 @@ export default function RestManagementManager() {
                     </Table>
                   </div>
 
-                  {/* 21개부터 페이지네이션 */}
-                  {sortedRows.length > PAGE_SIZE ? (
-                    <div className="flex items-center justify-center gap-3 pt-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={safePage <= 1}
-                        onClick={() => setListPage((p) => Math.max(1, p - 1))}
-                      >
-                        이전
-                      </Button>
-                      <span className="text-sm tabular-nums text-muted-foreground">
-                        {safePage} / {totalPages}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={safePage >= totalPages}
-                        onClick={() => setListPage((p) => Math.min(totalPages, p + 1))}
-                      >
-                        다음
-                      </Button>
-                    </div>
-                  ) : null}
+                  <TablePagination
+                    page={safePage}
+                    pageSize={PAGE_SIZE}
+                    totalCount={sortedRows.length}
+                    totalPages={totalPages}
+                    showPagination={sortedRows.length > PAGE_SIZE}
+                    onPageChange={setListPage}
+                  />
                 </div>
               )}
             </CardContent>

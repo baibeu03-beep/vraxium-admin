@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { DEFAULT_TABLE_PAGE_SIZE } from "@/lib/tablePagination";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,7 +43,7 @@ import {
 //   셀 표시값은 서버가 계산한 displayStatusLabel/activityKindLabel 을 **그대로 출력**한다.
 //   ⚠ 이 파일에는 현재 시각으로 상태를 정하는 코드가 없다(있어서는 안 된다).
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = DEFAULT_TABLE_PAGE_SIZE;
 
 const BASE_PATH = "/admin/team-parts/info/crew-week-results";
 
@@ -122,7 +124,9 @@ export default function CrewWeekResultsBoard({
         if (!res.ok || !json.success) {
           throw apiErrorFrom(res, json, `조회 실패 (${res.status})`);
         }
-        setData(json.data as CrewWeeklyResultsBundleDto);
+        const nextData = json.data as CrewWeeklyResultsBundleDto;
+        setData(nextData);
+        if (nextData.pagination.page !== pageNum) setPage(nextData.pagination.page);
       } catch (e) {
         setData(null);
         setError(getApiErrorMessage(e, "조회 실패"));
@@ -384,38 +388,16 @@ export default function CrewWeekResultsBoard({
               </div>
               )}
 
-              {pagination && pagination.totalCount > 0 ? (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="inline-flex items-center gap-1 text-muted-foreground">
-                    전체 {pagination.totalCount}개 · {pagination.page}/{totalPages}페이지
-                    <AdminHelpIconButton
-                      helpKey="admin.teamParts.crewWeekResults.action.pagination"
-                      title="페이지 이동"
-                    />
-                  </span>
-                  <div className="flex gap-1">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      data-page-prev
-                      disabled={loading || pagination.page <= 1}
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    >
-                      이전
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      data-page-next
-                      disabled={loading || pagination.page >= totalPages}
-                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    >
-                      다음
-                    </Button>
-                  </div>
-                </div>
+              {pagination ? (
+                <TablePagination
+                  page={pagination.page}
+                  pageSize={pagination.pageSize}
+                  totalCount={pagination.totalCount}
+                  totalPages={totalPages}
+                  showPagination={pagination.totalCount > pagination.pageSize}
+                  disabled={loading}
+                  onPageChange={setPage}
+                />
               ) : null}
 
             </>

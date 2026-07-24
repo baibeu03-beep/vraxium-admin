@@ -28,6 +28,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { useStickyColumns, type StickyColProps } from "@/components/ui/sticky-columns";
 import { Checkbox, checkedTextClass } from "@/components/ui/checkbox";
 import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
 import { formatAdminDateWithWeekday } from "@/lib/adminDateTime";
@@ -210,15 +211,19 @@ function LineColumnHeader({
   col,
   dir,
   onSort,
+  sticky,
 }: {
   col: LineColumnDef;
   dir: "asc" | "desc" | null;
   onSort: () => void;
+  // 왼쪽 열 고정(공통 sticky 계약) — 지정 시 stick-col-* 클래스/데이터 속성 forward.
+  sticky?: StickyColProps;
 }) {
   const sortable = Boolean(col.sortValue);
   return (
     <TableHead
-      className={col.headClassName}
+      className={cn(col.headClassName, sticky?.className)}
+      data-sticky-col={sticky?.["data-sticky-col"]}
       aria-sort={
         dir === "asc" ? "ascending" : dir === "desc" ? "descending" : "none"
       }
@@ -1239,6 +1244,9 @@ export default function Cluster4LineTable({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [enhancementFilter, setEnhancementFilter] = useState<EnhancementFilter>("all");
 
+  // 왼쪽 2열(펼치기·주차) 고정 + 상단 헤더 고정 — 공통 sticky 계약.
+  const sticky = useStickyColumns({ headerSticky: true });
+
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   // 컬럼 헤더 클릭 정렬. null = 기본(서버/필터) 순서. 클릭 순환: 없음 → asc → desc → 기본.
@@ -1583,16 +1591,18 @@ export default function Cluster4LineTable({
             {rows.length === 0 ? "개설된 라인이 없습니다." : "필터 결과가 없습니다."}
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <Table>
+          <div>
+            <Table containerRef={sticky.ref} regionClassName={sticky.regionClassName} stickyLeft>
               <TableHeader>
                 <TableRow>
-                  {lineColumns.map((col) => (
+                  {lineColumns.map((col, idx) => (
                     <LineColumnHeader
                       key={col.key}
                       col={col}
                       dir={columnSort?.key === col.key ? columnSort.dir : null}
                       onSort={() => cycleSort(col.key)}
+                      // 왼쪽 2열(펼치기·주차) 고정 — 공통 계약.
+                      sticky={idx === 0 ? sticky.col(1) : idx === 1 ? sticky.col(2) : undefined}
                     />
                   ))}
                 </TableRow>
@@ -1611,14 +1621,20 @@ export default function Cluster4LineTable({
                           setExpandedId((prev) => (prev === line.id ? null : line.id))
                         }
                       >
-                        <TableCell>
+                        <TableCell
+                          data-sticky-col={sticky.col(1)["data-sticky-col"]}
+                          className={sticky.col(1).className}
+                        >
                           {expanded ? (
                             <ChevronDown className="h-4 w-4 text-muted-foreground" />
                           ) : (
                             <ChevronRight className="h-4 w-4 text-muted-foreground" />
                           )}
                         </TableCell>
-                        <TableCell className="whitespace-nowrap text-xs">
+                        <TableCell
+                          data-sticky-col={sticky.col(2)["data-sticky-col"]}
+                          className={cn("whitespace-nowrap text-xs", sticky.col(2).className)}
+                        >
                           {line.weekLabel ?? "—"}
                         </TableCell>
                         <TableCell className="max-w-[260px]">
@@ -1672,7 +1688,10 @@ export default function Cluster4LineTable({
                       </TableRow>
                       {expanded && (
                         <TableRow className="bg-muted/20">
-                          <TableCell />
+                          <TableCell
+                            data-sticky-col={sticky.col(1)["data-sticky-col"]}
+                            className={sticky.col(1).className}
+                          />
                           <TableCell colSpan={10} className="py-2">
                             <div className="mb-1 text-xs font-medium text-muted-foreground">
                               대상자 {line.targets.length}명 ({preview}

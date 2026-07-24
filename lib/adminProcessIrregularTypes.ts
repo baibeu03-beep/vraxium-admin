@@ -46,6 +46,8 @@ export const PROCESS_IRREGULAR_HELP_KEYS = {
   columnPoC: "admin.processes.check.irregular.column.poC",
   columnApplyTimeActual: "admin.processes.check.irregular.column.applyTimeActual",
   columnReviewTimeActual: "admin.processes.check.irregular.column.reviewTimeActual",
+  // 이행 시점(실제) = 신청 시점(실제)+검수 시점(실제) 통합 열의 도움말 키.
+  columnExecutionTimeActual: "admin.processes.check.irregular.column.executionTimeActual",
   columnStatus: "admin.processes.check.irregular.column.status",
   columnManualAction: "admin.processes.check.irregular.column.manualAction",
 } as const;

@@ -15,6 +15,7 @@ import {
   parseCareerProjectUpsertBody,
 } from "@/lib/adminCareerProjectsTypes";
 import { publicErrorMessage } from "@/lib/apiError";
+import { DEFAULT_TABLE_PAGE_SIZE } from "@/lib/tablePagination";
 
 // /api/admin/career-projects
 //   GET  — 목록 조회 (read roles: owner/admin/viewer)
@@ -44,7 +45,7 @@ export async function GET(request: NextRequest) {
 
   const params = request.nextUrl.searchParams;
   const q = params.get("q")?.trim() || null;
-  const limit = parseIntParam(params.get("limit"), 50, { min: 1, max: 200 });
+  const limit = parseIntParam(params.get("limit"), DEFAULT_TABLE_PAGE_SIZE, { min: 1, max: 200 });
   const offset = parseIntParam(params.get("offset"), 0, { min: 0, max: 100000 });
 
   try {

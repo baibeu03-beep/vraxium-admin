@@ -1,5 +1,6 @@
 "use client";
 
+import { PaginatedNativeTable } from "@/components/ui/table-pagination";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ChevronDown, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
@@ -471,6 +472,7 @@ export default function CompetencyLineManageBoard({
           </p>
         ) : (
           <div className="overflow-x-auto">
+            <PaginatedNativeTable>
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-left text-xs text-muted-foreground">
@@ -517,6 +519,7 @@ export default function CompetencyLineManageBoard({
                 ))}
               </tbody>
             </table>
+            </PaginatedNativeTable>
           </div>
         )}
       </div>

@@ -6,6 +6,8 @@ import {
   useRef,
   useState,
 } from "react";
+import { DEFAULT_TABLE_PAGE_SIZE } from "@/lib/tablePagination";
+import { TablePagination } from "@/components/ui/table-pagination";
 import {
   Check,
   Copy,
@@ -43,6 +45,7 @@ import {
 } from "@/components/ui/table";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { cn } from "@/lib/utils";
+import { useStickyColumns } from "@/components/ui/sticky-columns";
 import { Checkbox, checkedTextClass } from "@/components/ui/checkbox";
 import { formatAdminDateTime } from "@/lib/adminDateTime";
 import AdminHelp from "@/components/admin/AdminHelp";
@@ -76,7 +79,7 @@ import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 //   PATCH /api/admin/accounts/[user_id]   로 admin_role/is_active/메타 변경 (super_admin 단독)
 //   POST /api/admin/accounts/[user_id]/password-reset  로 비밀번호 재설정
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = DEFAULT_TABLE_PAGE_SIZE;
 // 백엔드 validateDisplayName(DISPLAY_NAME_MAX_LENGTH)과 동일하게 유지.
 const DISPLAY_NAME_MAX_LENGTH = 50;
 const ROLE_ALL = "__all__";
@@ -108,6 +111,8 @@ function orgLabel(slug: string | null) {
 export default function AccountsManager() {
   const confirm = useConfirm();
   const t = useActionToast();
+  // 왼쪽 2열 고정(이름·이메일) — 공통 sticky 계약.
+  const sticky = useStickyColumns({ headerSticky: true });
   const [accounts, setAccounts] = useState<AccountDto[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -172,6 +177,9 @@ export default function AccountsManager() {
         const data = json.data as ListAccountsResult;
         setAccounts(data.accounts);
         setTotal(data.total);
+        if (offset > 0 && offset >= data.total) {
+          setOffset(Math.max(0, (Math.ceil(data.total / PAGE_SIZE) - 1) * PAGE_SIZE));
+        }
         setIsSuperAdmin(data.isSuperAdmin);
       } catch (err) {
         if (!cancelled) {
@@ -420,8 +428,6 @@ export default function AccountsManager() {
 
   // ── derived ───────────────────────────────────────────────────────
   const pageEnd = offset + accounts.length;
-  const hasPrev = offset > 0;
-  const hasNext = pageEnd < total;
 
   return (
     <div className="admin-section-stack-lg">
@@ -563,11 +569,14 @@ export default function AccountsManager() {
             </div>
           )}
 
-          <div className="overflow-x-auto rounded-lg border">
-            <Table>
+          <div className="rounded-lg border">
+            <Table containerRef={sticky.ref} regionClassName={sticky.regionClassName} stickyLeft>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="sticky left-0 z-20 bg-card border-r min-w-[220px]">
+                  <TableHead
+                    className={cn("min-w-[220px]", sticky.col(1).className)}
+                    data-sticky-col={sticky.col(1)["data-sticky-col"]}
+                  >
                     <span className="inline-flex items-center gap-1">
                       <span>이름</span>
                       <AdminHelpIconButton
@@ -577,7 +586,10 @@ export default function AccountsManager() {
                       />
                     </span>
                   </TableHead>
-                  <TableHead className="min-w-[220px]">
+                  <TableHead
+                    className={cn("min-w-[220px]", sticky.col(2).className)}
+                    data-sticky-col={sticky.col(2)["data-sticky-col"]}
+                  >
                     <span className="inline-flex items-center gap-1">
                       <span>이메일</span>
                       <AdminHelpIconButton
@@ -644,7 +656,10 @@ export default function AccountsManager() {
                   const isPending = pendingUserIds.has(account.userId);
                   return (
                     <TableRow key={account.userId}>
-                      <TableCell className="sticky left-0 z-10 bg-card border-r max-w-[240px]">
+                      <TableCell
+                        data-sticky-col={sticky.col(1)["data-sticky-col"]}
+                        className={cn("max-w-[240px]", sticky.col(1).className)}
+                      >
                         {editingUserId === account.userId ? (
                           <div className="flex items-center gap-1">
                             <Input
@@ -710,7 +725,10 @@ export default function AccountsManager() {
                           {account.userId}
                         </div>
                       </TableCell>
-                      <TableCell className="max-w-[260px] truncate">
+                      <TableCell
+                        data-sticky-col={sticky.col(2)["data-sticky-col"]}
+                        className={cn("max-w-[260px] truncate", sticky.col(2).className)}
+                      >
                         {fmt(account.email ?? account.authEmail)}
                       </TableCell>
                       <TableCell>
@@ -872,29 +890,15 @@ export default function AccountsManager() {
             </Table>
           </div>
 
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>
-              {total === 0 ? "0건" : `${offset + 1}-${pageEnd} / ${total}건`}
-            </span>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!hasPrev || loading}
-                onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
-              >
-                이전
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!hasNext || loading}
-                onClick={() => setOffset(offset + PAGE_SIZE)}
-              >
-                다음
-              </Button>
-            </div>
-          </div>
+          <TablePagination
+            page={Math.floor(offset / PAGE_SIZE) + 1}
+            pageSize={PAGE_SIZE}
+            totalCount={total}
+            totalPages={Math.max(1, Math.ceil(total / PAGE_SIZE))}
+            showPagination={total > PAGE_SIZE}
+            disabled={loading}
+            onPageChange={(nextPage) => setOffset((nextPage - 1) * PAGE_SIZE)}
+          />
         </CardContent>
       </Card>
 

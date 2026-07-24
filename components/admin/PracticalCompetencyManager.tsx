@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { adminDialog } from "@/components/ui/admin-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { useStickyColumns } from "@/components/ui/sticky-columns";
 import { Checkbox, checkedTextClass, checkedRowClass } from "@/components/ui/checkbox";
 import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
 import { formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
@@ -195,6 +196,9 @@ export default function PracticalCompetencyManager() {
   const orgScoped = readOrgParam(searchParams) != null;
   const mainTab: "manage" | "open" =
     orgScoped && searchParams?.get("tab") === "open" ? "open" : "manage";
+
+  // 왼쪽 2열(클럽·라인 코드) 고정 + 상단 헤더 고정 — 공통 sticky 계약(라인 등록 표).
+  const sticky = useStickyColumns({ headerSticky: true });
 
   const [activeTab, setActiveTab] = useState<TabKey>("masters");
   const [adminOrg, setAdminOrg] = useState<string | null>(null);
@@ -680,15 +684,21 @@ export default function PracticalCompetencyManager() {
             </CardHeader>
             <CardContent>
               {masters.length === 0 ? <p className="py-4 text-center text-sm text-muted-foreground">등록된 라인이 없습니다</p> : (
-                <Table>
+                <Table containerRef={sticky.ref} regionClassName={sticky.regionClassName} stickyLeft>
                   <TableHeader><TableRow>
-                    <TableHead>
+                    <TableHead
+                      className={sticky.col(1).className}
+                      data-sticky-col={sticky.col(1)["data-sticky-col"]}
+                    >
                       <span className="inline-flex items-center gap-1">
                         클럽
                         <AdminHelpIconButton helpKey="admin.competency.manager.master.org" title="클럽" />
                       </span>
                     </TableHead>
-                    <TableHead>
+                    <TableHead
+                      className={sticky.col(2).className}
+                      data-sticky-col={sticky.col(2)["data-sticky-col"]}
+                    >
                       <span className="inline-flex items-center gap-1">
                         라인 코드
                         <AdminHelpIconButton helpKey="admin.competency.manager.master.lineCode" title="라인 코드" />
@@ -723,8 +733,14 @@ export default function PracticalCompetencyManager() {
                   <TableBody>
                     {masters.map((m) => (
                       <TableRow key={m.id}>
-                        <TableCell className="text-xs">{formatOrgLabel(m.organizationSlug)}</TableCell>
-                        <TableCell className="font-mono text-xs">{m.lineCode}</TableCell>
+                        <TableCell
+                          data-sticky-col={sticky.col(1)["data-sticky-col"]}
+                          className={cn("text-xs", sticky.col(1).className)}
+                        >{formatOrgLabel(m.organizationSlug)}</TableCell>
+                        <TableCell
+                          data-sticky-col={sticky.col(2)["data-sticky-col"]}
+                          className={cn("font-mono text-xs", sticky.col(2).className)}
+                        >{m.lineCode}</TableCell>
                         <TableCell className="font-medium">{m.lineName}</TableCell>
                         <TableCell className="max-w-xs truncate text-muted-foreground">{m.mainTitle ?? "-"}</TableCell>
                         {/* 소요 시간 — 읽기 전용(SoT=line_registrations). 공통 formatter · 미설정은 '-'. */}

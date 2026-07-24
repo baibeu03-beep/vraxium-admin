@@ -292,7 +292,7 @@ export default function PermissionsMatrix() {
           )}
 
           <div className="overflow-x-auto rounded-lg border">
-            <Table>
+            <Table pagination="off">
               <TableHeader>
                 <TableRow>
                   <TableHead className="sticky left-0 z-20 bg-card min-w-[280px]">
