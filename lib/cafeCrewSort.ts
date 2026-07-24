@@ -1,6 +1,9 @@
 // 검수 크루 목록(CafeCrewPicker) 표시 정렬 — 순수 로직(React 무의존 · 단위 테스트 가능).
 //   ⚠ 클라이언트 표시 순서만 바꾼다: candidates(SoT)/API 응답/DTO/snapshot/저장 로직 불변.
 //   CafeCrew 이외의 새 필드/조회 없이, 이미 받은 필드만으로 정렬한다(DTO 불변 제약).
+//   정렬 UI = 테이블 컬럼 헤더(SortableTh + cycleSort). 구 드롭다운(정렬 select)은 폐지.
+
+import type { SortDirection } from "@/shared/detailLogSort";
 
 export type CafeCrew = {
   userId: string;
@@ -13,27 +16,6 @@ export type CafeCrew = {
   majorName: string | null;
   organization: string | null;
 };
-
-// 지원 정렬:
-//   comment(기본)   = 카페 댓글 시간순(candidates 원본 순서 그대로).
-//   name            = 이름순(한글 locale, 오름차순).
-//   crewCode        = 크루 코드순(오름차순, 빈 코드는 뒤).
-//   incompleteFirst = 미작성(프로필 미완성) 우선.
-//   completeFirst   = 작성 완료(프로필 완성) 우선.
-export type CrewSortKey =
-  | "comment"
-  | "name"
-  | "crewCode"
-  | "incompleteFirst"
-  | "completeFirst";
-
-export const CREW_SORT_OPTIONS: { value: CrewSortKey; label: string }[] = [
-  { value: "comment", label: "댓글 시간순" },
-  { value: "name", label: "이름순" },
-  { value: "crewCode", label: "크루 코드순" },
-  { value: "incompleteFirst", label: "미작성 우선" },
-  { value: "completeFirst", label: "작성 완료 우선" },
-];
 
 // 빈값 정규화: null/빈문자열/공백/"-" 는 모두 "미작성/빈값"으로 취급.
 export function crewFieldFilled(v: string | null | undefined): boolean {
@@ -52,46 +34,48 @@ export function isCrewProfileComplete(c: CafeCrew): boolean {
   );
 }
 
+// 컬럼 헤더 정렬 키 — 렌더 컬럼과 1:1(SortableTh 로 배선).
+//   commentTime = 카페 댓글 시간순(candidates 원본 인덱스). 기본(state=null)도 이 순서.
+//   name        = 이름순(한글 locale).
+//   crewCode    = 크루 코드순(빈 코드는 방향 무관 항상 뒤).
+//   writeStatus = 프로필 작성 상태. asc = 미작성 우선, desc = 작성 완료 우선.
+export type CrewColumnKey = "commentTime" | "name" | "crewCode" | "writeStatus";
+export type CrewSortState = { key: CrewColumnKey; dir: SortDirection } | null;
+
 // 표시용 정렬 — 입력 배열은 mutate 하지 않고 복사본을 정렬해 반환한다.
-//   Array.prototype.sort 는 안정 정렬이라, 동순위(같은 이름/코드/작성상태)는 원본
-//   댓글 시간순을 그대로 유지한다. "comment" 는 원본 참조를 그대로 반환.
-export function sortCafeCrews(
+//   · state=null(기본) = 원본(댓글 시간) 순서 — 원본 참조를 그대로 반환(무복사).
+//   · 안정 정렬: 동순위(같은 이름/코드/작성상태)는 원본 인덱스(=댓글 시간)로 tie-break.
+//   · crewCode 의 빈값과 commentTime 은 방향과 무관하게 원본 순서를 기준으로 다룬다.
+export function sortCafeCrewsByColumn(
   candidates: CafeCrew[],
-  sortKey: CrewSortKey,
+  state: CrewSortState,
 ): CafeCrew[] {
-  if (sortKey === "comment") return candidates;
-  const byName = (a: CafeCrew, b: CafeCrew) =>
-    (a.name || "").localeCompare(b.name || "", "ko");
-  const next = [...candidates];
-  switch (sortKey) {
-    case "name":
-      next.sort(byName);
-      break;
-    case "crewCode":
-      next.sort((a, b) => {
-        const af = crewFieldFilled(a.crewCode);
-        const bf = crewFieldFilled(b.crewCode);
-        if (af && bf)
-          return (a.crewCode as string).localeCompare(b.crewCode as string, "ko");
-        if (af) return -1; // 빈 코드는 항상 뒤로
-        if (bf) return 1;
-        return 0; // 둘 다 빈값 → 원본(댓글) 순서 유지
-      });
-      break;
-    case "incompleteFirst":
-      // 미작성(false=0) 우선.
-      next.sort(
-        (a, b) =>
-          Number(isCrewProfileComplete(a)) - Number(isCrewProfileComplete(b)),
+  if (!state) return candidates; // 기본 = 원본(댓글 시간) 순서
+  const { key, dir } = state;
+  const sign = dir === "asc" ? 1 : -1;
+  const decorated = candidates.map((c, index) => ({ c, index }));
+  decorated.sort((x, y) => {
+    // 방향 무관(항상 원본 순서 기준) 케이스는 early-return 으로 sign 을 적용하지 않는다.
+    if (key === "commentTime") return (x.index - y.index) * sign;
+    if (key === "crewCode") {
+      const xf = crewFieldFilled(x.c.crewCode);
+      const yf = crewFieldFilled(y.c.crewCode);
+      if (xf !== yf) return xf ? -1 : 1; // 빈 코드는 방향 무관 항상 뒤
+      if (!xf) return x.index - y.index; // 둘 다 빈값 → 원본 순서
+      const c = (x.c.crewCode as string).localeCompare(
+        y.c.crewCode as string,
+        "ko",
       );
-      break;
-    case "completeFirst":
-      // 작성 완료(true) 우선.
-      next.sort(
-        (a, b) =>
-          Number(isCrewProfileComplete(b)) - Number(isCrewProfileComplete(a)),
-      );
-      break;
-  }
-  return next;
+      return c !== 0 ? c * sign : x.index - y.index;
+    }
+    let c = 0;
+    if (key === "name") {
+      c = (x.c.name || "").localeCompare(y.c.name || "", "ko");
+    } else if (key === "writeStatus") {
+      // 완료=1, 미작성=0. asc → 미작성(0) 먼저, desc → 완료(1) 먼저.
+      c = Number(isCrewProfileComplete(x.c)) - Number(isCrewProfileComplete(y.c));
+    }
+    return c !== 0 ? c * sign : x.index - y.index; // tie → 원본(댓글) 순서
+  });
+  return decorated.map((d) => d.c);
 }

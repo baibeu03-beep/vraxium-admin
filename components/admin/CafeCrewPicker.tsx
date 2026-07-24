@@ -11,11 +11,14 @@ import { useStickyColumns } from "@/components/ui/sticky-columns";
 import { cn } from "@/lib/utils";
 import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 import {
-  sortCafeCrews,
-  CREW_SORT_OPTIONS,
+  sortCafeCrewsByColumn,
+  isCrewProfileComplete,
   type CafeCrew,
-  type CrewSortKey,
+  type CrewColumnKey,
+  type CrewSortState,
 } from "@/lib/cafeCrewSort";
+import { SortableTh } from "@/components/admin/SortableTh";
+import { cycleSort } from "@/shared/detailLogSort";
 import { excludeAddedByUserId } from "@/lib/crewSearchExclude";
 import {
   deriveCommentCollectionStatus,
@@ -86,17 +89,30 @@ export default function CafeCrewPicker({
   const [manualQ, setManualQ] = useState("");
   const [manualResults, setManualResults] = useState<CafeCrew[]>([]);
   const [manualSearching, setManualSearching] = useState(false);
-  // 검수 크루 목록 표시 정렬(클라이언트 전용). 기본 = 댓글 시간순(원본 순서).
-  const [sortKey, setSortKey] = useState<CrewSortKey>("comment");
+  // 검수 크루 목록 표시 정렬(클라이언트 전용) — 테이블 컬럼 헤더 클릭 3단계 순환(없음→asc→desc→기본).
+  //   기본(null) = 댓글 시간순(candidates 원본 순서). 표시 순서만 변경 — candidates SoT/DTO/저장 불변.
+  const [columnSort, setColumnSort] = useState<CrewSortState>(null);
+  // 표시 순서만 바꾸는 순수 동작(후보 mutate·API 없음) — 저장 중/개설 완료(locked, disabled) 상태에서도
+  //   읽기 전용 목록을 정렬할 수 있게 항상 허용한다(구 select 는 disabled 였으나 정렬은 무해).
+  const cycle = useCallback(
+    (key: CrewColumnKey) => setColumnSort((prev) => cycleSort(prev, key)),
+    [],
+  );
   // 왼쪽 2열 고정(크루 코드·이름) — 공통 sticky 계약. col-1 실측폭으로 col-2 offset.
   const sticky = useStickyColumns({ headerSticky: true });
 
   // 표시용 정렬 뷰 — candidates(SoT)는 mutate 하지 않고 순수 helper 로 복사본만 정렬한다.
   //   추가/제거/저장은 여전히 candidates 로 동작(표시 순서만 변경).
   const sortedCandidates = useMemo(
-    () => sortCafeCrews(candidates, sortKey),
-    [candidates, sortKey],
+    () => sortCafeCrewsByColumn(candidates, columnSort),
+    [candidates, columnSort],
   );
+  // 각 크루의 원본(댓글) 순번 — 표시 정렬과 무관하게 "댓글 시간" 컬럼에 원 순서를 보여준다.
+  const commentOrder = useMemo(() => {
+    const m = new Map<string, number>();
+    candidates.forEach((c, i) => m.set(c.userId, i + 1));
+    return m;
+  }, [candidates]);
 
   const existingSet = useMemo(
     () => new Set(existingMemberIds),
@@ -453,31 +469,13 @@ export default function CafeCrewPicker({
 
       {/* 검수 크루 목록 — 표시 정렬(클라이언트 전용, DTO/저장 불변) */}
       <div className="space-y-2 rounded-md border p-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="inline-flex items-center gap-1">
-            <p className="text-xs font-medium text-muted-foreground">검수 크루 목록</p>
-            <AdminHelpIconButton
-              helpKey="admin.lineOpening.info.section.reviewCrewList"
-              title="검수 크루 목록"
-              size="xs"
-            />
-          </div>
-          <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-            정렬
-            <select
-              className="rounded-md border border-input bg-background px-2 py-1 text-xs"
-              value={sortKey}
-              onChange={(e) => setSortKey(e.target.value as CrewSortKey)}
-              aria-label="검수 크루 목록 정렬"
-              disabled={disabled}
-            >
-              {CREW_SORT_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </label>
+        <div className="inline-flex items-center gap-1">
+          <p className="text-xs font-medium text-muted-foreground">검수 크루 목록</p>
+          <AdminHelpIconButton
+            helpKey="admin.lineOpening.info.section.reviewCrewList"
+            title="검수 크루 목록"
+            size="xs"
+          />
         </div>
         {candidates.length === 0 ? (
           <p className="py-3 text-center text-sm text-muted-foreground">후보가 없습니다.</p>
@@ -490,32 +488,50 @@ export default function CafeCrewPicker({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-left text-xs text-muted-foreground">
-                  <th
-                    {...sticky.col(1)}
-                    className={cn("px-2 py-1.5", sticky.col(1).className)}
-                  >
-                    <span className="inline-flex items-center gap-1">
-                      크루 코드
+                  <SortableTh
+                    label="크루 코드"
+                    align="left"
+                    dir={columnSort?.key === "crewCode" ? columnSort.dir : null}
+                    onSort={() => cycle("crewCode")}
+                    sticky={sticky.col(1)}
+                    className="py-1.5"
+                    help={
                       <AdminHelpIconButton
                         helpKey={ADMIN_SHARED_HELP_KEYS.crew.code}
                         title="크루 코드"
                         size="xs"
                       />
-                    </span>
-                  </th>
-                  <th
-                    {...sticky.col(2)}
-                    className={cn("px-2 py-1.5", sticky.col(2).className)}
-                  >
-                    <span className="inline-flex items-center gap-1">
-                      이름
+                    }
+                  />
+                  <SortableTh
+                    label="이름"
+                    align="left"
+                    dir={columnSort?.key === "name" ? columnSort.dir : null}
+                    onSort={() => cycle("name")}
+                    sticky={sticky.col(2)}
+                    className="py-1.5"
+                    help={
                       <AdminHelpIconButton
                         helpKey={ADMIN_SHARED_HELP_KEYS.crew.name}
                         title="이름"
                         size="xs"
                       />
-                    </span>
-                  </th>
+                    }
+                  />
+                  <SortableTh
+                    label="댓글 시간"
+                    align="left"
+                    dir={columnSort?.key === "commentTime" ? columnSort.dir : null}
+                    onSort={() => cycle("commentTime")}
+                    className="py-1.5"
+                    help={
+                      <AdminHelpIconButton
+                        helpKey="admin.lineOpening.info.cafe.column.commentTime"
+                        title="댓글 시간"
+                        size="xs"
+                      />
+                    }
+                  />
                   <th className="px-2 py-1.5">
                     <span className="inline-flex items-center gap-1">
                       팀명
@@ -556,6 +572,20 @@ export default function CafeCrewPicker({
                       />
                     </span>
                   </th>
+                  <SortableTh
+                    label="작성 상태"
+                    align="left"
+                    dir={columnSort?.key === "writeStatus" ? columnSort.dir : null}
+                    onSort={() => cycle("writeStatus")}
+                    className="py-1.5"
+                    help={
+                      <AdminHelpIconButton
+                        helpKey="admin.lineOpening.info.cafe.column.writeStatus"
+                        title="작성 상태"
+                        size="xs"
+                      />
+                    }
+                  />
                   <th className="px-2 py-1.5">
                     <span className="inline-flex items-center gap-1">
                       삭제
@@ -583,10 +613,24 @@ export default function CafeCrewPicker({
                     >
                       {c.name || "-"}
                     </td>
+                    <td className="px-2 py-1.5 text-xs tabular-nums text-muted-foreground">
+                      {commentOrder.get(c.userId) ?? "-"}
+                    </td>
                     <td className="px-2 py-1.5 text-xs">{c.teamName ?? "-"}</td>
                     <td className="px-2 py-1.5 text-xs">{c.partName ?? "-"}</td>
                     <td className="px-2 py-1.5 text-xs">{c.schoolName ?? "-"}</td>
                     <td className="px-2 py-1.5 text-xs">{c.majorName ?? "-"}</td>
+                    <td className="px-2 py-1.5 text-xs">
+                      {isCrewProfileComplete(c) ? (
+                        <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+                          완료
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                          미작성
+                        </span>
+                      )}
+                    </td>
                     <td className="px-2 py-1.5">
                       <Button
                         type="button"

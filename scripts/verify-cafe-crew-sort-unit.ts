@@ -1,8 +1,9 @@
-// 단위 검증 — 실제 sortCafeCrews(lib/cafeCrewSort) 를 혼합 데이터로 검사.
-//   브라우저 검증(browser-verify-cafe-crew-sort.mjs)은 실 population 이 전원 작성완료·
-//   빈 크루코드라 미작성/코드 정렬이 vacuous 로만 통과 → 여기서 혼합 데이터로 규칙을 실증한다.
-//   ⚠ 정렬은 표시 순서만: 입력 배열 mutate 없음 · comment 는 원본 참조 반환.
-import { sortCafeCrews, type CafeCrew } from "../lib/cafeCrewSort";
+// 단위 검증 — 실제 sortCafeCrewsByColumn(lib/cafeCrewSort) 를 혼합 데이터로 검사.
+//   컬럼 헤더 정렬(commentTime/name/crewCode/writeStatus)의 asc/desc/기본 규칙을 실증한다.
+//   브라우저 검증(browser-verify-cafe-crew-sort.mjs)은 실 population 이 전원 작성완료·빈 크루코드라
+//   미작성/코드 정렬이 vacuous 로만 통과 → 여기서 혼합 데이터로 규칙을 실증한다.
+//   ⚠ 정렬은 표시 순서만: 입력 배열 mutate 없음 · 기본(state=null)은 원본 참조 반환.
+import { sortCafeCrewsByColumn, type CafeCrew } from "../lib/cafeCrewSort";
 
 let pass = 0,
   fail = 0;
@@ -36,33 +37,51 @@ const base: CafeCrew[] = [
 const ids = (arr: CafeCrew[]) => arr.map((c) => c.userId).join(",");
 const before = ids(base);
 
-// comment: 원본 참조 그대로.
-const c0 = sortCafeCrews(base, "comment");
-check("comment: 원본 순서 유지", ids(c0) === "1,2,3,4,5", ids(c0));
-check("comment: 원본 배열 참조 반환(무복사)", c0 === base);
+// 기본(state=null): 원본(댓글 시간) 순서 그대로 + 원본 참조 반환.
+const d0 = sortCafeCrewsByColumn(base, null);
+check("기본(null): 원본 순서 유지", ids(d0) === "1,2,3,4,5", ids(d0));
+check("기본(null): 원본 배열 참조 반환(무복사)", d0 === base);
 
-// name: 한글 오름차순(가온<나린<다래<라온<마루).
-const cn = sortCafeCrews(base, "name");
-check("name: 이름 오름차순", ids(cn) === "2,3,1,5,4", ids(cn));
+// commentTime: asc=원본, desc=역순.
+check(
+  "commentTime asc: 원본 순서",
+  ids(sortCafeCrewsByColumn(base, { key: "commentTime", dir: "asc" })) === "1,2,3,4,5",
+);
+check(
+  "commentTime desc: 역순",
+  ids(sortCafeCrewsByColumn(base, { key: "commentTime", dir: "desc" })) === "5,4,3,2,1",
+);
+
+// name: asc=한글 오름차순(가온<나린<다래<라온<마루), desc=반대.
+check(
+  "name asc: 이름 오름차순",
+  ids(sortCafeCrewsByColumn(base, { key: "name", dir: "asc" })) === "2,3,1,5,4",
+);
+check(
+  "name desc: 이름 내림차순",
+  ids(sortCafeCrewsByColumn(base, { key: "name", dir: "desc" })) === "4,5,1,3,2",
+);
 check("name: 입력 배열 불변", ids(base) === before);
 
-// crewCode: 채워진 코드 오름차순(C100<C200<C300) 먼저, 빈코드(null/"-")는 뒤(원본 순서 유지 2→4).
-const cc = sortCafeCrews(base, "crewCode");
-check("crewCode: 코드 오름차순 + 빈값 뒤", ids(cc) === "3,5,1,2,4", ids(cc));
+// crewCode: asc=코드 오름차순(C100<C200<C300) + 빈값 뒤, desc=코드 내림차순 + 빈값 여전히 뒤.
+check(
+  "crewCode asc: 코드 오름 + 빈값 뒤",
+  ids(sortCafeCrewsByColumn(base, { key: "crewCode", dir: "asc" })) === "3,5,1,2,4",
+);
+check(
+  "crewCode desc: 코드 내림 + 빈값 여전히 뒤(원본순)",
+  ids(sortCafeCrewsByColumn(base, { key: "crewCode", dir: "desc" })) === "1,5,3,2,4",
+);
 
-// incompleteFirst: 미작성(2,4,5) 먼저, 완성(1,3) 뒤. 각 그룹 내부는 원본 순서(안정).
-const ci = sortCafeCrews(base, "incompleteFirst");
-const compFlagsI = ci.map((c) => [c.teamName, c.partName, c.schoolName, c.majorName].every((v) => v && v.trim() !== "" && v.trim() !== "-"));
-const incThenComp = (() => { let seen = false; for (const f of compFlagsI) { if (f) seen = true; else if (seen) return false; } return true; })();
-check("incompleteFirst: 미작성이 앞", incThenComp, ids(ci));
-check("incompleteFirst: 미작성 그룹 원본순서(2,4,5)", ids(ci).startsWith("2,4,5"), ids(ci));
-
-// completeFirst: 완성(1,3) 먼저, 미작성(2,4,5) 뒤.
-const cf = sortCafeCrews(base, "completeFirst");
-const compFlagsF = cf.map((c) => [c.teamName, c.partName, c.schoolName, c.majorName].every((v) => v && v.trim() !== "" && v.trim() !== "-"));
-const compThenInc = (() => { let seenInc = false; for (const f of compFlagsF) { if (!f) seenInc = true; else if (seenInc) return false; } return true; })();
-check("completeFirst: 완성이 앞", compThenInc, ids(cf));
-check("completeFirst: 완성 그룹 원본순서(1,3)", ids(cf).startsWith("1,3"), ids(cf));
+// writeStatus: asc=미작성 우선(2,4,5) → 완료(1,3), desc=완료 우선(1,3) → 미작성(2,4,5).
+check(
+  "writeStatus asc: 미작성 우선",
+  ids(sortCafeCrewsByColumn(base, { key: "writeStatus", dir: "asc" })) === "2,4,5,1,3",
+);
+check(
+  "writeStatus desc: 작성 완료 우선",
+  ids(sortCafeCrewsByColumn(base, { key: "writeStatus", dir: "desc" })) === "1,3,2,4,5",
+);
 
 console.log(`\n결과: ${pass} pass / ${fail} fail`);
 process.exit(fail > 0 ? 1 : 0);
