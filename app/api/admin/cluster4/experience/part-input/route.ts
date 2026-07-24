@@ -26,6 +26,15 @@ import {
 import { buildLineIdCategoryMap, listExperienceLineOptions } from "@/lib/adminExperienceLineData";
 import { loadOpenedLineMasterByUserCategory } from "@/lib/adminExperienceTeamOverall";
 import { insertExperienceOpeningLog } from "@/lib/adminExperienceOpeningLogs";
+import {
+  cancelOverallReviewForDataChange,
+  loadOverallReviewState,
+} from "@/lib/adminExperienceReviewReset";
+import {
+  hasPartSubmissionChanges,
+  REVIEW_RESET_CONFIRM_CODE,
+  REVIEW_RESET_CONFIRM_MESSAGE,
+} from "@/lib/experienceReviewResetPolicy";
 import { parseScopeMode } from "@/lib/userScope";
 import {
   assertImpersonationCapability,
@@ -37,10 +46,21 @@ import { publicErrorMessage } from "@/lib/apiError";
 
 // 실무 경험 파트장 입력 그리드 — 신청 데이터(신규 전용 저장) API.
 //   GET    ?organization=&week_id=&team_id=&team_name=&part=  → 파트/크루/셀/신청상태 (+actor 기본값)
-//   POST   { organization, week_id, team_id, team_name, part, cells[] }  → 신청 저장(upsert)
-//   DELETE ?organization=&week_id=&team_id=&part=             → 신청 취소(헤더 삭제, 셀 cascade)
+//   POST   { organization, week_id, team_id, team_name, part, cells[], confirmReviewReset? }
+//                                                             → 신청 저장(upsert) [+ 개설 검수 취소]
+//   DELETE ?organization=&week_id=&team_id=&part=[&confirmReviewReset=1]
+//                                                             → 신청 취소(헤더 삭제, 셀 cascade) [+ 개설 검수 취소]
 //
-// ⚠ 기존 experience_drafts/검수/개설/snapshot 무연동. demo/일반 동일(org 스코프, demoUserId 미사용).
+// ⚠ 기존 experience_drafts/개설/snapshot 무연동. demo/일반 동일(org 스코프, demoUserId 미사용).
+//
+// [개설 검수 취소 게이트](2026-07-23) — mode/org/임퍼소네이션 무관 동일 로직·동일 DTO.
+//   이미 [개설 검수](status='reviewed')가 끝난 팀·주차에서 파트 신청 데이터가 **실제로 바뀌면**,
+//   확인 없이 저장하지 않는다. 서버가 저장 전 diff 를 판정해 409(code=REVIEW_RESET_CONFIRM_CODE)로
+//   되돌려 화면이 확인 팝업을 띄우게 하고, confirmReviewReset=true 재요청에서만
+//   [저장 → 검수 취소] 순서로 처리한다.
+//     · 변경 없음 → 팝업 없음·검수 상태 유지(기존 저장 동작 그대로).
+//     · 저장 실패 → 검수 취소 미실행(저장 성공 이후에만 취소한다 — 순서가 원자성 보장의 핵심).
+//     · status='opened'(개설 완료) → 대상 아님. 고객 반영 원복은 [개설 취소]가 담당.
 
 export async function GET(request: NextRequest) {
   let admin;
@@ -167,6 +187,36 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// 저장/삭제가 성공한 **뒤** 검수 취소를 시도한다.
+//   취소 UPDATE 자체가 실패해도 이미 끝난 저장을 되돌리지 않는다(요구사항: 저장 실패 시에만 검수 유지).
+//   대신 reviewResetFailed=true 로 알려 화면이 "저장됨 + 검수 취소 실패"를 정확히 안내하게 한다.
+//   — 성공 응답에 "검수 취소 실패"를 숨기지 않는다.
+async function applyReviewReset(input: {
+  needed: boolean;
+  organization: string;
+  weekId: string;
+  teamId: string;
+  teamName?: string | null;
+  actorUserId: string | null;
+  partName: string;
+}): Promise<{ reviewReset: boolean; reviewResetFailed: boolean }> {
+  if (!input.needed) return { reviewReset: false, reviewResetFailed: false };
+  try {
+    const reset = await cancelOverallReviewForDataChange({
+      organization: input.organization,
+      weekId: input.weekId,
+      teamId: input.teamId,
+      teamName: input.teamName ?? null,
+      actorUserId: input.actorUserId,
+      partName: input.partName,
+    });
+    return { reviewReset: reset, reviewResetFailed: false };
+  } catch (error) {
+    console.error("[admin/cluster4/experience/part-input] review reset failed", error);
+    return { reviewReset: false, reviewResetFailed: true };
+  }
+}
+
 export async function POST(request: NextRequest) {
   let admin;
   try {
@@ -191,6 +241,10 @@ export async function POST(request: NextRequest) {
   const part = typeof b.part === "string" ? b.part.trim() : "";
   const mode = parseScopeMode(typeof b.mode === "string" ? b.mode : null);
   const actAsTestUserId = typeof b.actAsTestUserId === "string" ? b.actAsTestUserId.trim() || null : null;
+  // 검수 취소 확인 여부(화면 팝업 [확인]). 미지정=false → 변경 감지 시 409 로 확인을 요구한다.
+  const confirmReviewReset = b.confirmReviewReset === true;
+  // 로그 표기용(팀명은 team_id 로 권위 해석되므로 없어도 무방).
+  const teamName = typeof b.team_name === "string" ? b.team_name.trim() : "";
 
   if (!organization || !weekId || !teamId || !part) {
     return Response.json(
@@ -245,6 +299,36 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    const actorUserId =
+      impersonation.active && impersonation.userId
+        ? impersonation.userId
+        : admin.userId;
+
+    // ── 개설 검수 취소 게이트(저장 전 판정) ──
+    //   ① 저장된 신청과 이번 요청이 실제로 다른가(정규화 후 비교 — 그리드 소유 셀만).
+    //   ② 다르고 그 팀·주차가 검수 완료 상태면 확인(confirmReviewReset) 없이는 저장하지 않는다.
+    //   변경이 없으면 상태 조회조차 하지 않는다 — 검수 상태는 그대로 유지된다.
+    const storedSubmission = await getPartSubmission(organization, weekId, teamId, part);
+    const changed = hasPartSubmissionChanges({
+      incoming: cells,
+      stored: storedSubmission.cells,
+      storedHeaderExists: storedSubmission.submitted,
+    });
+    const reviewState = changed
+      ? await loadOverallReviewState(organization, weekId, teamId)
+      : null;
+    const needsReviewReset = changed && reviewState?.status === "reviewed";
+    if (needsReviewReset && !confirmReviewReset) {
+      return Response.json(
+        {
+          success: false,
+          error: REVIEW_RESET_CONFIRM_MESSAGE,
+          code: REVIEW_RESET_CONFIRM_CODE,
+        },
+        { status: 409 },
+      );
+    }
+
     const result = await savePartSubmission({
       organization,
       weekId,
@@ -254,21 +338,34 @@ export async function POST(request: NextRequest) {
       cells,
       mode,
     });
+
+    // 저장 성공 이후에만 검수 취소(순서 = 원자성 보장). 저장이 던졌으면 여기 도달하지 않는다.
+    const { reviewReset, reviewResetFailed } = await applyReviewReset({
+      needed: Boolean(needsReviewReset),
+      organization,
+      weekId,
+      teamId,
+      teamName: teamName || null,
+      actorUserId,
+      partName: part,
+    });
+
     // 행동 이력: [개설 신청] 로그(best-effort). 실패해도 신청 저장 무영향.
     //   실행자 = 임퍼소네이션 유효 시 그 테스트 유저(파트장), 아니면 실 admin. 파트 단위 → 파트명.
     await insertExperienceOpeningLog({
       action: "apply",
       weekId,
       organizationSlug: organization,
-      actorUserId:
-        impersonation.active && impersonation.userId
-          ? impersonation.userId
-          : admin.userId,
+      actorUserId,
       teamId,
       partName: part,
       isTeamLevel: false,
     });
-    return Response.json({ success: true, data: result }, { status: 201 });
+    // DTO 는 mode/org 무관 동일 — changed/reviewReset/reviewResetFailed 는 항상 존재하는 boolean.
+    return Response.json(
+      { success: true, data: { ...result, changed, reviewReset, reviewResetFailed } },
+      { status: 201 },
+    );
   } catch (error) {
     // 안전장치(테스트 스코프 위반 등)는 error.status(422 등) 를 그대로 응답.
     const status = (error as { status?: number }).status ?? 500;
@@ -301,6 +398,10 @@ export async function DELETE(request: NextRequest) {
   // 로그 실행자 해석용(POST 와 동일 규칙) — mode=test + 유효 테스트 유저면 그 파트장을 실행자로.
   const mode = parseScopeMode(sp.get("mode"));
   const actAsTestUserId = sp.get("actAsTestUserId")?.trim() || null;
+  // 검수 취소 확인(POST 와 동일 규약) — 신청 취소도 검수된 데이터를 없애는 실제 변경이다.
+  const confirmReviewResetRaw = sp.get("confirmReviewReset")?.trim() || "";
+  const confirmReviewReset =
+    confirmReviewResetRaw === "1" || confirmReviewResetRaw === "true";
 
   if (!organization || !weekId || !teamId || !part) {
     return Response.json(
@@ -310,31 +411,65 @@ export async function DELETE(request: NextRequest) {
   }
 
   try {
+    // 개설 검수 취소 게이트(POST 와 동일 판정) — 신청이 실제로 존재할 때만 "변경"이다.
+    //   이미 신청이 없으면(멱등 재호출) 검수 상태를 건드리지 않는다.
+    const storedSubmission = await getPartSubmission(organization, weekId, teamId, part);
+    const reviewState = storedSubmission.submitted
+      ? await loadOverallReviewState(organization, weekId, teamId)
+      : null;
+    const needsReviewReset = reviewState?.status === "reviewed";
+    if (needsReviewReset && !confirmReviewReset) {
+      return Response.json(
+        {
+          success: false,
+          error: REVIEW_RESET_CONFIRM_MESSAGE,
+          code: REVIEW_RESET_CONFIRM_CODE,
+        },
+        { status: 409 },
+      );
+    }
+
     const result = await deletePartSubmission(organization, weekId, teamId, part);
     // 행동 이력: [신청 취소] 로그(개설 취소와 다른 이벤트). best-effort.
     //   실행자 = 임퍼소네이션 유효 시 그 테스트 유저(파트장), 아니면 실 admin. 파트 단위 → 파트명.
     const impersonation = await resolveImpersonation({ mode, actAsTestUserId });
+    const actorUserId =
+      impersonation.active && impersonation.userId
+        ? impersonation.userId
+        : admin.userId;
+
+    // 삭제 성공 이후에만 검수 취소(POST 와 동일 순서 규약).
+    const { reviewReset, reviewResetFailed } = await applyReviewReset({
+      needed: Boolean(needsReviewReset),
+      organization,
+      weekId,
+      teamId,
+      actorUserId,
+      partName: part,
+    });
+
     await insertExperienceOpeningLog({
       action: "apply_cancel",
       weekId,
       organizationSlug: organization,
-      actorUserId:
-        impersonation.active && impersonation.userId
-          ? impersonation.userId
-          : admin.userId,
+      actorUserId,
       teamId,
       partName: part,
       isTeamLevel: false,
     });
-    return Response.json({ success: true, data: result });
+    return Response.json({
+      success: true,
+      data: { ...result, reviewReset, reviewResetFailed },
+    });
   } catch (error) {
+    const status = (error as { status?: number }).status ?? 500;
     console.error("[admin/cluster4/experience/part-input DELETE]", error);
     return Response.json(
       {
         success: false,
-        error: publicErrorMessage(error, 500, "신청 취소에 실패했습니다"),
+        error: publicErrorMessage(error, status, "신청 취소에 실패했습니다"),
       },
-      { status: 500 },
+      { status },
     );
   }
 }

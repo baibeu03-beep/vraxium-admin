@@ -866,8 +866,8 @@ export default function ExperienceTeamOverallBoard({
                         const fail = isOverallCellFail(cell);
                         // 개설완료·저장중·미개설 파트면 잠금(검수 진행 중 입력 차단 = saving).
                         const disabled = opened || saving || partInactive;
-                        // 라인명은 체크&1점 이상에서만 편집(0점/미체크=강화 실패 → '-'). 로컬 편집 셀 기준.
-                        const lineDisabled = disabled || !cell.checked || cell.score < 1;
+                        // 라인명 선택은 평점과 분리(2026-07-24) — 평점 0점에서도 선택 가능(잠금은 개설완료/저장중/미개설만).
+                        const lineDisabled = disabled;
                         return (
                           <TableCell key={c.key} className="text-center align-top">
                             <div className="flex flex-col items-center">
@@ -888,8 +888,8 @@ export default function ExperienceTeamOverallBoard({
                                   />
                                   <select
                                     className="rounded border border-input bg-background px-1.5 py-0.5 text-sm disabled:opacity-60"
-                                    // 점수는 1~10만 유효. 미체크(=미평가)면 '-'(0='0점'과 혼동 방지).
-                                    value={cell.checked && cell.score >= 1 ? String(cell.score) : ""}
+                                    // 평점은 0~10 선택 가능(2026-07-24 — 0점 지원). 미체크(=미선택)면 '-' 표시로 실제 0점과 구분.
+                                    value={cell.checked ? String(cell.score) : ""}
                                     disabled={disabled}
                                     onChange={(e) =>
                                       setLeaderScore(crew.userId, crew.displayName, c.key, Number(e.target.value))
@@ -899,7 +899,7 @@ export default function ExperienceTeamOverallBoard({
                                     <option value="" disabled>
                                       -
                                     </option>
-                                    {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                                    {Array.from({ length: 11 }, (_, i) => i).map((n) => (
                                       <option key={n} value={n}>
                                         {n}
                                       </option>
@@ -996,10 +996,9 @@ export default function ExperienceTeamOverallBoard({
                     // ⑨ 관리(management) 류 라인명은 클래스(파트장/에이전트)에 따라 서버가 고정한다 —
                     //   사용자가 변경할 수 없다(읽기전용). 확장(extension)은 기존대로 팀장이 편집한다.
                     //   ⚠ 점수/체크는 관리도 그대로 편집 가능(⑨는 라인명 고정만) — lineDisabled 만 분기.
+                    //   확장 라인명 선택은 평점과 분리(2026-07-24) — 평점 0점에서도 선택 가능(잠금은 개설완료/저장중/확장 비활성만).
                     const lineDisabled =
-                      c.key === "management"
-                        ? true
-                        : disabled || !cell.checked || cell.score < 1;
+                      c.key === "management" ? true : disabled;
                     return (
                       <TableCell key={c.key} className="text-center align-top">
                         <div className="flex flex-col items-center">
@@ -1028,9 +1027,8 @@ export default function ExperienceTeamOverallBoard({
                               />
                               <select
                                 className="rounded border border-input bg-background px-1.5 py-0.5 text-sm disabled:opacity-60"
-                                // 점수는 1~10만 유효. 미체크(=미평가)면 '-' 표시(0='0점'과 혼동 방지).
-                                //   0 은 selectable 점수가 아니다 — 미평가 placeholder 는 rating=0/evaluated_by=null 로만 존재.
-                                value={cell.checked && cell.score >= 1 ? String(cell.score) : ""}
+                                // 평점은 0~10 선택 가능(2026-07-24 — 0점 지원). 미체크(=미선택)면 '-' 표시로 실제 0점과 구분.
+                                value={cell.checked ? String(cell.score) : ""}
                                 disabled={disabled}
                                 onChange={(e) =>
                                   setLeaderScore(crew.userId, crew.displayName, c.key, Number(e.target.value))
@@ -1040,7 +1038,7 @@ export default function ExperienceTeamOverallBoard({
                                 <option value="" disabled>
                                   -
                                 </option>
-                                {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                                {Array.from({ length: 11 }, (_, i) => i).map((n) => (
                                   <option key={n} value={n}>
                                     {n}
                                   </option>

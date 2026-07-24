@@ -32,6 +32,7 @@ import {
 } from "@/lib/experienceLineOpenGate";
 import { resolvePositionLabels } from "@/lib/adminMembersTypes";
 import { resolveOutputLinks } from "@/lib/cluster4OutputLinks";
+import { resolveOverallStatus } from "@/lib/experienceReviewResetPolicy";
 import { insertExperienceOpeningLog } from "@/lib/adminExperienceOpeningLogs";
 import { getCurrentSeasonRestUserIds } from "@/lib/currentSeasonRest";
 import {
@@ -60,7 +61,6 @@ import {
   listExperienceOverallLineOptions,
 } from "@/lib/adminExperienceLineData";
 import { updateOverallPartCellLines } from "@/lib/adminExperiencePartInput";
-import { experienceScoreState } from "@/lib/experiencePartInputTypes";
 
 // part_submissions line_type(도출/분석/견문) ↔ overall category 동일 키.
 type PartLineType = "derivation" | "analysis" | "evaluation";
@@ -216,7 +216,8 @@ async function loadPartSubmissionCells(
 // ── 총괄 헤더 + 팀장 셀 + 아웃풋 조회 ──
 type OverallStored = {
   id: string | null;
-  status: "reviewed" | "opened" | null;
+  // 검수 취소(파트 신청 변경으로 무효화)는 'none' 으로 읽힌다 — resolveOverallStatus 가 유일한 판독 지점.
+  status: "none" | "reviewed" | "opened" | null;
   reviewedAt: string | null;
   openedAt: string | null;
   leaderCells: Map<string, OverallCell>; // key = crewUserId::category(management|extension)
@@ -244,9 +245,14 @@ async function loadOverallStored(
     .eq("team_id", teamId)
     .maybeSingle();
   const h = header as
-    | { id: string; status: "reviewed" | "opened"; reviewed_at: string | null; opened_at: string | null }
+    | { id: string; status: string | null; reviewed_at: string | null; opened_at: string | null }
     | null;
   if (!h) return empty;
+  // 검수 취소된 헤더는 status='none' 으로 읽는다(입력값은 보존 — 재검수 시 그대로 이어서 쓴다).
+  const resolvedStatus = resolveOverallStatus({
+    status: h.status,
+    reviewedAt: h.reviewed_at,
+  });
 
   const leaderCells = new Map<string, OverallCell>();
   const { data: cellRows } = await supabaseAdmin
@@ -289,8 +295,9 @@ async function loadOverallStored(
 
   return {
     id: h.id,
-    status: h.status,
-    reviewedAt: h.reviewed_at,
+    status: resolvedStatus,
+    // 검수 취소 상태에서는 "검수 시각"도 없는 것으로 노출한다(화면 표기/재검수 판정 일관).
+    reviewedAt: resolvedStatus === "none" ? null : h.reviewed_at,
     openedAt: h.opened_at,
     leaderCells,
     outputs,
@@ -654,8 +661,9 @@ async function persistReviewState(input: {
     );
     const rows = validCells.map((c) => {
       const score = Math.max(0, Math.min(10, Math.round(c.score)));
-      // 보이드 규칙: 미체크/0점 = 강화 실패 → 라인 미선택(null).
-      const selectedLineId = c.checked && score >= 1 ? c.selectedLineId ?? null : null;
+      // 라인명은 평점과 분리(2026-07-24) — 0점(강화 실패) 관리/확장 셀에도 선택 라인을 그대로 저장한다.
+      //   고객 반영은 openTeamOverall 게이트(checked && score>0)가 독립 판정하므로 snapshot 영향 없음.
+      const selectedLineId = c.selectedLineId ?? null;
       if (selectedLineId && lineIdCategory.get(selectedLineId) !== c.category) {
         throw Object.assign(
           new Error(
@@ -816,19 +824,24 @@ async function materializePartLeaderPartCells(input: {
 
   const now = new Date().toISOString();
   for (const sel of leaderSelections) {
-    // 점수/보이드 정규화 — 일반 크루 개설 신청과 동일 SoT(experienceScoreState).
-    //   payload 미지정 시 기본값 checked=true/score=7(= OVERALL_CELL_DEFAULT). 0 은 유효(미체크).
+    // 평점·체크는 파트장이 검수 화면에서 고른 값을 그대로 보존한다(2026-07-24 — 평점 0점 지원).
+    //   · checked 는 payload 의 명시값을 쓴다(experienceScoreState 로 score>=1 파생하지 않는다) —
+    //     "미선택(checked=false, '-')" 과 "실제 0점(checked=true, score=0)" 을 구분해 저장하기 위함.
+    //     experienceScoreState(평점 계산 SoT) 자체는 변경하지 않는다.
+    //   · payload 미지정 시 기본값 checked=true/score=7(= OVERALL_CELL_DEFAULT).
     const rawScore =
-      sel.score !== undefined && sel.score !== null ? sel.score : 7;
-    const rawChecked = sel.checked ?? true;
-    const state = experienceScoreState(rawChecked ? rawScore : 0);
-    // 보이드(미체크/0점) → 라인 미선택. score 1~10(체크)은 선택 라인 유지.
-    const selectedLineId =
-      state.checked && state.score >= 1 ? sel.selectedLineId ?? null : null;
+      sel.score !== undefined && sel.score !== null ? sel.score : OVERALL_CELL_DEFAULT.score;
+    const checked = sel.checked ?? true;
+    // 미체크면 score 0(placeholder), 체크면 payload 점수를 0~10 로 클램프(0 도 유효한 평점).
+    const score = checked ? Math.max(0, Math.min(10, Math.round(rawScore))) : 0;
+    // 라인명은 평점과 분리(2026-07-24) — 0점(강화 실패) 셀에도 선택 라인을 그대로 저장한다.
+    const selectedLineId = sel.selectedLineId ?? null;
     const cellExists = existingCellKeys.has(`${sel.crewUserId}::${sel.lineType}`);
-    // 선택 라인도 없고 기존 셀도 없으면 생성 불필요(미배정 유지 — 헤더/셀 스팸 방지).
-    //   기존 셀이 있으면(과거 검수로 물질화) 점수/체크/라인 변경을 반드시 반영한다.
-    if (!selectedLineId && !cellExists) continue;
+    // 손대지 않은 기본값(체크·7점·라인 미선택)이고 기존 셀도 없으면 생성 불필요(헤더/셀 스팸 방지).
+    //   0점/다른 점수/라인 선택 등 기본과 다른 값은 라인이 없어도 저장해 라운드트립을 보장한다(요구: 0점 저장·조회).
+    const isUntouchedDefault =
+      checked && score === OVERALL_CELL_DEFAULT.score && !selectedLineId;
+    if (isUntouchedDefault && !cellExists) continue;
     if (selectedLineId && lineIdCategory.get(selectedLineId) !== sel.lineType) {
       throw Object.assign(
         new Error(
@@ -870,8 +883,8 @@ async function materializePartLeaderPartCells(input: {
           submission_id: headerId,
           crew_user_id: sel.crewUserId,
           line_type: sel.lineType,
-          checked: state.checked,
-          score: state.score,
+          checked,
+          score,
           selected_line_id: selectedLineId,
         },
         { onConflict: "submission_id,crew_user_id,line_type" },

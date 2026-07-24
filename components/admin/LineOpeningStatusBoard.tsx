@@ -14,6 +14,7 @@ import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import {
   StatusList,
   StatusListItem,
+  StatusTokens,
 } from "@/components/admin/lineOpeningStatusUi";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
@@ -25,14 +26,16 @@ import {
   type StatusExtension,
   type StatusLine,
   type StatusTeam,
-  type StatusToken,
   type StatusWeek,
 } from "@/lib/lineOpeningStatusEngine";
 
 // 라인 개설 상태창(운영 대시보드) 공용 컴포넌트.
 //   - 서버 상태 API 를 조회해 공용 엔진(lib/lineOpeningStatusEngine)으로 블록 문구를 만든 뒤,
-//     red 토큰만 빨강 강조로 렌더한다. 표시 전용 — write/snapshot/DTO 무관.
+//     역할별 공통 토큰(StatusTokens)으로 강조를 입혀 렌더한다. 표시 전용 — write/snapshot/DTO 무관.
 //   - 허브명만 바꿔 실무 경험/정보/역량이 재사용한다.
+//
+//   ⚠ 상태창은 "개설 대상 주차"(금요일 경계 SoT)만 표시한다 — 오늘/이번 주 + 개설 대상 주차의 개설 현황.
+//     주차 드롭다운(?week)을 바꿔도 상태창은 변하지 않는다(선택 주차 상태는 생성/표시하지 않는다).
 //
 // variant:
 //   "team" = 실무 경험. 블록1(오늘/이번 주) + 블록2(확장 라인) + 블록3(팀별 개설 현황).
@@ -65,40 +68,26 @@ type StatusResponse = {
   opened?: boolean;
 };
 
-function renderTokens(tokens: StatusToken[]) {
-  return tokens.map((tok, i) =>
-    tok.red ? (
-      <span key={i} className="font-semibold text-red-600">
-        {tok.text}
-      </span>
-    ) : (
-      <span key={i}>{tok.text}</span>
-    ),
-  );
-}
-
-// 한 주차 기준(현재 운영 / 선택한 주차)의 개설 상태 본문 — 문장 구조·톤·강조를 두 영역이 100% 공유한다.
+// 개설 대상 주차의 개설 상태 본문 — team/hub 이 문장 구조·톤·강조를 공유한다.
 //   team: 확장 라인(block2) + 팀별 라인 문장(block3)을 하나의 연속 bullet 목록으로(별도 소제목 없음).
-//   hub: 허브 전체 1문장(hubLine). keyPrefix 로 두 영역의 block3 React key 충돌(같은 team_id)을 회피한다.
+//   hub: 허브 전체 1문장(hubLine).
 function TargetOpenStatusBody({
   variant,
   status,
   hubLine,
   org,
-  keyPrefix,
 }: {
   variant: "team" | "hub";
   status: LineOpeningStatus;
   hubLine: StatusLine | null;
   org: string | null;
-  keyPrefix: string;
 }) {
   if (variant === "hub") {
     return (
       <StatusList>
         {hubLine && (
           <StatusListItem tone={hubLine.tone}>
-            {renderTokens(hubLine.tokens)}
+            <StatusTokens tokens={hubLine.tokens} />
           </StatusListItem>
         )}
       </StatusList>
@@ -110,12 +99,12 @@ function TargetOpenStatusBody({
       <StatusList>
         {status.block2 && (
           <StatusListItem tone={status.block2.tone}>
-            {renderTokens(status.block2.tokens)}
+            <StatusTokens tokens={status.block2.tokens} />
           </StatusListItem>
         )}
         {status.block3.map((line) => (
-          <StatusListItem key={`${keyPrefix}-${line.id}`} tone={line.tone}>
-            {renderTokens(line.tokens)}
+          <StatusListItem key={line.id} tone={line.tone}>
+            <StatusTokens tokens={line.tokens} />
           </StatusListItem>
         ))}
       </StatusList>
@@ -143,17 +132,10 @@ export default function LineOpeningStatusBoard({
   const org = readOrgParam(searchParams);
   // 팀별 개설 현황(블록3) 팀 목록 스코프 — operating/test 토글 보존(appendModeQuery).
   const mode = readScopeMode(searchParams);
-  // 드롭다운에서 고른 주차(?week) — '선택한 주차 상태' 영역 전용. 값이 없으면 선택 영역은 표시하지 않는다.
-  //   ⚠ (2026-07-20 정책 변경) 상태창은 두 영역을 함께 보여준다:
-  //     ① 현재 운영 상태 = 항상 서버 현재 시각 + 현재 개설 대상 주차(금요일 경계 SoT, week_id 미전송).
-  //     ② 선택한 주차 상태 = ?week(드롭다운) 기준(week_id 전송). 두 영역은 데이터 기준만 다르고
-  //        문장 구조·강조·톤·레이아웃은 동일하다. 선택 주차가 현재 개설 대상 주차와 같으면 ②를 숨긴다
-  //        (중복 방지). 종전 '완전 분리'(①만 표시)에서 additive 재도입.
-  const selectedWeekId = searchParams?.get("week")?.trim() || null;
 
-  // ① 현재 운영 상태(week_id 미전송) / ② 선택한 주차 상태(week_id=selectedWeekId).
+  // 상태창은 항상 서버 현재 시각 + 현재 개설 대상 주차(금요일 경계 SoT, week_id 미전송)만 조회한다.
+  //   주차 드롭다운(?week)은 하단 개설 폼 전용 — 상태창은 소비하지 않는다(선택 주차 상태 생성 금지).
   const [operating, setOperating] = useState<StatusResponse | null>(null);
-  const [selected, setSelected] = useState<StatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
   useReportLoading(loading);
   const [error, setError] = useState<string | null>(null);
@@ -165,15 +147,11 @@ export default function LineOpeningStatusBoard({
       if (!cancelled) {
         setLoading(true);
         setError(null);
-        // 재조회 시작 시 이전 데이터 폐기 — 로딩 중 이전 주차 상태 잔류 방지.
         setOperating(null);
-        setSelected(null);
       }
-      // 공용 fetch — weekId 있으면 그 주차 기준(선택), 없으면 현재 개설 대상 주차(운영).
-      const load = async (weekId: string | null): Promise<StatusResponse | null> => {
+      try {
         const params = new URLSearchParams();
         if (org) params.set("organization", org);
-        if (weekId) params.set("week_id", weekId);
         const suffix = params.toString();
         const res = await fetch(
           appendModeQuery(`${endpoint}${suffix ? `?${suffix}` : ""}`, mode),
@@ -182,19 +160,8 @@ export default function LineOpeningStatusBoard({
         if (!json?.success) {
           throw apiErrorFrom(res, json, "상태창 데이터를 불러오지 못했습니다");
         }
-        return json.data as StatusResponse;
-      };
-      try {
-        // 운영 영역은 필수. 선택 주차가 있으면 병렬 조회(선택 영역 실패는 운영 영역을 막지 않음).
-        const [op, sel] = await Promise.all([
-          load(null),
-          selectedWeekId
-            ? load(selectedWeekId).catch(() => null)
-            : Promise.resolve(null),
-        ]);
         if (cancelled) return;
-        setOperating(op);
-        setSelected(sel);
+        setOperating(json.data as StatusResponse);
       } catch (err) {
         if (!cancelled) {
           console.error("[line-opening] status board load failed", err);
@@ -207,9 +174,9 @@ export default function LineOpeningStatusBoard({
     return () => {
       cancelled = true;
     };
-  }, [endpoint, org, mode, refreshKey, selectedWeekId]);
+  }, [endpoint, org, mode, refreshKey]);
 
-  // 현재 운영 상태 — 오늘 기준 개설 대상 주차(N 또는 N-1). block1(오늘/이번 주)은 여기서만 렌더.
+  // 현재 운영 상태 — 오늘 기준 개설 대상 주차(금요일 경계 N 또는 N-1). block1(오늘/이번 주) 포함.
   const operatingStatus: LineOpeningStatus | null = useMemo(() => {
     if (!operating) return null;
     return buildLineOpeningStatus({
@@ -231,40 +198,6 @@ export default function LineOpeningStatusBoard({
       opened: operating.opened ?? false,
     });
   }, [operating, hubLabel, variant]);
-
-  // 선택한 주차 상태 — 호칭 "선택한 주차"(kind="selected"). block1 은 사용하지 않는다.
-  const selectedStatus: LineOpeningStatus | null = useMemo(() => {
-    if (!selected) return null;
-    return buildLineOpeningStatus(
-      {
-        hubLabel,
-        today: new Date(),
-        currentWeek: selected.currentWeek,
-        targetWeek: selected.targetWeek,
-        extension: selected.extension ?? { kind: "none", index: null, total: null },
-        teams: selected.teams ?? [],
-      },
-      "selected",
-    );
-  }, [selected, hubLabel]);
-
-  const selectedHubLine: StatusLine | null = useMemo(() => {
-    if (!selected || variant !== "hub") return null;
-    return buildHubOpenStatusLine({
-      hubLabel,
-      currentWeek: selected.currentWeek,
-      targetWeek: selected.targetWeek,
-      opened: selected.opened ?? false,
-      kind: "selected",
-    });
-  }, [selected, hubLabel, variant]);
-
-  // 선택 영역 표시 여부 — 선택 주차가 현재 개설 대상 주차와 다를 때만(같으면 중복이라 숨김).
-  const showSelected =
-    !!selectedStatus &&
-    !!operating?.targetWeek?.startDate &&
-    !!selected?.targetWeek?.startDate &&
-    operating.targetWeek.startDate !== selected.targetWeek.startDate;
 
   return (
     <Card>
@@ -290,36 +223,22 @@ export default function LineOpeningStatusBoard({
           <p className="text-muted-foreground">표시할 데이터가 없습니다.</p>
         ) : (
           <>
-            {/* 블록1 — 오늘 / 이번 주 (공통, 상단 1회 · 정보성 → neutral bullet) */}
+            {/* 블록1 — 오늘 / 이번 주 (정보성 → neutral bullet) */}
             <StatusList>
               <StatusListItem tone="neutral">
-                {renderTokens(operatingStatus.block1.tokens)}
+                <StatusTokens tokens={operatingStatus.block1.tokens} />
               </StatusListItem>
             </StatusList>
 
-            {/* ① 운영 상태 — 제목 없이 "지난 주 …" 문장 자체로 구분. */}
+            {/* 개설 대상 주차(화면 문구 "지난 주") 개설 현황 — 제목 없이 문장 자체로 구분. */}
             <section>
               <TargetOpenStatusBody
                 variant={variant}
                 status={operatingStatus}
                 hubLine={operatingHubLine}
                 org={org}
-                keyPrefix="op"
               />
             </section>
-
-            {/* ② 선택 상태 — 제목·구분선 없이 "선택한 주차 …" 문장 자체로 구분. */}
-            {showSelected && selectedStatus && (
-              <section>
-                <TargetOpenStatusBody
-                  variant={variant}
-                  status={selectedStatus}
-                  hubLine={selectedHubLine}
-                  org={org}
-                  keyPrefix="sel"
-                />
-              </section>
-            )}
           </>
         )}
       </CardContent>

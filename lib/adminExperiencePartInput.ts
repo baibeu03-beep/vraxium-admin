@@ -423,7 +423,7 @@ export async function savePartSubmission(input: {
     .eq("submission_id", submissionId);
   if (delError) throw new Error(delError.message);
 
-  // normalizePartInputCell 이 보이드 규칙(미체크/0점 → selectedLineId=null)을 이미 적용한다.
+  // normalizePartInputCell 이 점수 상태를 정규화한다(선택 라인은 평점과 무관하게 그대로 보존).
   const valid = input.cells
     .filter((c) => (EXPERIENCE_PART_LINE_KEYS as string[]).includes(c.lineType))
     .map(normalizePartInputCell);
@@ -467,7 +467,7 @@ export async function savePartSubmission(input: {
 // ── [검수] 팀 총괄 보드에서 도출/분석/견문 라인 선택 편집 → 파트 신청 셀에 write-back ──
 // 라인명 SoT 는 파트 신청 셀(selected_line_id) 하나뿐이므로, 검수 화면 편집도 같은 셀을 갱신한다.
 //   · checked/score 는 건드리지 않는다(도출/분석/견문 점수는 파트장 소유·검수는 라인명만 편집).
-//   · 보이드 규칙: 대상 셀이 강화 실패(미체크/0점)면 라인 부착 불가 → null 강제.
+//   · 라인명은 평점과 분리(2026-07-24) — 평점 0점(강화 실패) 셀에도 선택 라인을 그대로 저장한다.
 //   · 유형 정합성: 선택 라인 유형 == 셀 line_type 아니면 422.
 //   · 파트 미신청(셀 없음) 크루는 스킵(부착할 셀이 없음).
 export async function updateOverallPartCellLines(input: {
@@ -497,24 +497,15 @@ export async function updateOverallPartCellLines(input: {
 
   const { data: cellRows } = await supabaseAdmin
     .from("cluster4_experience_part_submission_cells")
-    .select("id,crew_user_id,line_type,checked,score")
+    .select("id,crew_user_id,line_type")
     .in("submission_id", headerIds);
-  const cellMap = new Map<
-    string,
-    { id: string; checked: boolean; score: number }
-  >();
+  const cellMap = new Map<string, { id: string }>();
   for (const c of (cellRows ?? []) as Array<{
     id: string;
     crew_user_id: string;
     line_type: ExperiencePartLineType;
-    checked: boolean;
-    score: number;
   }>) {
-    cellMap.set(`${c.crew_user_id}::${c.line_type}`, {
-      id: c.id,
-      checked: c.checked,
-      score: c.score,
-    });
+    cellMap.set(`${c.crew_user_id}::${c.line_type}`, { id: c.id });
   }
 
   const lineIdCategory = buildLineIdCategoryMap(
@@ -524,9 +515,8 @@ export async function updateOverallPartCellLines(input: {
   for (const sel of selections) {
     const cell = cellMap.get(`${sel.crewUserId}::${sel.lineType}`);
     if (!cell) continue; // 파트 미신청 크루 — 부착할 셀 없음.
-    // 보이드 규칙: 강화 실패 셀(미체크/0점)엔 라인 부착 불가.
-    const cellPasses = cell.checked && cell.score >= 1;
-    const nextId: string | null = cellPasses ? sel.selectedLineId ?? null : null;
+    // 라인명은 평점과 분리 — 강화 실패(0점) 셀에도 선택 라인을 그대로 저장한다(null 강제 없음).
+    const nextId: string | null = sel.selectedLineId ?? null;
     if (nextId) {
       if (lineIdCategory.get(nextId) !== sel.lineType) {
         throw Object.assign(

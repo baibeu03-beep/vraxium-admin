@@ -69,10 +69,11 @@ export function experienceScoreState(scoreInput: unknown): ExperienceScoreState 
 
 export function normalizePartInputCell<T extends PartInputCell>(cell: T): T {
   const state = experienceScoreState(cell.score);
-  // 보이드 규칙(SoT): 미체크 또는 0점 = 강화 실패 → 라인 미선택('-', null).
-  //   score 1~3(체크 유지·강화 실패)에서는 선택 라인을 유지한다(요구사항 §4).
-  const selectedLineId =
-    state.checked && state.score >= 1 ? cell.selectedLineId ?? null : null;
+  // 라인명 선택은 평점과 분리한다(2026-07-24) — 평점 0점(미체크)에서도 선택 라인을 그대로 보존한다.
+  //   · 라인명은 어떤 평점에서도 선택·저장·조회된다(평점 0 이라고 null 로 지우지 않는다).
+  //   · 고객 반영(개설 완료)은 별도 게이트(openTeamOverall: checked && score>0 && selectedLineId)가
+  //     독립적으로 판정하므로, 0점 라인을 보존해도 대상자/평가/snapshot 생성 로직은 달라지지 않는다.
+  const selectedLineId = cell.selectedLineId ?? null;
   return { ...cell, ...state, selectedLineId };
 }
 

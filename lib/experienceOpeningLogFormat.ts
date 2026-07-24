@@ -6,6 +6,7 @@ export type ExperienceOpeningLogAction =
   | "apply_cancel" // 신청 취소 (파트장 — 개설 취소와 다른 이벤트)
   | "review" // 개설 검수(승인)
   | "reject" // 검수 반려
+  | "review_cancel" // 검수 취소 — 검수 후 파트 신청 데이터가 실제로 바뀌어 검수가 무효화됨
   | "open" // 개설 완료
   | "cancel"; // 개설 취소(완료 이후) — 향후 기능
 
@@ -17,11 +18,12 @@ export const EXPERIENCE_OPENING_LOG_ACTION_LABEL: Record<
   apply_cancel: "신청 취소",
   review: "개설 검수",
   reject: "검수 반려",
+  review_cancel: "검수 취소",
   open: "개설 완료",
   cancel: "개설 취소",
 };
 
-// 행동 색(강조). 긍정 진행=green, 신청 취소=amber(개설 취소와 구분), 부정(반려/개설취소)=red, 중간(신청/검수)=blue.
+// 행동 색(강조). 긍정 진행=green, 신청/검수 취소=amber(개설 취소와 구분), 부정(반려/개설취소)=red, 중간(신청/검수)=blue.
 export function experienceOpeningLogActionClass(
   action: ExperienceOpeningLogAction,
 ): string {
@@ -29,6 +31,7 @@ export function experienceOpeningLogActionClass(
     case "open":
       return "text-green-700";
     case "apply_cancel":
+    case "review_cancel":
       return "text-amber-700";
     case "reject":
     case "cancel":

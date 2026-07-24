@@ -11,6 +11,14 @@ import {
 } from "@/components/ui/card";
 import { adminDialog } from "@/components/ui/admin-dialog";
 import { confirmReinforcementFailure } from "@/lib/experienceReinforcementFailureConfirm";
+import {
+  REVIEW_RESET_APPLY_CANCEL_SUCCESS,
+  REVIEW_RESET_APPLY_SUCCESS,
+  REVIEW_RESET_CONFIRM_CODE,
+  REVIEW_RESET_CONFIRM_MESSAGE,
+  REVIEW_RESET_CONFIRM_TITLE,
+  REVIEW_RESET_FAILED_MESSAGE,
+} from "@/lib/experienceReviewResetPolicy";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -616,11 +624,11 @@ export default function ExperiencePartLeadInput({
         !nextChecked &&
         !(await confirmReinforcementFailure(crewName))
       ) return; // 취소 시 updateCell 미호출 → 기존 체크·점수·라인명 원상 복구.
-      // 체크 해제 → 점수 0 + 라인 '-'(null). 재체크는 기존 라인 유지(해제 시 이미 null).
+      // 라인명은 평점과 분리(2026-07-24) — 체크 해제(0점)해도 선택 라인은 그대로 유지한다.
       updateCell(crewUserId, lineType, {
         checked: nextChecked,
         score: nextScore,
-        selectedLineId: nextChecked ? cur.selectedLineId : null,
+        selectedLineId: cur.selectedLineId,
       });
     },
     [updateCell],
@@ -640,11 +648,11 @@ export default function ExperiencePartLeadInput({
         !next.isReinforcementSuccess &&
         !(await confirmReinforcementFailure(crewName))
       ) return; // 취소 시 updateCell 미호출 → 기존 체크·점수·라인명 원상 복구.
-      // 0점 → 라인 '-'(null). 1점 이상(1~3 강화실패 포함)은 선택 라인 유지(§4).
+      // 라인명은 평점과 분리(2026-07-24) — 0점으로 낮춰도 선택 라인을 그대로 유지한다(자동 초기화 없음).
       updateCell(crewUserId, lineType, {
         checked: next.checked,
         score: next.score,
-        selectedLineId: next.score >= 1 ? cur.selectedLineId : null,
+        selectedLineId: cur.selectedLineId,
       });
     },
     [updateCell],
@@ -682,6 +690,32 @@ export default function ExperiencePartLeadInput({
     toast("success", LINE_OPENING_RESULT.resetSuccess);
   }, [data]);
 
+  // [개설 검수] 완료 후 실제 변경이 감지되면 서버가 409(code)로 되돌린다 — 그때만 확인 팝업.
+  //   [확인] → 같은 요청을 confirmReviewReset=true 로 재전송(저장 + 검수 취소).
+  //   [취소] → 아무것도 하지 않는다(저장·검수 상태 모두 그대로).
+  //   변경이 없으면 서버가 409 를 내지 않으므로 팝업 자체가 없다. mode/org 무관 동일 흐름.
+  const confirmReviewResetDialog = useCallback(
+    () =>
+      adminDialog.confirm({
+        variant: "warning",
+        title: REVIEW_RESET_CONFIRM_TITLE,
+        description: REVIEW_RESET_CONFIRM_MESSAGE,
+        confirmLabel: "확인",
+        cancelLabel: "취소",
+      }),
+    [],
+  );
+
+  // 저장/취소 응답의 검수 취소 결과 안내(공용). 저장은 성공했는데 검수 취소만 실패한 경우도 숨기지 않는다.
+  const notifyReviewResetOutcome = useCallback(
+    (json: unknown, baseMessage: string, resetMessage: string) => {
+      const data = (json as { data?: { reviewReset?: boolean; reviewResetFailed?: boolean } })?.data;
+      toast("success", data?.reviewReset ? resetMessage : baseMessage);
+      if (data?.reviewResetFailed) toast("error", REVIEW_RESET_FAILED_MESSAGE);
+    },
+    [toast],
+  );
+
   const submit = useCallback(async () => {
     if (!selectedTeam || !selectedWeekId || part === TEAM_OVERALL) return;
     // ④ 라인 미선택 신청 금지 — 체크(강화 성공/실패, 점수≥1)된 셀은 라인명이 반드시 선택돼야 한다.
@@ -710,26 +744,42 @@ export default function ExperiencePartLeadInput({
           });
         }
       }
-      const res = await fetch("/api/admin/cluster4/experience/part-input", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          organization: org,
-          week_id: selectedWeekId,
-          team_id: selectedTeam.id,
-          team_name: selectedTeam.teamName,
-          part,
-          cells,
-          mode,
-          // 임퍼소네이션 write 가드 활성용(서버가 mode=test+test_user_markers 검증).
-          ...(actAsTestUserId ? { actAsTestUserId } : {}),
-        }),
-      });
-      const json = await res.json().catch(() => ({}));
+      // 같은 payload 를 확인 전/후로 두 번 보낼 수 있다 — DTO 는 confirmReviewReset 플래그 하나만 다르다.
+      const post = async (confirmReviewReset: boolean) => {
+        const res = await fetch("/api/admin/cluster4/experience/part-input", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            organization: org,
+            week_id: selectedWeekId,
+            team_id: selectedTeam.id,
+            team_name: selectedTeam.teamName,
+            part,
+            cells,
+            mode,
+            // 임퍼소네이션 write 가드 활성용(서버가 mode=test+test_user_markers 검증).
+            ...(actAsTestUserId ? { actAsTestUserId } : {}),
+            ...(confirmReviewReset ? { confirmReviewReset: true } : {}),
+          }),
+        });
+        const json = await res.json().catch(() => ({}));
+        return { res, json };
+      };
+
+      let { res, json } = await post(false);
+      // 검수 완료 + 실제 변경 → 확인 팝업. [취소] 면 저장도 검수 취소도 하지 않고 그대로 종료한다.
+      if (res.status === 409 && json?.code === REVIEW_RESET_CONFIRM_CODE) {
+        if (!(await confirmReviewResetDialog())) return;
+        ({ res, json } = await post(true));
+      }
       if (!res.ok || !json?.success) {
         throw apiErrorFrom(res, json, "신청에 실패했습니다");
       }
-      toast("success", LINE_OPENING_RESULT.applySuccess);
+      notifyReviewResetOutcome(
+        json,
+        LINE_OPENING_RESULT.applySuccess,
+        REVIEW_RESET_APPLY_SUCCESS,
+      );
       await fetchGrid();
       handleActivity();
     } catch (err) {
@@ -738,30 +788,45 @@ export default function ExperiencePartLeadInput({
     } finally {
       setSaving(false);
     }
-  }, [selectedTeam, selectedWeekId, part, data, getCell, org, mode, actAsTestUserId, fetchGrid, handleActivity]);
+  }, [selectedTeam, selectedWeekId, part, data, getCell, org, mode, actAsTestUserId, fetchGrid, handleActivity, toast, confirmReviewResetDialog, notifyReviewResetOutcome]);
 
   const cancelSubmission = useCallback(async () => {
     if (!selectedTeam || !selectedWeekId || part === TEAM_OVERALL) return;
     if (!data?.submitted) return; // 연속 2회 취소 방지(신청 상태에서만 가능)
     setSaving(true);
     try {
-      const qs = new URLSearchParams();
-      if (org) qs.set("organization", org);
-      qs.set("week_id", selectedWeekId);
-      qs.set("team_id", selectedTeam.id);
-      qs.set("part", part);
-      // 로그 실행자(파트장) 해석용 — POST 와 동일하게 mode/actAsTestUserId 전파.
-      if (mode === "test") qs.set("mode", "test");
-      if (actAsTestUserId) qs.set("actAsTestUserId", actAsTestUserId);
-      const res = await fetch(
-        `/api/admin/cluster4/experience/part-input?${qs.toString()}`,
-        { method: "DELETE" },
-      );
-      const json = await res.json().catch(() => ({}));
+      // 신청 취소도 검수된 데이터를 없애는 실제 변경 — 저장과 동일한 확인 규약을 쓴다.
+      const del = async (confirmReviewReset: boolean) => {
+        const qs = new URLSearchParams();
+        if (org) qs.set("organization", org);
+        qs.set("week_id", selectedWeekId);
+        qs.set("team_id", selectedTeam.id);
+        qs.set("part", part);
+        // 로그 실행자(파트장) 해석용 — POST 와 동일하게 mode/actAsTestUserId 전파.
+        if (mode === "test") qs.set("mode", "test");
+        if (actAsTestUserId) qs.set("actAsTestUserId", actAsTestUserId);
+        if (confirmReviewReset) qs.set("confirmReviewReset", "1");
+        const res = await fetch(
+          `/api/admin/cluster4/experience/part-input?${qs.toString()}`,
+          { method: "DELETE" },
+        );
+        const json = await res.json().catch(() => ({}));
+        return { res, json };
+      };
+
+      let { res, json } = await del(false);
+      if (res.status === 409 && json?.code === REVIEW_RESET_CONFIRM_CODE) {
+        if (!(await confirmReviewResetDialog())) return;
+        ({ res, json } = await del(true));
+      }
       if (!res.ok || !json?.success) {
         throw apiErrorFrom(res, json, "신청 취소에 실패했습니다");
       }
-      toast("success", LINE_OPENING_RESULT.applyCancelSuccess);
+      notifyReviewResetOutcome(
+        json,
+        LINE_OPENING_RESULT.applyCancelSuccess,
+        REVIEW_RESET_APPLY_CANCEL_SUCCESS,
+      );
       await fetchGrid();
       handleActivity();
     } catch (err) {
@@ -770,7 +835,7 @@ export default function ExperiencePartLeadInput({
     } finally {
       setSaving(false);
     }
-  }, [selectedTeam, selectedWeekId, part, data, org, mode, actAsTestUserId, fetchGrid, handleActivity]);
+  }, [selectedTeam, selectedWeekId, part, data, org, mode, actAsTestUserId, fetchGrid, handleActivity, toast, confirmReviewResetDialog, notifyReviewResetOutcome]);
 
   const isOverall = part === TEAM_OVERALL;
   const submitted = data?.submitted ?? false;
@@ -1230,8 +1295,8 @@ function PartGrid({
                   {EXPERIENCE_PART_LINE_TYPES.map((line) => {
                     const cell = getCell(crew.userId, line.key);
                     const fail = isPartCellFail(cell);
-                    // 라인명은 체크&1점 이상에서만 편집 가능(0점/미체크 = 강화 실패 → '-' 고정).
-                    const lineDisabled = !cell.checked || cell.score < 1;
+                    // 라인명 선택은 평점과 분리(2026-07-24) — 평점 0점에서도 항상 선택 가능(disabled 금지).
+                    const lineDisabled = false;
                     return (
                       <TableCell key={line.key} className="text-center align-top">
                         <div className="flex flex-col items-center gap-1">
