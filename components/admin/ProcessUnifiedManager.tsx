@@ -23,6 +23,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import ExecutionTimeCell from "@/components/admin/ExecutionTimeCell";
+import { useStickyColumns, type StickyColProps } from "@/components/ui/sticky-columns";
 import {
   Table,
   TableBody,
@@ -95,15 +97,7 @@ const EMPTY_SUMMARY: ProcessActSummary = {
 // 허브 급 드롭다운 — 디폴트 "-"(미선택). "-" 상태에서는 등록 불가.
 const HUB_PLACEHOLDER = "" as const;
 
-// ── 정렬/필터 (표시용) ─────────────────────────────────────────────────────
-type SortKey = "occur" | "duration";
-// label 만 "신청 시점 순" → "신청 시점(필요)" 로 변경(내부 value=key="occur" 불변).
-//   native <select> 이므로 옵션 목록과 선택 후 트리거 문구가 동일하게 "신청 시점(필요)"로 보인다.
-const SORT_OPTIONS: { key: SortKey; label: string }[] = [
-  { key: "occur", label: "신청 시점(필요)" },
-  { key: "duration", label: "소요 시간 순" },
-];
-
+// ── 필터 (표시용) ──────────────────────────────────────────────────────────
 type FilterKey = "all" | "required" | "optional" | "selection" | "basic" | "check" | "posting";
 const FILTER_OPTIONS: { key: FilterKey; label: string }[] = [
   { key: "all", label: "전체" },
@@ -137,16 +131,14 @@ function matchFilter(a: ProcessActDto, f: FilterKey): boolean {
 }
 
 const weekRank = (w: string) => (w === "N" ? 0 : 1);
-const shortActId = (id: string) => id.slice(0, 8);
-
 // ── 통합 표 컬럼 정렬/도움말 정의 (season-weeks/라인 정보 표와 동일 기준) ────────
 //   · 정렬 기준값은 표시 문자열이 아니라 실제 정렬값(허브/종류=순서 인덱스, 시점=ordinal,
 //     소요/포인트=숫자, 그 외=문자열 locale). null/"-" 은 방향 무관 항상 뒤로.
 //   · 정렬 button 과 도움말 button 은 형제(중첩 금지) + 도움말은 stopPropagation → 정렬 비간섭.
-//   · 번호(잘린 id 표시)·삭제(액션)는 정렬 의미 없어 제외(정렬 컨트롤 미노출, 도움말은 유지).
+//   · 삭제(액션)는 정렬 의미 없어 제외(정렬 컨트롤 미노출, 도움말은 유지).
 type ProcColKey =
-  | "number" | "hub" | "actName" | "lineGroup" | "duration"
-  | "occur" | "check" | "pointA" | "pointB" | "pointC"
+  | "hub" | "actName" | "lineGroup" | "duration"
+  | "execution" | "pointA" | "pointB" | "pointC"
   | "actType" | "checkTarget" | "cafe" | "actions";
 type ProcSortValue = number | string | null;
 
@@ -165,13 +157,12 @@ type ProcColumnDef = {
 };
 
 const PROC_COLUMNS: ProcColumnDef[] = [
-  { key: "number", label: "번호", helpKey: "admin.processes.register.column.number", headClass: "w-[68px]", align: "center", sortable: false, sortValue: () => null },
   { key: "hub", label: "허브 급", helpKey: "admin.processes.register.column.hub", headClass: "w-[84px]", align: "center", sortable: true, sortValue: (a) => (PROCESS_HUBS as readonly string[]).indexOf(a.hub) },
   { key: "actName", label: "액트명", helpKey: "admin.processes.register.column.actName", headClass: "min-w-[320px] text-left", align: "left", sortable: true, sortValue: (a) => a.actName },
   { key: "lineGroup", label: "소속 라인 급", helpKey: "admin.processes.register.column.lineGroup", headClass: "min-w-[150px] text-left", align: "left", sortable: true, sortValue: (a) => a.lineGroupName ?? null },
   { key: "duration", label: "소요(m)", helpKey: "admin.processes.register.column.duration", headClass: "w-[64px]", align: "center", sortable: true, sortValue: (a) => a.durationMinutes },
-  { key: "occur", label: "신청 시점(필요)", helpKey: "admin.processes.register.column.occurWhen", headClass: "w-[124px]", align: "center", sortable: true, sortValue: (a) => processWhenOrdinal(a.occurWeek, a.occurDow, a.occurTime) },
-  { key: "check", label: "검수 시점(필요)", helpKey: "admin.processes.register.column.checkWhen", headClass: "w-[124px]", align: "center", sortable: true, sortValue: (a) => processWhenOrdinal(a.checkWeek, a.checkDow, a.checkTime) },
+  // 이행 시점(필요) = 신청 시점(필요)+검수 시점(필요) 통합(셀 안 2행). 정렬은 신청(occur) 기준.
+  { key: "execution", label: "이행 시점(필요)", helpKey: "admin.processes.register.column.executionWhen", headClass: "w-[172px]", align: "center", sortable: true, sortValue: (a) => processWhenOrdinal(a.occurWeek, a.occurDow, a.occurTime) },
   { key: "pointA", label: "Po.A", helpKey: "admin.processes.register.column.pointA", headClass: "w-[52px]", align: "center", sortable: true, sortValue: (a) => a.pointCheck },
   { key: "pointB", label: "Po.B", helpKey: "admin.processes.register.column.pointB", headClass: "w-[52px]", align: "center", sortable: true, sortValue: (a) => a.pointAdvantage },
   { key: "pointC", label: "Po.C", helpKey: "admin.processes.register.column.pointC", headClass: "w-[52px]", align: "center", sortable: true, sortValue: (a) => a.pointPenalty },
@@ -196,15 +187,17 @@ function compareProcValues(a: ProcSortValue, b: ProcSortValue, dir: "asc" | "des
 
 // 컬럼 헤더 — 정렬 button(정렬 가능 컬럼만) + 도움말 button 을 형제로 둔다.
 function ProcSortableHeader({
-  col, dir, onSort,
+  col, dir, onSort, sticky,
 }: {
   col: ProcColumnDef;
   dir: "asc" | "desc" | null;
   onSort: () => void;
+  sticky?: StickyColProps;
 }) {
   return (
     <TableHead
-      className={col.headClass}
+      className={cn(col.headClass, sticky?.className)}
+      data-sticky-col={sticky?.["data-sticky-col"]}
       aria-sort={
         !col.sortable ? undefined : dir === "asc" ? "ascending" : dir === "desc" ? "descending" : "none"
       }
@@ -516,12 +509,13 @@ export default function ProcessUnifiedManager() {
   const [acts, setActs] = useState<ProcessActDto[]>([]);
   const [summary, setSummary] = useState<ProcessActSummary>(EMPTY_SUMMARY);
   const [infoLoading, setInfoLoading] = useState(false);
-  const [sortKey, setSortKey] = useState<SortKey>("occur");
   const [filter, setFilter] = useState<FilterKey>("all");
   const [hubFilter, setHubFilter] = useState<HubFilterKey>("all");
   const [page, setPage] = useState(1);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  // 컬럼 헤더 클릭 정렬. null = 기본 순서(상단 정렬 드롭다운 기준).
+  // 왼쪽 식별 열(허브 급) 단독 고정 — 공통 sticky 계약(col(2)만 사용).
+  const sticky = useStickyColumns();
+  // 컬럼 헤더 클릭 정렬. null = 기본 순서(신청 시점 기준).
   //   클릭 순환: 없음 → 오름차순 → 내림차순 → 기본 복귀.
   const [columnSort, setColumnSort] = useState<{ key: ProcColKey; dir: "asc" | "desc" } | null>(null);
   const cycleProcSort = useCallback((key: ProcColKey) => {
@@ -588,7 +582,7 @@ export default function ProcessUnifiedManager() {
 
   useEffect(() => {
     setPage(1);
-  }, [sortKey, filter, hubFilter, columnSort]);
+  }, [filter, hubFilter, columnSort]);
 
   // 액트 폼만 초기화 — 허브 선택은 유지(연속 등록).
   const resetActForm = useCallback(() => {
@@ -946,18 +940,13 @@ export default function ProcessUnifiedManager() {
     );
     // 안정적 표시를 위해 동값일 때 id 로 최종 tiebreak(정렬 의미는 불변, 순서 흔들림만 제거).
     const sorted = [...filtered];
-    // 컬럼 헤더 정렬이 활성이면 그 기준으로, 아니면 상단 정렬 드롭다운(신청 시점/소요 시간) 기본 순서.
+    // 컬럼 헤더 정렬이 활성이면 그 기준으로, 아니면 신청 시점(occur) 기본 순서.
     const col = columnSort ? PROC_COLUMNS.find((c) => c.key === columnSort.key) : null;
     if (col && col.sortable && columnSort) {
       sorted.sort(
         (a, b) =>
           compareProcValues(col.sortValue(a), col.sortValue(b), columnSort.dir) ||
           a.id.localeCompare(b.id),
-      );
-    } else if (sortKey === "duration") {
-      sorted.sort(
-        (a, b) =>
-          a.durationMinutes - b.durationMinutes || a.id.localeCompare(b.id),
       );
     } else {
       sorted.sort(
@@ -969,7 +958,7 @@ export default function ProcessUnifiedManager() {
       );
     }
     return sorted;
-  }, [acts, filter, hubFilter, sortKey, columnSort]);
+  }, [acts, filter, hubFilter, columnSort]);
 
   const pageCount = Math.max(1, Math.ceil(visibleActs.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
@@ -1404,9 +1393,9 @@ export default function ProcessUnifiedManager() {
       {/* ── 통합 목록 표 (전체 허브) ── */}
       <Card>
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          {/* 필터 3그룹을 flex-1 grid(sm:3열)로 분산 → 좌측 쏠림 제거·가로 공간 균등 활용.
+          {/* 필터 2그룹을 flex-1 grid로 분산 → 좌측 쏠림 제거·가로 공간 균등 활용.
               각 그룹은 라벨(+돋보기)과 select 가 한 덩어리로 유지되고, select 는 flex-1 로 넓게. */}
-          <div className="grid w-full grid-cols-1 gap-x-8 gap-y-3 sm:flex-1 lg:grid-cols-2 xl:grid-cols-3">
+          <div className="grid w-full grid-cols-1 gap-x-8 gap-y-3 sm:flex-1 sm:grid-cols-2">
             <div className="flex min-w-0 items-center justify-between gap-3">
               <span className="inline-flex shrink-0 items-center gap-1 text-sm text-muted-foreground">
                 허브 급
@@ -1422,24 +1411,6 @@ export default function ProcessUnifiedManager() {
                 {PROCESS_HUBS.map((h) => (
                   <option key={h} value={h}>
                     {PROCESS_HUB_LABEL[h]} 급
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex min-w-0 items-center justify-between gap-3">
-              <span className="inline-flex shrink-0 items-center gap-1 text-sm text-muted-foreground">
-                정렬
-                <AdminHelpIconButton helpKey="admin.processes.register.filter.sort" title="정렬" size="xs" />
-              </span>
-              <select
-                aria-label="정렬"
-                className={cn(FILTER_SELECT_CLS, "min-w-[190px] flex-1")}
-                value={sortKey}
-                onChange={(e) => setSortKey(e.target.value as SortKey)}
-              >
-                {SORT_OPTIONS.map((o) => (
-                  <option key={o.key} value={o.key}>
-                    {o.label}
                   </option>
                 ))}
               </select>
@@ -1479,15 +1450,16 @@ export default function ProcessUnifiedManager() {
             </p>
           ) : (
             <>
-              <Table>
+              <Table containerRef={sticky.ref} stickyLeft>
                 <TableHeader>
                   <TableRow>
-                    {PROC_COLUMNS.map((col) => (
+                    {PROC_COLUMNS.map((col, idx) => (
                       <ProcSortableHeader
                         key={col.key}
                         col={col}
                         dir={columnSort?.key === col.key ? columnSort.dir : null}
                         onSort={() => cycleProcSort(col.key)}
+                        sticky={idx === 0 ? sticky.col(2) : undefined}
                       />
                     ))}
                   </TableRow>
@@ -1495,10 +1467,12 @@ export default function ProcessUnifiedManager() {
                 <TableBody>
                   {pageRows.map((a) => (
                     <TableRow key={a.id}>
-                      <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground" title={a.id}>
-                        {shortActId(a.id)}
+                      <TableCell
+                        {...sticky.col(2)}
+                        className={cn("whitespace-nowrap", sticky.col(2).className)}
+                      >
+                        {a.hubLabel} 급
                       </TableCell>
-                      <TableCell className="whitespace-nowrap">{a.hubLabel} 급</TableCell>
                       {/* 액트명 = 남는 폭 우선 배분 대상. 넉넉한 상한으로 넓은 화면 슬랙을 흡수(초장문 독식만 방지). */}
                       <TableCell className="min-w-[320px] max-w-[760px] whitespace-normal break-words text-left font-medium">
                         {a.actName}
@@ -1507,8 +1481,13 @@ export default function ProcessUnifiedManager() {
                         {a.lineGroupName ?? "-"}
                       </TableCell>
                       <TableCell className="tabular-nums">{a.durationMinutes}</TableCell>
-                      <TableCell className="whitespace-nowrap">{formatProcessWhen(a.occurWeek, a.occurDow, a.occurTime)}</TableCell>
-                      <TableCell className="whitespace-nowrap">{formatProcessWhen(a.checkWeek, a.checkDow, a.checkTime)}</TableCell>
+                      {/* 이행 시점(필요) — 신청(occur)/검수(check) 2행. */}
+                      <TableCell className="whitespace-nowrap text-left">
+                        <ExecutionTimeCell
+                          apply={formatProcessWhen(a.occurWeek, a.occurDow, a.occurTime)}
+                          review={formatProcessWhen(a.checkWeek, a.checkDow, a.checkTime)}
+                        />
+                      </TableCell>
                       <TableCell className={cn("tabular-nums", pointColorClass("a"))}>{a.pointCheck}</TableCell>
                       <TableCell className={cn("tabular-nums", pointColorClass("b"))}>{a.pointAdvantage}</TableCell>
                       <TableCell className={cn("tabular-nums", pointColorClass("c"))}>{a.pointPenalty}</TableCell>
