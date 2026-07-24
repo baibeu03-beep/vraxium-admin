@@ -6,15 +6,20 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
 import { LoadingState } from "@/components/ui/loading-state";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import {
+  AdminLogEntity,
+  AdminLogEventLabel,
+  AdminLogTimestamp,
+} from "@/components/admin/AdminLogPresentation";
 import OpeningLogScrollContent from "@/components/admin/OpeningLogScrollContent";
 import { logChangeKey, orderLogsOldestFirst } from "@/lib/openingLogView";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import {
   formatLogDateTime,
   OPENING_LOG_ACTION_LABEL,
+  practicalInfoOpeningLogTone,
   type OpeningLogAction,
 } from "@/lib/practicalInfoSection0Format";
 
@@ -67,7 +72,9 @@ export default function PracticalInfoOpeningLogPanel({
 
   useEffect(() => {
     // load 는 activeTypeId 에 의존. refreshKey 변경 시에도 재조회한다(개설 직후 갱신).
-    load();
+    void (async () => {
+      await load();
+    })();
   }, [load, refreshKey]);
 
   // 표시 순서: 오래된 로그가 위 · 최신이 아래(서버 최신순 → 표시용으로만 뒤집음).
@@ -101,16 +108,12 @@ export default function PracticalInfoOpeningLogPanel({
         ) : (
           orderedLogs.map((l) => (
             <p key={l.id} className="text-xs leading-relaxed break-words">
-              <span
-                className={cn(
-                  "font-semibold",
-                  l.action === "open" ? "text-green-700" : "text-red-700",
-                )}
-              >
-                [{OPENING_LOG_ACTION_LABEL[l.action]}]
-              </span>{" "}
-              {l.activityLabel} - {l.periodLabel} - {l.actorName} 님 -{" "}
-              {formatLogDateTime(l.createdAt)}
+              <AdminLogEventLabel tone={practicalInfoOpeningLogTone(l.action)}>
+                {OPENING_LOG_ACTION_LABEL[l.action]}
+              </AdminLogEventLabel>{" "}
+              <AdminLogEntity kind="primary">{l.activityLabel}</AdminLogEntity> -{" "}
+              {l.periodLabel} - {l.actorName} 님 -{" "}
+              <AdminLogTimestamp>{formatLogDateTime(l.createdAt)}</AdminLogTimestamp>
             </p>
           ))
         )}

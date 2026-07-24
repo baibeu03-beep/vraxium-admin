@@ -7,8 +7,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import {
+  AdminLogEntity,
+  AdminLogEventLabel,
+  AdminLogTimestamp,
+} from "@/components/admin/AdminLogPresentation";
 import OpeningLogScrollContent from "@/components/admin/OpeningLogScrollContent";
 import { logChangeKey, orderLogsOldestFirst } from "@/lib/openingLogView";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -17,7 +21,7 @@ import { readOrgParam } from "@/lib/adminOrgContext";
 import { formatLogDateTime } from "@/lib/practicalInfoSection0Format";
 import {
   EXPERIENCE_OPENING_LOG_ACTION_LABEL,
-  experienceOpeningLogActionClass,
+  experienceOpeningLogTone,
   type ExperienceOpeningLogAction,
 } from "@/lib/experienceOpeningLogFormat";
 
@@ -105,17 +109,24 @@ export default function ExperienceOpeningLogPanel({
         ) : (
           orderedLogs.map((l) => (
             <p key={l.id} className="text-xs leading-relaxed break-words">
-              <span
-                className={cn(
-                  "font-semibold",
-                  experienceOpeningLogActionClass(l.action),
-                )}
-              >
-                [{EXPERIENCE_OPENING_LOG_ACTION_LABEL[l.action]}]
-              </span>{" "}
-              [{l.periodLabel}] - {l.teamName ?? "-"} ㅣ {l.partName ?? "-"} ㅣ{" "}
-              {l.actorCrewStatus ?? "-"} ㅣ {l.actorName} 님 -{" "}
-              {formatLogDateTime(l.createdAt)}
+              <AdminLogEventLabel tone={experienceOpeningLogTone(l.action)}>
+                {EXPERIENCE_OPENING_LOG_ACTION_LABEL[l.action]}
+              </AdminLogEventLabel>{" "}
+              [{l.periodLabel}] -{" "}
+              {l.teamName ? (
+                <AdminLogEntity kind="team">{l.teamName}</AdminLogEntity>
+              ) : (
+                "-"
+              )}{" "}
+              ㅣ{" "}
+              {l.partName ? (
+                <AdminLogEntity kind="part">{l.partName}</AdminLogEntity>
+              ) : (
+                "-"
+              )}{" "}
+              ㅣ <span className="text-foreground/70">{l.actorCrewStatus ?? "-"}</span> ㅣ{" "}
+              {l.actorName} 님 -{" "}
+              <AdminLogTimestamp>{formatLogDateTime(l.createdAt)}</AdminLogTimestamp>
             </p>
           ))
         )}

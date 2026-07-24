@@ -15,6 +15,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 import { cn } from "@/lib/utils";
+import {
+  AdminLogEntity,
+  AdminLogEventLabel,
+  AdminLogTimestamp,
+} from "@/components/admin/AdminLogPresentation";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import { formatLogDateTime } from "@/lib/practicalInfoSection0Format";
@@ -38,6 +43,7 @@ import {
   formatCheckTodayCompact,
   isSelectionActType,
   isTeamBasedProcessHub,
+  processCheckLogTone,
   type ProcessCheckActRowDto,
   type ProcessCheckBoardDto,
   type ProcessCheckScopeKind,
@@ -83,14 +89,6 @@ function SectionTitle({
     </SectionHeading>
   );
 }
-
-// 로그창 액션 칩 — text-color(processCheckLogActionClass)와 동일 의미의 배경/테두리 매핑(가독성↑).
-const PROCESS_CHECK_LOG_CHIP_CLASS: Record<string, string> = {
-  check_completed: "border-green-200 bg-green-50 text-green-700",
-  check_cancelled: "border-rose-200 bg-rose-50 text-rose-700",
-  check_requested: "border-purple-200 bg-purple-50 text-purple-700",
-  check_rolled_back: "border-rose-200 bg-rose-50 text-rose-700",
-};
 
 export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
   const hubLabel = PROCESS_HUB_LABEL[hub];
@@ -494,14 +492,13 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                   key={l.id}
                   className="flex items-start gap-1.5 rounded-md px-1.5 py-1 transition-colors hover:bg-muted/40"
                 >
-                  <span
-                    className={cn(
-                      "mt-0.5 inline-flex shrink-0 items-center rounded border px-2 py-0.5 text-xs font-semibold leading-tight",
-                      PROCESS_CHECK_LOG_CHIP_CLASS[l.action],
-                    )}
+                  <AdminLogEventLabel
+                    tone={processCheckLogTone(l.action)}
+                    brackets={false}
+                    className="mt-0.5 px-2"
                   >
                     {PROCESS_CHECK_LOG_ACTION_LABEL[l.action]}
-                  </span>
+                  </AdminLogEventLabel>
                   <span className="text-xs leading-relaxed text-foreground/80">
                     [{l.periodLabel}]
                     {/* 팀명(일반 텍스트) + 범위 배지(팀 총괄=파랑 · 파트=보라 · 파트 미확인=빨강).
@@ -515,7 +512,9 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                     ) : (
                       " "
                     )}
-                    [{l.lineGroupName}] {l.actName} - {l.actorName} 님 - {formatLogDateTime(l.createdAt)}
+                    <AdminLogEntity kind="primary">[{l.lineGroupName}] {l.actName}</AdminLogEntity>{" "}
+                    - {l.actorName} 님 -{" "}
+                    <AdminLogTimestamp>{formatLogDateTime(l.createdAt)}</AdminLogTimestamp>
                   </span>
                 </div>
               ))

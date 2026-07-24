@@ -2,6 +2,7 @@
 // 컴포넌트와 검증 스크립트가 동일 코드를 공유한다.
 
 import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
+import type { AdminLogTone } from "@/lib/adminLogPresentation";
 
 export const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"] as const;
 
@@ -95,3 +96,11 @@ export const OPENING_LOG_ACTION_LABEL: Record<OpeningLogAction, string> = {
   // 수동 "2차 기입 마감"(force-close) — submission_closes_at 을 현재 시각으로 단축한 조기 마감 이벤트.
   close: "2차 기입 마감",
 };
+
+export function practicalInfoOpeningLogTone(
+  action: OpeningLogAction,
+): AdminLogTone {
+  if (action === "open") return "completed";
+  if (action === "cancel") return "cancelled";
+  return "closed";
+}

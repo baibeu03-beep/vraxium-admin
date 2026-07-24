@@ -7,8 +7,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import {
+  AdminLogEntity,
+  AdminLogEventLabel,
+  AdminLogTimestamp,
+} from "@/components/admin/AdminLogPresentation";
 import OpeningLogScrollContent from "@/components/admin/OpeningLogScrollContent";
 import { logChangeKey, orderLogsOldestFirst } from "@/lib/openingLogView";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -17,7 +21,7 @@ import { readOrgParam } from "@/lib/adminOrgContext";
 import { formatLogDateTime } from "@/lib/practicalInfoSection0Format";
 import {
   COMPETENCY_OPENING_LOG_ACTION_LABEL,
-  competencyOpeningLogActionClass,
+  competencyOpeningLogTone,
   type CompetencyOpeningLogAction,
 } from "@/lib/competencyOpeningLogFormat";
 
@@ -102,16 +106,12 @@ export default function CompetencyOpeningLogPanel({
         ) : (
           orderedLogs.map((l) => (
             <p key={l.id} className="text-xs leading-relaxed break-words">
-              <span
-                className={cn(
-                  "font-semibold",
-                  competencyOpeningLogActionClass(l.action),
-                )}
-              >
-                [{COMPETENCY_OPENING_LOG_ACTION_LABEL[l.action]}]
-              </span>{" "}
-              [실무 역량] 허브 전체 - [{l.periodLabel}] - {l.actorName} 님 -{" "}
-              {formatLogDateTime(l.createdAt)}
+              <AdminLogEventLabel tone={competencyOpeningLogTone(l.action)}>
+                {COMPETENCY_OPENING_LOG_ACTION_LABEL[l.action]}
+              </AdminLogEventLabel>{" "}
+              <AdminLogEntity kind="primary">[실무 역량] 허브 전체</AdminLogEntity> -{" "}
+              [{l.periodLabel}] - {l.actorName} 님 -{" "}
+              <AdminLogTimestamp>{formatLogDateTime(l.createdAt)}</AdminLogTimestamp>
             </p>
           ))
         )}

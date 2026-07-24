@@ -16,6 +16,7 @@ import {
 import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
 import { formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
 import type { ScopeMode } from "@/lib/userScopeShared";
+import type { AdminLogTone } from "@/lib/adminLogPresentation";
 
 // ── 체크 상태 ────────────────────────────────────────────────────────────────
 //   needed = 체크 필요(기본) · pending = 체크 대기(신청 후) · completed = 체크 완료.
@@ -53,6 +54,12 @@ export function processCheckLogActionClass(a: ProcessCheckLogAction): string {
   if (a === "check_completed") return "text-green-700";
   if (a === "check_cancelled" || a === "check_rolled_back") return "text-rose-700";
   return "text-purple-700"; // check_requested
+}
+export function processCheckLogTone(a: ProcessCheckLogAction): AdminLogTone {
+  if (a === "check_requested") return "submitted";
+  if (a === "check_completed") return "completed";
+  if (a === "check_rolled_back") return "reverted";
+  return "cancelled";
 }
 
 // 화면 액션(POST) — 신청/취소(검수 완료는 worker 트리거) + 수동 부여(선별 액트, 관리자 즉시 완료).

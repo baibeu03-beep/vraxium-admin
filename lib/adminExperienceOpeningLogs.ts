@@ -24,6 +24,41 @@ import type { ExperienceOpeningLogAction } from "@/lib/experienceOpeningLogForma
 // 팀 단위(검수/완료/취소) 실행 시 파트 표기. 파트장 신청/취소는 실제 파트명을 그대로 쓴다.
 export const EXPERIENCE_LOG_TEAM_OVERALL_PART_LABEL = "팀 총괄";
 
+// 파트 신청 헤더는 [신청 취소]에서 삭제되므로, 취소 후 다시 신청하는 경우의 "이전 신청 이력"은
+// append-only 로그의 구조화 action 으로 확인한다. 레거시 Draft 로그(draft_id 있음)는 제외한다.
+// 조회 실패 시 false 로 폴백하며 라인 개설 mutation 자체에는 영향을 주지 않는다.
+export async function hasPriorExperiencePartApplicationLog(input: {
+  weekId: string;
+  organizationSlug: string;
+  teamId: string;
+  partName: string;
+}): Promise<boolean> {
+  try {
+    const teamName = await resolveTeamNameById(input.teamId).catch(() => null);
+    if (!teamName) return false;
+    const { count, error } = await supabaseAdmin
+      .from("cluster4_experience_opening_logs")
+      .select("id", { count: "exact", head: true })
+      .eq("week_id", input.weekId)
+      .eq("organization_slug", input.organizationSlug)
+      .eq("team_name", teamName)
+      .eq("part_name", input.partName)
+      .is("draft_id", null)
+      .in("action", ["apply", "reapply"]);
+    if (error) {
+      console.warn("[experience-opening-logs] prior application lookup skipped:", error.message);
+      return false;
+    }
+    return (count ?? 0) > 0;
+  } catch (error) {
+    console.warn(
+      "[experience-opening-logs] prior application lookup failed:",
+      error instanceof Error ? error.message : error,
+    );
+    return false;
+  }
+}
+
 // 실행한 크루 상태 라벨(로그 표기 규칙 — 고정 스펙):
 //   파트장 → 심화크루(파트장) · 에이전트 → 심화크루(에이전트) · 팀장 → 팀장.
 //   정규 3역할 밖(운영자/최고관리자 등, 임퍼소네이션 없이 실행)은 등급 라벨로 폴백(빈칸 방지).

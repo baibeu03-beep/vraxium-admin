@@ -1,6 +1,8 @@
 // 실무 역량 라인 개설 로그 — 표기 포맷(browser-safe, DB 무관). 컴포넌트/데이터레이어 공유.
 // 허브 전체 개설 완료/취소 2종만 존재한다(파트장 신청/검수 없음).
 
+import type { AdminLogTone } from "@/lib/adminLogPresentation";
+
 export type CompetencyOpeningLogAction = "open" | "cancel";
 
 export const COMPETENCY_OPENING_LOG_ACTION_LABEL: Record<
@@ -16,6 +18,12 @@ export function competencyOpeningLogActionClass(
   action: CompetencyOpeningLogAction,
 ): string {
   return action === "open" ? "text-green-700" : "text-red-700";
+}
+
+export function competencyOpeningLogTone(
+  action: CompetencyOpeningLogAction,
+): AdminLogTone {
+  return action === "open" ? "completed" : "cancelled";
 }
 
 export function isCompetencyOpeningLogAction(

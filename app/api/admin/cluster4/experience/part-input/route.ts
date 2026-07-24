@@ -25,7 +25,11 @@ import {
 } from "@/lib/adminExperiencePartInput";
 import { buildLineIdCategoryMap, listExperienceLineOptions } from "@/lib/adminExperienceLineData";
 import { loadOpenedLineMasterByUserCategory } from "@/lib/adminExperienceTeamOverall";
-import { insertExperienceOpeningLog } from "@/lib/adminExperienceOpeningLogs";
+import {
+  hasPriorExperiencePartApplicationLog,
+  insertExperienceOpeningLog,
+} from "@/lib/adminExperienceOpeningLogs";
+import { resolveExperienceApplicationLogAction } from "@/lib/experienceOpeningLogFormat";
 import {
   cancelOverallReviewForDataChange,
   loadOverallReviewState,
@@ -309,6 +313,16 @@ export async function POST(request: NextRequest) {
     //   ② 다르고 그 팀·주차가 검수 완료 상태면 확인(confirmReviewReset) 없이는 저장하지 않는다.
     //   변경이 없으면 상태 조회조차 하지 않는다 — 검수 상태는 그대로 유지된다.
     const storedSubmission = await getPartSubmission(organization, weekId, teamId, part);
+    // 신청 취소로 헤더가 삭제된 뒤의 재신청도 구분하기 위해 구조화된 과거 apply/reapply 이력을 확인한다.
+    // 현재 헤더가 있으면 이미 재신청이 확정되므로 불필요한 로그 조회는 생략한다.
+    const hadPriorApplicationLog =
+      storedSubmission.submitted ||
+      (await hasPriorExperiencePartApplicationLog({
+        weekId,
+        organizationSlug: organization,
+        teamId,
+        partName: part,
+      }));
     const changed = hasPartSubmissionChanges({
       incoming: cells,
       stored: storedSubmission.cells,
@@ -350,10 +364,15 @@ export async function POST(request: NextRequest) {
       partName: part,
     });
 
-    // 행동 이력: [개설 신청] 로그(best-effort). 실패해도 신청 저장 무영향.
+    // 행동 이력: mutation 직전에 읽은 신청 헤더 존재 여부로 최초 신청/재신청을 구분한다.
+    //   문자열·화면 상태·mode 로 추측하지 않으며 기존 로그는 재분류하지 않는다.
+    //   실패해도 신청 저장 무영향(best-effort).
     //   실행자 = 임퍼소네이션 유효 시 그 테스트 유저(파트장), 아니면 실 admin. 파트 단위 → 파트명.
     await insertExperienceOpeningLog({
-      action: "apply",
+      action: resolveExperienceApplicationLogAction(
+        storedSubmission.submitted,
+        hadPriorApplicationLog,
+      ),
       weekId,
       organizationSlug: organization,
       actorUserId,
