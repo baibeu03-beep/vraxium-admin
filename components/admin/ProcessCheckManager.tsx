@@ -587,10 +587,10 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                     <CardHeader className="pb-2">
                       <CardTitle className="text-base">
                         <span className="inline-flex items-center gap-1">
-                          팀 종합 &amp; 파트 개별
+                          파트 구분
                           <AdminHelpIconButton
                             helpKey={PROCESS_CHECK_HELP_KEYS.teamPartScope}
-                            title="팀 종합 & 파트 개별"
+                            title="파트 구분"
                             size="sm"
                           />
                         </span>
