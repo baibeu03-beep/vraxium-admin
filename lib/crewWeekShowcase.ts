@@ -19,6 +19,7 @@
 // null/0 계약: null = 아직 계산되지 않음("-") · 0 = 실제 0. `?? 0` 폴백 금지.
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { resolveWeeklyPointsBatch } from "@/lib/pointResolver";
 import type { OrganizationSlug } from "@/lib/organizations";
 import {
   buildCrewActSummary,
@@ -198,6 +199,7 @@ async function loadActRates(
 }
 
 // ── 포인트 A/B/C ────────────────────────────────────────────────────────────
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function loadPoints(
   userIds: string[],
   weekStartDate: string,
@@ -226,6 +228,23 @@ async function loadPoints(
         c: r.penalty ?? null,
       });
     }
+  }
+  return out;
+}
+
+async function loadResolvedPoints(
+  userIds: string[],
+  isoYear: number,
+  isoWeek: number,
+): Promise<Map<string, { a: number | null; b: number | null; c: number | null }>> {
+  const out = new Map<string, { a: number | null; b: number | null; c: number | null }>();
+  const points = await resolveWeeklyPointsBatch({
+    userIds,
+    year: isoYear,
+    weekNumber: isoWeek,
+  });
+  for (const [userId, value] of points) {
+    out.set(userId, { a: value.pointA, b: value.pointB, c: value.pointC });
   }
   return out;
 }
@@ -369,7 +388,9 @@ export async function loadCrewShowcaseInputs(opts: {
     opts.isoYear != null && opts.isoWeek != null
       ? loadActRates(userIds, opts.isoYear, opts.isoWeek)
       : Promise.resolve(new Map<string, ActRateResult>()),
-    loadPoints(userIds, opts.weekStartDate),
+    opts.isoYear != null && opts.isoWeek != null
+      ? loadResolvedPoints(userIds, opts.isoYear, opts.isoWeek)
+      : Promise.resolve(new Map()),
     opts.weekId ? loadGrowthFromSnapshot(userIds, opts.weekId) : Promise.resolve(new Map()),
   ]);
 

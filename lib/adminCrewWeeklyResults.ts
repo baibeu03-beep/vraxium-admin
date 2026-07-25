@@ -5,6 +5,7 @@ import { deriveEndStatus } from "@/lib/growthCore";
 import { computeSeasonAreaProgress } from "@/lib/cluster4SeasonCircles";
 import { weekClassLabel, classLabel } from "@/lib/adminMembersTypes";
 import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
+import { resolvePointHistoryBatch } from "@/lib/pointResolver";
 
 // ─────────────────────────────────────────────────────────────────────
 // 클럽 결과(주차) 하단부 — 주차 결과 표(/admin/members 상세).
@@ -80,17 +81,14 @@ export function formatWeekFull(seasonKey: string | null, weekNumber: number | nu
 }
 
 export async function getCrewWeeklyResults(userId: string): Promise<CrewWeeklyResultRow[]> {
-  const [snap, profileRes, wpRes] = await Promise.all([
+  const [snap, profileRes, pointHistory] = await Promise.all([
     readWeeklyCardsSnapshot(userId),
     supabaseAdmin
       .from("user_profiles")
       .select("growth_status,status,suspended_week_id,role")
       .eq("user_id", userId)
       .maybeSingle(),
-    supabaseAdmin
-      .from("user_weekly_points")
-      .select("week_start_date,points,advantages,penalty")
-      .eq("user_id", userId),
+    resolvePointHistoryBatch([userId]),
   ]);
 
   let cards: Cluster4WeeklyCardDto[] =
@@ -121,15 +119,7 @@ export async function getCrewWeeklyResults(userId: string): Promise<CrewWeeklyRe
   }
 
   // 주차별 raw 포인트(week_start_date → points/advantages/penalty).
-  const ptByStart = new Map<string, { points: number | null; advantages: number | null; penalty: number | null }>();
-  for (const r of (wpRes.data ?? []) as Array<{
-    week_start_date: string | null;
-    points: number | null;
-    advantages: number | null;
-    penalty: number | null;
-  }>) {
-    if (r.week_start_date) ptByStart.set(r.week_start_date, r);
-  }
+  const ptByStart = pointHistory.get(userId) ?? new Map();
 
   let cum = 0;
   const rows: CrewWeeklyResultRow[] = cards.map((card) => {
@@ -169,7 +159,11 @@ export async function getCrewWeeklyResults(userId: string): Promise<CrewWeeklyRe
       //   을 그대로 쓰지 않는다("일반"→"정규" 통일).
       classLabel: weekClassLabel(card.crewClassPositionCode, card.roleLabel),
       // Po.B = 최종 B(= advantages − penalty, 음수 가능). 주차 단위. (2026-07-13)
-      points: { poA: pt?.points ?? 0, poB: (pt?.advantages ?? 0) - (pt?.penalty ?? 0), poC: pt?.penalty ?? 0 },
+      points: {
+        poA: pt?.pointA ?? 0,
+        poB: pt?.pointB ?? 0,
+        poC: pt?.pointC ?? 0,
+      },
       hubRates: {
         info: rate("practical_info"),
         experience: rate("practical_experience"),

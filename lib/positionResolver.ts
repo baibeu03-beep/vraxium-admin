@@ -11,6 +11,7 @@ import {
 import { roleLevelToPositionCode } from "@/shared/crewClassPosition";
 import { resolvePositionLabels } from "@/lib/adminMembersTypes";
 import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
+import { nonEmptyText, selectMembershipRow } from "@/lib/membershipResolver";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 팀·파트·클래스 **단일 resolver** — 화면마다 override+UPH+membership 조립을 복붙하지 않는다.
@@ -37,6 +38,8 @@ export type PositionSource = "override" | "uph" | "membership" | "none";
 
 export type ResolvedPosition = {
   userId: string;
+  teamName: string | null;
+  partName: string | null;
   rawTeam: string | null;
   rawPart: string | null;
   positionCode: PositionCode | null;
@@ -67,6 +70,8 @@ function withLabels(input: {
   });
   return {
     userId: input.userId,
+    teamName: input.rawTeam,
+    partName: input.rawPart,
     rawTeam: input.rawTeam,
     rawPart: input.rawPart,
     positionCode: labels.positionCode ?? input.positionCode,
@@ -79,6 +84,8 @@ function withLabels(input: {
 
 const EMPTY = (userId: string): ResolvedPosition => ({
   userId,
+  teamName: null,
+  partName: null,
   rawTeam: null,
   rawPart: null,
   positionCode: null,
@@ -93,6 +100,8 @@ type MembershipRow = {
   team_name: string | null;
   part_name: string | null;
   membership_level: string | null;
+  is_current: boolean | null;
+  updated_at: string | null;
 };
 
 type MembershipFallback = {
@@ -104,8 +113,23 @@ type MembershipFallback = {
 };
 
 function firstNonEmpty(...vals: Array<string | null | undefined>): string | null {
-  for (const v of vals) if (typeof v === "string" && v.trim() !== "") return v;
-  return null;
+  return vals.map(nonEmptyText).find((v): v is string => v !== null) ?? null;
+}
+
+export function resolvePositionValues(input: {
+  override: { rawTeam?: string | null; rawPart?: string | null; positionCode?: PositionCode | null } | null;
+  history: { team?: string | null; part?: string | null; code?: PositionCode | null } | null;
+  membership: MembershipFallback | null;
+}) {
+  return {
+    teamName: firstNonEmpty(input.override?.rawTeam, input.history?.team, input.membership?.team),
+    partName: firstNonEmpty(input.override?.rawPart, input.history?.part, input.membership?.part),
+    positionCode:
+      input.override?.positionCode
+      ?? input.history?.code
+      ?? input.membership?.code
+      ?? null,
+  };
 }
 
 // 현재 멤버십(is_current) + profile.role — 최후 fallback 원천. 청크 조회.
@@ -126,7 +150,7 @@ async function loadMembershipFallback(
     current_part_name: string | null;
   };
   const profByUser = new Map<string, ProfileRow>();
-  const memByUser = new Map<string, MembershipRow>();
+  const memByUser = new Map<string, MembershipRow[]>();
   for (let i = 0; i < ids.length; i += CHUNK) {
     const chunk = ids.slice(i, i + CHUNK);
     const [profRes, memRes] = await Promise.all([
@@ -136,16 +160,18 @@ async function loadMembershipFallback(
         .in("user_id", chunk),
       supabaseAdmin
         .from("user_memberships")
-        .select("user_id,team_name,part_name,membership_level,is_current")
-        .in("user_id", chunk)
-        .eq("is_current", true),
+        .select("user_id,team_name,part_name,membership_level,is_current,updated_at")
+        .in("user_id", chunk),
     ]);
     for (const p of (profRes.data ?? []) as ProfileRow[]) profByUser.set(p.user_id, p);
-    for (const m of (memRes.data ?? []) as MembershipRow[])
-      if (!memByUser.has(m.user_id)) memByUser.set(m.user_id, m);
+    for (const m of (memRes.data ?? []) as MembershipRow[]) {
+      const rows = memByUser.get(m.user_id) ?? [];
+      rows.push(m);
+      memByUser.set(m.user_id, rows);
+    }
   }
   for (const id of ids) {
-    const m = memByUser.get(id);
+    const m = selectMembershipRow(memByUser.get(id) ?? []);
     const p = profByUser.get(id);
     out.set(id, {
       team: firstNonEmpty(m?.team_name, p?.current_team_name),
@@ -217,31 +243,46 @@ export async function resolvePositionAtBatch(input: {
 
   for (const id of ids) {
     const ovr = resolveOverrideAt(ovrIndex.get(id), week);
+    const membershipFallback = membership.get(id);
     if (ovr) {
+      const values = resolvePositionValues({
+        override: ovr,
+        history: uph.get(id) ?? null,
+        membership: membershipFallback ?? null,
+      });
       out.set(
         id,
         withLabels({
           userId: id,
-          rawTeam: ovr.rawTeam,
-          rawPart: ovr.rawPart,
-          positionCode: ovr.positionCode,
+          rawTeam: values.teamName,
+          rawPart: values.partName,
+          positionCode: values.positionCode,
           source: "override",
           effectiveFromWeek: ovr.weekStartDate,
+          role: membershipFallback?.role ?? null,
+          membershipLevel: membershipFallback?.level ?? null,
         }),
       );
       continue;
     }
     const u = uph.get(id);
     if (u) {
+      const values = resolvePositionValues({
+        override: null,
+        history: u,
+        membership: membershipFallback ?? null,
+      });
       out.set(
         id,
         withLabels({
           userId: id,
-          rawTeam: u.team,
-          rawPart: u.part,
-          positionCode: u.code,
+          rawTeam: values.teamName,
+          rawPart: values.partName,
+          positionCode: values.positionCode,
           source: "uph",
           effectiveFromWeek: null,
+          role: membershipFallback?.role ?? null,
+          membershipLevel: membershipFallback?.level ?? null,
         }),
       );
       continue;
@@ -325,9 +366,9 @@ export type CurrentWeekOverrideEntry = {
   positionCode: PositionCode;
   statusLabel: string;
   classLabel: string;
-  rawTeam: string;
+  rawTeam: string | null;
   rawPart: string | null;
-  effectiveFromWeek: string;
+  effectiveFromWeek: string | null;
 };
 
 export async function loadCurrentWeekOverrideLabels(
@@ -339,21 +380,20 @@ export async function loadCurrentWeekOverrideLabels(
   const ids = Array.from(new Set(userIds.filter(Boolean)));
   if (ids.length === 0) return out;
   try {
-    const weekStart = await resolveCurrentWeekStartDate(todayIso ?? getCurrentActivityDateIso());
-    if (!weekStart) return out;
-    const rows = await loadUserOverrideRowsUpTo(ids, weekStart, organization ?? null);
-    const index = buildOverrideIndex(rows, (r) => r.userId);
-    for (const [uid, arr] of index) {
-      const hit = resolveOverrideAt(arr, weekStart);
-      if (!hit) continue;
-      const labels = resolvePositionLabels({ positionCode: hit.positionCode });
+    const resolved = await resolveCurrentPositionBatch({
+      userIds: ids,
+      organization: organization ?? null,
+      todayIso,
+    });
+    for (const [uid, hit] of resolved) {
+      if (!hit.positionCode && !hit.rawTeam && !hit.rawPart) continue;
       out.set(uid, {
-        positionCode: hit.positionCode,
-        statusLabel: labels.statusLabel,
-        classLabel: labels.classLabel,
+        positionCode: hit.positionCode ?? "regular",
+        statusLabel: hit.statusLabel,
+        classLabel: hit.classLabel,
         rawTeam: hit.rawTeam,
         rawPart: hit.rawPart,
-        effectiveFromWeek: hit.weekStartDate,
+        effectiveFromWeek: hit.effectiveFromWeek,
       });
     }
   } catch (e) {
@@ -456,11 +496,16 @@ export async function loadUserWeekPositionSeries(input: {
       weekStart: ws,
       effectiveCode: ovr ? ovr.positionCode : r.position_code,
       uphCode: r.position_code,
-      rawTeam: ovr ? ovr.rawTeam : r.raw_team,
-      rawPart: ovr ? ovr.rawPart : r.raw_part,
+      rawTeam: firstNonEmpty(ovr?.rawTeam, r.raw_team),
+      rawPart: firstNonEmpty(ovr?.rawPart, r.raw_part),
       overridden: Boolean(ovr),
     });
-    if (ovr && ws) overriddenTeamPartByWeek.set(ws, { team: ovr.rawTeam, part: ovr.rawPart });
+    if (ovr && ws) {
+      overriddenTeamPartByWeek.set(ws, {
+        team: firstNonEmpty(ovr.rawTeam, r.raw_team),
+        part: firstNonEmpty(ovr.rawPart, r.raw_part),
+      });
+    }
   }
 
   // UPH 행이 없는 주차(멤버십 폴백 주차)에도 override 가 이월되면 그 주차를 시리즈에 넣는다.

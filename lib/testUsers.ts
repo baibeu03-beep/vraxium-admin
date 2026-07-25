@@ -1,4 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { selectMembershipRow } from "@/lib/membershipResolver";
+import { resolveCurrentPositionBatch } from "@/lib/positionResolver";
 import { organizationLabelKo } from "@/lib/organizations";
 import { SUPER_ADMIN_ROLE } from "@/lib/superAdmins";
 import { normalizeMemberRole } from "@/lib/adminMembersTypes";
@@ -102,12 +104,7 @@ async function resolveCurrentSeasonName(): Promise<string | null> {
 }
 
 function pickCurrentMembership(rows: MembershipRow[]): MembershipRow | undefined {
-  return [...rows].sort((a, b) => {
-    const currentDelta =
-      Number(Boolean(b.is_current)) - Number(Boolean(a.is_current));
-    if (currentDelta !== 0) return currentDelta;
-    return (b.updated_at ?? "").localeCompare(a.updated_at ?? "");
-  })[0];
+  return selectMembershipRow(rows) ?? undefined;
 }
 
 // 단건 판정: profileUserId 가 데모 대상(test_user_markers 등재)인가.
@@ -176,6 +173,7 @@ export async function listTestUsers(): Promise<TestUserDto[]> {
 
   if (profilesRes.error) throw new Error(profilesRes.error.message);
   if (membershipsRes.error) throw new Error(membershipsRes.error.message);
+  const resolvedPositions = await resolveCurrentPositionBatch({ userIds });
 
   const profileById = new Map<string, ProfileRow>();
   for (const row of (profilesRes.data ?? []) as unknown as ProfileRow[]) {
@@ -200,15 +198,16 @@ export async function listTestUsers(): Promise<TestUserDto[]> {
     const membership = pickCurrentMembership(
       membershipsByUser.get(marker.user_id) ?? [],
     );
+    const position = resolvedPositions.get(marker.user_id) ?? null;
 
     return {
       userId: marker.user_id,
       name: profile?.display_name?.trim() || marker.user_id,
       email: profile?.auth_email ?? profile?.contact_email ?? null,
       seasonName,
-      teamName: membership?.team_name ?? null,
-      partName: membership?.part_name ?? null,
-      roleLabel: membership?.membership_level ?? null,
+      teamName: position?.teamName ?? null,
+      partName: position?.partName ?? null,
+      roleLabel: position?.classLabel ?? null,
       status: profile?.status ?? null,
       growthStatus: profile?.growth_status ?? null,
       organizationSlug: profile?.organization_slug ?? null,

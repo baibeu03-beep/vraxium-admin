@@ -37,6 +37,7 @@ import {
   type MemberSortColumn,
   type MemberSortDir,
 } from "@/lib/adminMembersTypes";
+import { resolveCumulativePointsBatch } from "@/lib/pointResolver";
 
 // /admin/members 전용 데이터 레이어 (server-only).
 // canonical source = public.user_profiles. legacy import 무관, user_id(UUID) 기준.
@@ -176,44 +177,14 @@ export async function sumPointsForUsers(
 ): Promise<Map<string, PointAggregate>> {
   const sums = new Map<string, PointAggregate>();
   if (userIds.length === 0) return sums;
-
-  const ID_CHUNK = 100; // IN() URL 길이 방어
-  const ROW_PAGE = 1000; // PostgREST max-rows 방어
-
-  for (let i = 0; i < userIds.length; i += ID_CHUNK) {
-    const idChunk = userIds.slice(i, i + ID_CHUNK);
-    let from = 0;
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-      const { data, error } = await supabaseAdmin
-        .from("user_weekly_points")
-        .select("user_id,points,advantages,penalty")
-        .in("user_id", idChunk)
-        .order("user_id", { ascending: true })
-        .range(from, from + ROW_PAGE - 1);
-      if (error) throw new Error(error.message);
-      const rows = (data ?? []) as Array<{
-        user_id: string;
-        points: number | null;
-        advantages: number | null;
-        penalty: number | null;
-      }>;
-      for (const r of rows) {
-        const acc = sums.get(r.user_id) ?? {
-          checkPoints: 0,
-          advantagePoints: 0,
-          penaltyPoints: 0,
-          netAdvantagePoints: 0,
-        };
-        acc.checkPoints += r.points ?? 0;
-        acc.advantagePoints += r.advantages ?? 0;
-        acc.penaltyPoints += r.penalty ?? 0;
-        acc.netAdvantagePoints = acc.advantagePoints - acc.penaltyPoints;
-        sums.set(r.user_id, acc);
-      }
-      if (rows.length < ROW_PAGE) break;
-      from += ROW_PAGE;
-    }
+  const resolved = await resolveCumulativePointsBatch(userIds);
+  for (const [userId, points] of resolved) {
+    sums.set(userId, {
+      checkPoints: points.pointA,
+      advantagePoints: points.rawAdvantage,
+      penaltyPoints: points.pointC,
+      netAdvantagePoints: points.pointB,
+    });
   }
   return sums;
 }
@@ -259,7 +230,6 @@ async function fetchAllMatchingUserIds(
   const ids: string[] = [];
   const ROW_PAGE = 1000;
   let from = 0;
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     let builder = supabaseAdmin.from("user_profiles").select("user_id");
     builder = applyFilters(builder, options, {
@@ -662,7 +632,7 @@ export async function getRosterPointsScheduleFast(
         scheduleReliability: s.schedule_rate,
         poA: s.po_a,
         // Po.B = 최종 B(= raw advantage − penalty). 고객 방패와 동일 의미. 음수 가능. (2026-07-13)
-        poB: s.po_b - s.po_c,
+        poB: s.po_b,
         poC: s.po_c,
       });
     } else {
@@ -686,6 +656,25 @@ export async function getRosterPointsScheduleFast(
         poC: pts.penaltyPoints,
       });
     }
+  }
+
+  // 캐시는 목록 성능용일 뿐 권위 원천이 아니다. 반환 직전 원장 resolver 값으로
+  // A/B/C만 교체하여 stale cache와 penalty 부호가 DTO에 새지 않게 한다.
+  const authoritativePoints = await sumPointsForUsers(userIds);
+  for (const uid of userIds) {
+    const current = out.get(uid) ?? {
+      scheduleReliability: null,
+      poA: 0,
+      poB: 0,
+      poC: 0,
+    };
+    const points = authoritativePoints.get(uid) ?? ZERO_POINTS;
+    out.set(uid, {
+      ...current,
+      poA: points.checkPoints,
+      poB: points.netAdvantagePoints,
+      poC: points.penaltyPoints,
+    });
   }
 
   return out;

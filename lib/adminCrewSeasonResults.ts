@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { resolvePointHistoryBatch } from "@/lib/pointResolver";
 import { computeSeasonRecords } from "@/lib/cluster1ResumeData";
 import { computeSeasonActivityStatuses } from "@/lib/cluster4WeeklyGrowthData";
 import { computeSeasonAreaProgress } from "@/lib/cluster4SeasonCircles";
@@ -160,11 +161,8 @@ export async function getCrewSeasonResults(
   userId: string,
   todayIso: string,
 ): Promise<CrewSeasonResultRow[]> {
-  const [wpRes, wsRes, profileRes, records, snapshot, seasonStatusRes] = await Promise.all([
-    supabaseAdmin
-      .from("user_weekly_points")
-      .select("week_start_date,points,advantages,penalty")
-      .eq("user_id", userId),
+  const [pointHistory, wsRes, profileRes, records, snapshot, seasonStatusRes] = await Promise.all([
+    resolvePointHistoryBatch([userId]),
     supabaseAdmin.from("user_week_statuses").select("week_start_date").eq("user_id", userId),
     supabaseAdmin.from("user_profiles").select("growth_status,status").eq("user_id", userId).maybeSingle(),
     computeSeasonRecords(userId),
@@ -181,17 +179,12 @@ export async function getCrewSeasonResults(
     seasonStatusByKey.set(r.season_key, e);
   }
 
-  const weeklyPoints = (wpRes.data ?? []) as Array<{
-    week_start_date: string | null;
-    points: number | null;
-    advantages: number | null;
-    penalty: number | null;
-  }>;
+  const weeklyPoints = pointHistory.get(userId) ?? new Map();
   const weekStatuses = (wsRes.data ?? []) as Array<{ week_start_date: string | null }>;
 
   // 활동 주차(포인트 + 주차상태)의 week_start_date 후보.
   const candidateDates = new Set<string>();
-  for (const p of weeklyPoints) if (p.week_start_date) candidateDates.add(p.week_start_date);
+  for (const start of weeklyPoints.keys()) candidateDates.add(start);
   for (const r of weekStatuses) if (r.week_start_date) candidateDates.add(r.week_start_date);
   if (candidateDates.size === 0) return [];
 
@@ -245,13 +238,13 @@ export async function getCrewSeasonResults(
 
   // 시즌별 Po.A/B/C(시즌 단위 합 — 비누적).
   const pointsByKey = new Map<string, { poA: number; poB: number; poC: number }>();
-  for (const p of weeklyPoints) {
-    const key = p.week_start_date ? seasonKeyByStart.get(p.week_start_date) : undefined;
+  for (const [weekStart, p] of weeklyPoints) {
+    const key = seasonKeyByStart.get(weekStart);
     if (!key) continue;
     const acc = pointsByKey.get(key) ?? { poA: 0, poB: 0, poC: 0 };
-    acc.poA += p.points ?? 0;
-    acc.poB += p.advantages ?? 0;
-    acc.poC += p.penalty ?? 0;
+    acc.poA += p.pointA;
+    acc.poB += p.pointB;
+    acc.poC += p.pointC;
     pointsByKey.set(key, acc);
   }
 

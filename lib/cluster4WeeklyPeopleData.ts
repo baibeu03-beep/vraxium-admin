@@ -16,6 +16,7 @@
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { loadCurrentWeekOverrideLabels } from "@/lib/positionResolver";
+import { selectMembershipRow } from "@/lib/membershipResolver";
 import type {
   Cluster4ColleagueSummaryDto,
   Cluster4PersonProfileDto,
@@ -161,20 +162,8 @@ function computeAge(birthDate: string | null): number | null {
 //   같은 등급 안에서는 updated_at 최신 우선.
 // (어떤 행도 team_name 이 없으면 user_profiles.current_team_name/current_part_name 으로 폴백 —
 //  규칙 5. buildPersonProfileMap 에서 처리.)
-function membershipRank(m: MembershipRow): number {
-  const isCurrent = Boolean(m.is_current);
-  const hasTeam = typeof m.team_name === "string" && m.team_name.trim() !== "";
-  if (isCurrent && hasTeam) return 0;
-  if (hasTeam) return 1;
-  if (isCurrent) return 2;
-  return 3;
-}
 function pickBestMembership(rows: MembershipRow[]): MembershipRow | undefined {
-  return [...rows].sort((a, b) => {
-    const rankDelta = membershipRank(a) - membershipRank(b);
-    if (rankDelta !== 0) return rankDelta;
-    return (b.updated_at ?? "").localeCompare(a.updated_at ?? "");
-  })[0];
+  return selectMembershipRow(rows) ?? undefined;
 }
 
 // 대표 학력 선택: is_primary 우선 → sort_order asc → updated_at 최신.

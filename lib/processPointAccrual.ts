@@ -152,7 +152,7 @@ async function recomputeWeeklyPoints(pairs: Array<{ userId: string; year: number
     const rows = (data ?? []) as { point_check: number; point_advantage: number; point_penalty: number }[];
     const points = rows.reduce((s, r) => s + (r.point_check || 0), 0);
     const advantages = rows.reduce((s, r) => s + (r.point_advantage || 0), 0);
-    const penalty = rows.reduce((s, r) => s + (r.point_penalty || 0), 0);
+    const penalty = rows.reduce((s, r) => s + Math.abs(r.point_penalty || 0), 0);
     const { error: upErr } = await supabaseAdmin.from("user_weekly_points").upsert(
       {
         user_id: p.userId,

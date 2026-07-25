@@ -21,6 +21,7 @@ import { loadWeekGradeHistory, type WeekGradeHistoryEntry } from "@/lib/userWeek
 import { type PositionCode } from "@/lib/positionHistory";
 import type { ScopeMode } from "@/lib/userScopeShared";
 import { type OrganizationSlug } from "@/lib/organizations";
+import { resolvePositionAtBatch } from "@/lib/positionResolver";
 
 // ── 팀 상세 [A] — 선택 주차 요약 ─────────────────────────────────────────────
 //   특정 (organization, teamName, weekId) 에 대해 그 주차 기준 크루 수·성장 결과·운용 파트를 반환.
@@ -299,6 +300,35 @@ export async function getTeamSelectedWeekSummary(opts: {
     const uid = key.slice(0, key.indexOf("::"));
     if (!scopeSet.includes(uid)) continue;
     effectiveByUser.set(uid, { positionCode: v.positionCode, rawPart: v.rawPart });
+  }
+
+  // 최종 로스터는 공통 주차 resolver로 다시 수렴시킨다. 위 조립은 구 스키마
+  // 호환 조회를 보존하지만, 표시/집계에 쓰는 값은 이 단일 결과뿐이다.
+  const { data: positionCandidates } = await supabaseAdmin
+    .from("user_profiles")
+    .select("user_id")
+    .eq("organization_slug", organization)
+    .or(SUPER_ADMIN_EXCLUDE_OR);
+  const candidateUserIds = Array.from(new Set([
+    ...((positionCandidates ?? []) as Array<{ user_id: string }>).map((row) => row.user_id),
+    ...((uphData ?? []) as Array<{ user_id: string }>).map((row) => row.user_id),
+    ...Array.from(overrides.keys()).map((key) => key.slice(0, key.indexOf("::"))),
+  ])).filter((userId) => scopeSet.includes(userId));
+  const resolvedPositions = await resolvePositionAtBatch({
+    userIds: candidateUserIds,
+    targetWeekStart: weekStart,
+    organization,
+  });
+  effectiveByUser.clear();
+  for (const [uid, position] of resolvedPositions) {
+    const resolvedTeam = position.teamName ?? "";
+    if (resolvedTeam !== teamName && stripParen(resolvedTeam) !== stripParen(teamName)) continue;
+    const code = crewPositionCodeOrNull(position.positionCode);
+    if (code === null) continue;
+    effectiveByUser.set(uid, {
+      positionCode: code,
+      rawPart: position.partName,
+    });
   }
 
   // 집계 — 전체 크루(정규+심화·운영진 제외·userId 고유) + 파트별 크루 수.

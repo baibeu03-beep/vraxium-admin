@@ -3,6 +3,8 @@ import type { OrganizationSlug } from "@/lib/organizations";
 import { excludeSuperAdmins } from "@/lib/superAdmins";
 import { resolveUserScope, type UserScope } from "@/lib/userScope";
 import type { ScopeMode } from "@/lib/userScopeShared";
+import { selectMembershipRow } from "@/lib/membershipResolver";
+import { resolveCurrentPositionBatch } from "@/lib/positionResolver";
 
 // Crews source of truth
 // ─────────────────────────────────────────────────────────────────────
@@ -226,10 +228,6 @@ function computeAge(birthDate: string | null) {
   return age >= 0 ? age : null;
 }
 
-function membershipHasTeam(row: UserMembershipRow): boolean {
-  return typeof row.team_name === "string" && row.team_name.trim() !== "";
-}
-
 // 고객앱과 동일한 membership 선택 resolver.
 // 일부 실사용자는 is_current=true 행의 team_name 이 NULL 이고, 실제 팀/파트는 is_current=false
 // 행에 들어있다. is_current 만으로 정렬하면 NULL 행이 뽑혀 team/part 가 비고, 그 값이 그대로
@@ -243,21 +241,8 @@ function membershipHasTeam(row: UserMembershipRow): boolean {
 //   같은 등급 안에서는 updated_at 최신 우선(안정적 tie-break).
 // (user_profiles.current_team_name/current_part_name fallback 은 buildAdminCrewDtos 의 preferString
 //  체인에서 처리 — 어떤 membership 행도 team_name 이 없을 때의 최종 폴백.)
-function membershipRank(row: UserMembershipRow): number {
-  const isCurrent = Boolean(row.is_current);
-  const hasTeam = membershipHasTeam(row);
-  if (isCurrent && hasTeam) return 0;
-  if (hasTeam) return 1;
-  if (isCurrent) return 2;
-  return 3;
-}
-
 function pickBestMembership(rows: UserMembershipRow[]) {
-  return [...rows].sort((a, b) => {
-    const rankDelta = membershipRank(a) - membershipRank(b);
-    if (rankDelta !== 0) return rankDelta;
-    return (b.updated_at ?? "").localeCompare(a.updated_at ?? "");
-  })[0];
+  return selectMembershipRow(rows);
 }
 
 function pickBestEducation(rows: UserEducationRow[]) {
@@ -544,7 +529,20 @@ export async function listAdminCrewDtos(
   // operating(기본)=실사용자만(테스트 제외) / test=test_user_markers 만. team 컨텍스트 불필요.
   const scope = await resolveUserScope(mode, organization ?? null);
   const rows = await fetchCrewSourceRows({ organization, scope, userIds });
-  return buildAdminCrewDtos(rows).sort((a, b) => {
+  const dtos = buildAdminCrewDtos(rows);
+  const positions = await resolveCurrentPositionBatch({
+    userIds: dtos.map((row) => row.userId),
+    organization: organization ?? null,
+  });
+  for (const dto of dtos) {
+    const position = positions.get(dto.userId);
+    if (!position) continue;
+    dto.teamName = position.teamName;
+    dto.team = position.teamName;
+    dto.partName = position.partName;
+    dto.part = position.partName;
+  }
+  return dtos.sort((a, b) => {
     if (a.isVisible !== b.isVisible) return Number(b.isVisible) - Number(a.isVisible);
     const teamCompare = (a.teamName ?? "").localeCompare(b.teamName ?? "", "ko");
     if (teamCompare !== 0) return teamCompare;
@@ -561,7 +559,17 @@ export async function getAdminCrewDtoByLegacyUserId(routeParam: string) {
 
   const rows = await fetchCrewSourceRows({ userId: id });
   if (rows.profiles.length === 0) return null;
-  return buildAdminCrewDtos(rows)[0] ?? null;
+  const dto = buildAdminCrewDtos(rows)[0] ?? null;
+  if (!dto) return null;
+  const position = (await resolveCurrentPositionBatch({ userIds: [dto.userId] })).get(dto.userId);
+  if (!position) return dto;
+  return {
+    ...dto,
+    teamName: position.teamName,
+    team: position.teamName,
+    partName: position.partName,
+    part: position.partName,
+  };
 }
 
 // 어드민 화면 상단/breadcrumb 등에서 회원명을 노출하기 위한 경량 lookup.

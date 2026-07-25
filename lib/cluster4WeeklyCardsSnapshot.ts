@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { resolveCumulativePointsBatch } from "@/lib/pointResolver";
 import { getCluster4WeeklyCardsForProfileUser } from "@/lib/cluster4WeeklyCardsData";
 import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 import { deriveRosterCardStats } from "@/lib/rosterCardStats";
@@ -42,20 +43,16 @@ async function deriveScheduleRate(
 async function derivePointSums(
   profileUserId: string,
 ): Promise<{ poA: number; poB: number; poC: number }> {
-  const { data, error } = await supabaseAdmin
-    .from("user_weekly_points")
-    .select("points,advantages,penalty")
-    .eq("user_id", profileUserId);
-  if (error || !data) return { poA: 0, poB: 0, poC: 0 };
-  let poA = 0;
-  let poB = 0;
-  let poC = 0;
-  for (const r of data as Array<{ points: number | null; advantages: number | null; penalty: number | null }>) {
-    poA += r.points ?? 0;
-    poB += r.advantages ?? 0;
-    poC += r.penalty ?? 0;
+  try {
+    const points = (await resolveCumulativePointsBatch([profileUserId])).get(profileUserId);
+    return {
+      poA: points?.pointA ?? 0,
+      poB: points?.pointB ?? 0,
+      poC: points?.pointC ?? 0,
+    };
+  } catch {
+    return { poA: 0, poB: 0, poC: 0 };
   }
-  return { poA, poB, poC };
 }
 
 // /admin/members 크루 목록 slim 캐시 동기 — snapshot 카드에서 파생된 스칼라를 같은 computed_at 으로
