@@ -14,6 +14,7 @@
 //   제출 성공/강화 판정과 무관 — 기입 여부만 본다.
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { resolveDisplayNames } from "@/lib/displayNameResolver";
 import { isUuid } from "@/lib/isUuid";
 import { fmtDate, seasonLabelOnly, yy2 } from "@/lib/practicalInfoSeasonWeeks";
 import { resolveCluster4LineOrgScope } from "@/lib/adminCluster4LinesData";
@@ -36,7 +37,7 @@ export type InfoLineResultDto = {
   isOpenThisWeek: boolean;
   openedAt: string | null; // opened_at ?? created_at (개설 완료일 때)
   mainTitle: string | null;
-  openedByName: string | null; // 개설자(관리자 display_name ?? email)
+  openedByName: string | null; // user_profiles.display_name
   targetCount: number | null; // 개설 해당자(user-mode 타깃 수)
   secondInputCount: number | null; // 2차 기입자(어떤 필드라도 기입한 크루 수)
 };
@@ -229,7 +230,7 @@ export async function getInfoLineResultsForWeek(opts: {
     userTargetIdsByLine.set(line.id, scopedTids);
   }
 
-  // 4. 개설자 이름 일괄 resolve (display_name ?? admin email ?? "관리자").
+  // 4. 개설자 이름 일괄 resolve — user_profiles.display_name 단일 원천.
   const openerIds = Array.from(
     new Set(
       [...lineByActivity.values()]
@@ -237,26 +238,7 @@ export async function getInfoLineResultsForWeek(opts: {
         .filter((v): v is string => Boolean(v)),
     ),
   );
-  const nameById = new Map<string, string>();
-  if (openerIds.length) {
-    const { data: profs } = await supabaseAdmin
-      .from("user_profiles")
-      .select("user_id,display_name")
-      .in("user_id", openerIds);
-    for (const p of (profs ?? []) as { user_id: string; display_name: string | null }[]) {
-      if (p.display_name?.trim()) nameById.set(p.user_id, p.display_name.trim());
-    }
-    const missing = openerIds.filter((id) => !nameById.has(id));
-    if (missing.length) {
-      const { data: admins } = await supabaseAdmin
-        .from("admin_users")
-        .select("id,email")
-        .in("id", missing);
-      for (const a of (admins ?? []) as { id: string; email: string | null }[]) {
-        if (a.email) nameById.set(a.id, a.email);
-      }
-    }
-  }
+  const nameById = await resolveDisplayNames(openerIds);
 
   // 5. 2차 기입자 — 라인의 user 타깃 제출 중 어떤 필드라도 기입된 target.id 집합.
   const allTargetIds = Array.from(
@@ -323,7 +305,7 @@ export async function getInfoLineResultsForWeek(opts: {
       isOpenThisWeek: true,
       openedAt: line.opened_at ?? line.created_at,
       mainTitle: line.main_title ?? null,
-      openedByName: openerId ? nameById.get(openerId) ?? "관리자" : null,
+      openedByName: openerId ? nameById.get(openerId) ?? null : null,
       targetCount: userTargets.length,
       secondInputCount: secondInput,
     };

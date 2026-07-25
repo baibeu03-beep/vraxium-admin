@@ -165,7 +165,7 @@ export async function loadTeamMembersWithLeaders(
     if (!status) continue; // 팀장/관리자 등 제외.
     rows.push({
       userId: p.user_id,
-      displayName: p.display_name ?? "(이름 없음)",
+      displayName: p.display_name ?? "",
       partName: part,
       statusLabel: status.label,
       isPartLeader: status.isPartLeader,

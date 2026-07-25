@@ -12,6 +12,10 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { loadCurrentWeekOverrideLabels } from "@/lib/positionResolver";
 import {
+  loadEducationRowsByUserIds,
+  selectRepresentativeEducation,
+} from "@/lib/educationResolver";
+import {
   describeWeekByStartMs,
   getOpenableWeekStartMs,
 } from "@/lib/cluster4WeekPolicy";
@@ -161,10 +165,8 @@ async function loadOrgTeamRoster(
     { school: string | null; major: string | null }
   >();
   if (leaderIds.length > 0) {
-    const { data: eduRows } = await supabaseAdmin
-      .from("user_educations")
-      .select("user_id,school_name,major_name_1,is_primary,sort_order,updated_at")
-      .in("user_id", leaderIds);
+    const loadedEducationRows = await loadEducationRowsByUserIds(leaderIds);
+    const eduRows = [...loadedEducationRows.values()].flat();
     type Edu = {
       user_id: string;
       school_name: string | null;
@@ -180,15 +182,7 @@ async function loadOrgTeamRoster(
       grouped.set(e.user_id, list);
     }
     for (const [uid, list] of grouped) {
-      const primary = [...list].sort((a, b) => {
-        const pd = Number(Boolean(b.is_primary)) - Number(Boolean(a.is_primary));
-        if (pd !== 0) return pd;
-        const sd =
-          (a.sort_order ?? Number.MAX_SAFE_INTEGER) -
-          (b.sort_order ?? Number.MAX_SAFE_INTEGER);
-        if (sd !== 0) return sd;
-        return (b.updated_at ?? "").localeCompare(a.updated_at ?? "");
-      })[0];
+      const primary = selectRepresentativeEducation(list);
       eduByUser.set(uid, {
         school: primary?.school_name ?? null,
         major: primary?.major_name_1 ?? null,
@@ -200,7 +194,7 @@ async function loadOrgTeamRoster(
     const p = profById.get(uid);
     const edu = eduByUser.get(uid);
     leaders.set(teamName, {
-      name: p?.display_name?.trim() || "(이름 없음)",
+      name: p?.display_name ?? "",
       school: preferString(edu?.school, p?.school_name),
       department: preferString(edu?.major, p?.department_name),
     });

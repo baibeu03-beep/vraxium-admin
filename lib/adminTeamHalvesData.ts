@@ -16,6 +16,12 @@ import { getCrewDetailDto } from "@/lib/adminCrewDetailData";
 import { getClubRankGradeBatch } from "@/lib/cluster3ClubRankData";
 import { resolvePositionLabels } from "@/lib/adminMembersTypes";
 import { loadCurrentWeekOverrideLabels } from "@/lib/positionResolver";
+import {
+  type EducationAuthorityRow,
+  loadEducationRowsByUserIds,
+  selectRepresentativeEducation,
+} from "@/lib/educationResolver";
+import { displayNameFromProfile } from "@/lib/displayNameResolver";
 import { isOrganizationSlug, ORGANIZATIONS, type OrganizationSlug } from "@/lib/organizations";
 import { loadSeasonWeeks } from "@/lib/adminSeasonWeeksData";
 import {
@@ -348,11 +354,8 @@ export async function getLeaderBasicsBatch(
     .in("user_id", userIds);
   if (pErr) throw new Error(pErr.message);
 
-  const { data: edus, error: eErr } = await supabaseAdmin
-    .from("user_educations")
-    .select("user_id,school_name,major_name_1,is_primary,sort_order,updated_at")
-    .in("user_id", userIds);
-  if (eErr) throw new Error(eErr.message);
+  const educationRows = await loadEducationRowsByUserIds(userIds);
+  const edus = [...educationRows.values()].flat();
 
   // 클래스(role+membership_level) + 품계(getClubRankGradeBatch) 배치.
   const { data: mems, error: mErr } = await supabaseAdmin
@@ -370,20 +373,14 @@ export async function getLeaderBasicsBatch(
 
   // 대표 학력 선택: is_primary 우선 → sort_order asc → updated_at desc.
   const eduByUser = new Map<string, { school: string | null; major: string | null }>();
-  const groups = new Map<string, any[]>();
-  for (const e of (edus ?? []) as any[]) {
+  const groups = new Map<string, EducationAuthorityRow[]>();
+  for (const e of edus) {
     const arr = groups.get(e.user_id) ?? [];
     arr.push(e);
     groups.set(e.user_id, arr);
   }
   for (const [uid, arr] of groups) {
-    arr.sort((a, b) => {
-      if (!!b.is_primary !== !!a.is_primary) return b.is_primary ? 1 : -1;
-      if ((a.sort_order ?? 0) !== (b.sort_order ?? 0))
-        return (a.sort_order ?? 0) - (b.sort_order ?? 0);
-      return String(b.updated_at ?? "").localeCompare(String(a.updated_at ?? ""));
-    });
-    const top = arr[0];
+    const top = selectRepresentativeEducation(arr);
     eduByUser.set(uid, { school: top?.school_name ?? null, major: top?.major_name_1 ?? null });
   }
 
@@ -404,7 +401,7 @@ export async function getLeaderBasicsBatch(
     const level = pickLevel(memByUser.get(p.user_id) ?? []);
     const grade = gradeMap.get(p.user_id);
     out.set(p.user_id, {
-      name: p.display_name,
+      name: displayNameFromProfile(p),
       org: p.organization_slug,
       birth6: toBirth6(p.birth_date),
       gender: p.gender,
@@ -518,8 +515,8 @@ export async function listHalfTeams(
       description: r.description,
       leaderUserId: r.leader_user_id,
       leaderCrewCode: r.leader_crew_code,
-      // 이름 = 명단 SoT(leader_name) 우선, 없으면 연결크루 display_name. 둘 다 없으면 null→"-".
-      leaderName: r.leader_name ?? lb?.name ?? null,
+      // 사람 이름은 연결된 크루의 user_profiles.display_name만 사용한다.
+      leaderName: lb?.name ?? null,
       // 부가정보는 연결크루 존재 시에만(무매칭=null→UI "-").
       leaderBirth6: lb?.birth6 ?? null,
       leaderGender: lb?.gender ?? null,

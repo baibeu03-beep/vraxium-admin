@@ -15,6 +15,8 @@
 //   매칭 완료 후 화면 표시값은 닉네임 원문이 아니라 우리 DB 기준(crew_no/이름/팀/파트/학교/전공).
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { resolveRepresentativeEducations } from "@/lib/educationResolver";
+import { displayNameFromProfile } from "@/lib/displayNameResolver";
 import { fetchCrewNoMap } from "@/lib/adminCrewNo";
 import { fetchCrewCodeMap } from "@/lib/adminCrewCode";
 import { IN_FILTER_ID_CHUNK } from "@/lib/supabaseInChunk";
@@ -315,28 +317,12 @@ async function enrichCrewProfiles(
     { school_name: string | null; major_name_1: string | null }
   >();
   try {
-    for (let i = 0; i < userIds.length; i += IN_FILTER_ID_CHUNK) {
-      const slice = userIds.slice(i, i + IN_FILTER_ID_CHUNK);
-      const { data, error } = await supabaseAdmin
-        .from("user_educations")
-        .select("user_id,school_name,major_name_1,is_primary,sort_order")
-        .in("user_id", slice);
-      if (error) break;
-      for (const e of (data ?? []) as Array<{
-        user_id: string;
-        school_name: string | null;
-        major_name_1: string | null;
-        is_primary: boolean | null;
-        sort_order: number | null;
-      }>) {
-        const cur = eduMap.get(e.user_id);
-        if (!cur || e.is_primary) {
-          eduMap.set(e.user_id, {
-            school_name: e.school_name,
-            major_name_1: e.major_name_1,
-          });
-        }
-      }
+    const resolved = await resolveRepresentativeEducations(userIds);
+    for (const [userId, education] of resolved) {
+      eduMap.set(userId, {
+        school_name: education.schoolName,
+        major_name_1: education.majorName,
+      });
     }
   } catch {
     /* user_educations 미존재 — profile 폴백 사용 */
@@ -359,7 +345,7 @@ async function enrichCrewProfiles(
       userId: p.user_id,
       crewNo: crewNoMap.get(p.user_id) ?? null,
       crewCode: crewCodeMap.get(p.user_id) ?? null,
-      name: p.display_name?.trim() ?? "",
+      name: displayNameFromProfile(p) ?? "",
       teamName: pick(mem?.team_name, p.current_team_name),
       partName: pick(mem?.part_name, p.current_part_name),
       schoolName: pick(edu?.school_name, p.school_name),

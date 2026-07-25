@@ -3,7 +3,17 @@ import type { OrganizationSlug } from "@/lib/organizations";
 import { excludeSuperAdmins } from "@/lib/superAdmins";
 import { resolveUserScope, type UserScope } from "@/lib/userScope";
 import type { ScopeMode } from "@/lib/userScopeShared";
+import { fetchTestUserMarkerIds } from "@/lib/testUsers";
 import { selectMembershipRow } from "@/lib/membershipResolver";
+import {
+  loadEducationRowsByUserIds,
+  selectRepresentativeEducation,
+} from "@/lib/educationResolver";
+import {
+  displayNameFromProfile,
+  resolveDisplayName,
+} from "@/lib/displayNameResolver";
+import { resolvePersonDisplayNames } from "@/lib/koreanRomanization";
 import { resolveCurrentPositionBatch } from "@/lib/positionResolver";
 
 // Crews source of truth
@@ -20,7 +30,6 @@ import { resolveCurrentPositionBatch } from "@/lib/positionResolver";
 type UserProfileRow = {
   user_id: string;
   display_name: string | null;
-  english_name: string | null;
   gender: string | null;
   birth_date: string | null;
   contact_phone: string | null;
@@ -104,9 +113,9 @@ export type AdminCrewDto = {
   legacyUserId: string;
   userId: string;
   usersLegacyUserId: string | null;
-  displayName: string;
-  name: string;
-  englishName: string | null;
+  displayName: string | null;
+  name: string | null;
+  englishName: string;
   gender: string | null;
   birthDate: string | null;
   age: number | null;
@@ -140,7 +149,6 @@ export type AdminCrewDto = {
 const PROFILE_SELECT = [
   "user_id",
   "display_name",
-  "english_name",
   "gender",
   "birth_date",
   "contact_phone",
@@ -245,16 +253,6 @@ function pickBestMembership(rows: UserMembershipRow[]) {
   return selectMembershipRow(rows);
 }
 
-function pickBestEducation(rows: UserEducationRow[]) {
-  return [...rows].sort((a, b) => {
-    const primaryDelta = Number(Boolean(b.is_primary)) - Number(Boolean(a.is_primary));
-    if (primaryDelta !== 0) return primaryDelta;
-    const sortDelta = (a.sort_order ?? Number.MAX_SAFE_INTEGER) - (b.sort_order ?? Number.MAX_SAFE_INTEGER);
-    if (sortDelta !== 0) return sortDelta;
-    return (b.updated_at ?? "").localeCompare(a.updated_at ?? "");
-  })[0];
-}
-
 type CrewSourceRows = {
   profiles: UserProfileRow[];
   users: UsersRow[];
@@ -262,6 +260,7 @@ type CrewSourceRows = {
   memberships: UserMembershipRow[];
   educations: UserEducationRow[];
   growthStats: UserGrowthStatsRow[];
+  testUserIds: Set<string>;
 };
 
 // PostgREST 의 .in() 은 id 들을 URL 쿼리스트링에 그대로 나열한다 — 로스터 전체(700+)면
@@ -363,17 +362,21 @@ async function fetchCrewSourceRows(options: {
       memberships: [],
       educations: [],
       growthStats: [],
+      testUserIds: new Set(),
     };
   }
 
   const userIds = profiles.map((profile) => profile.user_id);
 
   // .in() URL 길이 한계 회피 — user_id 청크 분할 조회(병렬 4종, 각 테이블 내부는 순차 청크).
-  const [users, memberships, educations, growthStats] = await Promise.all([
+  const [users, memberships, educations, growthStats, allTestUserIds] = await Promise.all([
     fetchByIdsChunked<UsersRow>("users", USERS_SELECT, "id", userIds),
     fetchByIdsChunked<UserMembershipRow>("user_memberships", MEMBERSHIP_SELECT, "user_id", userIds),
-    fetchByIdsChunked<UserEducationRow>("user_educations", EDUCATION_SELECT, "user_id", userIds),
+    loadEducationRowsByUserIds(userIds, EDUCATION_SELECT).then((rows) =>
+      [...rows.values()].flat() as UserEducationRow[],
+    ),
     fetchByIdsChunked<UserGrowthStatsRow>("user_growth_stats", GROWTH_SELECT, "user_id", userIds),
+    fetchTestUserMarkerIds(),
   ]);
 
   // graft 대상 후보만 수집 — olympus 외 소스 이관 행은 숫자가 겹쳐도 조회 자체를 배제.
@@ -390,7 +393,15 @@ async function fetchCrewSourceRows(options: {
     );
   }
 
-  return { profiles, users, legacyRows, memberships, educations, growthStats };
+  return {
+    profiles,
+    users,
+    legacyRows,
+    memberships,
+    educations,
+    growthStats,
+    testUserIds: new Set(userIds.filter((userId) => allTestUserIds.has(userId))),
+  };
 }
 
 function buildAdminCrewDtos(rows: CrewSourceRows): AdminCrewDto[] {
@@ -429,15 +440,12 @@ function buildAdminCrewDtos(rows: CrewSourceRows): AdminCrewDto[] {
         : null;
 
     const membership = pickBestMembership(membershipsByUserId.get(profile.user_id) ?? []);
-    const education = pickBestEducation(educationsByUserId.get(profile.user_id) ?? []);
+    const education = selectRepresentativeEducation(
+      educationsByUserId.get(profile.user_id) ?? [],
+    );
     const growth = growthByUserId.get(profile.user_id);
 
-    const displayName = preferString(
-      profile.display_name,
-      legacy?.display_name,
-      profile.contact_email,
-      profile.user_id,
-    )!;
+    const displayName = displayNameFromProfile(profile);
 
     const schoolName = preferString(
       education?.school_name,
@@ -483,7 +491,9 @@ function buildAdminCrewDtos(rows: CrewSourceRows): AdminCrewDto[] {
       usersLegacyUserId,
       displayName,
       name: displayName,
-      englishName: preferString(profile.english_name),
+      englishName: resolvePersonDisplayNames(displayName, {
+        isTestUser: rows.testUserIds.has(profile.user_id),
+      }).englishName,
       gender: preferString(profile.gender, legacy?.gender),
       birthDate,
       age: computeAge(birthDate),
@@ -546,7 +556,7 @@ export async function listAdminCrewDtos(
     if (a.isVisible !== b.isVisible) return Number(b.isVisible) - Number(a.isVisible);
     const teamCompare = (a.teamName ?? "").localeCompare(b.teamName ?? "", "ko");
     if (teamCompare !== 0) return teamCompare;
-    return a.displayName.localeCompare(b.displayName, "ko");
+    return (a.displayName ?? "").localeCompare(b.displayName ?? "", "ko");
   });
 }
 
@@ -578,17 +588,12 @@ export async function getAdminCrewDtoByLegacyUserId(routeParam: string) {
 export async function getMemberDisplayName(userId: string) {
   const id = String(userId ?? "").trim();
   if (!id) return null;
-  const { data, error } = await supabaseAdmin
-    .from("user_profiles")
-    .select("display_name")
-    .eq("user_id", id)
-    .maybeSingle();
-  if (error) {
+  try {
+    return await resolveDisplayName(id);
+  } catch (error) {
     console.error("[admin] getMemberDisplayName failed", { userId: id, error });
     return null;
   }
-  const name = (data as { display_name: string | null } | null)?.display_name;
-  return name && name.trim() !== "" ? name : null;
 }
 
 // users.legacy_user_id 를 user_profiles.user_id 로 변환 (없으면 null).

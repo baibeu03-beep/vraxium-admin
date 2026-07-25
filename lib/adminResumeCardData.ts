@@ -1,4 +1,9 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import {
+  loadEducationRowsByUserIds,
+  selectRepresentativeEducation,
+} from "@/lib/educationResolver";
+import { resolvePersonDisplayNames } from "@/lib/koreanRomanization";
 import { getAdminCrewDtoByLegacyUserId } from "@/lib/adminCrewData";
 import type { OrganizationSlug } from "@/lib/organizations";
 
@@ -112,24 +117,6 @@ type EducationCandidate = {
   updated_at?: string | null;
 };
 
-function pickPrimaryEducation<T extends EducationCandidate>(
-  rows: T[],
-): T | null {
-  if (!rows || rows.length === 0) return null;
-  return (
-    [...rows].sort((a, b) => {
-      const primaryDelta =
-        Number(Boolean(b.is_primary)) - Number(Boolean(a.is_primary));
-      if (primaryDelta !== 0) return primaryDelta;
-      const sortDelta =
-        (a.sort_order ?? Number.MAX_SAFE_INTEGER) -
-        (b.sort_order ?? Number.MAX_SAFE_INTEGER);
-      if (sortDelta !== 0) return sortDelta;
-      return (b.updated_at ?? "").localeCompare(a.updated_at ?? "");
-    })[0] ?? null
-  );
-}
-
 // ─────────────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────────────
@@ -141,7 +128,7 @@ export type ResumeCardBundle = {
   // user_profiles.english_name 의 camelCase 미러. sidebar resume-card 의
   // `<span class="name-eng">` 영역이 직접 읽는다. snake_case 값은
   // `profile.english_name` 에도 계속 노출되므로 기존 consumer 는 영향 없음.
-  englishName: string | null;
+  englishName: string;
   profile: Row | null;
   education: Row | null;
   membership: Row | null;
@@ -182,7 +169,7 @@ export async function getResumeCardForCrew(
     return {
       legacyUserId: crew.legacyUserId,
       userId: null,
-      englishName: crew.englishName ?? null,
+      englishName: crew.englishName,
       profile: null,
       education: null,
       membership: null,
@@ -214,10 +201,10 @@ export async function getResumeCardForCrew(
       .eq("user_id", userId)
       .limit(1)
       .maybeSingle(),
-    supabaseAdmin
-      .from("user_educations")
-      .select("*")
-      .eq("user_id", userId),
+    loadEducationRowsByUserIds([userId], "*").then((rows) => ({
+      data: rows.get(userId) ?? [],
+      error: null,
+    })),
     supabaseAdmin
       .from("user_memberships")
       .select("*")
@@ -304,18 +291,27 @@ export async function getResumeCardForCrew(
   const educationRows = (educationRes.data ?? []) as Array<
     Row & EducationCandidate
   >;
-  const primaryEducation = pickPrimaryEducation(educationRows);
+  const primaryEducation = selectRepresentativeEducation(educationRows);
 
-  const profileRow = (profileRes.data ?? null) as Row | null;
-  const profileEnglishName =
-    profileRow && typeof profileRow.english_name === "string"
-      ? (profileRow.english_name as string)
-      : null;
+  const rawProfileRow = (profileRes.data ?? null) as Row | null;
+  const names = {
+    ...resolvePersonDisplayNames(
+      rawProfileRow?.display_name as string | null | undefined,
+    ),
+    englishName: crew.englishName,
+  };
+  const profileRow = rawProfileRow
+    ? {
+        ...rawProfileRow,
+        english_name: names.englishName,
+        eng_name: names.englishName,
+      }
+    : null;
 
   return {
     legacyUserId: crew.legacyUserId,
     userId,
-    englishName: profileEnglishName ?? crew.englishName ?? null,
+    englishName: names.englishName,
     profile: profileRow,
     education: (primaryEducation ?? null) as Row | null,
     membership: (membershipRes.data ?? null) as Row | null,

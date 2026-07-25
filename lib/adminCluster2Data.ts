@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { loadEducationRowsByUserIds } from "@/lib/educationResolver";
 import {
   REVIEW_LINK_RESOURCE_KEY,
   REVIEW_LINK_SLOTS,
@@ -488,11 +489,10 @@ export async function getCluster2ForCrew(
       .select(SLOGAN_FIELDS.join(","))
       .eq("user_id", userId)
       .maybeSingle(),
-    supabaseAdmin
-      .from("user_educations")
-      .select(EDUCATION_SELECT)
-      .eq("user_id", userId)
-      .order("sort_order", { ascending: true }),
+    loadEducationRowsByUserIds([userId], EDUCATION_SELECT).then((rows) => ({
+      data: rows.get(userId) ?? [],
+      error: null,
+    })),
     supabaseAdmin
       .from("user_edit_windows")
       .select("opened_at,expires_at")

@@ -1683,7 +1683,7 @@ export async function listCluster4LinesDetailed(
       display_name: string | null;
       organization_slug: string | null;
     }>) {
-      nameByUserId.set(row.user_id, row.display_name ?? "(이름 없음)");
+      nameByUserId.set(row.user_id, row.display_name ?? "");
       orgByUserId.set(row.user_id, row.organization_slug ?? null);
     }
   }

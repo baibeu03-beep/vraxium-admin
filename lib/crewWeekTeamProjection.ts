@@ -30,6 +30,8 @@
 //     두 화면의 순서는 달라도 되고, 값은 같아야 한다.
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { resolveRepresentativeEducations } from "@/lib/educationResolver";
+import { displayNameFromProfile } from "@/lib/displayNameResolver";
 import type { OrganizationSlug } from "@/lib/organizations";
 import type { PositionCode } from "@/shared/crewClassPosition";
 
@@ -144,36 +146,24 @@ export async function loadCrewWeekTeamContext(opts: {
     .map((c) => c.leader_user_id)
     .filter((v): v is string => !!v);
   if (leaderIds.length > 0) {
-    const [{ data: profs }, { data: edus }] = await Promise.all([
+    const [{ data: profs }, educationByUser] = await Promise.all([
       supabaseAdmin
         .from("user_profiles")
         .select("user_id,display_name,school_name,department_name")
         .in("user_id", leaderIds),
-      supabaseAdmin
-        .from("user_educations")
-        .select("user_id,school_name,major_name_1,sort_order")
-        .in("user_id", leaderIds)
-        .order("sort_order", { ascending: true }),
+      resolveRepresentativeEducations(leaderIds),
     ]);
-    const eduByUser = new Map<string, { school_name: string | null; major_name_1: string | null }>();
-    for (const e of (edus ?? []) as Array<{
-      user_id: string;
-      school_name: string | null;
-      major_name_1: string | null;
-    }>) {
-      if (!eduByUser.has(e.user_id)) eduByUser.set(e.user_id, e);
-    }
     for (const p of (profs ?? []) as Array<{
       user_id: string;
       display_name: string | null;
       school_name: string | null;
       department_name: string | null;
     }>) {
-      const e = eduByUser.get(p.user_id);
+      const e = educationByUser.get(p.user_id);
       leaderById.set(p.user_id, {
-        displayName: p.display_name ?? null,
-        school: e?.school_name ?? p.school_name ?? null,
-        major: e?.major_name_1 ?? p.department_name ?? null,
+        displayName: displayNameFromProfile(p),
+        school: e?.schoolName ?? null,
+        major: e?.majorName ?? null,
       });
     }
   }
@@ -283,8 +273,8 @@ export function buildCrewWeekTeamResults(opts: {
         b.successCrew > b.failCrew ? "win" : b.successCrew < b.failCrew ? "lose" : "draw",
       leader: {
         userId: leaderId,
-        // 카탈로그 leader_name 우선, 없으면 링크된 크루 display_name(front 규칙).
-        displayName: catalog?.leader_name ?? leaderInfo?.displayName ?? null,
+        // leader_name은 카탈로그 라벨이며 사람 이름으로 사용하지 않는다.
+        displayName: leaderInfo?.displayName ?? null,
         schoolName: leaderInfo?.school ?? null,
         majorName: leaderInfo?.major ?? null,
       },

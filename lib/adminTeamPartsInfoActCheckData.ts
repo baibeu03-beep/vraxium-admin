@@ -17,6 +17,7 @@
 // 체크 상태(checkStatus): 신청됨일 때만 — 실제 신청(completed_at ?? requested_at) ≤ 신청 시점 → 'ontime'(🔴), 초과 → 'late'(🔵).
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { resolveDisplayNames } from "@/lib/displayNameResolver";
 import { loadCurrentWeekOverrideLabels } from "@/lib/positionResolver";
 import { isActOpenAtTime } from "@/lib/weekOpenGate";
 import { loadWeekOpeningTimeline } from "@/lib/weekOpeningTimeline";
@@ -477,25 +478,23 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
   );
   const requesterInfoById = new Map<string, { name: string; role: string }>();
   if (requesterIds.length) {
-    const [{ data: profs }, { data: mems }, { data: admins }] = await Promise.all([
-      supabaseAdmin.from("user_profiles").select("user_id,display_name,role").in("user_id", requesterIds),
+    const [nameById, { data: profs }, { data: mems }, { data: admins }] = await Promise.all([
+      resolveDisplayNames(requesterIds),
+      supabaseAdmin.from("user_profiles").select("user_id,role").in("user_id", requesterIds),
       supabaseAdmin.from("user_memberships").select("user_id,membership_level,is_current").in("user_id", requesterIds),
-      supabaseAdmin.from("admin_users").select("id,email").in("id", requesterIds),
+      supabaseAdmin.from("admin_users").select("id").in("id", requesterIds),
     ]);
-    const nameById = new Map<string, string>();
     const roleRawById = new Map<string, string | null>();
     const levelById = new Map<string, string | null>();
     const isAdmin = new Set<string>();
-    for (const p of (profs ?? []) as Array<{ user_id: string; display_name: string | null; role: string | null }>) {
-      if (p.display_name?.trim()) nameById.set(p.user_id, p.display_name.trim());
+    for (const p of (profs ?? []) as Array<{ user_id: string; role: string | null }>) {
       roleRawById.set(p.user_id, p.role ?? null);
     }
     for (const m of (mems ?? []) as Array<{ user_id: string; membership_level: string | null; is_current: boolean | null }>) {
       if (m.is_current) levelById.set(m.user_id, m.membership_level ?? null);
     }
-    for (const a of (admins ?? []) as Array<{ id: string; email: string | null }>) {
+    for (const a of (admins ?? []) as Array<{ id: string }>) {
       isAdmin.add(a.id);
-      if (!nameById.has(a.id) && a.email) nameById.set(a.id, a.email);
     }
     // 현재 주차 파트/클래스 override 우선(현재 상태 화면 규칙). 관리자 등 override 없는 대상은 종전 로직.
     const weekOverrides = await loadCurrentWeekOverrideLabels([...requesterIds]);

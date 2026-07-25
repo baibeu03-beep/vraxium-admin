@@ -14,6 +14,10 @@ import { readWeeklyCardsSnapshot } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { foldGrowthMetrics } from "@/lib/growthCore";
 import { isTransitionWeekStart, getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import { resolveProfilePhotoUrl } from "@/lib/customerAppUrl";
+import {
+  loadEducationRowsByUserIds,
+  selectRepresentativeEducation,
+} from "@/lib/educationResolver";
 import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 
 // 크루 상세 페이지(/admin/members/[userId]) 단건 DTO — 인적사항 + 클럽 소속.
@@ -215,18 +219,6 @@ function matchWeekByDate(weeks: WeekRow[], dateOnly: string): WeekRow | null {
 }
 
 // 대표 학력 선택 — is_primary 우선, sort_order 오름차순, updated_at 최신(고객앱 동일 규칙).
-function pickPrimaryEducation(rows: EducationRow[]): EducationRow | null {
-  if (rows.length === 0) return null;
-  return [...rows].sort((a, b) => {
-    const primaryDelta = Number(Boolean(b.is_primary)) - Number(Boolean(a.is_primary));
-    if (primaryDelta !== 0) return primaryDelta;
-    const sortDelta =
-      (a.sort_order ?? Number.MAX_SAFE_INTEGER) - (b.sort_order ?? Number.MAX_SAFE_INTEGER);
-    if (sortDelta !== 0) return sortDelta;
-    return (b.updated_at ?? "").localeCompare(a.updated_at ?? "");
-  })[0];
-}
-
 // 입학 시기 — admission_year(+ admission_month) → "2024. 03" | "2024". 연도 없으면 null.
 function formatAdmissionPeriod(
   year: string | number | null,
@@ -444,10 +436,13 @@ export async function getCrewDetailDto(
       )
       .eq("user_id", id)
       .maybeSingle(),
-    supabaseAdmin
-      .from("user_educations")
-      .select("school_name,major_name_1,admission_year,admission_month,sort_order,is_primary,updated_at")
-      .eq("user_id", id),
+    loadEducationRowsByUserIds(
+      [id],
+      "user_id,school_name,major_name_1,admission_year,admission_month,sort_order,is_primary,updated_at",
+    ).then((rows) => ({
+      data: rows.get(id) ?? [],
+      error: null as { message: string } | null,
+    })),
     supabaseAdmin
       .from("weeks")
       .select("id,start_date,end_date,season_key,week_number")
@@ -485,7 +480,9 @@ export async function getCrewDetailDto(
   const weeks = (weeksRes.data ?? []) as unknown as WeekRow[];
 
   // 대표 학력 — 학교/전공/입학 시기는 동일 행에서.
-  const primaryEdu = pickPrimaryEducation((eduRes.data ?? []) as unknown as EducationRow[]);
+  const primaryEdu = selectRepresentativeEducation(
+    (eduRes.data ?? []) as unknown as EducationRow[],
+  );
   const schoolName = primaryEdu?.school_name ?? crew.schoolName ?? null;
   const departmentName = primaryEdu?.major_name_1 ?? crew.departmentName ?? null;
   const admissionPeriod = primaryEdu

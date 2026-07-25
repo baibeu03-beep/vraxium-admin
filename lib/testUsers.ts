@@ -202,7 +202,7 @@ export async function listTestUsers(): Promise<TestUserDto[]> {
 
     return {
       userId: marker.user_id,
-      name: profile?.display_name?.trim() || marker.user_id,
+      name: profile?.display_name ?? "",
       email: profile?.auth_email ?? profile?.contact_email ?? null,
       seasonName,
       teamName: position?.teamName ?? null,

@@ -32,7 +32,7 @@ export async function listCluster4Users(options?: {
     .filter((data ?? []) as UserProfileRow[], (row) => row.user_id)
     .map((row) => ({
       userId: row.user_id,
-      displayName: row.display_name ?? "(이름 없음)",
+      displayName: row.display_name ?? null,
       profileImg: row.profile_photo_url,
       organization: row.organization_slug,
     }));

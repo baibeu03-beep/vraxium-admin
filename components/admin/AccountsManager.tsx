@@ -910,7 +910,7 @@ export default function AccountsManager() {
           reload();
           if (result.temporary_password) {
             setTempPassword({
-              label: result.account.displayName ?? "(이름 없음)",
+              label: result.account.displayName ?? "",
               email: result.account.email ?? result.account.authEmail ?? "—",
               password: result.temporary_password,
             });

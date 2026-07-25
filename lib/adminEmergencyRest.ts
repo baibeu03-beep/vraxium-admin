@@ -424,7 +424,7 @@ export async function listEmergencyCrews(
     const p = profById.get(u);
     return {
       userId: u,
-      crewName: p?.display_name?.trim() || "(이름 없음)",
+      crewName: p?.display_name ?? "",
       crewCode: crewCodes.get(u) ?? null,
       classLabel:
         weekOverrides.get(u)?.classLabel ?? classLabel(p?.role ?? null, levelByUser.get(u) ?? null),

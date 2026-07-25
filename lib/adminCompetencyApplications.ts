@@ -133,12 +133,12 @@ function buildApplicationDtos(
       targetUserId: r.target_user_id,
       crewNo: rec?.crewNo ?? null,
       crewCode: rec?.crewCode ?? null,
-      displayName: rec?.name ?? "(이름 없음)",
+      displayName: rec?.name ?? "",
       teamName: rec?.teamName ?? null,
       schoolName: rec?.schoolName ?? null,
       crewLabel: rec
         ? crewLabel(rec)
-        : ["-", "(이름 없음)", "-", "-"].join(" - "),
+        : ["-", "", "-", "-"].join(" - "),
       competencyLineMasterId: r.competency_line_master_id,
       lineCode: r.line_code,
       lineName: r.line_name,
@@ -323,7 +323,7 @@ function buildResults(
       userId: c.userId,
       crewNo: rec?.crewNo ?? c.crewNo ?? null,
       crewCode: rec?.crewCode ?? null,
-      displayName: rec?.name ?? c.displayName ?? "(이름 없음)",
+      displayName: rec?.name ?? c.displayName ?? "",
       teamName: rec?.teamName ?? c.teamName ?? null,
       schoolName: rec?.schoolName ?? null,
       progressLine,

@@ -672,7 +672,7 @@ async function resolveCrewMeta(userIds: string[]): Promise<Map<string, CrewMeta>
     const m = memMap.get(p.user_id);
     const ovr = weekOverrides.get(p.user_id);
     map.set(p.user_id, {
-      name: p.display_name?.trim() || "(이름 없음)",
+      name: p.display_name ?? "",
       // 현재 주차 override 우선(현재 상태 화면 규칙) — 없으면 종전 멤버십 값.
       teamName: ovr?.rawTeam ?? pick(m?.team_name, p.current_team_name),
       partName: ovr ? ovr.rawPart : pick(m?.part_name, p.current_part_name),
@@ -691,7 +691,7 @@ function toCrewDto(
   const m = userId ? meta.get(userId) : undefined;
   return {
     userId,
-    name: m?.name ?? (nickname?.trim() || "(이름 없음)"),
+    name: m?.name ?? nickname ?? "",
     teamName: m?.teamName ?? null,
     partName: m?.partName ?? null,
     className: m?.className ?? "-",
@@ -2247,7 +2247,7 @@ export async function applyProcessManualGrant(input: {
       organization_slug: organization,
       scope_mode: mode,
       user_id: id,
-      nickname: byId.get(id)?.display_name?.trim() || "(이름 없음)",
+      nickname: byId.get(id)?.display_name ?? "",
       match_type: "matched",
       match_reason: "manual",
     }));

@@ -498,7 +498,7 @@ async function resolveRequesterInfo(
     const p = profileById.get(uid);
     const best = pickBestMembership(membershipsByUser.get(uid) ?? []);
     out.set(uid, {
-      name: p?.display_name?.trim() || null,
+      name: p?.display_name ?? null,
       roleLabel: resolvePositionLabels({
         positionCode: weekOverrides.get(uid)?.positionCode ?? null,
         role: p?.role ?? null,

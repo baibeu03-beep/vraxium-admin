@@ -206,7 +206,7 @@ export async function generateCrewCodes(options: {
       userId: p.user_id,
       orgSlug: p.organization_slug,
       startWeekKey: startWeekKey(sw!),
-      displayName: (p.display_name ?? p.user_id).trim() || p.user_id,
+      displayName: p.display_name ?? "",
     });
   }
   const nameOrders = assignNameOrders(nameOrderCrews);
@@ -244,7 +244,7 @@ export async function generateCrewCodes(options: {
 
     planned.push({
       userId: p.user_id,
-      displayName: (p.display_name ?? p.user_id).trim() || p.user_id,
+      displayName: p.display_name ?? "",
       orgSlug: p.organization_slug,
       oldCode: p.crew_code,
       newCode,

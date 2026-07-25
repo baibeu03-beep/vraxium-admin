@@ -139,7 +139,7 @@ export async function loadTeamCrewRows(
     if (!part || EXCLUDED_PART_NAMES.has(part)) continue;
     rows.push({
       userId: p.user_id,
-      displayName: p.display_name ?? "(이름 없음)",
+      displayName: p.display_name ?? "",
       partName: effPart,
       role: p.role,
       membershipLevel: m.membership_level,
@@ -358,7 +358,7 @@ export async function getTeamOverall(
         const info = crewMap.get(userId);
         return {
           userId,
-          displayName: info?.displayName ?? "(이름 없음)",
+          displayName: info?.displayName ?? "",
           statusLabel: info?.statusLabel ?? "-",
           cells: cs,
         };

@@ -26,6 +26,7 @@
 // mode(operating/test): 실무 경험 팀 목록 스코프만 달라진다(listTeams). DTO 구조는 동일 — demoUserId 경로 없음.
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { resolveDisplayNames } from "@/lib/displayNameResolver";
 import {
   loadWeekOpeningConfig,
   type ExperienceLineType,
@@ -283,16 +284,7 @@ async function loadCompetencyLineOpening(opts: {
 
   // 5) 운영진(개설자) 이름.
   const openerIds = Array.from(new Set([...aggByMaster.values()].map((a) => a.openerId).filter((v): v is string => !!v)));
-  const nameById = new Map<string, string>();
-  if (openerIds.length) {
-    const { data: profs } = await supabaseAdmin.from("user_profiles").select("user_id,display_name").in("user_id", openerIds);
-    for (const p of (profs ?? []) as Array<{ user_id: string; display_name: string | null }>) if (p.display_name?.trim()) nameById.set(p.user_id, p.display_name.trim());
-    const missing = openerIds.filter((id) => !nameById.has(id));
-    if (missing.length) {
-      const { data: admins } = await supabaseAdmin.from("admin_users").select("id,email").in("id", missing);
-      for (const a of (admins ?? []) as Array<{ id: string; email: string | null }>) if (a.email) nameById.set(a.id, a.email);
-    }
-  }
+  const nameById = await resolveDisplayNames(openerIds);
 
   // 6) 라인 DTO — 등록 마스터 전부. 개설(클럽 크루≥1) 여부로 상태 결정.
   const eligibleCrewCount = eligibleCrewIds.size;
@@ -309,7 +301,7 @@ async function loadCompetencyLineOpening(opts: {
     return {
       lineId: m.id,
       lineName: m.line_name ?? m.line_code ?? m.id,
-      operatorName: created && agg?.openerId ? nameById.get(agg.openerId) ?? "관리자" : null,
+      operatorName: created && agg?.openerId ? nameById.get(agg.openerId) ?? null : null,
       // 개설=오픈(역량은 개설 시점에야 오픈 여부를 앎). 미개설=미오픈.
       isOpenThisWeek: created,
       createdAtLabel: created ? formatCreatedAtKst(agg?.openedAt ?? null) : null,
@@ -442,18 +434,7 @@ async function loadExperienceLineOpening(opts: {
 
   // 5) 운영진(개설자) 이름 — opened_by → display_name(없으면 admin email ?? "관리자").
   const openerIds = Array.from(new Set([...headerByTeam.values()].map((h) => h.openedBy).filter((v): v is string => !!v)));
-  const nameById = new Map<string, string>();
-  if (openerIds.length) {
-    const { data: profs } = await supabaseAdmin.from("user_profiles").select("user_id,display_name").in("user_id", openerIds);
-    for (const p of (profs ?? []) as Array<{ user_id: string; display_name: string | null }>) {
-      if (p.display_name?.trim()) nameById.set(p.user_id, p.display_name.trim());
-    }
-    const missing = openerIds.filter((id) => !nameById.has(id));
-    if (missing.length) {
-      const { data: admins } = await supabaseAdmin.from("admin_users").select("id,email").in("id", missing);
-      for (const a of (admins ?? []) as Array<{ id: string; email: string | null }>) if (a.email) nameById.set(a.id, a.email);
-    }
-  }
+  const nameById = await resolveDisplayNames(openerIds);
 
   // 6) 팀 코호트(개설 가능 크루 모수) — 팀별 활동 크루. 관리 라인 = 심화 크루(파트장/에이전트)만.
   const cohorts = await Promise.all(
@@ -466,7 +447,7 @@ async function loadExperienceLineOpening(opts: {
     const cohort = cohorts[i];
     const cohortCount = cohort.length;
     const advancedCount = cohort.filter((c) => canEditOverallManagement(c)).length; // 심화(관리 라인 모수)
-    const operatorName = header?.openedBy ? nameById.get(header.openedBy) ?? "관리자" : null;
+    const operatorName = header?.openedBy ? nameById.get(header.openedBy) ?? null : null;
     const savedTeam = savedExp[t.id] ?? {};
 
     const lines: LineOpeningRowDto[] = EXP_CATEGORIES.map((c) => {

@@ -501,7 +501,7 @@ export async function listCrewsForTargetSelection(options: {
     const ovr = weekOverrides.get(p.user_id) ?? null;
     return {
       userId: p.user_id,
-      displayName: p.display_name ?? "(이름 없음)",
+      displayName: p.display_name ?? "",
       crewNo: crewNoMap.get(p.user_id) ?? null,
       profileImg: p.profile_photo_url,
       organization: p.organization_slug,

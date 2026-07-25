@@ -1,5 +1,5 @@
 import { requireAdmin, type AdminRole } from "@/lib/adminAuth";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { resolveDisplayName } from "@/lib/displayNameResolver";
 
 // 로그인된 관리자 본인 정보 DTO.
 //   - 관리자 이름(displayName)의 SoT 는 user_profiles.display_name 이다.
@@ -17,23 +17,15 @@ export type AdminMeDto = {
 export async function loadAdminDisplayName(
   userId: string,
 ): Promise<string | null> {
-  const { data, error } = await supabaseAdmin
-    .from("user_profiles")
-    .select("display_name")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (error) {
+  try {
+    return await resolveDisplayName(userId);
+  } catch (error) {
     console.error("[loadAdminDisplayName] user_profiles lookup failed", {
       userId,
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
     });
     return null;
   }
-
-  const raw = (data?.display_name ?? null) as string | null;
-  const trimmed = raw?.trim() ?? "";
-  return trimmed.length > 0 ? trimmed : null;
 }
 
 export async function getAdminMe(): Promise<AdminMeDto> {

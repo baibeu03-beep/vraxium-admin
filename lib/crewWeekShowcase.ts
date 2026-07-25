@@ -19,6 +19,7 @@
 // null/0 계약: null = 아직 계산되지 않음("-") · 0 = 실제 0. `?? 0` 폴백 금지.
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { resolveRepresentativeEducations } from "@/lib/educationResolver";
 import { resolveWeeklyPointsBatch } from "@/lib/pointResolver";
 import type { OrganizationSlug } from "@/lib/organizations";
 import {
@@ -60,38 +61,12 @@ async function loadEducation(
 ): Promise<Map<string, { school: string | null; major: string | null }>> {
   const out = new Map<string, { school: string | null; major: string | null }>();
   if (userIds.length === 0) return out;
-  for (let i = 0; i < userIds.length; i += 300) {
-    const slice = userIds.slice(i, i + 300);
-    const [{ data: profs }, { data: edus }] = await Promise.all([
-      supabaseAdmin
-        .from("user_profiles")
-        .select("user_id,school_name,department_name")
-        .in("user_id", slice),
-      supabaseAdmin
-        .from("user_educations")
-        .select("user_id,school_name,major_name_1,sort_order")
-        .in("user_id", slice)
-        .order("sort_order", { ascending: true }),
-    ]);
-    const eduBy = new Map<string, { school_name: string | null; major_name_1: string | null }>();
-    for (const e of (edus ?? []) as Array<{
-      user_id: string;
-      school_name: string | null;
-      major_name_1: string | null;
-    }>) {
-      if (!eduBy.has(e.user_id)) eduBy.set(e.user_id, e);
-    }
-    for (const p of (profs ?? []) as Array<{
-      user_id: string;
-      school_name: string | null;
-      department_name: string | null;
-    }>) {
-      const e = eduBy.get(p.user_id);
-      out.set(p.user_id, {
-        school: e?.school_name ?? p.school_name ?? null,
-        major: e?.major_name_1 ?? p.department_name ?? null,
-      });
-    }
+  const resolved = await resolveRepresentativeEducations(userIds);
+  for (const [userId, education] of resolved) {
+    out.set(userId, {
+      school: education.schoolName,
+      major: education.majorName,
+    });
   }
   return out;
 }

@@ -320,7 +320,7 @@ function MemberEditDrawerInner({
           <div>
             <h3 className="text-base font-semibold">멤버 정보 수정</h3>
             <p className="text-xs text-muted-foreground">
-              {member.displayName ?? "(이름 없음)"}
+              {member.displayName}
               {devMode && (
                 <span className="ml-2 font-mono text-[10px] text-muted-foreground">
                   {member.userId}

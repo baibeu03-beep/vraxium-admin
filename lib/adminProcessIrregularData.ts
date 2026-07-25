@@ -389,7 +389,7 @@ export async function searchIrregularTargets(
     .filter((r) => scope.includes(r.user_id)) // operating: 테스트 유저 제외 보강
     .map((r) => ({
       userId: r.user_id,
-      displayName: r.display_name ?? "(이름 없음)",
+      displayName: r.display_name ?? "",
       authEmail: r.auth_email,
       contactEmail: r.contact_email,
     }));
@@ -611,7 +611,7 @@ export async function createManualGrant(input: {
     organization_slug: organization,
     scope_mode: mode,
     user_id: id,
-    nickname: byId.get(id)?.display_name?.trim() || "(이름 없음)",
+    nickname: byId.get(id)?.display_name ?? "",
     match_type: "matched",
     match_reason: "manual",
   }));
@@ -778,7 +778,7 @@ export async function createActSupplement(input: {
     organization_slug: organization,
     scope_mode: mode,
     user_id: userId,
-    nickname: p.display_name?.trim() || "(이름 없음)",
+    nickname: p.display_name ?? "",
     match_type: "matched",
     match_reason: "supplement",
   });

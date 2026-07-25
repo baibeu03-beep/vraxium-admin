@@ -17,6 +17,11 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { loadCurrentWeekOverrideLabels } from "@/lib/positionResolver";
 import { selectMembershipRow } from "@/lib/membershipResolver";
+import {
+  loadEducationRowsByUserIds,
+  selectRepresentativeEducation,
+} from "@/lib/educationResolver";
+import { displayNameFromProfile } from "@/lib/displayNameResolver";
 import type {
   Cluster4ColleagueSummaryDto,
   Cluster4PersonProfileDto,
@@ -166,18 +171,6 @@ function pickBestMembership(rows: MembershipRow[]): MembershipRow | undefined {
   return selectMembershipRow(rows) ?? undefined;
 }
 
-// 대표 학력 선택: is_primary 우선 → sort_order asc → updated_at 최신.
-// (adminResumeCardData.pickPrimaryEducation 과 동일 의도 — 단일 대표 학력 1건.)
-function pickPrimaryEducation(rows: EducationRow[]): EducationRow | undefined {
-  return [...rows].sort((a, b) => {
-    const primaryDelta = Number(Boolean(b.is_primary)) - Number(Boolean(a.is_primary));
-    if (primaryDelta !== 0) return primaryDelta;
-    const sortDelta = (a.sort_order ?? Number.MAX_SAFE_INTEGER) - (b.sort_order ?? Number.MAX_SAFE_INTEGER);
-    if (sortDelta !== 0) return sortDelta;
-    return (b.updated_at ?? "").localeCompare(a.updated_at ?? "");
-  })[0];
-}
-
 // userId 집합 → 인적사항 맵. 실패해도 카드를 깨뜨리지 않고 빈 맵으로 폴백한다.
 async function buildPersonProfileMap(
   userIds: string[],
@@ -199,10 +192,10 @@ async function buildPersonProfileMap(
       .in("user_id", ids),
     // 학력(학교/학과)의 canonical source. PMS 이관 사용자는 user_profiles.department_name 이 NULL
     // 이고 실제 학과는 여기에만 있어, department 가 "-" 로 비던 버그의 원인.
-    supabaseAdmin
-      .from("user_educations")
-      .select("user_id,school_name,major_name_1,is_primary,sort_order,updated_at")
-      .in("user_id", ids),
+    loadEducationRowsByUserIds(ids).then((rows) => ({
+      data: [...rows.values()].flat(),
+      error: null as { message: string } | null,
+    })),
   ]);
 
   if (profileRes.error) {
@@ -243,11 +236,13 @@ async function buildPersonProfileMap(
   const weekOverrides = await loadCurrentWeekOverrideLabels(ids);
   for (const p of (profileRes.data ?? []) as ProfileRow[]) {
     const m = pickBestMembership(membershipByUser.get(p.user_id) ?? []);
-    const edu = pickPrimaryEducation(educationByUser.get(p.user_id) ?? []);
+    const edu =
+      selectRepresentativeEducation(educationByUser.get(p.user_id) ?? []) ??
+      undefined;
     const ovr = weekOverrides.get(p.user_id) ?? null;
     map.set(p.user_id, {
       userId: p.user_id,
-      name: p.display_name ?? null,
+      name: displayNameFromProfile(p),
       gender: p.gender ?? null,
       age: computeAge(p.birth_date ?? null),
       // 학교/학과: user_educations(canonical) 우선 → user_profiles 폴백.
