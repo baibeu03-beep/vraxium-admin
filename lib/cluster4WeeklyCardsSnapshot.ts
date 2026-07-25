@@ -64,7 +64,9 @@ async function writeRosterCardStats(
   cards: Cluster4WeeklyCardDto[],
   computedAtIso: string,
 ): Promise<void> {
-  const stats = deriveRosterCardStats(cards, computedAtIso.slice(0, 10));
+  // success_weeks/elapsed_weeks are derived from the finalized card DTO. The
+  // elapsed counter is a read-time calendar value, never the snapshot date.
+  const stats = deriveRosterCardStats(cards, new Date().toISOString().slice(0, 10));
   if (!stats) return; // 카드 비정상 → slim 미기록(읽기에서 fat 폴백)
 
   // 일정 신뢰도 + Po.A/B/C 는 카드(jsonb)가 아닌 별도 SoT(user_week_statuses·user_weekly_points)에서

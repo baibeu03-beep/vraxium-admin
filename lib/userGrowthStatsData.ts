@@ -20,7 +20,7 @@
 // unique(ON CONFLICT (user_id)) 이므로 onConflict 로 UPSERT 한다 — row 가 없으면 생성.
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { isTransitionWeekStart } from "@/lib/seasonCalendar";
+import { resolveCanonicalWeeklyMetrics } from "@/lib/canonicalWeeklyMetrics";
 
 export type UserGrowthStatsValues = {
   approved_weeks: number;
@@ -46,22 +46,16 @@ export async function recalcUserGrowthStats(
 
   // 1) 기준 집계 — 사용자의 모든 주차 상태를 읽어 success / 전체 수를 센다.
   //    전환 주차는 양쪽 카운트 모두에서 제외 (2026-06-04 전환제외 정책).
-  const { data, error } = await supabaseAdmin
-    .from("user_week_statuses")
-    .select("status, week_start_date")
-    .eq("user_id", id);
-
-  if (error) {
-    throw new UserGrowthStatsRecalcError(error.message);
+  let metrics;
+  try {
+    metrics = await resolveCanonicalWeeklyMetrics(id);
+  } catch (error) {
+    throw new UserGrowthStatsRecalcError(
+      error instanceof Error ? error.message : String(error),
+    );
   }
-
-  const rows = (
-    (data ?? []) as { status: string; week_start_date: string | null }[]
-  ).filter(
-    (r) => !(r.week_start_date && isTransitionWeekStart(r.week_start_date)),
-  );
-  const cumulative_weeks = rows.length;
-  const approved_weeks = rows.filter((r) => r.status === "success").length;
+  const approved_weeks = metrics.successWeeks;
+  const cumulative_weeks = metrics.totalScheduledWeeks;
 
   // 2) 캐시 UPSERT — grade 등 다른 컬럼은 건드리지 않는다.
   const { error: upsertError } = await supabaseAdmin

@@ -24,11 +24,13 @@ import {
   readWeeklyCardsSnapshotBatch,
   WEEKLY_CARDS_DTO_VERSION,
 } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { loadFinalizedWeeklyCardsReadOnly } from "@/lib/cluster4WeeklyCardsService";
 import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 import { foldGrowthMetrics, resolveGrowthStatusDetail } from "@/lib/growthCore";
 import { rosterActivityRate } from "@/lib/rosterCardStats";
 import { GROWTH_CARD_CONCURRENCY, mapWithConcurrency } from "@/lib/concurrency";
 import type { WeekResultStatusKey } from "@/shared/growth.contracts";
+import { resolveCumulativePointsBatch, type ResolvedPoints } from "@/lib/pointResolver";
 
 // Cluster3 성장 지표 계산 — server-only.
 
@@ -57,66 +59,10 @@ type WeekStatusRow = {
   is_official_rest_override?: boolean;
 };
 
-// PointRow = 전기간 누적 포인트 (별/방패/번개).
-//   total_checks         → 별(star)/성장 점수 총합  = Σ user_weekly_points.points
-//   total_raw_advantages → 방패 raw                 = Σ user_weekly_points.advantages
-//   total_penalties      → 번개(lightning)/penalty  = Σ user_weekly_points.penalty
-//   total_advantages     → 방패 net (= raw - |penalty|)
-// SoT = user_weekly_points 직접합산.
+// 누적 A/B/C는 process_point_awards 원장을 pointResolver로 해석한다.
 //   과거: user_cumulative_points 캐시 read. 그러나 누적 동기화 트리거
 //   (2026-05-28_cumulative_points_auto_sync.sql)는 컬럼명 불일치(total_stars 부재)로
 //   이 DB 에 미적용 → weekly write 후 캐시 stale 위험. 이력서 카드와 동일하게 원천 직접합산.
-type PointRow = {
-  total_checks: number | null;
-  total_advantages: number | null;
-  total_penalties: number | null;
-  total_raw_advantages: number | null;
-};
-
-// user_weekly_points 전체기간 직접합산 → PointRow per user (season/week 무필터).
-// 행이 없는 유저는 Map 에 부재 → 호출부에서 null 처리(기존 캐시-미존재 시멘틱과 동일).
-async function sumWeeklyPointsByUser(
-  userIds: string[],
-): Promise<Map<string, PointRow>> {
-  if (userIds.length === 0) return new Map();
-  const acc = new Map<string, { star: number; adv: number; pen: number }>();
-  const page = 1000;
-  let from = 0;
-  for (;;) {
-    const { data, error } = await supabaseAdmin
-      .from("user_weekly_points")
-      .select("user_id,points,advantages,penalty")
-      .in("user_id", userIds)
-      .range(from, from + page - 1);
-    if (error) throw new GrowthError(500, error.message);
-    const batch = (data ?? []) as Array<{
-      user_id: string;
-      points: number | null;
-      advantages: number | null;
-      penalty: number | null;
-    }>;
-    for (const r of batch) {
-      const cur = acc.get(r.user_id) ?? { star: 0, adv: 0, pen: 0 };
-      cur.star += r.points ?? 0;
-      cur.adv += r.advantages ?? 0;
-      cur.pen += r.penalty ?? 0;
-      acc.set(r.user_id, cur);
-    }
-    if (batch.length < page) break;
-    from += page;
-  }
-  const out = new Map<string, PointRow>();
-  for (const [uid, s] of acc) {
-    out.set(uid, {
-      total_checks: s.star,
-      total_raw_advantages: s.adv,
-      total_penalties: s.pen,
-      total_advantages: s.adv - Math.abs(s.pen), // net (integrity 항상 OK)
-    });
-  }
-  return out;
-}
-
 type SeasonStatusRow = {
   user_id?: string;
   status: string;
@@ -318,9 +264,9 @@ async function getResolvedCardsForUser(
     if (lite) return { cards: lite, source: "snapshot" };
   }
   // fallback: 실시간 계산(무겁다). snapshot 백필/즉시갱신이 정상화되면 거의 타지 않는다.
-  const g = await getWeeklyGrowth(userId);
-  const cards: ResolvedCardLite[] = (g?.weeklyCards ?? []).map((c) => ({
-    resultStatus: c.resultStatus,
+  const readonlyResult = await loadFinalizedWeeklyCardsReadOnly(userId);
+  const cards: ResolvedCardLite[] = readonlyResult.cards.map((c) => ({
+    resultStatus: c.userWeekStatus,
     startDate: c.startDate,
     endDate: c.endDate,
     isTransition: c.isTransition,
@@ -334,7 +280,7 @@ function buildIndicators(
   profile: ProfileRow,
   weekRows: WeekStatusRow[],
   cards: ResolvedCardLite[],
-  pts: PointRow | null,
+  pts: ResolvedPoints | null,
   currentWeekStatus: string | null,
   seasonRows: SeasonStatusRow[],
   currentSeasonKey: string | null,
@@ -428,11 +374,11 @@ function buildIndicators(
 
   const period: GrowthPeriod = { a, b, c, d, e: a + b + c, h, f, g };
 
-  const j = pts?.total_checks ?? 0;
-  const k0 = pts?.total_raw_advantages ?? 0;
-  const l = Math.abs(pts?.total_penalties ?? 0);
-  const k = k0 - l;
-  const storedShields = pts?.total_advantages ?? 0;
+  const j = pts?.pointA ?? 0;
+  const k0 = pts?.rawAdvantage ?? 0;
+  const l = pts?.pointC ?? 0;
+  const k = pts?.pointB ?? 0;
+  const storedShields = pts?.pointB ?? 0;
 
   const labels = orgValid ? getPointLabels(orgValid) : DEFAULT_POINT_LABELS;
 
@@ -548,8 +494,8 @@ export async function getGrowthIndicatorsInternal(
       .from("user_week_statuses")
       .select("status,week_start_date,is_official_rest_override")
       .eq("user_id", userId),
-    // 누적 포인트 = user_weekly_points 전기간 직접합산 (캐시 의존 제거).
-    sumWeeklyPointsByUser([userId]),
+    // 누적 포인트 = process_point_awards 공통 Resolver 결과.
+    resolveCumulativePointsBatch([userId]),
     supabaseAdmin
       .from("user_season_statuses")
       .select("status,season_key")
@@ -613,8 +559,8 @@ export async function getGrowthIndicatorsBatchInternal(
         .from("user_week_statuses")
         .select("user_id,status,week_start_date,is_official_rest_override")
         .in("user_id", userIds),
-      // 누적 포인트 = user_weekly_points 전기간 직접합산 per user (캐시 의존 제거).
-      sumWeeklyPointsByUser(userIds),
+      // 누적 포인트 = process_point_awards 공통 Resolver 결과 per user.
+      resolveCumulativePointsBatch(userIds),
       supabaseAdmin
         .from("user_season_statuses")
         .select("user_id,status,season_key")
@@ -682,7 +628,7 @@ export async function getGrowthIndicatorsBatchInternal(
 
 // ─── displayGrowthStatus 경량 배치 (고객앱 /crews graft 용) ─────────────
 // getGrowthIndicatorsBatchInternal 에서 상태 판정에 불필요한 무거운 소스
-// (user_weekly_points 전기간 합산 · user_week_statuses 전체 · override audit 메타)를
+// (pointResolver 전기간 합산 · user_week_statuses 전체 · override audit 메타)를
 // 뺀 변형. 판정 입력(a/h fold · 현재주 상태 · 시즌휴식 · 졸업 threshold)과
 // buildIndicators 경로를 그대로 재사용하므로 상태 계산 drift 가 없다.
 //   - weekRows=[] / pts=null / overrideMeta=null 은 process 의 상태 4필드

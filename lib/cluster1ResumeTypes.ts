@@ -51,7 +51,7 @@ export type ProgressStatus =
   | "활동 중단"
   | "정상 졸업";
 
-export type ReviewStatus = "검수 중" | "승인 완료";
+export type ReviewStatus = "검수 중" | "확인 완료";
 
 export type SeasonRecord = {
   year: string;
@@ -72,6 +72,11 @@ export type PracticalStats = {
 
 export type Cluster1ResumeDto = {
   resumeStatus: ResumeStatus;
+  successWeeks: number;
+  seasonSuccessWeeks: Record<string, number>;
+  elapsedWeeks: number;
+  totalScheduledWeeks: number;
+  reviewedWeeks: number;
   scheduleReliability: ScheduleReliability;
   activityCompletion: ActivityCompletion;
   seasonRecords: SeasonRecord[];

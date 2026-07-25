@@ -8,9 +8,19 @@ import {
 } from "@/lib/seasonCalendar";
 import { computeScheduleReliabilityFromRows } from "@/lib/scheduleReliabilityCore";
 import { getAdminCrewDtoByLegacyUserId } from "@/lib/adminCrewData";
-import { EXPERIENCE_RATING_FAIL_THRESHOLD } from "@/lib/cluster4Enhancement";
-import { isCareerGradeFail, type CareerGrade } from "@/lib/careerGrade";
 import { readWeeklyCardsSnapshot } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { loadFinalizedWeeklyCardsReadOnly } from "@/lib/cluster4WeeklyCardsService";
+import {
+  buildCanonicalWeeklyMetrics,
+  resolveCanonicalWeeklyMetrics,
+} from "@/lib/canonicalWeeklyMetrics";
+import { aggregateConfirmedPracticalSuccesses } from "@/lib/cluster4WeeklyCardsData";
+import {
+  loadSeasonCardsReadOnly,
+  resolveSeasonProgressStatus,
+  resolveSeasonReviewStatusFromStore,
+  summarizeSeasonCards,
+} from "@/lib/cluster1SeasonResolver";
 import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 import { getGrowthIndicators } from "@/lib/cluster3GrowthData";
 import {
@@ -33,6 +43,8 @@ import type {
   PracticalStats,
   PositionLabel,
 } from "@/lib/cluster1ResumeTypes";
+import type { ScopeMode } from "@/lib/userScopeShared";
+import type { OrganizationSlug } from "@/lib/organizations";
 
 // ─────────────────────────────────────────────────────────────────────
 // Resume badge: Growth Core 의 성장 상태(GrowthStatusKey) 기준 (user_profiles.status 미사용).
@@ -304,14 +316,15 @@ function resolveSeasonReviewStatus(
   todayKst: string,
 ): SeasonRecord["reviewStatus"] {
   return todayKst >= seasonReviewApprovalMonday(seasonType, startDateIso)
-    ? "승인 완료"
+    ? "확인 완료"
     : "검수 중";
 }
 
 // export — 시즌별 결과 표(/admin/members 상세)가 시즌 결과 라벨 SoT 로 재사용한다.
 //   고객 시즌 그로스의 deriveSeasonStatus 가 이 progressStatus 를 graft 하는 단일 출처이므로,
 //   admin 표도 동일 함수를 직접 써서 화면 간 결과 라벨을 일치시킨다.
-export async function computeSeasonRecords(
+/* Legacy pre-resolver implementation retained only as migration history; never called.
+async function legacyComputeSeasonRecords(
   userId: string,
 ): Promise<SeasonRecord[]> {
   const [seasonRes, weekRes, weeksPubRes] = await Promise.all([
@@ -555,6 +568,64 @@ export async function computeSeasonRecords(
 //   - 일반(또는 등급 미보유/미확정) → "정규" — role 단독으로 직책을 만들지 않는다.
 // 종전 구현은 POSITION_RANK 의 풀라벨 키("심화(파트장)" 등)만 인정해 실제 DB 값
 // "심화"가 전부 "정규"로 떨어지는 결함이 있었다(심화 멤버 전원 오표기).
+/** Snapshot/공통 resolver 결과를 시즌 단위로만 집계하는 Cluster1 thin resolver. */
+export async function computeSeasonRecords(
+  userId: string,
+  options: { mode?: ScopeMode } = {},
+): Promise<SeasonRecord[]> {
+  const mode = options.mode ?? "operating";
+  const [seasonRes, profileRes, seasonStatusRes, membershipRes, positionSeries, cardResult] = await Promise.all([
+    supabaseAdmin.from("season_definitions").select("season_key,season_label,season_type,start_date,end_date").order("start_date", { ascending: false }),
+    supabaseAdmin.from("user_profiles").select("growth_status,organization_slug,role").eq("user_id", userId).maybeSingle(),
+    supabaseAdmin.from("user_season_statuses").select("season_key,status").eq("user_id", userId),
+    supabaseAdmin.from("user_memberships").select("membership_level,is_current,created_at,updated_at").eq("user_id", userId).order("created_at", { ascending: false }),
+    loadUserWeekPositionSeries({ userId, seasonKeys: null, seasonKeyOfWeek: (weekStart) => {
+      const season = getSeasonForDate(weekStart);
+      return season ? seasonDbKey(season) : null;
+    }}),
+    loadSeasonCardsReadOnly(userId),
+  ]);
+  if (seasonRes.error || !seasonRes.data || profileRes.error || seasonStatusRes.error) return dummySeasonRecords();
+  const seasons = seasonRes.data as Array<{ season_key: string; season_label: string; season_type: string; start_date: string; end_date: string }>;
+  const profile = profileRes.data as { growth_status: string | null; organization_slug: string | null; role: string | null } | null;
+  const seasonStatusByKey = new Map<string, string>();
+  for (const row of (seasonStatusRes.data ?? []) as Array<{ season_key: string; status: string }>) seasonStatusByKey.set(row.season_key, row.status);
+  const cards = cardResult.cards;
+  const canonical = buildCanonicalWeeklyMetrics(cards, getCurrentActivityDateIso());
+  const presentSeasonKeys = new Set(cards.filter((card) => card.seasonKey && !card.isTransition).map((card) => card.seasonKey as string));
+  const latestActivitySeasonKey = seasons.find((season) => presentSeasonKeys.has(season.season_key))?.season_key ?? null;
+  const todayIso = getCurrentActivityDateIso();
+  const organization = profile?.organization_slug as OrganizationSlug | null;
+  const seasonPositionMap = resolveSeasonPositionsFromSeries(positionSeries, "effective");
+  const rows = await Promise.all(seasons.filter((season) => presentSeasonKeys.has(season.season_key)).map(async (season) => {
+    const summary = summarizeSeasonCards(cards, season.season_key);
+    const progressStatus = resolveSeasonProgressStatus({
+      growthStatus: season.season_key === latestActivitySeasonKey ? profile?.growth_status ?? null : null,
+      seasonStatus: seasonStatusByKey.get(season.season_key) ?? null,
+      isCurrent: todayIso >= season.start_date && todayIso <= season.end_date,
+      seasonEndDate: season.end_date,
+      todayIso,
+      cards: summary,
+    });
+    const review = await resolveSeasonReviewStatusFromStore({ seasonKey: season.season_key, organization, mode, todayIso });
+    return {
+      year: season.season_key.slice(2, 4),
+      seasonName: SEASON_LABEL_MAP[season.season_type] ?? season.season_label,
+      position: seasonPositionMap.get(season.season_key)
+        ? POSITION_CODE_TO_LABEL[seasonPositionMap.get(season.season_key)!]
+        : resolvePosition((membershipRes.data ?? []) as Array<Record<string, unknown>>, profile?.role ?? null),
+      progressStatus,
+      // Legacy DTO key retained; its meaning is canonical seasonSuccessWeeks.
+      approvedWeeks: canonical.seasonSuccessWeeks[season.season_key] ?? 0,
+      totalWeeks: summary.totalWeeks,
+      reviewStatus: review.status,
+      _start: season.start_date,
+    };
+  }));
+  rows.sort((a, b) => (a._start < b._start ? 1 : a._start > b._start ? -1 : 0));
+  return rows.length > 0 ? rows.map(({ _start, ...row }) => row) : dummySeasonRecords();
+}
+
 function resolvePosition(
   memberships: Array<Record<string, unknown>>,
   role: string | null,
@@ -594,7 +665,7 @@ function dummySeasonRecords(): SeasonRecord[] {
       progressStatus: "정상 완료",
       approvedWeeks: 11,
       totalWeeks: 12,
-      reviewStatus: "승인 완료",
+      reviewStatus: "확인 완료",
     },
     {
       year: "24",
@@ -603,165 +674,28 @@ function dummySeasonRecords(): SeasonRecord[] {
       progressStatus: "정상 졸업",
       approvedWeeks: 12,
       totalWeeks: 12,
-      reviewStatus: "승인 완료",
+      reviewStatus: "확인 완료",
     },
   ];
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Practical Stats — "공표 완료된 강화 성공 결과"만 카운트 (2026-06-05 정책 확정).
-//   이력서 = 공표 완료 확정 성과 / 허브 weekly-cards = 실시간·검수 현황 으로 도메인 분리 —
-//   허브 식(fetchWeeklyCardLineAggregates)과 일부러 다르다. 허브·snapshot·uws 는 불변.
-//
-//   공통 규칙:
-//     ① 공표 필터: weeks.result_published_at 있는 주차만 (미공표/검수중 제외).
-//     ② 강화 성공만: 마감(submission_closes_at) 지난 본인 user target 중 success 만.
-//        - info/competency: 마감 = success (평가 체계 없음 — 허브와 동일 기준).
-//        - experience: rating ≥ 4 만. rating ≤ 3(강화 실패)·미평가 제외
-//          (허브는 미평가=success 로 치지만 이력서는 "평가 확정" 전엔 카운트하지 않는다).
-//        - career: grade S/A/B/C 만. D(강화 실패)·미평가 제외.
-//     ③ 집계 단위(2026-06-21 info 정정):
-//        - info(실무 정보 습득): 성공한 **distinct 라인 수**. weekly-cards 의 "실무 정보 N개 중 M개"
-//          (라인=활동 단위, 위즈덤/에세이/… 각각 1개) 의 성공 개수(M)와 1:1 일치시킨다. 같은 주차에
-//          여러 info 라인을 성공하면 그만큼 +N (위즈덤·에세이·인포데스크 = 3건). 제출 여부 무관(배정+마감=성공).
-//        - experience/competency/career: 종전대로 **주차 fold**(part 당 주차 1 unit) 유지(불변).
-//   user_activity_details / career_records 미사용(legacy 동결). 제출 여부 무관.
+// Practical Stats SoT = weekly-card 공통 조회 결과.
+//   snapshot hit/stale/miss 정책, enhancement override, 공표·휴식·전환 필터,
+//   활동 유형·경험 슬롯 중복 제거를 공통 경로에서 처리한 뒤 성공 분자만 누적한다.
+//   Cluster1은 rating/grade/target/deadline을 직접 조회하거나 재판정하지 않는다.
 // ─────────────────────────────────────────────────────────────────────
 async function computePracticalStats(
   userId: string,
-  now: number = Date.now(),
 ): Promise<PracticalStats> {
-  const empty: PracticalStats = {
-    infoCount: 0,
-    experienceCount: 0,
-    abilityUnitCount: 0,
-    careerProjectCount: 0,
-  };
-
-  const weekRes = await supabaseAdmin
-    .from("user_week_statuses")
-    .select("week_start_date")
-    .eq("user_id", userId);
-  const startDates = ((weekRes.data ?? []) as { week_start_date: string }[]).map(
-    (w) => w.week_start_date,
-  );
-  if (startDates.length === 0) return empty;
-
-  // ① 공표 완료 주차만. weeks 행이 없는 start_date 는 week_id 가 없어 target 도 없으므로
-  //   자연 제외(폴백 불필요 — seasonRecords 의 "weeks 행 없음=공표 간주"와 결과 동일).
-  const { data: weeksData } = await supabaseAdmin
-    .from("weeks")
-    .select("id,result_published_at")
-    .in("start_date", startDates);
-  const publishedWeekIds = ((weeksData ?? []) as {
-    id: string;
-    result_published_at: string | null;
-  }[])
-    .filter((w) => Boolean(w.result_published_at))
-    .map((w) => w.id);
-  if (publishedWeekIds.length === 0) return empty;
-
-  // 본인 user target (공표 주차 한정). 유저+주차로 한정되어 행 수가 작다(1000행 cap 무관).
-  const { data: targetRows } = await supabaseAdmin
-    .from("cluster4_line_targets")
-    .select("id,week_id,line_id")
-    .eq("target_mode", "user")
-    .eq("target_user_id", userId)
-    .in("week_id", publishedWeekIds);
-  const targets = (targetRows ?? []) as { id: string; week_id: string; line_id: string }[];
-  if (targets.length === 0) return empty;
-
-  // active 라인만 (part_type + 마감). 비활성 라인 target 은 자동 제외.
-  const targetLineIds = [...new Set(targets.map((t) => t.line_id))];
-  const { data: lineRows } = await supabaseAdmin
-    .from("cluster4_lines")
-    .select("id,part_type,submission_closes_at")
-    .in("id", targetLineIds)
-    .eq("is_active", true);
-  const lineById = new Map(
-    ((lineRows ?? []) as {
-      id: string;
-      part_type: string;
-      submission_closes_at: string | null;
-    }[]).map((l) => [l.id, l]),
-  );
-
-  // ② 마감 지난 target 분류. experience/career 는 평가 조회 후 success 확정.
-  //   info 는 distinct **라인**(활동 단위)으로 집계 — weekly-cards 의 라인별 success 개수와 일치.
-  //   experience/competency/career 는 종전대로 distinct **주차**(주차 fold) 유지(불변).
-  const infoLines = new Set<string>();
-  const abilityWeeks = new Set<string>();
-  const experienceCandidates: { id: string; week_id: string }[] = [];
-  const careerCandidates: { id: string; week_id: string }[] = [];
-  for (const t of targets) {
-    const line = lineById.get(t.line_id);
-    if (!line) continue;
-    const deadlinePassed =
-      Boolean(line.submission_closes_at) &&
-      new Date(line.submission_closes_at as string).getTime() < now;
-    if (!deadlinePassed) continue;
-    switch (line.part_type) {
-      case "info":
-        // 실무 정보 습득 = 성공한 distinct 라인 수(같은 주차 여러 라인 = 그만큼 +N).
-        infoLines.add(t.line_id);
-        break;
-      case "competency":
-        abilityWeeks.add(t.week_id);
-        break;
-      case "experience":
-        experienceCandidates.push({ id: t.id, week_id: t.week_id });
-        break;
-      case "career":
-        careerCandidates.push({ id: t.id, week_id: t.week_id });
-        break;
-    }
+    const result = await loadFinalizedWeeklyCardsReadOnly(userId);
+  if (result.outcome === "error") {
+    console.warn("[cluster1] practicalStats weekly-card snapshot unavailable → 0", {
+      userId,
+      detail: result.detail,
+    });
   }
-
-  // experience: rating ≥ 4 만 success (미평가·rating≤3 제외).
-  const experienceWeeks = new Set<string>();
-  if (experienceCandidates.length > 0) {
-    const { data: expEvals } = await supabaseAdmin
-      .from("cluster4_experience_line_evaluations")
-      .select("line_target_id,rating")
-      .eq("user_id", userId)
-      .in("line_target_id", experienceCandidates.map((t) => t.id));
-    const ratingByTarget = new Map<string, number>();
-    for (const e of (expEvals ?? []) as { line_target_id: string; rating: number }[]) {
-      ratingByTarget.set(e.line_target_id, e.rating);
-    }
-    for (const t of experienceCandidates) {
-      const rating = ratingByTarget.get(t.id);
-      if (rating != null && rating > EXPERIENCE_RATING_FAIL_THRESHOLD) {
-        experienceWeeks.add(t.week_id);
-      }
-    }
-  }
-
-  // career: grade S/A/B/C 만 success (미평가·D 제외).
-  const careerWeeks = new Set<string>();
-  if (careerCandidates.length > 0) {
-    const { data: evals } = await supabaseAdmin
-      .from("cluster4_career_line_evaluations")
-      .select("line_target_id,grade")
-      .eq("user_id", userId)
-      .in("line_target_id", careerCandidates.map((t) => t.id));
-    const gradeByTarget = new Map<string, CareerGrade>();
-    for (const e of (evals ?? []) as { line_target_id: string; grade: CareerGrade }[]) {
-      gradeByTarget.set(e.line_target_id, e.grade);
-    }
-    for (const t of careerCandidates) {
-      const grade = gradeByTarget.get(t.id);
-      if (grade && !isCareerGradeFail(grade)) careerWeeks.add(t.week_id);
-    }
-  }
-
-  // ③ 집계: info = distinct 라인 수, 그 외 = distinct 성공 주차 수(주차 fold).
-  return {
-    infoCount: infoLines.size,
-    experienceCount: experienceWeeks.size,
-    abilityUnitCount: abilityWeeks.size,
-    careerProjectCount: careerWeeks.size,
-  };
+  return aggregateConfirmedPracticalSuccesses(result.cards);
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -769,6 +703,7 @@ async function computePracticalStats(
 // ─────────────────────────────────────────────────────────────────────
 export async function getCluster1Resume(
   legacyUserId: string,
+  options: { mode?: ScopeMode } = {},
 ): Promise<Cluster1ResumeDto | null> {
   const crew = await getAdminCrewDtoByLegacyUserId(legacyUserId);
   if (!crew) return null;
@@ -778,6 +713,11 @@ export async function getCluster1Resume(
   if (!userId) {
     return {
       resumeStatus: DEFAULT_RESUME_STATUS,
+      successWeeks: 0,
+      seasonSuccessWeeks: {},
+      elapsedWeeks: 0,
+      totalScheduledWeeks: 0,
+      reviewedWeeks: 0,
       scheduleReliability: dummyScheduleReliability(),
       activityCompletion: { availableActivities: 0, completedActivities: 0, rate: 0 },
       seasonRecords: dummySeasonRecords(),
@@ -785,10 +725,10 @@ export async function getCluster1Resume(
     };
   }
 
-  const [scheduleReliability, seasonRecords, activityCompletion, practicalStats, growth] =
+  const [scheduleReliability, seasonRecords, activityCompletion, practicalStats, growth, weeklyMetrics] =
     await Promise.all([
       computeScheduleReliability(userId),
-      computeSeasonRecords(userId),
+      computeSeasonRecords(userId, options),
       computeActivityCompletion(userId),
       computePracticalStats(userId),
       // resume 뱃지 = Growth Core 의 성장 상태(GrowthStatusKey) 기준. 실패 시 기본 뱃지로 폴백.
@@ -799,6 +739,7 @@ export async function getCluster1Resume(
         });
         return null;
       }),
+      resolveCanonicalWeeklyMetrics(userId),
     ]);
 
   const resumeStatus = growth
@@ -809,6 +750,11 @@ export async function getCluster1Resume(
 
   return {
     resumeStatus,
+    successWeeks: weeklyMetrics.successWeeks,
+    seasonSuccessWeeks: weeklyMetrics.seasonSuccessWeeks,
+    elapsedWeeks: weeklyMetrics.elapsedWeeks,
+    totalScheduledWeeks: weeklyMetrics.totalScheduledWeeks,
+    reviewedWeeks: weeklyMetrics.reviewedWeeks,
     scheduleReliability,
     activityCompletion,
     seasonRecords,

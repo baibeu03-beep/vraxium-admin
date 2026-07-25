@@ -6,6 +6,7 @@ import {
 import { resolvePersonDisplayNames } from "@/lib/koreanRomanization";
 import { getAdminCrewDtoByLegacyUserId } from "@/lib/adminCrewData";
 import type { OrganizationSlug } from "@/lib/organizations";
+import { resolveCanonicalWeeklyMetrics } from "@/lib/canonicalWeeklyMetrics";
 
 // ─────────────────────────────────────────────────────────────────────
 // Writable field whitelists
@@ -227,7 +228,7 @@ export async function getResumeCardForCrew(
       .maybeSingle(),
     supabaseAdmin
       .from("user_growth_stats")
-      .select("approved_weeks,cumulative_weeks")
+      .select("cumulative_weeks")
       .eq("user_id", userId)
       .limit(1)
       .maybeSingle(),
@@ -307,6 +308,7 @@ export async function getResumeCardForCrew(
         eng_name: names.englishName,
       }
     : null;
+  const canonical = await resolveCanonicalWeeklyMetrics(userId);
 
   return {
     legacyUserId: crew.legacyUserId,
@@ -318,7 +320,7 @@ export async function getResumeCardForCrew(
     introduction: (introductionRes.data ?? null) as Row | null,
     resumeCardSettings: (settingsRes.data ?? null) as Row | null,
     computed: {
-      approvedWeeks: growth?.approved_weeks ?? crew.approvedWeeks ?? null,
+      approvedWeeks: canonical.successWeeks,
       cumulativeWeeks: growth?.cumulative_weeks ?? crew.cumulativeWeeks ?? null,
       totalStars: points?.total_checks ?? null,
       totalShields: points?.total_advantages ?? null,

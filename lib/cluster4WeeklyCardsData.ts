@@ -944,6 +944,46 @@ export function breakdownFromLines(
   return breakdown;
 }
 
+export type PracticalSuccessCounts = {
+  infoCount: number;
+  experienceCount: number;
+  abilityUnitCount: number;
+  careerProjectCount: number;
+};
+
+/**
+ * 공표 완료 weekly-card의 최종 라인 상태를 공통 슬롯 단위로 누적한다.
+ * 입력 cards는 snapshot 조회 정책과 read-time enhancement override가 모두 적용된
+ * 최종 DTO여야 한다. 성공/실패를 재판정하지 않고 breakdownFromLines의 분자만 합산한다.
+ */
+export function aggregateConfirmedPracticalSuccesses(
+  cards: readonly Cluster4WeeklyCardDto[],
+): PracticalSuccessCounts {
+  const total: PracticalSuccessCounts = {
+    infoCount: 0,
+    experienceCount: 0,
+    abilityUnitCount: 0,
+    careerProjectCount: 0,
+  };
+
+  for (const card of cards) {
+    if (
+      card.isTransition ||
+      card.isRestWeek ||
+      (card.userWeekStatus !== "success" && card.userWeekStatus !== "fail")
+    ) {
+      continue;
+    }
+    const breakdown = breakdownFromLines(card.lines);
+    total.infoCount += breakdown.info.completed;
+    total.experienceCount += breakdown.experience.completed;
+    total.abilityUnitCount += breakdown.ability.completed;
+    total.careerProjectCount += breakdown.career.completed;
+  }
+
+  return total;
+}
+
 // export: read-time override 재파생용(휴식 주차 = 빈 breakdown). 내부 로직 무변경.
 export function emptyBreakdown(): WeeklyCardLineBreakdown {
   const mk = (): WeeklyCardLineDetail => ({ completed: 0, available: 0 });
@@ -1125,7 +1165,7 @@ function buildWeekProgressLabel(
 ): string {
   const displayCount =
     status === "running" || status === "tallying" ? approved + 1 : approved;
-  return `${displayCount} / ${target} 주차`;
+  return `진행 ${displayCount} / ${target} 주차`;
 }
 
 function cardMessage(card: WeeklyCardDto): string | null {

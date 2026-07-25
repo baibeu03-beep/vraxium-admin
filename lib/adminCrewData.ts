@@ -15,6 +15,10 @@ import {
 } from "@/lib/displayNameResolver";
 import { resolvePersonDisplayNames } from "@/lib/koreanRomanization";
 import { resolveCurrentPositionBatch } from "@/lib/positionResolver";
+import {
+  resolveCanonicalWeeklyMetrics,
+  resolveCanonicalWeeklyMetricsBatch,
+} from "@/lib/canonicalWeeklyMetrics";
 
 // Crews source of truth
 // ─────────────────────────────────────────────────────────────────────
@@ -532,6 +536,13 @@ export async function listAdminCrewDtos(
   const scope = await resolveUserScope(mode, organization ?? null);
   const rows = await fetchCrewSourceRows({ organization, scope, userIds });
   const dtos = buildAdminCrewDtos(rows);
+  const canonicalMetrics = await resolveCanonicalWeeklyMetricsBatch(
+    dtos.map((row) => row.userId),
+  );
+  for (const dto of dtos) {
+    const metrics = canonicalMetrics.get(dto.userId);
+    if (metrics) dto.approvedWeeks = metrics.successWeeks;
+  }
   const positions = await resolveCurrentPositionBatch({
     userIds: dtos.map((row) => row.userId),
     organization: organization ?? null,
@@ -563,6 +574,8 @@ export async function getAdminCrewDtoByLegacyUserId(routeParam: string) {
   if (rows.profiles.length === 0) return null;
   const dto = buildAdminCrewDtos(rows)[0] ?? null;
   if (!dto) return null;
+  const canonical = await resolveCanonicalWeeklyMetrics(dto.userId);
+  dto.approvedWeeks = canonical.successWeeks;
   const position = (await resolveCurrentPositionBatch({ userIds: [dto.userId] })).get(dto.userId);
   if (!position) return dto;
   return {
