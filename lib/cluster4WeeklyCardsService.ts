@@ -291,3 +291,45 @@ export async function loadFinalizedWeeklyCards(
     growthInfo,
   };
 }
+
+/**
+ * Snapshot 조회·read-time override만 수행하는 변형이다. stale/miss를 재계산하거나
+ * Snapshot을 upsert하지 않으므로 과거 공표 저장 데이터를 보존해야 하는 조회 DTO가 사용한다.
+ */
+export async function loadFinalizedWeeklyCardsReadOnly(
+  profileUserId: string,
+  preloadedSnapshot?: WeeklyCardsSnapshotOutcome,
+): Promise<FinalizedWeeklyCards> {
+  const snapshot = preloadedSnapshot ?? (await readWeeklyCardsSnapshot(profileUserId));
+  const preload = startSubjectPreload(profileUserId);
+  const cards =
+    snapshot.status === "hit" || snapshot.status === "stale" ? snapshot.cards : [];
+  const outcome: LoadOutcome = snapshot.status;
+  const detail = snapshot.status === "stale" ? snapshot.reason : snapshot.status === "error" ? snapshot.message : "";
+  const growthInfo = await preload.growthStop;
+  let resolvedCards = cards;
+  try {
+    const afterEnhancement = await applyEnhancementOverridesToCards(
+      profileUserId,
+      resolvedCards,
+      preload.enhancementRows,
+    );
+    resolvedCards = await applySecondEntryOverridesToCards(
+      profileUserId,
+      afterEnhancement,
+      preload.secondEntryRows,
+    );
+  } catch (error) {
+    console.warn("[weekly-cards][readonly] override overlay failed", {
+      profileUserId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+  return {
+    outcome,
+    detail,
+    lazyRan: false,
+    cards: truncateCardsForGrowthStop(resolvedCards, growthInfo.isStopped),
+    growthInfo,
+  };
+}
