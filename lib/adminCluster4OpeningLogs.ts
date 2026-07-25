@@ -17,6 +17,8 @@ import {
 export type OpeningLogDto = {
   id: string;
   action: OpeningLogAction;
+  lineId: string | null;
+  weekId: string | null;
   activityTypeId: string | null;
   activityLabel: string;
   periodLabel: string;
@@ -25,7 +27,7 @@ export type OpeningLogDto = {
 };
 
 const LOG_SELECT =
-  "id,action,activity_type_id,activity_label,period_label,actor_name,created_at";
+  "id,action,line_id,week_id,activity_type_id,activity_label,period_label,actor_name,created_at";
 
 // 라인 1건의 개설/취소 이벤트를 기록한다. 표시 라벨/실행자명을 내부에서 resolve 후 insert.
 // best-effort: 어떤 실패도 throw 하지 않는다(테이블 미생성 포함). 라인 본 동작과 분리.
@@ -126,10 +128,11 @@ export async function insertOpeningLogForLine(input: {
   }
 }
 
-// 현재 활동유형 기준 로그 목록(최신순). info=common 이라 organization 은 결과에 영향 없음(수용만).
+// 현재 활동유형 + 선택 주차 기준 로그 목록(최신순).
 export async function listOpeningLogs(options: {
   activityTypeId: string;
   organization?: string | null;
+  weekId: string;
   limit?: number;
 }): Promise<OpeningLogDto[]> {
   const limit = Math.min(Math.max(options.limit ?? 100, 1), 500);
@@ -137,6 +140,7 @@ export async function listOpeningLogs(options: {
     .from("cluster4_line_opening_logs")
     .select(LOG_SELECT)
     .eq("activity_type_id", options.activityTypeId)
+    .eq("week_id", options.weekId)
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) {
@@ -147,6 +151,8 @@ export async function listOpeningLogs(options: {
   return ((data ?? []) as Array<{
     id: string;
     action: OpeningLogAction;
+    line_id: string | null;
+    week_id: string | null;
     activity_type_id: string | null;
     activity_label: string;
     period_label: string;
@@ -155,6 +161,8 @@ export async function listOpeningLogs(options: {
   }>).map((r) => ({
     id: r.id,
     action: r.action,
+    lineId: r.line_id,
+    weekId: r.week_id,
     activityTypeId: r.activity_type_id,
     activityLabel: r.activity_label,
     periodLabel: r.period_label,

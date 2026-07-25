@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Card,
   CardHeader,
@@ -15,7 +15,7 @@ import {
 } from "@/components/admin/AdminLogPresentation";
 import OpeningLogScrollContent from "@/components/admin/OpeningLogScrollContent";
 import { logChangeKey, orderLogsOldestFirst } from "@/lib/openingLogView";
-import { readOrgParam } from "@/lib/adminOrgContext";
+import type { OrganizationSlug } from "@/lib/organizations";
 import {
   formatLogDateTime,
   OPENING_LOG_ACTION_LABEL,
@@ -39,36 +39,47 @@ type Props = {
   activeType: { id: string; name: string } | null;
   // 값이 바뀌면 로그를 재조회한다(개설 직후 새 [개설 완료] 항목 반영).
   refreshKey?: number;
+  organization: OrganizationSlug | null;
+  weekId: string;
 };
 
 export default function PracticalInfoOpeningLogPanel({
   activeType,
   refreshKey,
+  organization,
+  weekId,
 }: Props) {
   const [logs, setLogs] = useState<LogItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const requestSequence = useRef(0);
   const activeTypeId = activeType?.id ?? null;
 
   const load = useCallback(async () => {
-    if (!activeTypeId) {
+    const requestId = ++requestSequence.current;
+    if (!activeTypeId || !weekId) {
       setLogs([]);
+      setLoading(false);
       return;
     }
+    setLogs([]);
     setLoading(true);
     try {
-      const qs = new URLSearchParams({ activity_type_id: activeTypeId });
-      // org 컨텍스트 전달(info=common 이라 결과 동일 — 규약 일관성).
-      const org = readOrgParam(new URLSearchParams(window.location.search));
-      if (org) qs.set("organization", org);
+      const qs = new URLSearchParams({
+        activity_type_id: activeTypeId,
+        week_id: weekId,
+      });
+      if (organization) qs.set("organization", organization);
       const res = await fetch(`/api/admin/cluster4/opening-logs?${qs.toString()}`);
       const json = await res.json();
-      setLogs(json?.success ? (json.data?.logs ?? []) : []);
+      if (requestId === requestSequence.current) {
+        setLogs(json?.success ? (json.data?.logs ?? []) : []);
+      }
     } catch {
-      setLogs([]);
+      if (requestId === requestSequence.current) setLogs([]);
     } finally {
-      setLoading(false);
+      if (requestId === requestSequence.current) setLoading(false);
     }
-  }, [activeTypeId]);
+  }, [activeTypeId, organization, weekId]);
 
   useEffect(() => {
     // load 는 activeTypeId 에 의존. refreshKey 변경 시에도 재조회한다(개설 직후 갱신).

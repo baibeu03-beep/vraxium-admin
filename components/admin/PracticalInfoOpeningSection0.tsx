@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/card";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
+import type { OrganizationSlug } from "@/lib/organizations";
 import PracticalInfoOpeningLogPanel from "@/components/admin/PracticalInfoOpeningLogPanel";
 import PracticalInfoOpeningForm, {
   type OpeningFormWeek,
@@ -71,6 +72,7 @@ type Props = {
   onSelectWeek: (weekId: string) => void;
   // 개설 성공 시 상위(메타/라인 목록) 재조회 트리거.
   onOpened: () => void;
+  organization: OrganizationSlug | null;
 };
 
 // 개설 대상 주차 + 활동유형의 (a) 활성 라인 존재(개설됨) (b) 오픈(개설 대상) 여부를 조회한다.
@@ -196,6 +198,7 @@ export default function PracticalInfoOpeningSection0({
   selectedWeekId,
   onSelectWeek,
   onOpened,
+  organization,
 }: Props) {
   // 현재 운영 상태(개설 대상 주차 = openableWeek) 조회값.
   const [opStatus, setOpStatus] = useState<{ opened: boolean; notOpen: boolean }>(
@@ -291,6 +294,8 @@ export default function PracticalInfoOpeningSection0({
         <PracticalInfoOpeningLogPanel
           activeType={activeType}
           refreshKey={logRefreshTick}
+          organization={organization}
+          weekId={selectedWeekId}
         />
       </div>
 

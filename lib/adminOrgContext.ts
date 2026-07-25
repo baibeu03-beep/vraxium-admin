@@ -15,6 +15,11 @@ import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
 // useSearchParams() 반환값(ReadonlyURLSearchParams)·URLSearchParams 양쪽과 호환되는 최소 형태.
 type SearchParamsLike = { get(name: string): string | null } | null | undefined;
 
+/** Integrated routes keep the integrated navigation shell even when `org` scopes data. */
+export function isIntegratedAdminPath(pathname: string | null | undefined): boolean {
+  return (pathname ?? "").startsWith("/admin/integrated/");
+}
+
 // 현재 URL 의 `?org` 를 읽어 검증된 OrganizationSlug 로 돌려준다. 없거나 유효하지 않으면 null.
 export function readOrgParam(searchParams: SearchParamsLike): OrganizationSlug | null {
   const raw = searchParams?.get("org")?.trim();
@@ -41,6 +46,7 @@ export function resolveAdminOrgFocus(
   pathname: string | null | undefined,
   searchParams: SearchParamsLike,
 ): OrganizationSlug | null {
+  if (isIntegratedAdminPath(pathname)) return null;
   const m = (pathname ?? "").match(/^\/admin\/crews\/([^/]+)/);
   const pathOrg = m && isOrganizationSlug(m[1]) ? m[1] : null;
   return pathOrg ?? readOrgParam(searchParams);

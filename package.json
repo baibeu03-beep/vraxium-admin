@@ -56,6 +56,7 @@
     "verify:qa-fixed-scope": "tsx --env-file=.env.local scripts/verify-qa-fixed-scope.ts",
     "verify:periods-seasonweeks-help": "tsx --env-file=.env.local scripts/verify-periods-seasonweeks-help-browser.ts",
     "verify:line-opening-help": "tsx --env-file=.env.local scripts/verify-line-opening-help-browser.ts",
+    "verify:integrated-line-process": "tsx --env-file=.env.local scripts/verify-integrated-line-process-browser.ts",
     "verify:admin-context-href": "tsx scripts/verify-admin-context-href.ts",
     "verify:crew-week-act-cancel": "tsx --env-file=.env.local scripts/verify-crew-week-act-cancel.ts",
     "verify:act-cancel-e2e": "tsx --env-file=.env.local scripts/verify-act-cancel-e2e.ts",

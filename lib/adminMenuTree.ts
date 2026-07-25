@@ -64,6 +64,22 @@ export type BranchItem = ScopeFlags & {
 
 export type MenuItem = LeafItem | BranchItem;
 
+// [개별]과 [통합]이 공유하는 하위 메뉴 메타데이터.
+// 표시명·순서·경로 세그먼트를 한 곳에서 관리해 두 사이드바가 글자까지 항상 같게 유지된다.
+export const LINE_OPENING_SHARED_MENU_ITEMS = [
+  { key: "practical-info", label: "실무 정보" },
+  { key: "practical-experience", label: "실무 경험" },
+  { key: "practical-competency", label: "실무 역량" },
+] as const;
+
+export const PROCESS_CHECK_SHARED_MENU_ITEMS = [
+  { key: "club", label: "클럽 총괄 급" },
+  { key: "info", label: "실무 정보 급" },
+  { key: "experience", label: "실무 경험 급" },
+  { key: "competency", label: "실무 역량 급" },
+  { key: "irregular", label: "변동 액트" },
+] as const;
+
 // 모든 href 는 현재 실재하는 admin route 만 사용한다.
 //
 // 사이드바는 모드에 따라 **다른 메뉴 트리**를 노출한다(2026-06-08 정정):
@@ -103,7 +119,12 @@ export const MENU_INTEGRATED: MenuItem[] = [
     label: "허브와 라인",
     icon: Briefcase,
     basePath: "/admin/line-opening",
-    matchPaths: ["/admin/lines", "/admin/line-opening", "/admin/career-projects"],
+    matchPaths: [
+      "/admin/lines",
+      "/admin/line-opening",
+      "/admin/integrated/line-opening",
+      "/admin/career-projects",
+    ],
     children: [
       // 라인 등록/정보는 "라인 관리" 단일 메뉴로 통합(페이지 안에서 탭 전환).
       //   기본 진입 = 라인 등록. 두 라우트 모두 활성 하이라이트되도록 matchPaths 사용.
@@ -112,6 +133,10 @@ export const MENU_INTEGRATED: MenuItem[] = [
         href: "/admin/lines/register",
         matchPaths: ["/admin/lines"],
       },
+      ...LINE_OPENING_SHARED_MENU_ITEMS.map(({ key, label }) => ({
+        label,
+        href: `/admin/integrated/line-opening/${key}`,
+      })),
       // [비활성화 2026-06-14] 개설 이력 페이지 임시 비활성화(복구 시 주석 해제).
       //   라우트도 page.tsx 에서 notFound() 처리됨.
       // { label: "개설 이력", href: "/admin/line-opening/line-history" },
@@ -123,8 +148,13 @@ export const MENU_INTEGRATED: MenuItem[] = [
     label: "허브별 프로세스",
     icon: Workflow,
     basePath: "/admin/processes",
+    matchPaths: ["/admin/processes", "/admin/integrated/processes"],
     children: [
       { label: "프로세스 관리", href: "/admin/processes/register", matchPaths: ["/admin/processes/register", "/admin/processes/info"] },
+      ...PROCESS_CHECK_SHARED_MENU_ITEMS.map(({ key, label }) => ({
+        label,
+        href: `/admin/integrated/processes/check/${key}`,
+      })),
       { label: "프로세스 체크 [실무 경력]", href: "/admin/processes/check", disabled: true },
     ],
   },
@@ -227,11 +257,10 @@ export const MENU_ORG: MenuItem[] = [
     icon: Briefcase,
     basePath: "/admin/line-opening",
     matchPaths: ["/admin/line-opening"],
-    children: [
-      { label: "실무 정보", href: "/admin/line-opening/practical-info" },
-      { label: "실무 경험", href: "/admin/line-opening/practical-experience" },
-      { label: "실무 역량", href: "/admin/line-opening/practical-competency" },
-    ],
+    children: LINE_OPENING_SHARED_MENU_ITEMS.map(({ key, label }) => ({
+      label,
+      href: `/admin/line-opening/${key}`,
+    })),
   },
   // 2) 프로세스 체크 — 기획 전 placeholder(라우트만).
   {
@@ -239,13 +268,10 @@ export const MENU_ORG: MenuItem[] = [
     label: "프로세스 체크",
     icon: Workflow,
     basePath: "/admin/processes/check",
-    children: [
-      { label: "클럽 총괄 급", href: "/admin/processes/check/club" },
-      { label: "실무 정보 급", href: "/admin/processes/check/info" },
-      { label: "실무 경험 급", href: "/admin/processes/check/experience" },
-      { label: "실무 역량 급", href: "/admin/processes/check/competency" },
-      { label: "변동 액트", href: "/admin/processes/check/irregular" },
-    ],
+    children: PROCESS_CHECK_SHARED_MENU_ITEMS.map(({ key, label }) => ({
+      label,
+      href: `/admin/processes/check/${key}`,
+    })),
   },
   // 3) 클럽 정보 — 개별 조직 운영진의 팀·시즌·주차 진행 조회. 통합 목록(클럽 현황 표)에서 클럽명을
   //   눌러 들어가는 상세와 **동일한 상세 페이지/DTO** 를, 개별 페이지에서는 현재 조직(orgFocus) 것만

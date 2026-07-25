@@ -549,7 +549,8 @@ export default function PracticalExperienceManager() {
   // 본문은 URL ?tab 으로 어느 콘텐츠를 보일지만 결정한다 — 실무 정보(PracticalInfoManager)와 동일.
   const searchParams = useSearchParams();
   const pathname = usePathname();
-  const orgScoped = readOrgParam(searchParams) != null;
+  const selectedOrg = readOrgParam(searchParams);
+  const orgScoped = selectedOrg != null;
   const mainTab: "manage" | "open" =
     orgScoped && searchParams?.get("tab") === "open" ? "open" : "manage";
 
@@ -631,8 +632,7 @@ export default function PracticalExperienceManager() {
         detailed: "1",
         limit: "500",
       });
-      const org = readOrgParam(new URLSearchParams(window.location.search));
-      if (org) qs.set("organization", org);
+      if (selectedOrg) qs.set("organization", selectedOrg);
       // 라인 대상자 모집단 = 서버 QA_HIDE_REAL_USERS 스위치 기준(QA=테스트 / 종료 후 실사용자).
       const res = await fetch(`/api/admin/cluster4/lines?${qs.toString()}`);
       const json = await res.json();
@@ -649,7 +649,7 @@ export default function PracticalExperienceManager() {
     } finally {
       setExpLinesLoading(false);
     }
-  }, []);
+  }, [selectedOrg]);
 
   // 최종개설 탭에 진입할 때마다 최신 개설 라인을 다시 불러온다 (개설 직후 갱신 포함).
   useEffect(() => {
@@ -836,7 +836,9 @@ export default function PracticalExperienceManager() {
       ]);
 
       const orgJson = await orgRes.json();
-      const org = orgJson.success ? orgJson.data.organization : null;
+      const adminOrganization = orgJson.success ? orgJson.data.organization : null;
+      // URL scope is authoritative; admin organization is only the legacy fallback.
+      const org = selectedOrg ?? adminOrganization;
       setAdminOrg(org);
 
       const weekJson = await weekRes.json();
@@ -858,14 +860,22 @@ export default function PracticalExperienceManager() {
       // 라인 master 조회 스코프 — URL ?org(조직 분기 진입) 우선, 없으면 관리자 소속 org.
       //   서버는 organization_slug ∈ {org, 'common'} 로 조회한다(라인 등록 목록과 동일 기준).
       //   둘 다 없으면(통합 컨텍스트) 미전달 → 전체 조직(기존 동작 유지).
-      const masterOrg = readOrgParam(new URLSearchParams(window.location.search)) ?? org;
+      const masterOrg = selectedOrg ?? org;
       const masterOrgParam = masterOrg ? `?organization=${masterOrg}` : "";
       // 팀/크루 모집단 = 서버 QA_HIDE_REAL_USERS 스위치 기준(QA=테스트 / 종료 후 실사용자). 클라 강제 없음.
       const [teamsRes, mastersRes, crewsRes] = await Promise.all([
-        fetch(`/api/admin/cluster4/teams${orgParam}`),
+        fetch(
+          appendModeQuery(
+            `/api/admin/cluster4/teams${orgParam}`,
+            readScopeMode(new URLSearchParams(window.location.search)),
+          ),
+        ),
         fetch(`/api/admin/cluster4/experience-line-masters${masterOrgParam}`),
         fetch(
-          `/api/admin/cluster4/crews${orgParam ? orgParam + "&" : "?"}status=active`,
+          appendModeQuery(
+            `/api/admin/cluster4/crews${orgParam ? orgParam + "&" : "?"}status=active`,
+            readScopeMode(new URLSearchParams(window.location.search)),
+          ),
         ),
       ]);
 
@@ -897,7 +907,7 @@ export default function PracticalExperienceManager() {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [selectedOrg, toast]);
 
   const refetchDrafts = useCallback(async () => {
     const targetWeekId = activeWeekId || currentWeek?.weekId || null;
@@ -3059,7 +3069,11 @@ export default function PracticalExperienceManager() {
         <div className="space-y-4">
           <div className="grid items-start gap-4 lg:grid-cols-2">
             <LineOpeningStatusBoard hub="experience" refreshKey={openRefresh} />
-            <ExperienceOpeningLogPanel refreshKey={openRefresh} />
+            <ExperienceOpeningLogPanel
+              refreshKey={openRefresh}
+              organization={adminOrg}
+              weekId={activeWeekId || null}
+            />
           </div>
           {/* 상태창(위)과 라인 개설(아래)을 명확히 분리 — 공용 구분선 + 바깥 여백. */}
           <LineOpeningSectionDivider />

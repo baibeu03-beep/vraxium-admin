@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import {
   Card,
   CardHeader,
@@ -17,7 +16,6 @@ import OpeningLogScrollContent from "@/components/admin/OpeningLogScrollContent"
 import { logChangeKey, orderLogsOldestFirst } from "@/lib/openingLogView";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
-import { readOrgParam } from "@/lib/adminOrgContext";
 import { formatLogDateTime } from "@/lib/practicalInfoSection0Format";
 import {
   COMPETENCY_OPENING_LOG_ACTION_LABEL,
@@ -38,15 +36,16 @@ type LogItem = {
 
 export default function CompetencyOpeningLogPanel({
   refreshKey,
+  organization,
+  weekId,
 }: {
   // 값이 바뀌면 재조회(개설 완료/취소 직후 새 행 반영).
   refreshKey?: number;
+  organization: string | null;
+  weekId: string | null;
 }) {
-  const searchParams = useSearchParams();
-  const org = readOrgParam(searchParams);
   // 대시보드가 선택한 주차(?week) — 있으면 그 주차 로그를 보여준다(개설 대상 밖 예외 주차 포함).
   //   없으면 서버가 개설 대상 주차로 폴백(기존 동작). 대시보드↔로그창 주차 정합 SoT(실무 경험과 동일).
-  const weekId = searchParams?.get("week")?.trim() || null;
   const [logs, setLogs] = useState<LogItem[]>([]);
   const [loading, setLoading] = useState(true);
   useReportLoading(loading);
@@ -57,7 +56,7 @@ export default function CompetencyOpeningLogPanel({
       if (!cancelled) setLoading(true);
       try {
         const params = new URLSearchParams();
-        if (org) params.set("organization", org);
+        if (organization) params.set("organization", organization);
         if (weekId) params.set("week_id", weekId);
         const suffix = params.toString();
         const res = await fetch(
@@ -75,7 +74,7 @@ export default function CompetencyOpeningLogPanel({
     return () => {
       cancelled = true;
     };
-  }, [org, weekId, refreshKey]);
+  }, [organization, weekId, refreshKey]);
 
   // 표시 순서: 오래된 로그가 위 · 최신이 아래(서버 최신순 → 표시용으로만 뒤집음).
   const orderedLogs = useMemo(() => orderLogsOldestFirst(logs), [logs]);

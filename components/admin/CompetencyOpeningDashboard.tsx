@@ -373,7 +373,11 @@ export default function CompetencyOpeningDashboard() {
     <div className="space-y-4">
       <div className="grid items-start gap-4 lg:grid-cols-2">
         <LineOpeningStatusBoard hub="competency" refreshKey={refreshKey} />
-        <CompetencyOpeningLogPanel refreshKey={refreshKey} />
+        <CompetencyOpeningLogPanel
+          refreshKey={refreshKey}
+          organization={org}
+          weekId={openTargetWeek?.id ?? null}
+        />
       </div>
 
       {/* 상태창(위)과 라인 개설(아래)을 명확히 분리 — 공용 구분선 + 바깥 여백. */}

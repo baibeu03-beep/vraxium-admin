@@ -29,6 +29,13 @@ export async function GET(request: NextRequest) {
       { status: 400 },
     );
   }
+  const weekId = params.get("week_id")?.trim() || null;
+  if (!weekId) {
+    return Response.json(
+      { success: false, error: "week_id is required" },
+      { status: 400 },
+    );
+  }
   // 조직 컨텍스트 수용(info=common 이라 결과 동일 — 규약 일관성).
   const organizationRaw = params.get("organization")?.trim() || null;
   const organization = isOrganizationSlug(organizationRaw) ? organizationRaw : null;
@@ -36,7 +43,12 @@ export async function GET(request: NextRequest) {
   const limit = Number.isFinite(limitRaw) ? limitRaw : undefined;
 
   try {
-    const logs = await listOpeningLogs({ activityTypeId, organization, limit });
+    const logs = await listOpeningLogs({
+      activityTypeId,
+      organization,
+      weekId,
+      limit,
+    });
     return Response.json({ success: true, data: { logs } });
   } catch (error) {
     console.error("[admin/cluster4/opening-logs GET]", error);

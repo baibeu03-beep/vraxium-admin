@@ -867,9 +867,10 @@ export default function PracticalInfoManager() {
   // 탭 UI 자체는 상단 Header title 영역에 있고 본문은 URL ?tab 으로 어느 콘텐츠를 보일지만 결정한다.
   const searchParams = useSearchParams();
   const pathname = usePathname();
-  const orgScoped = readOrgParam(searchParams) != null;
+  const selectedOrg = readOrgParam(searchParams);
+  const orgScoped = selectedOrg != null;
   // 선택된 캡슐 탭 = 조직 대표색(encre 분홍 / oranke 황금 / phalanx 초록). 통합(org 없음)이면 null → 중립 폴백.
-  const orgAccentSolid = organizationAccent(readOrgParam(searchParams))?.solid ?? null;
+  const orgAccentSolid = organizationAccent(selectedOrg)?.solid ?? null;
   const mainTab: "manage" | "open" =
     orgScoped && searchParams?.get("tab") === "open" ? "open" : "manage";
 
@@ -913,9 +914,8 @@ export default function PracticalInfoManager() {
     setOpenStatusLoading(true);
     (async () => {
       try {
-        const org = readOrgParam(new URLSearchParams(window.location.search));
         const qs = new URLSearchParams({ week_id: selectedWeekId });
-        if (org) qs.set("organization", org);
+        if (selectedOrg) qs.set("organization", selectedOrg);
         const res = await fetch(
           appendModeQuery(
             `/api/admin/cluster4/info-line-open-status?${qs.toString()}`,
@@ -934,7 +934,7 @@ export default function PracticalInfoManager() {
     return () => {
       cancelled = true;
     };
-  }, [mainTab, selectedWeekId]);
+  }, [mainTab, selectedWeekId, selectedOrg]);
 
   // ── 탭 dot 산정 — (weekId + activityTypeId) 조합 ──
   // dot 은 activityTypeId 단독이 아니라 "선택 주차에 그 활동 유형의 활성 라인이 있는지"로
@@ -977,7 +977,7 @@ export default function PracticalInfoManager() {
     try {
       // org·hub 스코프 — line_opening_windows 예외를 '그 조직 + 실무정보'로만 드롭다운/폼에 노출.
       //   info 개설은 통합(org=null 가능)이라 org 없으면 '전체 조직' 예외만 반영.
-      const metaOrg = readOrgParam(new URLSearchParams(window.location.search));
+      const metaOrg = selectedOrg;
       const metaOrgQs = metaOrg ? `&org=${encodeURIComponent(metaOrg)}` : "";
       const [weekRes, weeksRes, typesRes, usersRes, excRes] = await Promise.all([
         fetch("/api/admin/cluster4/current-week"),
@@ -998,7 +998,9 @@ export default function PracticalInfoManager() {
         //   미전달 시 operating 기본 → 테스트 모드 화면에 실사용자 노출.
         fetch(
           appendModeQuery(
-            "/api/admin/cluster4/users",
+            `/api/admin/cluster4/users${
+              metaOrg ? `?organization=${encodeURIComponent(metaOrg)}` : ""
+            }`,
             readScopeMode(new URLSearchParams(window.location.search)),
           ),
         ),
@@ -1044,7 +1046,7 @@ export default function PracticalInfoManager() {
       console.error("[info] meta load failed", error);
       toast("error", getApiErrorMessage(error, "데이터를 불러오는데 실패했습니다"));
     }
-  }, []);
+  }, [selectedOrg]);
 
   // ── Lines fetch (per active activity-type tab + 선택한 주차) ──
   const fetchLines = useCallback(async (typeId: string, weekId: string) => {
@@ -1059,8 +1061,7 @@ export default function PracticalInfoManager() {
       if (weekId) qs.set("week_id", weekId);
       // 조직 컨텍스트(?org)를 내부 API 컨벤션(organization)으로 변환해 전달.
       // 조직 모드면 (해당 조직 OR 공통) 라인만, 통합 모드(org 없음)면 전체.
-      const org = readOrgParam(new URLSearchParams(window.location.search));
-      if (org) qs.set("organization", org);
+      if (selectedOrg) qs.set("organization", selectedOrg);
       const res = await fetch(
         appendModeQuery(
           `/api/admin/cluster4/info-lines?${qs.toString()}`,
@@ -1081,7 +1082,7 @@ export default function PracticalInfoManager() {
     } finally {
       setLinesLoading(false);
     }
-  }, []);
+  }, [selectedOrg]);
 
   // ── Week-scoped lines fetch (탭 배지 '개설 완료' 계산용 — 활동 유형 무관, 선택 주차 전체) ──
   //   ⚠ 주차 변경 즉시 이전 주차 라인(배지 근거)을 폐기하고 로딩 표시 → stale '개설 완료' 배지 방지.
@@ -1095,8 +1096,7 @@ export default function PracticalInfoManager() {
     setWeekLinesLoading(true);
     try {
       const qs = new URLSearchParams({ week_id: weekId });
-      const org = readOrgParam(new URLSearchParams(window.location.search));
-      if (org) qs.set("organization", org);
+      if (selectedOrg) qs.set("organization", selectedOrg);
       const res = await fetch(
         appendModeQuery(
           `/api/admin/cluster4/info-lines?${qs.toString()}`,
@@ -1111,7 +1111,7 @@ export default function PracticalInfoManager() {
     } finally {
       setWeekLinesLoading(false);
     }
-  }, []);
+  }, [selectedOrg]);
 
   // ── Initial load ──
   useEffect(() => {
@@ -1969,6 +1969,7 @@ export default function PracticalInfoManager() {
               void fetchLines(activeTypeId, selectedWeekId);
               void fetchWeekLines(selectedWeekId);
             }}
+            organization={selectedOrg}
           />
         </div>
       )}
