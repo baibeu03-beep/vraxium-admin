@@ -447,16 +447,8 @@ function buildAdminCrewDtos(rows: CrewSourceRows): AdminCrewDto[] {
 
     const displayName = displayNameFromProfile(profile);
 
-    const schoolName = preferString(
-      education?.school_name,
-      profile.school_name,
-      legacy?.school_name,
-    );
-    const departmentName = preferString(
-      education?.major_name_1,
-      profile.department_name,
-      legacy?.major_name,
-    );
+    const schoolName = education?.school_name?.trim() || null;
+    const departmentName = education?.major_name_1?.trim() || null;
     // 고객앱 resolver 규칙 5: membership 행에 team/part 가 전혀 없으면 user_profiles 의
     // 비정규화 current_team_name/current_part_name 으로 폴백(legacy 보다 우선 — profile 이 정본에 가깝다).
     const teamName = preferString(

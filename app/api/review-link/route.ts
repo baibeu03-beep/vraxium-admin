@@ -45,51 +45,29 @@ async function isCurrentUserAdmin(userId: string): Promise<boolean> {
   return Boolean(data && (data as { is_active: boolean | null }).is_active);
 }
 
-function buildLinks(
-  rows: ReviewLinkRow[],
-  legacyTotalComplete: string | null,
-): ReviewLinkDto[] {
+function buildLinks(rows: ReviewLinkRow[]): ReviewLinkDto[] {
   const byWeek = new Map<number, ReviewLinkRow>();
   for (const row of rows) byWeek.set(row.week_index, row);
 
   return REVIEW_LINK_SLOTS.map((slot) => {
     const row = byWeek.get(slot.weekIndex);
-    const legacyUrl =
-      slot.weekIndex === 30 && legacyTotalComplete?.trim()
-        ? legacyTotalComplete
-        : null;
     return {
       ...slot,
-      url: row?.url ?? legacyUrl,
+      url: row?.url ?? null,
       isVisible: row?.is_visible ?? true,
-      isLegacyBackfilled: !row && Boolean(legacyUrl),
+      isLegacyBackfilled: false,
     };
   });
 }
 
 async function readReviewLinks(userId: string) {
-  const [linksRes, legacyRes] = await Promise.all([
-    supabaseAdmin
-      .from("user_review_links")
-      .select("week_index,url,is_visible")
-      .eq("user_id", userId),
-    supabaseAdmin
-      .from("user_cluster2")
-      .select("cluving_review_link")
-      .eq("user_id", userId)
-      .maybeSingle(),
-  ]);
+  const linksRes = await supabaseAdmin
+    .from("user_review_links")
+    .select("week_index,url,is_visible")
+    .eq("user_id", userId);
 
   if (linksRes.error) throw new Error(linksRes.error.message);
-  if (legacyRes.error) throw new Error(legacyRes.error.message);
-
-  const legacyTotalComplete =
-    ((legacyRes.data as { cluving_review_link: string | null } | null)
-      ?.cluving_review_link as string | null) ?? null;
-  const links = buildLinks(
-    ((linksRes.data ?? []) as unknown) as ReviewLinkRow[],
-    legacyTotalComplete,
-  );
+  const links = buildLinks(((linksRes.data ?? []) as unknown) as ReviewLinkRow[]);
 
   return {
     links,
@@ -238,20 +216,6 @@ export async function PUT(request: NextRequest) {
       .from("user_review_links")
       .upsert(rows, { onConflict: "user_id,week_index" });
     if (upsertError) throw new Error(upsertError.message);
-
-    if (updates.has(30)) {
-      const { error: legacyError } = await supabaseAdmin
-        .from("user_cluster2")
-        .upsert(
-          {
-            user_id: userId,
-            cluving_review_link: updates.get(30) ?? null,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "user_id" },
-        );
-      if (legacyError) throw new Error(legacyError.message);
-    }
 
     const data = await readReviewLinks(userId);
     return Response.json({ success: true, data });

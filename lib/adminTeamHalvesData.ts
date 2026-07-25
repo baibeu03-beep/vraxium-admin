@@ -406,8 +406,8 @@ export async function getLeaderBasicsBatch(
       birth6: toBirth6(p.birth_date),
       gender: p.gender,
       residence: p.address,
-      school: edu?.school ?? p.school_name ?? null,
-      major: edu?.major ?? p.department_name ?? null,
+      school: edu?.school ?? null,
+      major: edu?.major ?? null,
       classLabel: resolvePositionLabels({
         positionCode: weekOverrides.get(p.user_id)?.positionCode ?? null,
         role: p.role ?? null,

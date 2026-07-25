@@ -483,8 +483,8 @@ export async function getCrewDetailDto(
   const primaryEdu = selectRepresentativeEducation(
     (eduRes.data ?? []) as unknown as EducationRow[],
   );
-  const schoolName = primaryEdu?.school_name ?? crew.schoolName ?? null;
-  const departmentName = primaryEdu?.major_name_1 ?? crew.departmentName ?? null;
+  const schoolName = primaryEdu?.school_name ?? null;
+  const departmentName = primaryEdu?.major_name_1 ?? null;
   const admissionPeriod = primaryEdu
     ? formatAdmissionPeriod(primaryEdu.admission_year, primaryEdu.admission_month)
     : null;

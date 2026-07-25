@@ -246,8 +246,8 @@ async function buildPersonProfileMap(
       gender: p.gender ?? null,
       age: computeAge(p.birth_date ?? null),
       // 학교/학과: user_educations(canonical) 우선 → user_profiles 폴백.
-      school: preferString(edu?.school_name, p.school_name),
-      department: preferString(edu?.major_name_1, p.department_name),
+      school: edu?.school_name ?? null,
+      department: edu?.major_name_1 ?? null,
       team: ovr?.rawTeam ?? preferString(m?.team_name, p.current_team_name),
       part: ovr ? ovr.rawPart : preferString(m?.part_name, p.current_part_name),
       // badge-status 의 등급 source. membership_state("active" 등 상태값)가 아닌 등급(level).

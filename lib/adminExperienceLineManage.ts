@@ -195,8 +195,8 @@ async function loadOrgTeamRoster(
     const edu = eduByUser.get(uid);
     leaders.set(teamName, {
       name: p?.display_name ?? "",
-      school: preferString(edu?.school, p?.school_name),
-      department: preferString(edu?.major, p?.department_name),
+      school: edu?.school ?? null,
+      department: edu?.major ?? null,
     });
   }
 

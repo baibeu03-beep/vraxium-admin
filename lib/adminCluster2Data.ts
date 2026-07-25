@@ -279,7 +279,6 @@ function buildReviewLinks(
     url: string | null;
     is_visible: boolean | null;
   }>,
-  legacyTotalComplete: string | null,
 ): ReviewLinkDto[] {
   const byWeek = new Map<number, (typeof rows)[number]>();
   for (const row of rows) {
@@ -288,15 +287,11 @@ function buildReviewLinks(
 
   return REVIEW_LINK_SLOTS.map((slot) => {
     const row = byWeek.get(slot.weekIndex);
-    const legacyUrl =
-      slot.weekIndex === 30 && legacyTotalComplete?.trim()
-        ? legacyTotalComplete
-        : null;
     return {
       ...slot,
-      url: row?.url ?? legacyUrl,
+      url: row?.url ?? null,
       isVisible: row?.is_visible ?? true,
-      isLegacyBackfilled: !row && Boolean(legacyUrl),
+      isLegacyBackfilled: false,
     };
   });
 }
@@ -452,7 +447,7 @@ export async function getCluster2ForCrew(
       educations: [],
       reviewLink: {
         cluving_review_link: null,
-        links: buildReviewLinks([], null),
+        links: buildReviewLinks([]),
         readonly: true,
         window: computeReviewLinkWindow(null),
       },
@@ -479,7 +474,6 @@ export async function getCluster2ForCrew(
           ...CLUSTER2_PHOTO_FIELDS,
           ...VIDEO_FIELDS,
           ...INTRODUCTION_FIELDS,
-          "cluving_review_link",
         ].join(","),
       )
       .eq("user_id", userId)
@@ -570,9 +564,6 @@ export async function getCluster2ForCrew(
     opened_at: string | null;
     expires_at: string | null;
   } | null;
-  const legacyTotalComplete =
-    (cluster?.cluving_review_link as string | null) ?? null;
-
   return {
     legacyUserId,
     userId,
@@ -582,14 +573,16 @@ export async function getCluster2ForCrew(
     introductions,
     educations: eduRows.map(toEducationDto),
     reviewLink: {
-      cluving_review_link: legacyTotalComplete,
+      cluving_review_link:
+        (((reviewLinksRes.data ?? []) as unknown) as Array<{ week_index: number; url: string | null }>).find(
+          (row) => row.week_index === 30,
+        )?.url ?? null,
       links: buildReviewLinks(
         ((reviewLinksRes.data ?? []) as unknown) as Array<{
           week_index: number;
           url: string | null;
           is_visible: boolean | null;
         }>,
-        legacyTotalComplete,
       ),
       readonly: true,
       window: computeReviewLinkWindow(windowRow),

@@ -348,8 +348,8 @@ async function enrichCrewProfiles(
       name: displayNameFromProfile(p) ?? "",
       teamName: pick(mem?.team_name, p.current_team_name),
       partName: pick(mem?.part_name, p.current_part_name),
-      schoolName: pick(edu?.school_name, p.school_name),
-      majorName: pick(edu?.major_name_1, p.department_name),
+      schoolName: edu?.school_name ?? null,
+      majorName: edu?.major_name_1 ?? null,
       organization: p.organization_slug,
     };
   });

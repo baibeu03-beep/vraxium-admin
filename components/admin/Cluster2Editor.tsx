@@ -413,9 +413,7 @@ function ReviewLinkSlots({
         <div className="font-medium">현재 운영 저장 슬롯: Club Review 10개</div>
         {devMode && (
           <div className="mt-0.5">
-            3w~27w와 Total Complete 모두 public.user_review_links에 저장됩니다.
-            기존 Total Complete 호환 컬럼은 user_cluster2.cluving_review_link
-            입니다.
+            모든 리뷰 링크와 Total Complete은 public.user_review_links에서 관리됩니다.
           </div>
         )}
       </div>
@@ -451,12 +449,6 @@ function ReviewLinkSlots({
               {devMode && (
                 <div className="min-h-4 text-[10px] text-muted-foreground">
                   user_review_links.week_index={slot.weekIndex}
-                  {slot.weekIndex === 30
-                    ? " · legacy: user_cluster2.cluving_review_link"
-                    : ""}
-                  {slot.isLegacyBackfilled
-                    ? " · legacy 값 fallback 표시 중"
-                    : ""}
                 </div>
               )}
             </div>
