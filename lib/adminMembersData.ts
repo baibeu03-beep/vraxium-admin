@@ -38,6 +38,7 @@ import {
   type MemberSortDir,
 } from "@/lib/adminMembersTypes";
 import { resolveCumulativePointsBatch } from "@/lib/pointResolver";
+import { getClubRankGradeBatch } from "@/lib/cluster3ClubRankData";
 
 // /admin/members 전용 데이터 레이어 (server-only).
 // canonical source = public.user_profiles. legacy import 무관, user_id(UUID) 기준.
@@ -512,7 +513,11 @@ export type MemberRosterRow = {
   departmentName: string | null;
   teamName: string | null;
   partName: string | null;
-  // 품계 = user_grade_stats.grade(1=정승 최상위 … 10=정9품) + grade_label. 없으면 null.
+  // 품계 = getClubRankGradeBatch(live, getClubRank 과 동일 산식). 1=정승 최상위 … 10=정9품.
+  //   ⚠ 세 값(avgPercentile / rankGradeNumber / rankGradeLabel)은 **한 번의 live 계산 결과**에서
+  //     함께 파생된다. user_grade_stats 캐시와 섞으면 "상위 6.86% + 정4품" 같은 자가당착이 생긴다.
+  //     계산 대상이 아니면(모집단 제외·이력 없음) 세 값 모두 null.
+  avgPercentile: number | null;
   rankGradeNumber: number | null;
   rankGradeLabel: string | null;
   successWeeks: number | null; // 성장(성공) 주차 = period.a
@@ -692,32 +697,6 @@ export type ListMembersRosterResult = {
   pageSize: number;
 };
 
-// 품계 = user_grade_stats 캐시(grade·grade_label). user_id .in 청크 조회(풀스캔 없음).
-//   캐시 신선도는 resyncGradeStatsBatch/syncGradeStats 가 보장(roster 는 read-only).
-async function fetchGradeCacheByIds(
-  ids: string[],
-): Promise<Map<string, { grade: number | null; label: string | null }>> {
-  const out = new Map<string, { grade: number | null; label: string | null }>();
-  // 청크는 서로 독립 — 병렬 조회로 왕복 지연 직렬 누적 방지(결과 동일).
-  const chunks: string[][] = [];
-  for (let i = 0; i < ids.length; i += 200) chunks.push(ids.slice(i, i + 200));
-  const results = await Promise.all(
-    chunks.map((chunk) =>
-      supabaseAdmin
-        .from("user_grade_stats")
-        .select("user_id,grade,grade_label")
-        .in("user_id", chunk),
-    ),
-  );
-  for (const { data, error } of results) {
-    if (error) throw new Error(error.message);
-    for (const r of (data ?? []) as Array<{ user_id: string; grade: number | null; grade_label: string | null }>) {
-      out.set(r.user_id, { grade: r.grade, label: r.grade_label });
-    }
-  }
-  return out;
-}
-
 export async function listMembersRoster(options: {
   organization?: OrganizationSlug | null; // slug | null/undefined(전체)
   mode?: ScopeMode;
@@ -843,18 +822,22 @@ export async function listMembersRoster(options: {
     return { map, failedChunks };
   };
 
-  // 일정 신뢰도 + Po.A/B/C = slim 캐시(getRosterPointsScheduleFast). 품계 = user_grade_stats 캐시
-  //   (fetchGradeCacheByIds, .in 청크) — 종전 getClubRankGradeBatch live 전수 스캔을 제거(병목 해소).
+  // 일정 신뢰도 + Po.A/B/C = slim 캐시(getRosterPointsScheduleFast).
+  // 품계 = getClubRankGradeBatch(live) — 고객 /api/cluster3/club-rank(getClubRank)와 **동일 산식**.
+  //   ⚠ user_grade_stats 캐시로 되돌리지 말 것. 캐시는 갱신 시점이 달라 고객 화면(live)과 갈리고
+  //     (예: live 상위 6.86%=정승인데 캐시엔 정4품), 백분위·품계 원천이 섞인다.
+  //   N+1 아님: 사용자별 getClubRank 반복 호출이 아니라 전체 포인트를 1회만 읽는 배치다.
+  //   페이지 슬라이스 전(userIds 전체)에 계산해야 하는 이유 = 품계 정렬(sort=grade)이 모집단
+  //     전체를 기준으로 하기 때문. 배치 1회라 로스터 크기와 무관하게 스캔 횟수는 고정.
   //   상태 카운트(active/rest/stopped)는 위 fetchSeasonParticipantsAndCounts 단일 스캔에서 이미 산출.
-  //   전부 풀스캔/대량 .in 없음.
   const [growthResult, gradeByUser, statsByUser, rosterWeekOverrides] = await Promise.all([
     buildGrowthMap(),
-    fetchGradeCacheByIds(userIds),
+    getClubRankGradeBatch(userIds),
     getRosterPointsScheduleFast(userIds),
     loadCurrentWeekOverrides(userIds),
   ]);
   const growthByUser = growthResult.map;
-  t("batches(growth+grade-cache+points·schedule-slim+counts)", Date.now() - s);
+  t("batches(growth+grade-live+points·schedule-slim+counts)", Date.now() - s);
 
   const allMembers: MemberRosterRow[] = crews.map((c) => {
     const g = growthByUser.get(c.userId);
@@ -880,6 +863,8 @@ export async function listMembersRoster(options: {
         role: c.role,
         membershipLevel: c.membershipLevel,
       }).classLabel,
+      // 세 값 모두 같은 live 결과(rank)에서만 가져온다 — 캐시 폴백으로 원천을 섞지 않는다.
+      avgPercentile: rank?.avgPercentile ?? null,
       rankGradeNumber: rank?.grade ?? null,
       rankGradeLabel: rank?.label ?? null,
       successWeeks: g?.successWeeks ?? null,

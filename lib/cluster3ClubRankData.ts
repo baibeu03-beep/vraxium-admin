@@ -11,8 +11,11 @@ import {
   formatAvgPercentile,
   toGradeNumber,
   toGradeLabel,
-  GRADE_NUMBER_MAP,
 } from "@/lib/cluster3GrowthTypes";
+import {
+  getClubRankComputation,
+  invalidateClubRankComputationCache,
+} from "@/lib/clubRankComputationCache";
 
 // Cluster3 클럽 강화 품계 계산 — server-only.
 //
@@ -63,6 +66,9 @@ function computeWeeklyScore(row: { points: number; advantages: number; penalty: 
 //   알고리즘은 불변(아래에서 주차별로 재그룹). origin 점유 시간을 줄여 포화(521/타임아웃)도 완화한다.
 const POINTS_PAGE = 1000;
 const POINTS_PAGE_CONCURRENCY = 4;
+// 대상자 메타(uws/profiles/frozen) 청크 병렬도. 포인트 페이지 병렬도와 같은 수준으로 묶어
+//   origin 동시 접속을 예측 가능하게 유지한다(DB 포화 가드와 같은 관례).
+const CHUNK_CONCURRENCY = 4;
 async function readAllWeeklyPoints(): Promise<WeeklyPointRow[]> {
   const { count, error: countErr } = await supabaseAdmin
     .from("user_weekly_points")
@@ -322,20 +328,54 @@ export async function getClubRank(userId: string): Promise<ClubRankDto> {
 //   graduated/suspended = user_club_rank_frozen 고정값(getClubRank 과 동일).
 export type ClubRankGrade = { grade: number; label: string; avgPercentile: number | null };
 
-export async function getClubRankGradeBatch(
+// 단계별 소요시간 계측 — CLUB_RANK_PROFILE=1 일 때만 출력(기본 off, 계산에 영향 없음).
+function stageProfiler(tag: string) {
+  const on = process.env.CLUB_RANK_PROFILE === "1";
+  const stages: Array<[string, number]> = [];
+  let last = Date.now();
+  return {
+    mark(name: string) {
+      const now = Date.now();
+      stages.push([name, now - last]);
+      last = now;
+    },
+    done(meta: Record<string, unknown>) {
+      if (!on) return;
+      console.log(`[clubRank][profile] ${tag}`, {
+        ...meta,
+        stages: Object.fromEntries(stages),
+        totalMs: stages.reduce((a, [, ms]) => a + ms, 0),
+      });
+    },
+  };
+}
+
+// 전수 계산 코어(캐시 없음). 산식·모집단·rest 제외·frozen·온보딩 제외는 종전과 완전히 동일하다 —
+//   이 함수는 종전 getClubRankGradeBatch 의 본문 그대로이며, 바깥에 캐시 계층만 새로 씌웠다.
+//   ⚠ 중요한 성질: 사용자별 결과는 roster 집합에 의존하지 않는다. 순위 모집단은 항상
+//     "전 사용자 - rest 제외" 이고 userIds 는 "누구의 백분위를 기록할지"만 고른다.
+//     → getClubRankGradeBatchUncached([u]) 와 (전체 계산 후 u 슬라이스)는 값이 동일하다.
+//       캐시가 byte-identical 을 보장하는 근거가 이 성질이다.
+export async function getClubRankGradeBatchUncached(
   userIds: string[],
 ): Promise<Map<string, ClubRankGrade | null>> {
   const result = new Map<string, ClubRankGrade | null>();
   if (userIds.length === 0) return result;
 
+  const prof = stageProfiler("gradeBatch");
   const ID_CHUNK = 200;
 
   // 1) 대상자 growth_status(frozen 판정) + frozen 값 + 첫 주차(온보딩 제외) — 배치.
+  //    청크는 서로 독립(사용자 집합이 겹치지 않음)이라 **제한 동시성으로 병렬** 실행한다.
+  //    ⚠ 쿼리·필터·정렬·행 집합은 종전과 완전히 동일하다 — 직렬 왕복을 겹쳤을 뿐이다.
+  //      (직렬일 때 이 단계가 전체 계산의 70%(≈1.4s)를 먹는 최대 병목이었다.)
   const growthStatusById = new Map<string, string | null>();
   const frozenById = new Map<string, FrozenRow>();
   const firstWeekById = new Map<string, { year: number; week: number }>();
-  for (let i = 0; i < userIds.length; i += ID_CHUNK) {
-    const chunk = userIds.slice(i, i + ID_CHUNK);
+  const idChunks: string[][] = [];
+  for (let i = 0; i < userIds.length; i += ID_CHUNK) idChunks.push(userIds.slice(i, i + ID_CHUNK));
+
+  const loadChunk = async (chunk: string[]) => {
     // user_week_statuses 는 사용자당 다수 주차 행이라 200명 청크의 .in() 결과가 기본
     // 1000행 cap 을 넘기면 조용히 잘려 firstWeek(온보딩 첫 주차)가 틀어진다 → 온보딩
     // 제외 주차가 어긋나 getClubRank(개인) 과 batch(관리자) 의 품계가 갈린다.
@@ -369,25 +409,33 @@ export async function getClubRankGradeBatch(
     ]);
     if (profRes.error) throw new GrowthError(500, profRes.error.message);
     if (frozenRes.error) throw new GrowthError(500, frozenRes.error.message);
-    for (const r of (profRes.data ?? []) as Array<{ user_id: string; growth_status: string | null }>) {
+    return { uwsRows, profRows: profRes.data ?? [], frozenRows: frozenRes.data ?? [] };
+  };
+
+  // 2) 전체 user_weekly_points(순위 모집단 = 전 사용자, getClubRank 과 동일 SoT/행) + rest 제외 집합.
+  //    seasonal_rest 사용자는 모집단에서 제외(getClubRank 과 동일 정책·단일 SoT).
+  //    ①대상자 메타 ②rest 제외 ③전체 포인트는 서로 의존이 없으므로 함께 출발시킨다.
+  const [chunkResults, excludedIds, allPoints] = await Promise.all([
+    mapWithConcurrency(idChunks, CHUNK_CONCURRENCY, loadChunk),
+    getRankPopulationExcludedUserIds(),
+    readAllWeeklyPoints(),
+  ]);
+  // 병합은 청크 순서대로 — Map 키가 사용자별로 겹치지 않아 순서에 무관하지만 결정적으로 둔다.
+  for (const c of chunkResults) {
+    for (const r of c.profRows as Array<{ user_id: string; growth_status: string | null }>) {
       growthStatusById.set(r.user_id, r.growth_status);
     }
-    for (const r of (frozenRes.data ?? []) as Array<{ user_id: string } & FrozenRow>) {
+    for (const r of c.frozenRows as Array<{ user_id: string } & FrozenRow>) {
       frozenById.set(r.user_id, { avg_percentile: r.avg_percentile, rank_grade: r.rank_grade });
     }
-    for (const r of uwsRows) {
+    for (const r of c.uwsRows) {
       const cur = firstWeekById.get(r.user_id);
       if (!cur || r.year < cur.year || (r.year === cur.year && r.week_number < cur.week)) {
         firstWeekById.set(r.user_id, { year: r.year, week: r.week_number });
       }
     }
   }
-
-  // 2) 전체 user_weekly_points 1회 읽기(순위 모집단 = 전 사용자, getClubRank 과 동일 SoT/행).
-  //    seasonal_rest 사용자는 모집단에서 제외(getClubRank 과 동일 정책·단일 SoT).
-  //    readAllWeeklyPoints = count→병렬 페이지네이션(직렬 15왕복 → 병렬, parity 유지).
-  const excludedIds = await getRankPopulationExcludedUserIds();
-  const allPoints = await readAllWeeklyPoints();
+  prof.mark("uws+profiles+frozen ∥ rest제외 ∥ user_weekly_points");
 
   const populationPoints =
     excludedIds.size === 0
@@ -426,10 +474,21 @@ export async function getClubRankGradeBatch(
     const gs = growthStatusById.get(userId);
     const frozen = frozenById.get(userId);
     if ((gs === "graduated" || gs === "suspended") && frozen) {
-      const label = frozen.rank_grade;
-      const grade =
-        label in GRADE_NUMBER_MAP ? GRADE_NUMBER_MAP[label as RankGradeLabel] : null;
-      result.set(userId, grade != null ? { grade, label, avgPercentile: frozen.avg_percentile ?? null } : null);
+      // frozen 도 getClubRank 과 **같은 변환 한 곳**(resolveRankGradeDisplay)을 통과시킨다.
+      //   종전엔 rank_grade 문자열을 GRADE_NUMBER_MAP 에 직접 넣어, 과거 기록의 공백 표기
+      //   ("정 3품")가 키에 없어 품계가 통째로 null 로 떨어졌다(getClubRank 은 공백을 정규화해
+      //   정상 반환 → 같은 사용자의 품계가 두 화면에서 갈렸다).
+      const d = resolveRankGradeDisplay(frozen.rank_grade);
+      result.set(
+        userId,
+        d.rankGradeNumber != null && d.rankGradeLabel != null
+          ? {
+              grade: d.rankGradeNumber,
+              label: d.rankGradeLabel,
+              avgPercentile: frozen.avg_percentile ?? null,
+            }
+          : null,
+      );
       continue;
     }
     const details = pctByUser.get(userId) ?? [];
@@ -443,10 +502,70 @@ export async function getClubRankGradeBatch(
     }
     const rawAvg = eligible.reduce((acc, d) => acc + d.pct, 0) / eligible.length;
     const avgPercentile = Math.ceil(rawAvg * 100) / 100;
-    const label = resolveRankGrade(avgPercentile);
-    result.set(userId, { grade: toGradeNumber(label), label, avgPercentile });
+    // 표시 3종은 avgPercentile 하나에서 ClubRankDto 와 **동일 경로**로 파생한다
+    //   (resolveRankGrade → resolveRankGradeDisplay). label 을 raw 구간명으로 두면 어드민은
+    //   "정3품", 고객 club-rank 는 "정 3품" 이 되어 같은 값이 다르게 보인다.
+    const d = resolveRankGradeDisplay(resolveRankGrade(avgPercentile));
+    result.set(
+      userId,
+      d.rankGradeNumber != null && d.rankGradeLabel != null
+        ? { grade: d.rankGradeNumber, label: d.rankGradeLabel, avgPercentile }
+        : null,
+    );
   }
+  prof.mark("JS 점수·순위·백분위·품계");
+  prof.done({ requested: userIds.length, points: allPoints.length, excluded: excludedIds.size });
 
+  return result;
+}
+
+// ─── 캐시 계층 (전체 모집단 계산 1덩어리 · TTL · single-flight) ──────────────
+//
+// 캐시 유니버스 = user_profiles 전원. 로스터·쇼케이스·club-rank 대상자는 모두 프로필 보유자라
+//   이 집합으로 덮인다. 요청 대상 중 하나라도 유니버스에 없으면 캐시를 쓰지 않고 그 요청만
+//   직접 계산한다 — 캐시분과 신규 계산분을 섞어 **서로 다른 계산 시점이 한 화면에 공존**하는
+//   것을 막기 위해서다(부분 교체 금지 계약).
+async function loadAllProfileUserIds(): Promise<string[]> {
+  const ids: string[] = [];
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const res = await supabaseAdmin
+      .from("user_profiles")
+      .select("user_id")
+      .order("user_id", { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (res.error) throw new GrowthError(500, res.error.message);
+    const rows = (res.data ?? []) as Array<{ user_id: string }>;
+    for (const r of rows) ids.push(r.user_id);
+    if (rows.length < PAGE) break;
+  }
+  return ids;
+}
+
+/**
+ * 품계 배치 — 기본은 짧은 TTL 캐시(전체 모집단 계산 1덩어리)를 재사용한다.
+ *
+ * @param options.forceRefresh 캐시를 건너뛰고 지금 시점으로 재계산한다.
+ *   주차 공표처럼 값이 snapshot 에 확정되는 경로가 사용한다(30초 전 값으로 확정 금지).
+ *   ⚠ 캐시 사용 여부만 다르고 **계산식·DTO·모집단은 완전히 동일**하다(같은 코어 함수).
+ */
+export async function getClubRankGradeBatch(
+  userIds: string[],
+  options?: { forceRefresh?: boolean },
+): Promise<Map<string, ClubRankGrade | null>> {
+  const result = new Map<string, ClubRankGrade | null>();
+  if (userIds.length === 0) return result;
+
+  const computation = await getClubRankComputation<ClubRankGrade | null>(
+    async () => getClubRankGradeBatchUncached(await loadAllProfileUserIds()),
+    { forceRefresh: options?.forceRefresh },
+  );
+
+  // 유니버스 밖 사용자가 섞여 있으면 캐시를 쓰지 않는다(시점 혼입 금지).
+  for (const id of userIds) {
+    if (!computation.map.has(id)) return getClubRankGradeBatchUncached(userIds);
+  }
+  for (const id of userIds) result.set(id, computation.map.get(id) ?? null);
   return result;
 }
 
@@ -579,7 +698,10 @@ export async function resyncGradeStatsBatch(
   }
   if (targets.length === 0) return { total: 0, graded: 0, nulled: 0 };
 
-  const grades = await getClubRankGradeBatch(targets); // 1회 전체 스캔
+  // 캐시 테이블에 값을 굳히는 경로라 TTL 캐시를 쓰지 않는다(옛 계산 시점 고착 방지).
+  //   forceRefresh 계산 결과가 그대로 새 캐시가 되므로 별도 invalidate 는 불필요하다
+  //   (시즌 rest 변경·주차 재판정이 이 경로를 타고 들어와 캐시까지 함께 갱신된다).
+  const grades = await getClubRankGradeBatch(targets, { forceRefresh: true }); // 1회 전체 스캔
   const nowIso = new Date().toISOString();
   let graded = 0, nulled = 0;
   const payload = targets.map((userId) => {
@@ -607,11 +729,16 @@ export async function resyncGradeStatsBatch(
 // getClubRank() 결과를 user_grade_stats 에 UPSERT.
 // 기존 데이터 DROP 없이 ON CONFLICT DO UPDATE 방식.
 
+// 이 함수는 "포인트/시즌상태가 바뀐 뒤" 호출되는 공통 후처리 지점이다(적립 훅·PMS 동기화·
+//   관리자 rank sync 가 전부 여기로 들어온다). 그래서 club-rank 전수 계산 캐시 무효화도 여기서
+//   함께 건다 — 각 호출부가 무효화를 따로 기억할 필요가 없다.
+//   ⚠ 무효화는 **읽기 전에** 건다. getClubRank(아래)이 지금 시점 값을 읽어야 하기 때문이다.
 export async function syncGradeStats(userId: string): Promise<{
   avg_percentile: number | null;
   grade: number | null;
   grade_label: string | null;
 }> {
+  invalidateClubRankComputationCache("syncGradeStats");
   const clubRank = await getClubRank(userId);
 
   if (clubRank.avgPercentile === null || clubRank.rankGrade === null) {

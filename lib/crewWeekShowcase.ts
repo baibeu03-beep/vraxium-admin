@@ -10,7 +10,8 @@
 //   클래스/팀/파트 = lib/positionResolver (week-effective). **셋을 같은 resolver 결과에서** 가져와
 //                    시점이 섞이지 않게 한다(팀만 과거·파트만 현재 금지).
 //   학적          = user_educations(대표) → user_profiles 폴백 (front leaderById 규칙과 동일)
-//   품계          = user_grade_stats.grade(정수 레벨) + grade_label(품계명)
+//   품계          = getClubRankGradeBatch(live) — 고객 /api/cluster3/club-rank(getClubRank)과 동일
+//                   산식·동일 배치 resolver. user_grade_stats 캐시는 참조하지 않는다(원천 혼입 금지).
 //   액트 체크율    = shared/crewActSummary.buildCrewActSummary — **admin·front 공유 단일 SoT**
 //                   (크루 앱 /cluster-4-card Detail Log "활동 완료율"과 같은 함수)
 //   포인트 A/B/C   = user_weekly_points.points / advantages / penalty
@@ -27,6 +28,19 @@ import {
   type CrewActSummaryRow,
 } from "@/shared/crewActSummary";
 import { readWeeklyCardsSnapshotBatch } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { getClubRankGradeBatch } from "@/lib/cluster3ClubRankData";
+
+// 품계 계산 결과의 **상태**. grade:null 하나로는 "정책상 대상 아님"과 "계산이 실패해서 못 구함"이
+//   구분되지 않고, 후자가 공표되면 snapshot 에 null 품계가 그대로 굳는다. 셋을 명시적으로 가른다.
+//   · resolved      : 계산 성공. 세 값 전부 채워짐.
+//   · not-eligible  : 정책상 품계 없음(현재 시즌 rest 로 모집단 제외 · 산정 가능한 주차 없음).
+//                     **정상 상태다 — 공표를 막지 않는다.**
+//   · failed        : 계산 자체가 실패했거나(DB/타임아웃/예외) 대상자 결과가 누락·불완전.
+//                     **공표를 차단한다.**
+export type CrewShowcaseGradeResolution =
+  | { status: "resolved"; avgPercentile: number; grade: number; gradeLabel: string }
+  | { status: "not-eligible"; avgPercentile: null; grade: null; gradeLabel: null; reason: string }
+  | { status: "failed"; avgPercentile: null; grade: null; gradeLabel: null; reason: string };
 
 export type CrewShowcaseBaseRow = {
   userId: string;
@@ -39,6 +53,8 @@ export type CrewShowcaseBaseRow = {
   partName: string | null;
   grade: number | null;
   gradeLabel: string | null;
+  /** grade/gradeLabel 이 왜 그 값인지 — 공표 게이트의 판단 근거. */
+  gradeResolution: CrewShowcaseGradeResolution;
 };
 
 export type CrewShowcaseOverlay = {
@@ -72,27 +88,101 @@ async function loadEducation(
 }
 
 // ── 품계 ────────────────────────────────────────────────────────────────────
+// 원천 = getClubRankGradeBatch(live) 단 하나. 고객 화면(/api/cluster3/club-rank → getClubRank)과
+//   같은 산식·같은 모집단이므로 크루 표와 고객 앱의 품계가 갈리지 않는다.
+//   ⚠ user_grade_stats 캐시를 폴백으로도 쓰지 않는다 — 계산 실패 시 세 값을 모두 null("-")로 둔다.
+//     캐시로 절반만 메우면 백분위(live)와 품계(캐시)가 섞인 행이 만들어진다.
+//   배치 1회(전체 포인트 1회 읽기) — 사용자 수와 무관하게 스캔 횟수 고정(N+1 아님).
+const NOT_ELIGIBLE_REASON =
+  "품계 산정 대상이 아닙니다(현재 시즌 휴식으로 모집단 제외 또는 산정 가능한 주차 없음).";
+
 async function loadGrades(
   userIds: string[],
-): Promise<Map<string, { grade: number | null; label: string | null }>> {
-  const out = new Map<string, { grade: number | null; label: string | null }>();
+  options?: { forceRefresh?: boolean },
+): Promise<Map<string, CrewShowcaseGradeResolution>> {
+  const out = new Map<string, CrewShowcaseGradeResolution>();
   if (userIds.length === 0) return out;
-  for (let i = 0; i < userIds.length; i += 300) {
-    const { data, error } = await supabaseAdmin
-      .from("user_grade_stats")
-      .select("user_id,grade,grade_label")
-      .in("user_id", userIds.slice(i, i + 300));
-    if (error) {
-      console.warn("[crew-week-showcase] user_grade_stats 조회 실패", error.message);
-      return out;
+
+  const allFailed = (reason: string) => {
+    for (const uid of userIds) {
+      out.set(uid, { status: "failed", avgPercentile: null, grade: null, gradeLabel: null, reason });
     }
-    for (const r of (data ?? []) as Array<{
-      user_id: string;
-      grade: number | null;
-      grade_label: string | null;
-    }>) {
-      out.set(r.user_id, { grade: r.grade ?? null, label: r.grade_label ?? null });
+    return out;
+  };
+
+  let batch: Map<string, { grade: number; label: string; avgPercentile: number | null } | null>;
+  try {
+    batch = await getClubRankGradeBatch(userIds, { forceRefresh: options?.forceRefresh });
+  } catch (error) {
+    // 계산 자체가 죽은 경우 — 전원 failed. 화면은 종전처럼 "-"로 뜨지만(fail-soft 유지),
+    //   공표 게이트가 이 상태를 보고 snapshot 확정을 막는다.
+    const reason = `품계 계산 실패: ${error instanceof Error ? error.message : String(error)}`;
+    console.warn("[crew-week-showcase] 품계(live) 계산 실패", reason);
+    return allFailed(reason);
+  }
+
+  for (const uid of userIds) {
+    // 배치는 요청한 모든 userId 에 대해 entry 를 만든다(값이 null 이어도 key 는 존재).
+    //   key 자체가 없다 = 계산기가 대상자를 빠뜨렸다는 뜻 → 정상 null 이 아니라 결함이다.
+    if (!batch.has(uid)) {
+      out.set(uid, {
+        status: "failed",
+        avgPercentile: null,
+        grade: null,
+        gradeLabel: null,
+        reason: "품계 계산 결과에 해당 크루가 누락되었습니다.",
+      });
+      continue;
     }
+    const g = batch.get(uid) ?? null;
+    if (g === null) {
+      // 정책상 정상 null — rest 모집단 제외 / 산정 주차 없음.
+      out.set(uid, {
+        status: "not-eligible",
+        avgPercentile: null,
+        grade: null,
+        gradeLabel: null,
+        reason: NOT_ELIGIBLE_REASON,
+      });
+      continue;
+    }
+    // 세 값은 전부 채워지거나 전부 null이어야 한다. 하나만 빈 행은 원천 혼입/부분 실패다.
+    const missing: string[] = [];
+    if (g.avgPercentile == null) missing.push("avgPercentile");
+    if (g.grade == null) missing.push("grade");
+    if (!g.label) missing.push("gradeLabel");
+    if (missing.length > 0) {
+      out.set(uid, {
+        status: "failed",
+        avgPercentile: null,
+        grade: null,
+        gradeLabel: null,
+        reason: `품계 값이 불완전합니다(누락: ${missing.join(", ")}).`,
+      });
+      continue;
+    }
+    out.set(uid, {
+      status: "resolved",
+      avgPercentile: g.avgPercentile as number,
+      grade: g.grade,
+      gradeLabel: g.label,
+    });
+  }
+  return out;
+}
+
+/** 공표 차단 대상(계산 실패) 행만 추린다. not-eligible 은 정상이므로 포함하지 않는다. */
+export function collectGradeResolutionFailures(
+  base: Map<string, CrewShowcaseBaseRow>,
+): Array<{ userId: string; displayName: string | null; reason: string }> {
+  const out: Array<{ userId: string; displayName: string | null; reason: string }> = [];
+  for (const row of base.values()) {
+    if (row.gradeResolution.status !== "failed") continue;
+    out.push({
+      userId: row.userId,
+      displayName: row.crewDisplayName,
+      reason: row.gradeResolution.reason,
+    });
   }
   return out;
 }
@@ -325,11 +415,16 @@ export async function loadCrewShowcaseInputs(opts: {
   >;
   /** userId → 표시명/크루코드(공표 snapshot 과 동일 원천). */
   displayByUser: Map<string, { displayName: string | null; crewCode: string | null }>;
+  /**
+   * 품계를 TTL 캐시 없이 지금 시점으로 재계산한다. 공표(snapshot 확정) 경로 전용 —
+   * 30초 전 계산값이 그대로 굳는 것을 막는다. 계산식·DTO 는 동일하다(캐시 사용 여부만 다름).
+   */
+  forceRefreshGrades?: boolean;
 }): Promise<CrewShowcaseInputs> {
   const { userIds } = opts;
   const [edu, grades, actRates, points, growth] = await Promise.all([
     loadEducation(userIds),
-    loadGrades(userIds),
+    loadGrades(userIds, { forceRefresh: opts.forceRefreshGrades === true }),
     opts.isoYear != null && opts.isoWeek != null
       ? loadActRates(userIds, opts.isoYear, opts.isoWeek)
       : Promise.resolve(new Map<string, ActRateResult>()),
@@ -344,7 +439,15 @@ export async function loadCrewShowcaseInputs(opts: {
     const pos = opts.positionByUser.get(uid);
     const disp = opts.displayByUser.get(uid);
     const e = edu.get(uid);
-    const g = grades.get(uid);
+    // loadGrades 는 요청한 모든 uid 에 대해 상태를 채운다. 방어적으로 누락은 failed 로 본다
+    //   (조용히 null 로 흘려보내면 공표 게이트가 이 행을 정상으로 오인한다).
+    const g: CrewShowcaseGradeResolution = grades.get(uid) ?? {
+      status: "failed",
+      avgPercentile: null,
+      grade: null,
+      gradeLabel: null,
+      reason: "품계 계산 결과가 조립 단계에서 누락되었습니다.",
+    };
     base.set(uid, {
       userId: uid,
       crewDisplayName: disp?.displayName ?? null,
@@ -354,8 +457,10 @@ export async function loadCrewShowcaseInputs(opts: {
       classLabel: pos?.classLabel ?? null,
       teamName: pos?.teamName ?? null,
       partName: pos?.partName ?? null,
-      grade: g?.grade ?? null,
-      gradeLabel: g?.label ?? null,
+      // 표시값은 상태에서 파생한다 — 두 값이 갈릴 여지를 없앤다.
+      grade: g.grade,
+      gradeLabel: g.gradeLabel,
+      gradeResolution: g,
     });
   }
   return { base, actRates, points, growth };

@@ -1,6 +1,7 @@
 // /admin/members 표 A — 필터(상태 버킷)·검색(표시값 부분검색)·정렬 공용 로직(순수, 서버·클라 공유).
 //   서버 페이지네이션과 클라 표시가 동일 결과를 내도록 단일 SoT. React 무관.
-//   대상 row = MemberRosterRow (lib/adminMembersData). 품계는 user_grade_stats 캐시값(rankGradeNumber/Label).
+//   대상 row = MemberRosterRow (lib/adminMembersData). 품계는 live 계산값(getClubRankGradeBatch —
+//   avgPercentile/rankGradeNumber/rankGradeLabel 이 한 결과에서 함께 온다).
 import type { MemberRosterRow } from "@/lib/adminMembersData";
 import { classLabel } from "@/lib/adminMembersTypes";
 import { BUCKET_LABEL, statusBucket, type MemberStatusBucket } from "@/lib/memberStatusBucket";

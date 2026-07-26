@@ -107,7 +107,8 @@
     "sync:canonical-success-weeks": "tsx --env-file=.env.local scripts/sync-canonical-success-weeks.ts",
     "test:weekly-points-layering": "tsx --env-file=.env.local scripts/test-weekly-points-layering.ts",
     "verify:weekly-points-layering": "tsx --env-file=.env.local scripts/verify-weekly-points-layering-db.ts",
-    "freeze:uwp-baseline": "tsx --env-file=.env.local scripts/recover-uwp-freeze-baseline.ts"
+    "freeze:uwp-baseline": "tsx --env-file=.env.local scripts/recover-uwp-freeze-baseline.ts",
+    "verify:club-rank-cache": "tsx --env-file=.env.local scripts/verify-club-rank-cache.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

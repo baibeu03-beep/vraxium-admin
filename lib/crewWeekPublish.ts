@@ -16,6 +16,7 @@ import { seasonKeyToHalfKey } from "@/lib/teamHalf";
 import { resolvePositionAtBatch } from "@/lib/positionResolver";
 import {
   loadCrewShowcaseInputs,
+  collectGradeResolutionFailures,
   computeRanks,
   sortShowcaseRows,
   assertActRateInvariants,
@@ -135,6 +136,15 @@ export type CrewWeekResultPayload = CrewWeeklyMetrics & {
 export type CrewWeekPreviewResultDto = CrewWeekResultPayload & {
   kind: "preview";
   published: false;
+  /**
+   * 품계 계산에 **실패**한 크루(정상 제외 not-eligible 은 포함하지 않는다).
+   * 비어 있지 않으면 공표가 차단된다 — 예비 화면이 미리 경고할 수 있도록 함께 내려준다.
+   */
+  gradeResolutionFailures: Array<{
+    userId: string;
+    displayName: string | null;
+    reason: string;
+  }>;
 };
 
 /** 공표 결과 — 활성 run snapshot 에서 읽은 값. */
@@ -310,6 +320,8 @@ export async function computeCrewWeekPreview(opts: {
   scope: OrgResultScope;
   /** 검증용 활동 기준일 주입. */
   today?: string;
+  /** 공표 경로 전용 — 품계를 TTL 캐시 없이 지금 시점으로 재계산(계산식·DTO 동일). */
+  forceRefreshGrades?: boolean;
 }): Promise<CrewWeekPreviewResultDto> {
   const { organization, weekId, scope } = opts;
   const week = await loadWeekMeta(weekId);
@@ -372,6 +384,12 @@ export async function computeCrewWeekPreview(opts: {
     targetWeekStart: week.start_date,
     organization,
   });
+  // 품계 계산 실패 행(정상 null 인 not-eligible 은 제외). 공표 게이트의 입력.
+  let gradeResolutionFailures: Array<{
+    userId: string;
+    displayName: string | null;
+    reason: string;
+  }> = [];
   {
     const ids = crewResults.map((c) => c.userId);
     const showcase = await loadCrewShowcaseInputs({
@@ -395,7 +413,11 @@ export async function computeCrewWeekPreview(opts: {
           { displayName: c.crewDisplayName, crewCode: c.crewCode },
         ]),
       ),
+      forceRefreshGrades: opts.forceRefreshGrades === true,
     });
+    // 품계 계산 실패분 — 여기서 **모으기만** 하고 예비 검수는 막지 않는다(화면은 계속 떠야 한다).
+    //   실제 차단은 publishCrewWeekResult 가 저장 시작 전에 수행한다.
+    gradeResolutionFailures = collectGradeResolutionFailures(showcase.base);
     const ranks = computeRanks(
       crewResults.map((c) => ({
         userId: c.userId,
@@ -500,6 +522,9 @@ export async function computeCrewWeekPreview(opts: {
     calculatedAt: new Date().toISOString(),
     calculationVersion: CREW_METRICS_CALC_VERSION,
     sourceActivityDate: opts.today ?? getCurrentActivityDateIso(),
+    // 예비 화면에서도 "이 상태로는 공표할 수 없다"를 미리 보여주기 위한 진단 필드.
+    //   빈 배열 = 공표 가능(품계 기준). not-eligible 은 여기 들어오지 않는다.
+    gradeResolutionFailures,
   };
 }
 
@@ -507,11 +532,24 @@ export class CrewWeekPublishError extends Error {
   constructor(
     public status: number,
     message: string,
+    /**
+     * 구조화된 실패 상세(선택). 라우트가 응답 body 에 그대로 실어 화면이 "누가·왜" 를
+     * 열거할 수 있게 한다. 내부 식별자/스택은 담지 않는다.
+     */
+    public details?: CrewWeekPublishErrorDetails,
   ) {
     super(message);
     this.name = "CrewWeekPublishError";
   }
 }
+
+export type CrewWeekPublishErrorDetails = {
+  code: "GRADE_RESOLUTION_FAILED";
+  /** snapshot 이 만들어지지 않았다는 사실을 응답에서 못 박는다. */
+  snapshotCreated: false;
+  failedCount: number;
+  failures: Array<{ userId: string; displayName: string | null; reason: string }>;
+};
 
 // ── 활성 run 조회 ───────────────────────────────────────────────────────────
 type RunRow = {
@@ -816,7 +854,37 @@ export async function publishCrewWeekResult(opts: {
   }
 
   // ⚠ 클라이언트가 보낸 숫자를 신뢰하지 않는다 — 서버가 최신 원천으로 다시 계산한다.
-  const preview = await computeCrewWeekPreview({ organization, weekId, scope, today: opts.today });
+  //   품계는 forceRefreshGrades 로 TTL 캐시를 건너뛴다 — 30초 전 계산값을 snapshot 에 확정하지 않는다.
+  const preview = await computeCrewWeekPreview({
+    organization,
+    weekId,
+    scope,
+    today: opts.today,
+    forceRefreshGrades: true,
+  });
+
+  // 품계 계산 실패는 **저장 시작 전에** 차단한다. 실패한 null 이 snapshot 에 굳으면 되돌릴 방법이
+  //   없다(공표 후 조회는 snapshot 직독이라 live 로 복구되지 않는다).
+  //   ⚠ 정상 제외(not-eligible: 시즌 휴식·산정 주차 없음)는 차단 대상이 아니다 — collectGrade-
+  //     ResolutionFailures 가 status='failed' 만 모은다.
+  if (preview.gradeResolutionFailures.length > 0) {
+    const f = preview.gradeResolutionFailures;
+    const names = f
+      .slice(0, 5)
+      .map((x) => x.displayName ?? x.userId)
+      .join(", ");
+    throw new CrewWeekPublishError(
+      409,
+      `품계 계산에 실패한 크루가 ${f.length}명 있어 공표를 중단했습니다(저장 없음). ` +
+        `${names}${f.length > 5 ? ` 외 ${f.length - 5}명` : ""}. 잠시 후 다시 시도해주세요.`,
+      {
+        code: "GRADE_RESOLUTION_FAILED",
+        snapshotCreated: false,
+        failedCount: f.length,
+        failures: f,
+      },
+    );
+  }
 
   // 불변식 위반은 **저장을 시작하기 전에** 차단한다(부분 저장 금지 · DB CHECK 와 같은 규칙).
   // 완료율 ↔ count 관계 검증(DB CHECK 로 표현 불가) — 위반 시 부분 저장 없이 전체 차단.

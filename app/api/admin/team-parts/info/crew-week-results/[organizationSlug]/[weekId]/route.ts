@@ -67,7 +67,14 @@ async function resolveTarget(request: NextRequest, params: Params["params"], wri
 
 function toErrorResponse(error: unknown, fallback: string) {
   if (error instanceof CrewWeekPublishError) {
-    return Response.json({ success: false, error: error.message }, { status: error.status });
+    // details 가 있으면 그대로 실어 화면이 "누가·왜 실패했고 저장은 안 됐다"를 열거하게 한다.
+    //   (내부 식별자/스택은 담기지 않는다 — 도메인이 조립한 사용자용 필드만.)
+    return Response.json(
+      error.details
+        ? { success: false, error: error.message, details: error.details }
+        : { success: false, error: error.message },
+      { status: error.status },
+    );
   }
   console.error("[crew-week-results/detail]", error);
   return Response.json(

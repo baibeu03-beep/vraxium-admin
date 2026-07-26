@@ -11,7 +11,8 @@ import { DEFAULT_TABLE_PAGE_SIZE } from "@/lib/tablePagination";
 // GET /api/admin/members/roster?organization=&mode=&page=&pageSize=&search=&filter=&sort=
 //
 // /admin/members "크루 목록" 탭 — 서버 페이지네이션(기본 20). 검색/상태필터/정렬을 서버에서
-// 적용하고 해당 페이지 행만 반환한다. 품계=user_grade_stats 캐시, 모집단=operationalSeasonKey 참여자.
+// 적용하고 해당 페이지 행만 반환한다. 품계=getClubRankGradeBatch(live · club-rank 와 동일 산식),
+// 모집단=operationalSeasonKey 참여자.
 // 응답: { members(page rows), total(모집단), filteredTotal, statusCounts{active,rest,stopped}, page, pageSize }.
 //   sort = "key:dir,key:dir" (예: "poA:desc,name:asc"). organization 미지정 = 전체.
 function parseSort(raw: string | null): SortEntry[] {
