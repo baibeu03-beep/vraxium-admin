@@ -49,7 +49,7 @@ export async function getCluster3StatsCards(
     points: {
       totalStars: g.point.points,
       totalShields: g.point.netAdvantages,
-      totalLightning: -g.point.penalty,
+      totalLightning: g.point.penalty,
       starsLabel: g.point.pointsLabel,
       shieldsLabel: g.point.advantagesLabel,
       lightningLabel: g.point.penaltyLabel,
