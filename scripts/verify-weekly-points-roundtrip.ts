@@ -25,6 +25,9 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { recomputeWeeklyPointsForUsers } from "@/lib/processPointAccrual";
 
 const RUN = process.argv.includes("--run");
+/** --real: 복구된 **실사용자** 행을 대상으로 한다(복구 포인트가 award 변동에 살아남는지 확인).
+ *  기본(플래그 없음)은 test_user_markers 계정만 건드린다. */
+const REAL = process.argv.includes("--real");
 const STAMP = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
 
 type Row = {
@@ -74,10 +77,19 @@ async function main() {
   const { data: awardKeys } = await supabaseAdmin.from("process_point_awards").select("user_id,year,week_number");
   const taken = new Set(((awardKeys ?? []) as Array<{ user_id: string; year: number; week_number: number }>).map((r) => `${r.user_id}|${r.year}|${r.week_number}`));
 
-  const target = ((cands ?? []) as Row[]).find(
-    (r) => markers.has(r.user_id) && !taken.has(`${r.user_id}|${r.year}|${r.week_number}`),
+  // --real: 복구 스코프(staging)에 등재된 실사용자 행 중에서 고른다.
+  let recovered = new Set<string>();
+  if (REAL) {
+    const { data: st } = await supabaseAdmin.from("uwp_recovery_staging_20260726").select("uwp_id").limit(20000);
+    recovered = new Set(((st ?? []) as Array<{ uwp_id: string }>).map((r) => r.uwp_id));
+    if (recovered.size === 0) throw new Error("staging 표가 비어 있다 — --real 대상 특정 불가");
+  }
+  const target = ((cands ?? []) as Row[]).find((r) =>
+    REAL
+      ? !markers.has(r.user_id) && recovered.has(r.id) && !taken.has(`${r.user_id}|${r.year}|${r.week_number}`)
+      : markers.has(r.user_id) && !taken.has(`${r.user_id}|${r.year}|${r.week_number}`),
   );
-  if (!target) throw new Error("적합한 테스트 대상 없음 — 중단(write 0)");
+  if (!target) throw new Error(`적합한 ${REAL ? "실사용자(복구분)" : "테스트"} 대상 없음 — 중단(write 0)`);
 
   const { data: week } = await supabaseAdmin
     .from("weeks").select("id").eq("iso_year", target.year).eq("iso_week", target.week_number).maybeSingle();
@@ -87,7 +99,7 @@ async function main() {
   const { data: prof } = await supabaseAdmin.from("user_profiles").select("display_name").eq("user_id", target.user_id).maybeSingle();
   const name = (prof as { display_name: string } | null)?.display_name ?? target.user_id.slice(0, 8);
 
-  console.log(`대상: ${name} (test 계정) ${target.week_start_date} [${target.year}W${target.week_number}]`);
+  console.log(`대상: ${name} (${REAL ? "실사용자·복구분" : "test 계정"}) ${target.week_start_date} [${target.year}W${target.week_number}]`);
   console.log(`원본: ${shape(target)} cm=${target.checks_migrated}`);
   console.log(`weekId=${weekId} uwpId=${target.id}`);
 

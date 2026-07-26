@@ -108,6 +108,7 @@
     "test:weekly-points-layering": "tsx --env-file=.env.local scripts/test-weekly-points-layering.ts",
     "verify:weekly-points-layering": "tsx --env-file=.env.local scripts/verify-weekly-points-layering-db.ts",
     "freeze:uwp-baseline": "tsx --env-file=.env.local scripts/recover-uwp-freeze-baseline.ts",
+    "db:run-sql": "tsx --env-file=.env.local scripts/run-sql-direct.ts",
     "verify:club-rank-cache": "tsx --env-file=.env.local scripts/verify-club-rank-cache.ts"
   },
   "dependencies": {
@@ -128,11 +129,13 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.1",
     "@types/node": "^20",
+    "@types/pg": "^8.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "mysql2": "^3.22.4",
+    "pg": "^8.22.0",
     "playwright-core": "^1.60.0",
     "tailwindcss": "^4.3.1",
     "tsx": "^4.21.0",
