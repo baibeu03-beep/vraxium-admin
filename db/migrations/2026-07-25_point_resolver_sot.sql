@@ -1,3 +1,26 @@
+-- ⛔ DO NOT RUN — SUPERSEDED / DESTRUCTIVE (neutralized 2026-07-26).
+--
+-- 이 스크립트는 이 DB 에 적용된 적이 없다(검증: user_weekly_points 는 여전히
+-- checks_migrated=true 13,117행 · ΣA 24,803 을 보유 — 아래 2번 문이 실행됐다면
+-- 대부분 0 으로 덮였을 것이다). 적용하지 말 것.
+--
+-- 전제가 틀렸다: process_point_awards 를 "완전한 원장"으로 보고 user_weekly_points
+-- 를 그 투영으로 덮어쓴다. 실측(2026-07-26)은 정반대다 —
+--   · user_weekly_points 14,581행 / process_point_awards 1,084행
+--   · awards 의 (user,year,week) 키 205개가 전부 uwp 에 동일 값으로 존재
+--   · awards 전용 키 0개  ⇒  uwp ⊇ awards
+--   · uwp 단독 보유: year=1900 PMS 이관(629행) · 2023~2025 과거 시즌 · 레거시 수동 포인트
+-- 즉 아래 1·2번 문은 과거 누적(세 자릿수 A)을 복구 불가능하게 파괴하고,
+-- 4번 문은 roster slim 캐시를 같은 축소값으로 덮는다.
+--
+-- 누적 A/B/C 의 단일 SoT 는 lib/pointResolver.ts (user_weekly_points 전체기간 합).
+-- 캐시 재집계가 정말 필요하면 uwp → user_cumulative_points 방향(3번 문 형태)만
+-- 쓰고, uwp 자체를 awards 로 덮는 1·2·4번 문은 절대 되살리지 말 것.
+--
+-- 원문은 이력 보존을 위해 아래에 주석으로 남긴다.
+
+/* ─── NEUTRALIZED (원본, 실행 금지) ───────────────────────────────────
+
 -- Derived point caches only. process_point_awards and published snapshots are untouched.
 -- Canonical formula:
 --   A = SUM(point_check)
@@ -111,3 +134,5 @@ from (
   group by user_id
 ) points
 where stats.user_id = points.user_id;
+
+─── END NEUTRALIZED ───────────────────────────────────────────────── */

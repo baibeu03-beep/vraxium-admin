@@ -501,7 +501,8 @@ export async function getCrewDetailDto(
     successWeeks: growth?.successWeeks ?? null,
     poA: pts?.checkPoints ?? 0,
     // Po.B = 최종 B(= Σadvantage − Σpenalty). 음수 가능. raw advantage 는 노출 안 함. (2026-07-13)
-    poB: (pts?.advantagePoints ?? 0) - (pts?.penaltyPoints ?? 0),
+    //   2026-07-26: 자체 뺄셈 대신 공통 Resolver 가 이미 계산한 net 값을 그대로 쓴다.
+    poB: pts?.netAdvantagePoints ?? 0,
     poC: pts?.penaltyPoints ?? 0,
     scheduleReliability: resume?.scheduleReliability.rate ?? null,
     activityCompletion: resume?.activityCompletion.rate ?? null,

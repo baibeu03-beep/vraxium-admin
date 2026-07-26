@@ -174,39 +174,9 @@ async function loadActRates(
 }
 
 // ── 포인트 A/B/C ────────────────────────────────────────────────────────────
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function loadPoints(
-  userIds: string[],
-  weekStartDate: string,
-): Promise<Map<string, { a: number | null; b: number | null; c: number | null }>> {
-  const out = new Map<string, { a: number | null; b: number | null; c: number | null }>();
-  if (userIds.length === 0) return out;
-  for (let i = 0; i < userIds.length; i += 300) {
-    const { data, error } = await supabaseAdmin
-      .from("user_weekly_points")
-      .select("user_id,points,advantages,penalty")
-      .eq("week_start_date", weekStartDate)
-      .in("user_id", userIds.slice(i, i + 300));
-    if (error) {
-      console.warn("[crew-week-showcase] user_weekly_points 조회 실패", error.message);
-      return out;
-    }
-    for (const r of (data ?? []) as Array<{
-      user_id: string;
-      points: number | null;
-      advantages: number | null;
-      penalty: number | null;
-    }>) {
-      out.set(r.user_id, {
-        a: r.points ?? null,
-        b: r.advantages ?? null,
-        c: r.penalty ?? null,
-      });
-    }
-  }
-  return out;
-}
-
+// 공통 Resolver 단일 경로. 종전의 자체 합산(loadPoints — week_start_date 로 uwp 를
+// 직접 읽고 b 에 raw advantages 를 그대로 넣던 경로)은 2026-07-26 제거했다:
+// B 가 net(= raw − C) 이 아니라 화면 간 값이 갈리는 원인이었다.
 async function loadResolvedPoints(
   userIds: string[],
   isoYear: number,

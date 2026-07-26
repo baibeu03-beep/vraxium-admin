@@ -7,6 +7,7 @@ import { resolvePersonDisplayNames } from "@/lib/koreanRomanization";
 import { getAdminCrewDtoByLegacyUserId } from "@/lib/adminCrewData";
 import type { OrganizationSlug } from "@/lib/organizations";
 import { resolveCanonicalWeeklyMetrics } from "@/lib/canonicalWeeklyMetrics";
+import { resolveCumulativePointsBatch } from "@/lib/pointResolver";
 
 // ─────────────────────────────────────────────────────────────────────
 // Writable field whitelists
@@ -138,12 +139,20 @@ export type ResumeCardBundle = {
   computed: {
     approvedWeeks: number | null;
     cumulativeWeeks: number | null;
+    /** 누적 A — 공통 Resolver pointA. */
     totalStars: number | null;
+    /** 누적 B — 공통 Resolver pointB(= rawAdvantage − C). 음수 가능. */
     totalShields: number | null;
-    /** Point C(penalty) 총합 magnitude(≥0, 양수). 표기·색상(빨강) SoT. */
+    /** 누적 C — 공통 Resolver pointC. 항상 양수 크기. 표기·색상(빨강) SoT. */
     totalPointC: number | null;
-    /** @deprecated 2026-07-13 — 신규 소비처는 totalPointC(양수) 사용. −Σpenalty(음수) 하위호환. */
+    /**
+     * @deprecated 2026-07-13 — 신규 소비처는 totalPointC 사용.
+     * 2026-07-26 부터 totalPointC 와 **같은 값·같은 부호(양수)** 를 반환한다.
+     * 종전의 −Σpenalty(음수) 반환은 같은 DTO 안에서 C 부호가 갈리는 원인이라 제거했다.
+     */
     totalLightnings: number | null;
+    /** 누적 raw 강점(Σadvantages, penalty 차감 전). 내부·검증용. */
+    rawAdvantage: number | null;
   };
 };
 
@@ -183,6 +192,7 @@ export async function getResumeCardForCrew(
         totalShields: null,
         totalPointC: null,
         totalLightnings: null,
+        rawAdvantage: null,
       },
     };
   }
@@ -194,7 +204,7 @@ export async function getResumeCardForCrew(
     introductionRes,
     settingsRes,
     growthRes,
-    pointsRes,
+    resolvedPoints,
   ] = await Promise.all([
     supabaseAdmin
       .from("user_profiles")
@@ -232,17 +242,11 @@ export async function getResumeCardForCrew(
       .eq("user_id", userId)
       .limit(1)
       .maybeSingle(),
-    // 포인트 단일 SoT = user_weekly_points (전체기간·전 point_type 직접합산).
-    //   과거: user_cumulative_points 캐시 read. 그러나 누적 동기화 트리거
-    //   (2026-05-28_cumulative_points_auto_sync.sql)는 컬럼명 불일치
-    //   (total_stars 부재)로 이 DB 에 미적용 → 캐시가 weekly write 후 stale 될
-    //   위험. 이력서 "누적 포인트"는 항상 전체기간 합이어야 하므로 원천 직접합산.
-    //   별=Σpoints, 방패(net)=Σadvantages−Σpenalty, 번개=−Σpenalty (시즌/주차 무필터,
-    //   2026-06-04 표시 정책 통일 — penalty 는 음수 표기, raw advantage 는 내부 전용).
-    supabaseAdmin
-      .from("user_weekly_points")
-      .select("points,advantages,penalty")
-      .eq("user_id", userId),
+    // 누적 포인트 = 공통 Point Resolver 단일 결과(lib/pointResolver).
+    //   자체 SUM(points)/SUM(advantages)−SUM(penalty) 는 2026-07-26 제거했다 —
+    //   화면마다 합산식이 갈리면 Cluster3·회원 상세·이력서 카드가 서로 다른 값을
+    //   내기 때문. 원장 범위(전체기간·1900 이관 계층 포함)도 Resolver 가 소유한다.
+    resolveCumulativePointsBatch([userId]),
   ]);
 
   const errors = [
@@ -252,7 +256,6 @@ export async function getResumeCardForCrew(
     introductionRes.error,
     settingsRes.error,
     growthRes.error,
-    pointsRes.error,
   ].filter((e): e is NonNullable<typeof e> => Boolean(e));
 
   if (errors.length > 0) {
@@ -262,32 +265,9 @@ export async function getResumeCardForCrew(
   const growth = (growthRes.data ?? null) as
     | { approved_weeks: number | null; cumulative_weeks: number | null }
     | null;
-  // user_weekly_points 전체기간 직접합산 → 이력서 누적 포인트.
-  // 행이 0건이면 null 유지 (기존 캐시-미존재 시멘틱과 동일: totalStars=null).
-  const weeklyPointRows = (pointsRes.data ?? []) as Array<{
-    points: number | null;
-    advantages: number | null;
-    penalty: number | null;
-  }>;
-  let sumStars = 0;
-  let sumAdvantages = 0;
-  let sumPenalty = 0;
-  for (const r of weeklyPointRows) {
-    sumStars += r.points ?? 0;
-    sumAdvantages += r.advantages ?? 0;
-    sumPenalty += r.penalty ?? 0;
-  }
-  // 포인트 표시 정책(2026-06-04 통일): 고객 노출 값은 표시 최종값.
-  //   별 = check(Σpoints) · 방패 = net(Σadvantages−Σpenalty) · 번개 = −Σpenalty (음수 표기).
-  //   raw advantage(sumAdvantages)는 내부 집계 전용 — DTO 로 내보내지 않는다.
-  const points =
-    weeklyPointRows.length > 0
-      ? {
-          total_checks: sumStars,
-          total_advantages: sumAdvantages - sumPenalty, // 방패(net)
-          total_penalties: -sumPenalty, // 번개(−n 표기)
-        }
-      : null;
+  // 공통 Resolver 결과를 그대로 DTO 로 옮긴다(재계산·부호 반전 없음).
+  //   A = pointA · B = pointB(= rawAdvantage − C) · C = pointC(양수 크기).
+  const points = resolvedPoints.get(userId) ?? null;
 
   const educationRows = (educationRes.data ?? []) as Array<
     Row & EducationCandidate
@@ -322,10 +302,12 @@ export async function getResumeCardForCrew(
     computed: {
       approvedWeeks: canonical.successWeeks,
       cumulativeWeeks: growth?.cumulative_weeks ?? crew.cumulativeWeeks ?? null,
-      totalStars: points?.total_checks ?? null,
-      totalShields: points?.total_advantages ?? null,
-      totalPointC: points ? sumPenalty : null,
-      totalLightnings: points?.total_penalties ?? null,
+      totalStars: points?.pointA ?? null,
+      totalShields: points?.pointB ?? null,
+      totalPointC: points?.pointC ?? null,
+      // 하위호환 별칭 — totalPointC 와 동일 값·동일 부호(양수).
+      totalLightnings: points?.pointC ?? null,
+      rawAdvantage: points?.rawAdvantage ?? null,
     },
   };
 }
