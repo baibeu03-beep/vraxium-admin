@@ -1,6 +1,6 @@
-// 표 내부 세로 스크롤 UX 검증 — "페이지 이동은 표 바깥에서 스크롤해주세요." 배지 + 공통 스크롤바.
+// 표 내부 세로 스크롤 UX 검증 — "스크롤 이동은 표 바깥에서 해주세요." 배지 + 공통 스크롤바.
 //   (1) 긴 표(내부 스크롤 가능) → 휠 돌려도 배지 안 뜸 / 내부 스크롤만 정상 동작
-//   (2) 짧은 표(내부 스크롤 불가) → 휠 시 배지 표시 · 하단 중앙 · 자동 소멸 · 연속 휠 연장
+//   (2) 짧은 표(내부 스크롤 불가) → 휠 시 배지 표시 · 상단 우측(헤더 행 높이 안) · 자동 소멸 · 연속 휠 연장
 //   (3) 필터 적용해 행 수가 줄면 → 배지 표시로 전환
 //   (4) 필터 해제로 다시 길어지면 → 배지 안 뜸
 //   (5) 페이지 중간(스크롤해야 보이는) 표에서도 동일 동작
@@ -83,6 +83,8 @@ const inventory = () =>
         (ch) => ch.tagName === "DIV" && ch.textContent && ch.textContent.includes("표 바깥에서"),
       );
       const br = badge ? badge.getBoundingClientRect() : null;
+      const headRow = sc.querySelector("thead tr");
+      const hr = headRow ? headRow.getBoundingClientRect() : null;
       out.push({
         index: i,
         visible: Boolean((sc.offsetParent || sc.getClientRects().length) && sr.height >= 20),
@@ -93,9 +95,13 @@ const inventory = () =>
         scrollTop: sc.scrollTop,
         badgeMounted: Boolean(badge),
         badgeOpacity: badge ? getComputedStyle(badge).opacity : null,
+        badgeZ: badge ? getComputedStyle(badge).zIndex : null,
         badgeText: badge ? badge.textContent.trim() : null,
         badgeCenterDx: br ? Math.round(br.left + br.width / 2 - (cr.left + cr.width / 2)) : null,
-        badgeBottomGap: br ? Math.round(cr.bottom - br.bottom) : null,
+        badgeTopGap: br ? Math.round(br.top - cr.top) : null,
+        badgeRightGap: br ? Math.round(cr.right - br.right) : null,
+        // 헤더 행 아래(=본문 행 영역)로 내려가지 않았는지 — "제목 바로 아래/헤더 근처" 요구.
+        badgeWithinHeaderBand: br && hr ? br.bottom <= hr.bottom + 1 : null,
         badgeInsideTable: br ? br.top >= cr.top - 1 && br.bottom <= cr.bottom + 1 : null,
         docTop: Math.round(sr.top + (document.querySelector("main[data-admin-scroll-container]")?.scrollTop ?? 0)),
       });
@@ -220,11 +226,13 @@ try {
     await wheelOver(shortIdx);
     const t = await at(shortIdx);
     check("휠 → 배지 표시", shown(t.badgeOpacity), `opacity=${t.badgeOpacity}`);
-    check("문구 = '페이지 이동은 표 바깥에서 스크롤해주세요.'",
-      t.badgeText === "페이지 이동은 표 바깥에서 스크롤해주세요.", t.badgeText);
-    check("위치 = 표 내부 하단 중앙",
-      Math.abs(t.badgeCenterDx) <= 2 && t.badgeBottomGap > 0 && t.badgeBottomGap < 40 && t.badgeInsideTable,
-      `dx=${t.badgeCenterDx}px bottomGap=${t.badgeBottomGap}px inside=${t.badgeInsideTable}`);
+    check("문구 = '스크롤 이동은 표 바깥에서 해주세요.'",
+      t.badgeText === "스크롤 이동은 표 바깥에서 해주세요.", t.badgeText);
+    check("위치 = 표 상단 우측(헤더 행 밴드 안 · 표 안)",
+      t.badgeTopGap >= 0 && t.badgeTopGap < 16 && t.badgeRightGap > 0 && t.badgeRightGap < 40 &&
+        t.badgeWithinHeaderBand && t.badgeInsideTable,
+      `topGap=${t.badgeTopGap}px rightGap=${t.badgeRightGap}px headerBand=${t.badgeWithinHeaderBand} inside=${t.badgeInsideTable}`);
+    check("sticky thead(z-30)/corner(z-40) 위에 표시(z ≥ 50)", Number(t.badgeZ) >= 50, `z=${t.badgeZ}`);
     const style = await page.evaluate((i) => {
       const c = document.querySelectorAll('[data-slot="table-container"]')[i];
       const badge = Array.from(c.children).find((ch) => ch.textContent?.includes("표 바깥에서"));
@@ -290,8 +298,9 @@ try {
     await wheelOver(midIdx);
     const t = await at(midIdx);
     check("페이지 중간 표에서도 휠 → 배지 표시", shown(t.badgeOpacity), `opacity=${t.badgeOpacity}`);
-    check("배지가 화면 전체가 아니라 그 표 안에 위치", t.badgeInsideTable && Math.abs(t.badgeCenterDx) <= 2,
-      `inside=${t.badgeInsideTable} dx=${t.badgeCenterDx}`);
+    check("배지가 화면 전체가 아니라 그 표 상단 우측에 위치",
+      t.badgeInsideTable && t.badgeWithinHeaderBand && t.badgeRightGap > 0 && t.badgeRightGap < 40,
+      `inside=${t.badgeInsideTable} headerBand=${t.badgeWithinHeaderBand} rightGap=${t.badgeRightGap}`);
     await page.screenshot({ path: resolve(adminRoot, "claudedocs", "qa-innerscroll-5-midpage.png") });
   }
 

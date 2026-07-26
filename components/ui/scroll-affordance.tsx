@@ -17,8 +17,9 @@ import { cn } from "@/lib/utils"
 //   [세로 내부 스크롤 안내] headerSticky(.sticky-head-region) 표는 overscroll-behavior:contain
 //   때문에 "스크롤할 내용이 없어도" 휠 입력이 페이지로 체이닝되지 않는다. 행이 적어
 //   scrollHeight <= clientHeight 인 상태에서 표 위에 커서를 두고 휠을 돌리면 페이지가
-//   멈춘 것처럼 보이므로, 그 상황에서만 표 내부 하단 중앙에 muted 배지를 잠깐 띄워
-//   "페이지 이동은 표 바깥에서" 라는 사실만 알린다.
+//   멈춘 것처럼 보이므로, 그 상황에서만 표 상단(헤더 행 우측)에 muted 배지를 잠깐 띄워
+//   "스크롤 이동은 표 바깥에서" 라는 사실만 알린다. 제목 바로 아래 = 사용자의 시선/커서와
+//   가까운 위치이며, 제목 텍스트나 우측 버튼 줄은 가리지 않는다(표 컨테이너 안에서만 표시).
 //   ⚠ wheel 이벤트는 관찰만 한다 — preventDefault/window.scrollBy 등 스크롤 개입 금지.
 //
 //   공통 Table 컨테이너에 기본 배선되어 모든 표가 자동으로 얻는다. 원시 <table>
@@ -169,17 +170,19 @@ export function ScrollAffordance({
       )}
 
       {/* 세로 내부 스크롤 여지가 없는 표 위에서 휠을 돌렸을 때만 뜨는 안내 배지.
-          표 내부 하단 중앙 고정(커서를 따라다니지 않음) · 오류가 아닌 muted 톤 ·
-          연속 휠 입력에서는 타이머만 연장되어 깜빡이지 않는다. */}
+          해당 표 컨테이너 상단 우측 고정(제목 바로 아래 · 헤더 행 높이 안) — 커서를
+          따라다니지 않고, 오류가 아닌 muted 톤 · 반투명 pill.
+          연속 휠 입력에서는 타이머만 연장되어 깜빡이지 않는다.
+          ⚠ z-50 필수 — sticky thead(z-30)/corner(z-40) 위에 떠야 한다. */}
       {verticalRegion && (
         <div
           aria-hidden
           className={cn(
-            "pointer-events-none absolute bottom-2 left-1/2 z-10 -translate-x-1/2 rounded-full border border-border/60 bg-background/80 px-2.5 py-0.5 text-2xs font-medium text-muted-foreground shadow-sm backdrop-blur transition-opacity duration-300",
+            "pointer-events-none absolute top-1.5 right-3 z-50 rounded-full border border-border/60 bg-background/85 px-2.5 py-0.5 text-2xs font-medium text-muted-foreground shadow-sm backdrop-blur transition-opacity duration-300",
             showPageScrollNote ? "opacity-100" : "opacity-0",
           )}
         >
-          페이지 이동은 표 바깥에서 스크롤해주세요.
+          스크롤 이동은 표 바깥에서 해주세요.
         </div>
       )}
     </div>
