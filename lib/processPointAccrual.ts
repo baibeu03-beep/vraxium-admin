@@ -22,8 +22,10 @@
 //   그 외 주차(레거시/PMS) → 적립 스킵(원장 미생성) → 과거 데이터 무접촉.
 //
 // ⚠ 전제: db/migrations/2026-06-15_process_point_awards.sql 적용. 미적용 시 PGRST205 → 스킵(로그).
-// ⚠ user_weekly_points.points 재계산은 era 경계 주차에서만 — operating summer 는 base=0(무손실),
-//   test W13 은 기존값을 원장합으로 덮어씀(검증용 — 호출 검증 스크립트가 원복).
+// ⚠ 전제: db/migrations/2026-07-26_uwp_legacy_baseline_columns.sql 적용(배포보다 먼저).
+//   user_weekly_points 는 "레거시 기준층(legacy_*) + 활성 award 기여층" 의 합으로 재구성한다.
+//   award 를 적립·수정·취소·삭제해도 기준층은 보존되며, 취소 시 정확히 기준값으로 복귀한다.
+//   계층 계약·중복 불가 근거·미적용 환경 폴백은 lib/userWeeklyPointsBaseline.ts 참조.
 // ─────────────────────────────────────────────────────────────────────
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
@@ -36,8 +38,18 @@ import {
 } from "@/lib/userScope";
 import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { processPointAwardsHasCancelColumns } from "@/lib/processPointAwardsCancelState";
+import {
+  LEGACY_BASELINE_SELECT,
+  ZERO_TRIPLE,
+  composeWeeklyPointTotals,
+  isLegacyFreeWeek,
+  readBaselineFromRow,
+  sumAwardTriple,
+  userWeeklyPointsHasLegacyBaselineColumns,
+} from "@/lib/userWeeklyPointsBaseline";
 import { isCluster4TestExceptionWeek } from "@/lib/cluster4TestWeekPolicy";
 import { syncGradeStats } from "@/lib/cluster3ClubRankData";
+import { invalidateClubRankComputationCache } from "@/lib/clubRankComputationCache";
 import type { RejudgeResult } from "@/lib/crewWeekGrowthRejudge";
 import type { OrganizationSlug } from "@/lib/organizations";
 import { isOrganizationSlug } from "@/lib/organizations";
@@ -133,13 +145,27 @@ async function loadMatchedUserIds(source: AccrualSource, refId: string): Promise
   );
 }
 
-// 영향 (user, year, week) 의 user_weekly_points 를 원장 합으로 재계산(증분 금지).
+// 영향 (user, year, week) 의 user_weekly_points 를 **레거시 기준층 + 활성 award 기여층** 으로 재구성.
 //   ⚠ 포인트 합산의 단일 공통 레이어 — 소프트 취소(cancelled_at IS NOT NULL) 행은 여기서 제외한다.
 //   user_weekly_points 가 모든 표면(카드/Detail Log/회원 상세/snapshot)의 포인트 SoT 이므로,
 //   이 한 곳에서 제외하면 전 표면·전 모드(operating/test/actAs/demo)가 동일하게 취소분을 뺀다.
+//
+//   ⚠ 2026-07-26 수정: 예전에는 "활성 award 합"만으로 행 전체를 덮었다. 그러면 그 주차의
+//     PMS·레거시·QA 시드 포인트가 award 하나로 치환되고, award 취소 시 0 이 된다
+//     (실측: 최윤하 2024-07-01 — 라인 award 적립 3분 뒤 취소로 PMS 48점 소멸).
+//     이제는 legacy_points/legacy_advantages/legacy_penalty(기준층)를 보존한 채
+//     활성 award 합만 얹는다 → 취소/삭제 시 정확히 기준값으로 복귀한다.
+//     계층 계약·중복 불가 근거는 lib/userWeeklyPointsBaseline.ts 참조.
+//
+//   checks_migrated 는 "체크 게이트 enforce"(lib/lineAvailability.ts) 플래그다. 적립 provenance 가
+//   아니므로 기존 행의 값을 보존한다 — 예전처럼 무조건 true 로 덮으면 레거시 주차의 강화 판정이
+//   award 하나 때문에 바뀐다(2026-07-25 §2 가 이 플래그를 오해석해 일괄 wipe 한 것과 같은 뿌리).
 async function recomputeWeeklyPoints(pairs: Array<{ userId: string; year: number; week: number; weekStartDate: string }>): Promise<void> {
   const hasCancel = await processPointAwardsHasCancelColumns();
+  const hasBaseline = await userWeeklyPointsHasLegacyBaselineColumns();
+
   for (const p of pairs) {
+    // 1) 활성 award 기여층
     let query = supabaseAdmin
       .from("process_point_awards")
       .select("point_check,point_advantage,point_penalty")
@@ -149,25 +175,81 @@ async function recomputeWeeklyPoints(pairs: Array<{ userId: string; year: number
     if (hasCancel) query = query.is("cancelled_at", null); // 취소 행 제외(공통 레이어)
     const { data, error } = await query;
     if (error) throw error;
-    const rows = (data ?? []) as { point_check: number; point_advantage: number; point_penalty: number }[];
-    const points = rows.reduce((s, r) => s + (r.point_check || 0), 0);
-    const advantages = rows.reduce((s, r) => s + (r.point_advantage || 0), 0);
-    const penalty = rows.reduce((s, r) => s + Math.abs(r.point_penalty || 0), 0);
-    const { error: upErr } = await supabaseAdmin.from("user_weekly_points").upsert(
-      {
-        user_id: p.userId,
-        year: p.year,
-        week_number: p.week,
-        week_start_date: p.weekStartDate,
-        points,
-        advantages,
-        penalty,
-        checks_migrated: true, // 적립 provenance(프로세스 체크 발) — 게이트 enforce 일관성
-      },
-      { onConflict: "user_id,year,week_number" },
-    );
+    const awards = sumAwardTriple((data ?? []) as Array<{ point_check: number; point_advantage: number; point_penalty: number }>);
+
+    // 2) 기존 행(기준층 + 보존해야 할 메타)
+    const { data: existing, error: exErr } = await supabaseAdmin
+      .from("user_weekly_points")
+      .select(hasBaseline ? `id,points,advantages,penalty,checks_migrated,${LEGACY_BASELINE_SELECT}` : "id,points,advantages,penalty,checks_migrated")
+      .eq("user_id", p.userId)
+      .eq("year", p.year)
+      .eq("week_number", p.week)
+      .maybeSingle();
+    if (exErr) throw exErr;
+    const row = (existing ?? null) as
+      | ({ id: string; points: number | null; advantages: number | null; penalty: number | null; checks_migrated: boolean | null } & {
+          legacy_points?: number | null; legacy_advantages?: number | null; legacy_penalty?: number | null;
+        })
+      | null;
+
+    // 3) 기준층 결정
+    let baseline = readBaselineFromRow(row);
+    if (baseline === null) {
+      if (!row) {
+        // 신규 주차 — 레거시층 없음(0). 기존 동작과 동일.
+        baseline = ZERO_TRIPLE;
+      } else if (!hasBaseline) {
+        // 마이그레이션 미적용. 레거시층이 0 임이 구조적으로 보장되는 신정책 era 주차만
+        // 기존 동작 유지, 그 외에는 **쓰지 않는다**(레거시 파괴 금지 우선 — fail-safe).
+        if (!isLegacyFreeWeek(p.weekStartDate, CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM)) {
+          console.error(
+            "[accrual] user_weekly_points 갱신 건너뜀 — legacy_* 컬럼 미적용 상태에서 레거시 era 주차를 덮으면 PMS/레거시 포인트가 소멸한다. " +
+              "db/migrations/2026-07-26_uwp_legacy_baseline_columns.sql 적용 후 recomputeWeeklyPointsForUsers 로 수렴시킬 것.",
+            { userId: p.userId, year: p.year, week: p.week, weekStartDate: p.weekStartDate },
+          );
+          continue;
+        }
+        baseline = ZERO_TRIPLE;
+      } else {
+        // 컬럼은 있는데 이 행만 NULL(백필 이후 생성된 행 등) — 현재값에서 award 기여분을 뺀 잔여가 기준층.
+        baseline = {
+          points: (row.points ?? 0) - awards.points,
+          advantages: (row.advantages ?? 0) - awards.advantages,
+          penalty: (row.penalty ?? 0) - awards.penalty,
+        };
+      }
+    }
+
+    // 4) 최종값 = 기준층 + 기여층 (가산 누적 아님 — 매번 재구성이라 멱등)
+    const total = composeWeeklyPointTotals(baseline, awards);
+
+    const payload: Record<string, unknown> = {
+      user_id: p.userId,
+      year: p.year,
+      week_number: p.week,
+      week_start_date: p.weekStartDate,
+      points: total.points,
+      advantages: total.advantages,
+      penalty: total.penalty,
+      // 기존 행이면 게이트 플래그 보존 · 신규 행이면 종전과 동일하게 true.
+      checks_migrated: row ? (row.checks_migrated ?? false) : true,
+    };
+    if (hasBaseline) {
+      payload.legacy_points = baseline.points;
+      payload.legacy_advantages = baseline.advantages;
+      payload.legacy_penalty = baseline.penalty;
+    }
+
+    const { error: upErr } = await supabaseAdmin
+      .from("user_weekly_points")
+      .upsert(payload, { onConflict: "user_id,year,week_number" });
     if (upErr) throw upErr;
   }
+
+  // 품계는 상대 백분위라 한 사람의 주차 포인트만 바뀌어도 전 사용자 순위가 흔들린다.
+  //   user_weekly_points 쓰기가 성공한 뒤 club-rank 전수 계산 캐시를 버려, 다음 조회가
+  //   새 값으로 계산되게 한다. (쓰기 실패 시에는 위에서 throw 되어 여기 도달하지 않는다.)
+  if (pairs.length > 0) invalidateClubRankComputationCache("recomputeWeeklyPoints");
 }
 
 // 한 체크(ref_id)의 desired 원장 집합 — 이행자(A/B, C=0)와 비대상자(0/0/C)로 분리해 계산.

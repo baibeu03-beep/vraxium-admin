@@ -1,8 +1,19 @@
 -- ⛔ DO NOT RUN — SUPERSEDED / DESTRUCTIVE (neutralized 2026-07-26).
 --
--- 이 스크립트는 이 DB 에 적용된 적이 없다(검증: user_weekly_points 는 여전히
--- checks_migrated=true 13,117행 · ΣA 24,803 을 보유 — 아래 2번 문이 실행됐다면
--- 대부분 0 으로 덮였을 것이다). 적용하지 말 것.
+-- ⚠ 정정(2026-07-26 재조사): **이 스크립트는 이 DB 에 이미 실행됐다.**
+--   실행 시각 2026-07-25T04:52:05.480492Z (13:52 KST). 증거 —
+--     · user_weekly_points 13,110행의 updated_at 이 그 timestamp 로 완전 동일(전부 checks_migrated=true)
+--     · user_cumulative_points 723/730행 동일 timestamp(아래 3번 문)
+--     · 함수 public.sync_cumulative_points_for_user 가 DB 에 존재(아래 3번 문만 생성)
+--     · cluster4_roster_card_stats 85행 동일 timestamp(아래 4번 문)
+--   이전 주석의 "적용된 적이 없다"는 오판이었다. checks_migrated=true 13,117행이 남아 있는 것은
+--   2번 문이 **값만 0 으로 덮고 플래그는 true 로 유지**하기 때문이라 미적용 근거가 되지 못한다.
+--
+--   피해: PMS·레거시 이관 주차 포인트 11,508행 / 629명 / ΣA 449,474 · Σadvantage 30,810 ·
+--   Σpenalty 18,891 소멸. checks_migrated 는 "process_point_awards 발" 플래그가 아니라
+--   "PMS 이관 완료 = 체크 게이트 enforce" 플래그이므로 2번 문의 전제가 틀렸다.
+--
+--   복구: db/migrations/2026-07-26_uwp_point_recovery_{00,01,99}_*.sql (원천 legacy_point_ledger).
 --
 -- 전제가 틀렸다: process_point_awards 를 "완전한 원장"으로 보고 user_weekly_points
 -- 를 그 투영으로 덮어쓴다. 실측(2026-07-26)은 정반대다 —

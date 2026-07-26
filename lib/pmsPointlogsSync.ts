@@ -39,6 +39,13 @@ import {
 import { recalcUserGrowthStats } from "@/lib/userGrowthStatsData";
 import { syncGradeStats } from "@/lib/cluster3ClubRankData";
 import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { processPointAwardsHasCancelColumns } from "@/lib/processPointAwardsCancelState";
+import {
+  ZERO_TRIPLE,
+  composeWeeklyPointTotals,
+  sumAwardTriple,
+  userWeeklyPointsHasLegacyBaselineColumns,
+} from "@/lib/userWeeklyPointsBaseline";
 
 export const PMS_SYNC_SOURCES: PmsSourceSystem[] = ["oranke", "hrdb", "olympus"];
 
@@ -400,29 +407,77 @@ export async function syncPmsPointlogsIncremental(opts: {
     for (const r of rows) existingUwp.set(`${r.user_id}:${r.week_start_date}`, { id: r.id, checks_migrated: r.checks_migrated });
   }
 
+  // ⚠ 2026-07-26: ledger 재합산값은 **레거시 기준층(legacy_*)** 이지 최종 표시값이 아니다.
+  //   예전처럼 points 에 그대로 쓰면 같은 주차의 활성 process_point_awards 기여분이 지워진다
+  //   (recomputeWeeklyPoints 가 레거시를 지우던 것과 정확히 대칭인 버그).
+  //   최종값 = legacy(ledger 재합산) + 활성 award 합. 계약은 lib/userWeeklyPointsBaseline.ts.
+  const hasBaseline = await userWeeklyPointsHasLegacyBaselineColumns();
+  const hasCancel = await processPointAwardsHasCancelColumns();
+
+  // 영향 (user, iso year/week) 의 활성 award 합 — 한 번에 로드.
+  const awardByUserWeek = new Map<string, { points: number; advantages: number; penalty: number }>();
+  for (let i = 0; i < affectedUserList.length; i += 50) {
+    const chunk = affectedUserList.slice(i, i + 50);
+    const rows = await fetchAllSb<{ user_id: string; year: number; week_number: number; point_check: number; point_advantage: number; point_penalty: number }>(
+      "process_point_awards",
+      "user_id,year,week_number,point_check,point_advantage,point_penalty",
+      "id",
+      (q) => (hasCancel ? q.in("user_id", chunk).is("cancelled_at", null) : q.in("user_id", chunk)),
+    );
+    for (const r of rows) {
+      const k = `${r.user_id}|${r.year}|${r.week_number}`;
+      const prev = awardByUserWeek.get(k) ?? { points: 0, advantages: 0, penalty: 0 };
+      awardByUserWeek.set(k, composeWeeklyPointTotals(prev, sumAwardTriple([r])));
+    }
+  }
+
   for (const [key, agg] of ledgerByUserWeek) {
     const [userId, weekId] = key.split(":");
     const w = weekById.get(weekId);
     if (!w) continue;
+    const year = w.iso_year ?? Number(w.start_date.slice(0, 4));
+    const weekNumber = w.iso_week ?? w.week_number;
+    const baseline = { points: agg.points, advantages: agg.adv, penalty: agg.pen };
+    const awards = awardByUserWeek.get(`${userId}|${year}|${weekNumber}`) ?? ZERO_TRIPLE;
+    const total = composeWeeklyPointTotals(baseline, awards);
+
     const ex = existingUwp.get(`${userId}:${w.start_date}`);
     if (ex) {
-      const { error } = await supabaseAdmin
-        .from("user_weekly_points")
-        .update({ points: agg.points, advantages: agg.adv, penalty: agg.pen, updated_at: nowIso })
-        .eq("id", ex.id);
+      const patch: Record<string, unknown> = {
+        points: total.points,
+        advantages: total.advantages,
+        penalty: total.penalty,
+        updated_at: nowIso,
+      };
+      if (hasBaseline) {
+        patch.legacy_points = baseline.points;
+        patch.legacy_advantages = baseline.advantages;
+        patch.legacy_penalty = baseline.penalty;
+      } else if (awards.points !== 0 || awards.advantages !== 0 || awards.penalty !== 0) {
+        // 컬럼 미적용 + 그 주차에 활성 award 존재 → 어느 쪽을 써도 한 층이 소실된다. 건너뛴다.
+        log(`[skip] uwp ${userId} ${w.start_date} — legacy_* 컬럼 미적용 상태에서 award 기여분과 충돌(마이그레이션 후 재실행 필요)`);
+        continue;
+      }
+      const { error } = await supabaseAdmin.from("user_weekly_points").update(patch).eq("id", ex.id);
       if (error) throw new Error(`uwp update ${userId} ${w.start_date}: ${error.message}`);
     } else {
-      const { error } = await supabaseAdmin.from("user_weekly_points").insert({
+      const insertRow: Record<string, unknown> = {
         id: randomUUID(),
         user_id: userId,
-        year: w.iso_year ?? Number(w.start_date.slice(0, 4)),
-        week_number: w.iso_week ?? w.week_number,
+        year,
+        week_number: weekNumber,
         week_start_date: w.start_date,
-        points: agg.points,
-        advantages: agg.adv,
-        penalty: agg.pen,
+        points: total.points,
+        advantages: total.advantages,
+        penalty: total.penalty,
         checks_migrated: false, // 보너스 적립 주차 — 체크게이트 미관여(보수적).
-      });
+      };
+      if (hasBaseline) {
+        insertRow.legacy_points = baseline.points;
+        insertRow.legacy_advantages = baseline.advantages;
+        insertRow.legacy_penalty = baseline.penalty;
+      }
+      const { error } = await supabaseAdmin.from("user_weekly_points").insert(insertRow);
       if (error) throw new Error(`uwp insert ${userId} ${w.start_date}: ${error.message}`);
     }
   }
