@@ -293,9 +293,11 @@ export default function Sidebar() {
           /admin 런처면 스스로 null 렌더한다(그 경우 이 슬롯은 사라지고 nav 가 헤더 박스에 바로 붙는다). */}
       <OrgEnvironmentBanner collapsed={!sidebarOpen} />
 
+      {/* admin-thin-scroll = 표 내부 스크롤과 동일한 스크롤바 계약(globals.css SoT).
+          외부 페이지(body) 스크롤바와 구분되는 6px·pill·muted·hover 진하게. */}
       <nav
         className={cn(
-          "flex flex-1 flex-col overflow-y-auto",
+          "admin-thin-scroll flex flex-1 flex-col overflow-y-auto",
           sidebarOpen ? "gap-0.5 p-2.5" : "gap-1 p-2",
         )}
       >
