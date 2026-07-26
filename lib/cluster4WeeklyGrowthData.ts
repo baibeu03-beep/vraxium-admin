@@ -592,18 +592,19 @@ async function computeWeeklyCards(
   //   카드 역할 배지(roleLabel)는 "현재 등급"이 아니라 "그 카드 주차 당시 단계"여야 한다.
   //   한 시즌 안에서도 주차마다 단계가 바뀔 수 있으므로(예: W1~4 일반 → W5~ 심화) 주차 단위로
   //   정확히 매칭한다(week_start_date 1:1). 우선순위:
-  //     ① 그 주차 행(weekPositionLabelByStart) — 주차 단위 정확값.
+  //     ① 그 주차 행(weekPositionCodeByStart) — 주차 단위 정확값.
   //     ② 같은 시즌에 PMS 행은 있으나 그 주차만 비는(gap) 경우 → 시즌 대표(resolveSeasonPosition,
   //        3주룰) fallback — 이력서 resume-activities(computeSeasonRecords)와 동일 SoT·산정.
-  //     ③ PMS 이력이 전혀 없는 시즌(현재 native·미이관) → 현재 membership/role(crewMeta.roleLabelRaw).
-  //   테이블 미적용/조회실패 시 두 맵 모두 비어 ③ 현재값 fallback(무회귀).
+  //     ③ PMS 이력이 전혀 없는 시즌(현재 native·미이관) → 현재 role/level 정규화
+  //        (currentClassPositionCode). 여기까지 전부 **position_code** 로 푼 뒤, 라벨은 그 코드에서
+  //        파생한다(카드 조립부 classPositionCode 주석 참조).
+  //   맵이 비고 코드도 못 구하면(신호 전무) 그때만 등급 라벨(crewMeta.roleLabelRaw) 그대로(무회귀).
   //   ⚠ ①/② 의 원천은 **effective = override ?? UPH** 다(2026-07-22, 2단계). 관리자 팀 상세 [B] 에서
   //     주차별 클래스를 바꾸면 cluster4_team_week_position_overrides 에 기록되고, 그 값이 여기서 UPH 를
   //     덮어 카드 배지/크루 클래스에 반영된다(저장 시 snapshot invalidate → 재계산).
   //     UPH 행이 아예 없는 주차에 override 만 있는 경우(멤버십 폴백 주차 편집)도 ① 로 채운다.
-  const weekPositionLabelByStart = new Map<string, string>(); // week_start_date → 라벨
-  const seasonPositionLabelMap = new Map<string, string>();    // season_key → 시즌대표 라벨
-  // 클래스(직책) 원시 코드 맵 — roleLabel(라벨)과 병행 수집. 스냅샷 crewClassPositionCode 저장용(코드 그대로).
+  // 클래스(직책) 원시 코드 맵 — 라벨/코드 **공통** 원천. 별도의 라벨 맵을 두지 않는다
+  //   (두 맵을 병행하면 tier 가 각자 풀려 라벨과 코드가 갈릴 수 있다 — 2026-07-26 실사고).
   const weekPositionCodeByStart = new Map<string, PositionCode>(); // week_start_date → position_code
   const seasonPositionCodeMap = new Map<string, PositionCode>();   // season_key → 시즌대표 position_code
   // 소속(팀/파트) 주차 핀 — **override 가 있는 주차만**. 카드 header teamName/partName SoT.
@@ -628,13 +629,11 @@ async function computeWeeklyCards(
     // ① 주차 단위 정확 매칭 (week_start_date = 카드 startDate). carry-forward override 포함.
     for (const r of series.rows) {
       if (!r.weekStart) continue;
-      weekPositionLabelByStart.set(r.weekStart, POSITION_CODE_TO_LABEL[r.effectiveCode]);
       weekPositionCodeByStart.set(r.weekStart, r.effectiveCode);
     }
     // ② 시즌 대표(PMS gap 주차 fallback) — basis="uph". override 를 섞으면 4주차 편집이 시즌
     //   대표로 승격돼 UPH 행이 없는 0~3주차 카드까지 소급으로 덮인다(resolver 주석 참조).
     for (const [key, code] of resolveSeasonPositionsFromSeries(series, "uph")) {
-      seasonPositionLabelMap.set(key, POSITION_CODE_TO_LABEL[code]);
       seasonPositionCodeMap.set(key, code);
     }
   }
@@ -1067,6 +1066,21 @@ async function computeWeeklyCards(
     const displayWeekNum =
       seasonWeekNumber ?? uws?.week_number ?? week.iso_week ?? 0;
 
+    // ── 클래스(직책) 3-tier 를 **한 번만** 풀고 라벨/코드를 같은 결과에서 파생한다 ──────────
+    //   ① 그 주차 행(effective = override ?? UPH) → ② 시즌 대표(uph basis) → ③ 현재 role/level freeze.
+    //   ⚠ 2026-07-26: 종전에는 라벨(roleLabelRaw)과 코드(crewClassPositionCodeRaw)가 tier 를 **각자**
+    //     풀었고, tier③ 에서만 원천이 갈렸다 —
+    //       코드 = roleLevelToPositionCode(user_profiles.role, 등급)  → advanced_part_leader
+    //       라벨 = crewMeta.roleLabelRaw(= user_memberships.membership_level) → "심화"(직책 미특정)
+    //     같은 카드 한 장 안에서 디테일 로그(코드 기반)는 심화(파트장), 요약/헤더(라벨 기반)는
+    //     심화(에이전트) 로 갈렸다(실측 52명·429카드). 한 tier 결과에서 둘 다 파생하면 구조적으로
+    //     불가능해진다. 코드가 안 나오는 경우(신호 전무)에만 종전 등급 라벨을 그대로 싣는다.
+    const classPositionCode: PositionCode | null =
+      weekPositionCodeByStart.get(startDate) ??
+      (seasonKey ? seasonPositionCodeMap.get(seasonKey) : undefined) ??
+      currentClassPositionCode ??
+      null;
+
     const fmRaw = fmByStart.get(startDate) ?? null;
     const cumAdvRaw = cumAdvByStart.get(startDate) ?? null;
     const repCountRaw = weekCardId ? (repCountMap.get(weekCardId) ?? 0) : null;
@@ -1093,19 +1107,13 @@ async function computeWeeklyCards(
       partLabel: weekTeamPartByStart.get(startDate)?.part ?? partLabel,
       teamNameRaw: weekTeamPartByStart.get(startDate)?.team ?? crewMeta.teamNameRaw,
       partNameRaw: weekTeamPartByStart.get(startDate)?.part ?? crewMeta.partNameRaw,
-      // 역할 배지 = 그 카드 "주차" 당시 단계 우선(주차 정확값) → 같은 시즌 gap 주차는 시즌 대표 →
-      //   PMS 없는 시즌만 현재값. 한 시즌 안에서도 주차별로 다르게 표시된다(W2 일반/W7 심화 등).
-      roleLabelRaw:
-        weekPositionLabelByStart.get(startDate) ||
-        (seasonKey && seasonPositionLabelMap.get(seasonKey)) ||
-        crewMeta.roleLabelRaw,
-      // 클래스(직책) 원시 코드 — roleLabel(등급)과 동일 3-tier 우선순위(단 값은 라벨이 아닌 코드).
-      //   ① 주차행 → ② 시즌대표 → ③ 현재 role/level freeze. 전부 없으면 null(프론트 과도기 fallback).
-      crewClassPositionCodeRaw:
-        weekPositionCodeByStart.get(startDate) ??
-        (seasonKey ? seasonPositionCodeMap.get(seasonKey) : undefined) ??
-        currentClassPositionCode ??
-        null,
+      // 역할 배지 = 그 카드 "주차" 당시 단계. 위 classPositionCode 3-tier 결과에서 파생한다
+      //   (한 시즌 안에서도 주차별로 다르게 표시된다: W2 정규 / W7 심화(파트장) 등).
+      roleLabelRaw: classPositionCode
+        ? POSITION_CODE_TO_LABEL[classPositionCode]
+        : crewMeta.roleLabelRaw,
+      // 클래스(직책) 원시 코드 — 위와 **동일한** tier 결과. 라벨과 갈릴 수 없다.
+      crewClassPositionCodeRaw: classPositionCode,
       membershipStatusLabelRaw: crewMeta.membershipStatusLabelRaw,
       organizationSlug: crewMeta.organizationSlug,
       points: pts?.points ?? 0,
