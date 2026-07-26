@@ -258,7 +258,7 @@ export default function CrewWeekLineHistory({
         if (!res.ok || !json.success) {
           throw apiErrorFrom(res, json, "2차 기입 허용을 변경하지 못했습니다.");
         }
-        t.success("update", nextAllowed ? "2차 기입을 허용했습니다." : "2차 기입 허용을 회수했습니다.");
+        t.success("update", nextAllowed ? "2차 기입을 허용했습니다." : "2차 기입 허용을 마감했습니다.");
         await load(); // 서버 상태 재조회(optimistic 금지)
       } catch (err) {
         console.error("[crew-week-lines] allow toggle failed", err);
@@ -318,16 +318,16 @@ export default function CrewWeekLineHistory({
     if (allowedCount === 0) {
       await adminDialog.alert({
         variant: "info",
-        title: "2차 기입 허용 회수",
+        title: "2차 기입 허용 마감",
         description: "현재 수동으로 허용된 라인이 없습니다.",
       });
       return;
     }
     const ok = await adminDialog.confirm({
       variant: "danger",
-      title: "전체 2차 기입 허용 회수",
-      description: `현재 수동으로 허용된 ${allowedCount}개 라인의 2차 기입 허용을 모두 회수하시겠습니까?`,
-      confirmLabel: "전체 회수",
+      title: "전체 2차 기입 허용 마감",
+      description: `현재 수동으로 허용된 ${allowedCount}개 라인의 2차 기입 허용을 모두 마감하시겠습니까?`,
+      confirmLabel: "전체 마감",
     });
     if (!ok) return;
     setBulkBusy(true);
@@ -342,13 +342,13 @@ export default function CrewWeekLineHistory({
       );
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) {
-        throw apiErrorFrom(res, json, "2차 기입 일괄 회수에 실패했습니다.");
+        throw apiErrorFrom(res, json, "2차 기입 일괄 마감에 실패했습니다.");
       }
-      t.success("update", `${json.data.changedCount}개 라인의 2차 기입 허용을 회수했습니다.`);
+      t.success("update", `${json.data.changedCount}개 라인의 2차 기입 허용을 마감했습니다.`);
       await load();
     } catch (err) {
       console.error("[crew-week-lines] bulk deny failed", err);
-      t.apiError("update", err, "2차 기입 일괄 회수에 실패했습니다.");
+      t.apiError("update", err, "2차 기입 일괄 마감에 실패했습니다.");
     } finally {
       setBulkBusy(false);
     }
@@ -503,7 +503,7 @@ export default function CrewWeekLineHistory({
             className="gap-1.5 border-red-500/60 text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-500/10"
           >
             <SwitchTrack tone="red" on={false} />
-            전체 · 2차 기입 허용 회수
+            전체 · 2차 기입 마감
           </Button>
         </div>
 
@@ -552,7 +552,7 @@ export default function CrewWeekLineHistory({
           <span className="flex items-center gap-2">
             <SwitchTrack tone="red" on={false} />
             <span>
-              <b className="text-red-600 dark:text-red-400">회수</b>: 수동 허용을 회수합니다(자동 기간
+              <b className="text-red-600 dark:text-red-400">마감</b>: 수동 허용을 마감합니다(자동 기간
               로직으로 복귀 — 2차 기입 마감과는 별개).
             </span>
           </span>
@@ -565,7 +565,7 @@ export default function CrewWeekLineHistory({
 
         {!canManage && (
           <p className="text-xs text-muted-foreground">
-            2차 기입 허용/회수는 성장 결과가 확정된 주차에서만 관리할 수 있습니다. (2차 기입 마감은 개설
+            2차 기입 허용/마감은 성장 결과가 확정된 주차에서만 관리할 수 있습니다. (2차 기입 마감은 개설
             후 48시간 이내 진행 중에 라인별로 실행합니다.)
           </p>
         )}
@@ -953,7 +953,7 @@ function SecondEntrySwitch({
   }
   const allowed = row.overrideAllowed;
   const locked = !allowed && !row.eligible; // 허용 불가(미오픈/강화 실패/해당 없음)
-  const label = allowed ? "허용" : "회수";
+  const label = allowed ? "허용" : "마감";
   // !canManage(집계 전) → 완전 비활성. 그 외엔 클릭 가능(비자격 라인은 클릭 시 안내 팝업).
   const disabled = !canManage || anyBusy;
   const trackTone = !canManage ? "gray" : allowed ? "green" : row.eligible ? "red" : "gray";
@@ -974,7 +974,7 @@ function SecondEntrySwitch({
         !canManage
           ? "확정된 주차에서만 관리할 수 있습니다."
           : allowed
-            ? "클릭하면 2차 기입 허용을 회수합니다(자동 기간 로직으로 복귀)."
+            ? "클릭하면 2차 기입 허용을 마감합니다(자동 기간 로직으로 복귀)."
             : row.eligible
               ? "클릭하면 2차 기입을 허용합니다."
               : row.lineTargetId == null
