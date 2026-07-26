@@ -7,6 +7,7 @@ import {
   type RankGradeLabel,
   type WeeklyRankDetail,
   resolveRankGrade,
+  resolveRankGradeDisplay,
   formatAvgPercentile,
   toGradeNumber,
   toGradeLabel,
@@ -179,6 +180,8 @@ export async function getClubRank(userId: string): Promise<ClubRankDto> {
       avgPercentile: Number(frozen.avg_percentile),
       avgPercentileDisplay: `상위 ${formatAvgPercentile(Number(frozen.avg_percentile))}%`,
       rankGrade: frozen.rank_grade,
+      // frozen 도 같은 rank_grade 한 값에서 표시 3종을 파생 — 혼합 없음.
+      ...resolveRankGradeDisplay(frozen.rank_grade),
       isFrozen: true,
       weeklyDetails: [],
     };
@@ -214,6 +217,8 @@ export async function getClubRank(userId: string): Promise<ClubRankDto> {
       avgPercentile: null,
       avgPercentileDisplay: "—",
       rankGrade: null,
+      rankGradeNumber: null,
+      rankGradeLabel: null,
       isFrozen: false,
       weeklyDetails: [],
     };
@@ -286,6 +291,8 @@ export async function getClubRank(userId: string): Promise<ClubRankDto> {
       avgPercentile: null,
       avgPercentileDisplay: "—",
       rankGrade: null,
+      rankGradeNumber: null,
+      rankGradeLabel: null,
       isFrozen: false,
       weeklyDetails,
     };
@@ -300,6 +307,8 @@ export async function getClubRank(userId: string): Promise<ClubRankDto> {
     avgPercentile,
     avgPercentileDisplay: `상위 ${formatAvgPercentile(avgPercentile)}%`,
     rankGrade,
+    // 같은 avgPercentile → 같은 rankGrade → 표시 3종. 소비자가 재계산하지 않는다.
+    ...resolveRankGradeDisplay(rankGrade),
     isFrozen: false,
     weeklyDetails,
   };

@@ -14,7 +14,12 @@
 // 온보딩 1주차 제외 기준: getClubRank() 가 user_week_statuses 의 최소 year/week 를
 // 사용한다 (단일 기준).
 //
-// 반환: ClubRankDto (avgPercentile, avgPercentileDisplay, rankGrade, isFrozen, weeklyDetails)
+// 반환: ClubRankDto (avgPercentile, avgPercentileDisplay, rankGrade,
+//        rankGradeNumber, rankGradeLabel, isFrozen, weeklyDetails)
+//
+// 품계 표시 3종(avgPercentile / rankGradeNumber / rankGradeLabel)은 이 한 응답에서
+// 함께 파생된다 — 소비자가 백분위는 live, 품계는 user_grade_stats 캐시처럼 원천을
+// 섞어 조립하면 "상위 6.86% + 정4품" 같은 자가당착이 생긴다(2026-07-26 수정).
 
 import type { NextRequest } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabaseServer";

@@ -139,6 +139,14 @@ export type ClubRankDto = {
   avgPercentile: number | null;
   avgPercentileDisplay: string;
   rankGrade: string | null;
+  // 품계 표시 3종(avgPercentile / rankGradeNumber / rankGradeLabel)은 **항상 같은
+  // getClubRank() 결과에서 함께 파생**된다. 소비자(고객앱 Cluster3 포함)는 이 필드를
+  // 그대로 쓰고, avgPercentile → 품계 구간 변환을 자체 구현하지 않는다.
+  //   rankGradeNumber = 1(정승) … 10(정9품)  — 프론트 rank-card 인덱스
+  //   rankGradeLabel  = "정승" | "정 N품"(공백 포함) — 프론트 표시 라벨
+  // avgPercentile 이 null(모집단 제외·주차 이력 없음)이면 둘 다 null.
+  rankGradeNumber: number | null;
+  rankGradeLabel: string | null;
   isFrozen: boolean;
   weeklyDetails: WeeklyRankDetail[];
 };
@@ -192,4 +200,24 @@ export function toGradeNumber(rankGrade: RankGradeLabel): number {
 
 export function toGradeLabel(rankGrade: RankGradeLabel): string {
   return GRADE_LABEL_MAP[rankGrade];
+}
+
+// rankGrade(원시 라벨) → { number, label } 안전 변환 — ClubRankDto 조립 단일 경로.
+//   · live 산출값은 항상 RANK_GRADES 라벨("정3품", 공백 없음).
+//   · frozen(user_club_rank_frozen.rank_grade)은 과거 기록이라 "정 3품"(공백)이 섞일 수 있어
+//     공백을 제거해 맵 키로 정규화한다. 미지의 값이면 추측하지 않고 둘 다 null.
+export function resolveRankGradeDisplay(rankGrade: string | null | undefined): {
+  rankGradeNumber: number | null;
+  rankGradeLabel: string | null;
+} {
+  if (!rankGrade) return { rankGradeNumber: null, rankGradeLabel: null };
+  const key = rankGrade.replace(/\s+/g, "");
+  if (!(key in GRADE_NUMBER_MAP)) {
+    return { rankGradeNumber: null, rankGradeLabel: null };
+  }
+  const typed = key as RankGradeLabel;
+  return {
+    rankGradeNumber: GRADE_NUMBER_MAP[typed],
+    rankGradeLabel: GRADE_LABEL_MAP[typed],
+  };
 }
