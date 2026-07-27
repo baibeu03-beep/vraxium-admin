@@ -44,6 +44,12 @@ import {
 } from "@/lib/cluster4InfoCrewEditWindow";
 import PracticalInfoCrewEditModal from "@/components/admin/PracticalInfoCrewEditModal";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import {
+  LineResultCard,
+  LineStatusBadge,
+  LineStatusSummary,
+  type LineManagementTone,
+} from "@/components/admin/lineManagementTone";
 import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 
 // 실무 정보 — "주차별 개설 결과" (표시 전용 · read-only API).
@@ -81,14 +87,16 @@ function fmtOpenedAt(iso: string | null): string {
   return formatClubDateTime(iso);
 }
 
+// 상태 문구는 이 도메인이 소유하고, 색은 공용 tone SoT(lineManagementTone)에 위임한다.
+//   opened=개설 완료 → success / needs_opening=개설 필요 → warning / not_open=미오픈 → inactive.
+//   실무 정보의 개설 결과에는 취소·실패 상태가 존재하지 않으므로 danger 는 쓰지 않는다.
 const STATUS_META: Record<
   LineStatus,
-  { label: string; cls: string }
+  { label: string; tone: LineManagementTone }
 > = {
-  opened: { label: "개설 완료", cls: "border-green-300 bg-green-50 text-green-800" },
-  needs_opening: { label: "개설 필요", cls: "border-amber-300 bg-amber-50 text-amber-800" },
-  // 미오픈 — 이번 주 개설 대상 아님. 배지를 확실히 어둡게(진한 중립).
-  not_open: { label: "미오픈", cls: "border-zinc-400 bg-zinc-200 text-zinc-700 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-200" },
+  opened: { label: "개설 완료", tone: "success" },
+  needs_opening: { label: "개설 필요", tone: "warning" },
+  not_open: { label: "미오픈", tone: "inactive" },
 };
 
 export default function PracticalInfoWeekResults({
@@ -267,28 +275,49 @@ export default function PracticalInfoWeekResults({
           <LoadingState active />
         ) : (
           <>
-            {/* 요약 카운트 — 전체 / 오픈(개설 대상) / 개설 / 개설 필요 / 미오픈. 미오픈은 오픈·개설필요 집계에서 제외. */}
+            {/* 요약 카운트 — 전체 / 오픈(개설 대상) / 개설 / 개설 필요 / 미오픈. 미오픈은 오픈·개설필요 집계에서 제외.
+                항목 순서·문구·도움말 키·집계 값은 불변. 색만 공용 tone SoT 로 의미별 분리한다:
+                전체=neutral / 오픈=info / 개설=success / 개설 필요=warning / 미오픈=inactive. */}
             <div className="flex flex-wrap gap-3">
-              <div className="rounded-md border bg-muted/30 px-3 py-2 text-base">
-                <span className="text-muted-foreground">전체 라인</span>{" "}
-                <span className="font-semibold">{results?.totalLineCount ?? "-"}</span>
-              </div>
-              <div className="rounded-md border bg-muted/30 px-3 py-2 text-base">
-                <span className="inline-flex items-center gap-1 text-muted-foreground">오픈 라인<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.info.stat.openLineCount" title="오픈 라인" /></span>{" "}
-                <span className="font-semibold">{results?.openLineCount ?? "-"}</span>
-              </div>
-              <div className="rounded-md border bg-muted/30 px-3 py-2 text-base">
-                <span className="inline-flex items-center gap-1 text-muted-foreground">개설 라인<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.info.stat.openedLineCount" title="개설 라인" /></span>{" "}
-                <span className="font-semibold">{results?.openedLineCount ?? "-"}</span>
-              </div>
-              <div className="rounded-md border bg-muted/30 px-3 py-2 text-base">
-                <span className="text-muted-foreground">개설 필요</span>{" "}
-                <span className="font-semibold text-amber-700">{results?.needsOpeningCount ?? "-"}</span>
-              </div>
-              <div className="rounded-md border bg-muted/30 px-3 py-2 text-base">
-                <span className="text-muted-foreground">미오픈</span>{" "}
-                <span className="font-semibold text-zinc-500">{results?.notOpenCount ?? "-"}</span>
-              </div>
+              <LineStatusSummary
+                tone="neutral"
+                label="전체 라인"
+                value={results?.totalLineCount ?? "-"}
+              />
+              <LineStatusSummary
+                tone="info"
+                label="오픈 라인"
+                value={results?.openLineCount ?? "-"}
+                help={
+                  <AdminHelpIconButton
+                    size="xs"
+                    helpKey="admin.lineOpening.info.stat.openLineCount"
+                    title="오픈 라인"
+                  />
+                }
+              />
+              <LineStatusSummary
+                tone="success"
+                label="개설 라인"
+                value={results?.openedLineCount ?? "-"}
+                help={
+                  <AdminHelpIconButton
+                    size="xs"
+                    helpKey="admin.lineOpening.info.stat.openedLineCount"
+                    title="개설 라인"
+                  />
+                }
+              />
+              <LineStatusSummary
+                tone="warning"
+                label="개설 필요"
+                value={results?.needsOpeningCount ?? "-"}
+              />
+              <LineStatusSummary
+                tone="inactive"
+                label="미오픈"
+                value={results?.notOpenCount ?? "-"}
+              />
             </div>
 
             {/* 크루 수정 결과 배너 */}
@@ -321,35 +350,24 @@ export default function PracticalInfoWeekResults({
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {results.lines.map((l) => {
                   const meta = STATUS_META[l.status];
-                  const notOpen = l.status === "not_open";
                   return (
-                    <div
-                      key={l.activityTypeId}
-                      className={cn(
-                        "space-y-2 rounded-md border p-3",
-                        // 미오픈 카드는 확실히 어둡게 처리(이번 주 개설 대상 아님).
-                        notOpen && "border-zinc-300 bg-zinc-100 opacity-80 dark:border-zinc-700 dark:bg-zinc-800/60",
-                      )}
-                    >
+                    // 카드는 상태별 '연한 배경 + 같은 계열 테두리'만 달라진다(공용 tone SoT).
+                    <LineResultCard key={l.activityTypeId} tone={meta.tone}>
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-base font-semibold">{l.lineName}</span>
-                        <span
-                          className={cn(
-                            "inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-sm font-medium",
-                            meta.cls,
-                          )}
-                        >
-                          {meta.label}
+                        <span className="text-base font-semibold text-foreground">
+                          {l.lineName}
                         </span>
+                        <LineStatusBadge tone={meta.tone}>{meta.label}</LineStatusBadge>
                       </div>
                       {l.status === "opened" ? (
                         <>
+                          {/* 필드 라벨=보조색 / 값=본문색. 날짜·인원 숫자는 tabular-nums 로 자릿수 정렬. */}
                           <dl className="space-y-1 text-sm">
-                            <Row label="개설 시점" value={fmtOpenedAt(l.openedAt)} />
-                            <Row label="메인 타이틀" value={l.mainTitle ?? "-"} wrap />
+                            <Row label="개설 시점" value={fmtOpenedAt(l.openedAt)} numeric />
+                            <Row label="메인 타이틀" value={l.mainTitle ?? "-"} wrap strong />
                             <Row label="개설자" value={l.openedByName ?? "-"} />
-                            <Row label="개설 해당자" value={`${l.targetCount ?? 0}명`} />
-                            <Row label="2차 기입자" value={`${l.secondInputCount ?? 0}명`} />
+                            <Row label="개설 해당자" value={`${l.targetCount ?? 0}명`} numeric strong />
+                            <Row label="2차 기입자" value={`${l.secondInputCount ?? 0}명`} numeric strong />
                           </dl>
                           {/* 개설 대상 크루 수정 — 허용 범위 주차 + lineId 존재 시에만 노출. */}
                           {l.lineId && weekEditable && (
@@ -380,7 +398,7 @@ export default function PracticalInfoWeekResults({
                             : "이 라인은 이번 주에 개설 대상이 아닙니다."}
                         </p>
                       )}
-                    </div>
+                    </LineResultCard>
                   );
                 })}
               </div>
@@ -410,19 +428,33 @@ export default function PracticalInfoWeekResults({
   );
 }
 
+// 카드 내부 필드 1줄. 라벨(보조색) ↔ 값(본문색)로 위계를 준다.
+//   numeric : 날짜·인원 등 숫자 값 — tabular-nums 로 카드마다 자릿수가 흔들리지 않게 한다.
+//   strong  : 메인 타이틀·인원 수처럼 한 단계 더 강조할 값.
 function Row({
   label,
   value,
   wrap,
+  numeric,
+  strong,
 }: {
   label: string;
   value: string;
   wrap?: boolean;
+  numeric?: boolean;
+  strong?: boolean;
 }) {
   return (
     <div className="flex gap-2">
       <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">{label}</dt>
-      <dd className={cn("min-w-0 font-medium", wrap ? "break-words" : "truncate")}>
+      <dd
+        className={cn(
+          "min-w-0 text-foreground",
+          strong ? "font-semibold" : "font-medium",
+          numeric && "tabular-nums",
+          wrap ? "break-words" : "truncate",
+        )}
+      >
         {value}
       </dd>
     </div>

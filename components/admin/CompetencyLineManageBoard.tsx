@@ -19,6 +19,11 @@ import PracticalInfoCurrentSituation from "@/components/admin/PracticalInfoCurre
 import { useLineManageWeekOptions } from "@/lib/lineManageWeekOptions";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import {
+  LineStatusBadge,
+  LineStatusSummary,
+  type LineManagementTone,
+} from "@/components/admin/lineManagementTone";
 import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 
 // 실무 역량 [라인 관리] 탭 — 상단 보드.
@@ -202,35 +207,32 @@ function ColumnHeader({
   );
 }
 
+// 집계 카드 — 레이아웃(숫자 위/라벨 아래·min-w·padding)은 그대로 두고, 색만 공용 tone SoT 에 위임한다.
+//   실무 역량의 실제 집계 의미 → tone:
+//     활동 크루=모집단(neutral) / 신청·진행 흐름(info) / 개설 완료(success) / 반려(danger).
 function StatCard({
   label,
   value,
-  tone,
+  tone = "neutral",
   helpKey,
 }: {
   label: string;
   value: number;
-  tone?: "default" | "info" | "success" | "error";
+  tone?: LineManagementTone;
   helpKey?: string;
 }) {
   return (
-    <div
-      className={cn(
-        "min-w-[78px] rounded-md border px-4 py-2 text-center",
-        tone === "info" && "border-blue-200 bg-blue-50",
-        tone === "success" && "border-green-200 bg-green-50",
-        tone === "error" && "border-red-200 bg-red-50",
-        (!tone || tone === "default") && "border-border bg-muted",
-      )}
-    >
-      <p className="text-xl font-bold leading-none">{value}</p>
-      <p className="mt-1 inline-flex items-center justify-center gap-1 text-xs text-muted-foreground">
-        {label}
-        {helpKey ? (
+    <LineStatusSummary
+      layout="stacked"
+      tone={tone}
+      label={label}
+      value={value}
+      help={
+        helpKey ? (
           <AdminHelpIconButton helpKey={helpKey} title={label} size="xs" />
-        ) : null}
-      </p>
-    </div>
+        ) : null
+      }
+    />
   );
 }
 
@@ -408,6 +410,7 @@ export default function CompetencyLineManageBoard({
               <StatCard
                 label="활동 크루"
                 value={summary.activeCrews}
+                tone="neutral"
                 helpKey="admin.lineOpening.competency.stat.activeCrews"
               />
               <StatCard
@@ -425,7 +428,7 @@ export default function CompetencyLineManageBoard({
               <StatCard
                 label="반려 크루"
                 value={summary.rejectedCrews}
-                tone="error"
+                tone="danger"
                 helpKey="admin.lineOpening.competency.stat.rejectedCrews"
               />
               <StatCard
@@ -501,16 +504,13 @@ export default function CompetencyLineManageBoard({
                       )}
                     </td>
                     <td className="whitespace-nowrap px-3 py-2">
-                      <span
-                        className={cn(
-                          "inline-block rounded-full px-2 py-0.5 text-xs font-medium",
-                          r.result === "success"
-                            ? "bg-green-100 text-green-700"
-                            : "bg-red-100 text-red-700",
-                        )}
+                      {/* 라인 결과 배지 — 상태 판정/문구는 그대로, 색만 공용 tone SoT(성공=success·실패=danger). */}
+                      <LineStatusBadge
+                        tone={r.result === "success" ? "success" : "danger"}
+                        className="text-xs"
                       >
                         {r.result === "success" ? "강화 성공" : "강화 실패"}
-                      </span>
+                      </LineStatusBadge>
                     </td>
                     <td className="whitespace-nowrap px-3 py-2 tabular-nums text-muted-foreground">
                       {formatAppliedAt(r.appliedAt)}
