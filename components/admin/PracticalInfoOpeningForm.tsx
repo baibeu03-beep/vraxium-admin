@@ -20,6 +20,12 @@ import { cn } from "@/lib/utils";
 import { formatClubDate } from "@/lib/clubDate";
 import { formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
+import {
+  LineOpeningCardDot,
+  lineOpeningCardClass,
+  lineOpeningCardHeaderClass,
+  lineOpeningStateTone,
+} from "@/components/admin/lineOpeningCardStyles";
 import CafeCrewPicker, {
   type CafeCrew,
   type CafeCrewMeta,
@@ -780,10 +786,18 @@ export default function PracticalInfoOpeningForm({
     toast,
   ]);
 
+  // 카드 accent 색 = 현재 개설 상태(표시 전용 — 판정 로직/데이터 흐름 무관).
+  //   개설 완료(locked)=에메랄드 / 개설 대상 주차(미개설)=앰버 / 미오픈=중립.
+  const openCardTone = lineOpeningStateTone({
+    opened: locked,
+    canOpen: openThisWeek !== false,
+  });
+
   return (
-    <Card>
-      <CardHeader className="pb-3">
+    <Card className={lineOpeningCardClass(openCardTone)}>
+      <CardHeader className={lineOpeningCardHeaderClass(openCardTone, "pb-3")}>
         <CardTitle className="inline-flex items-center gap-1.5 text-base">
+          <LineOpeningCardDot tone={openCardTone} />
           라인 개설
           <AdminHelpIconButton
             helpKey="admin.lineOpening.info.title.openingForm"

@@ -26,6 +26,11 @@ import {
   StatusListItem,
   statusTokenClass,
 } from "@/components/admin/lineOpeningStatusUi";
+import {
+  LineOpeningCardDot,
+  lineOpeningCardClass,
+  lineOpeningCardHeaderClass,
+} from "@/components/admin/lineOpeningCardStyles";
 
 // 실무 정보 라인 개설 [섹션 0] — 상황 통제 영역.
 //   상태창: 오늘/이번 주 + '지난 주(개설 대상 주차)'의 개설 상태만 표시(경험/역량 상태창과 동일 정책·공통 강조 토큰).
@@ -249,9 +254,10 @@ export default function PracticalInfoOpeningSection0({
       {/* 2분할 배치: 좌(상태창) | 우(로그창). 모바일=단일 컬럼 stack(반응형). */}
       <div className="grid items-start gap-4 lg:grid-cols-2">
         {/* ── 좌열: 상태창 ── */}
-        <Card>
-          <CardHeader className="pb-3">
+        <Card className={lineOpeningCardClass("status")}>
+          <CardHeader className={lineOpeningCardHeaderClass("status", "pb-3")}>
             <CardTitle className="inline-flex items-center gap-1.5 text-base">
+              <LineOpeningCardDot tone="status" />
               상태창
               <AdminHelpIconButton
                 size="sm"

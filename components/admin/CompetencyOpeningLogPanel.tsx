@@ -8,6 +8,11 @@ import {
 } from "@/components/ui/card";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import {
+  LineOpeningCardDot,
+  lineOpeningCardClass,
+  lineOpeningCardHeaderClass,
+} from "@/components/admin/lineOpeningCardStyles";
+import {
   AdminLogEntity,
   AdminLogEventLabel,
   AdminLogTimestamp,
@@ -81,9 +86,10 @@ export default function CompetencyOpeningLogPanel({
   const changeKey = useMemo(() => logChangeKey(logs), [logs]);
 
   return (
-    <Card className="flex flex-col">
-      <CardHeader className="pb-2">
+    <Card className={lineOpeningCardClass("log", "flex flex-col")}>
+      <CardHeader className={lineOpeningCardHeaderClass("log", "pb-2")}>
         <CardTitle className="inline-flex items-center gap-1.5 text-base">
+          <LineOpeningCardDot tone="log" />
           로그창
           <AdminHelpIconButton
             size="sm"

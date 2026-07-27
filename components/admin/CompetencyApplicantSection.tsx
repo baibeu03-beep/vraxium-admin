@@ -13,6 +13,11 @@ import {
   ArrowUpDown,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  LineOpeningCardDot,
+  lineOpeningCardClass,
+  lineOpeningCardHeaderClass,
+} from "@/components/admin/lineOpeningCardStyles";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -683,12 +688,13 @@ export default function CompetencyApplicantSection({
   }, [rejectApp, rejectDraft, patchApp]);
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
+    <Card className={lineOpeningCardClass("action")}>
+      <CardHeader className={lineOpeningCardHeaderClass("action", "pb-3")}>
         {/* 헤더: 제목 + 요약 + 수동 추가 (우측 같은 행, 좁으면 wrap) */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <CardTitle className="inline-flex items-center gap-1.5 text-base">
+              <LineOpeningCardDot tone="action" />
               해당 크루
               <AdminHelpIconButton
                 helpKey="admin.lineOpening.competency.title.applicants"

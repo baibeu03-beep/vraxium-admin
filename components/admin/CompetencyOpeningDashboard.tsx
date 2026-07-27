@@ -20,6 +20,12 @@ import {
 } from "@/lib/practicalInfoSection0Format";
 import LineOpeningStatusBoard from "@/components/admin/LineOpeningStatusBoard";
 import { LineOpeningSectionDivider } from "@/components/admin/lineOpeningStatusUi";
+import {
+  LineOpeningCardDot,
+  lineOpeningCardClass,
+  lineOpeningCardHeaderClass,
+  lineOpeningStateTone,
+} from "@/components/admin/lineOpeningCardStyles";
 import CompetencyOpeningLogPanel from "@/components/admin/CompetencyOpeningLogPanel";
 import CompetencyApplicantSection from "@/components/admin/CompetencyApplicantSection";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
@@ -369,6 +375,13 @@ export default function CompetencyOpeningDashboard() {
     [org, mode, linkUrl, linkDesc, fetchStatus, openTargetWeek, toast, canOpen],
   );
 
+  // 라인 개설 카드의 accent 색 = 현재 개설 상태(표시 전용).
+  //   개설 완료=에메랄드 / 개설 가능(미개설)=앰버 / 미오픈·조직 미지정=중립.
+  const openCardTone = lineOpeningStateTone({
+    opened: opened === true,
+    canOpen: !!org && !loadingStatus && canOpen,
+  });
+
   return (
     <div className="space-y-4">
       <div className="grid items-start gap-4 lg:grid-cols-2">
@@ -386,9 +399,10 @@ export default function CompetencyOpeningDashboard() {
       {/* 라인 개설 — 개설 주차 + 주차 공통 아웃풋(링크/설명) 입력 + 개설 완료/취소.
           overflow-visible: 개설 주차 커스텀 드롭다운(absolute)이 Card 의 기본 overflow-hidden 에
           잘리지 않도록 이 카드만 해제(이미지 없음 → 안전). */}
-      <Card className="overflow-visible">
-        <CardHeader className="pb-3">
+      <Card className={lineOpeningCardClass(openCardTone, "overflow-visible")}>
+        <CardHeader className={lineOpeningCardHeaderClass(openCardTone, "pb-3")}>
           <CardTitle className="inline-flex items-center gap-1.5 text-base">
+            <LineOpeningCardDot tone={openCardTone} />
             라인 개설
             <AdminHelpIconButton
               size="sm"

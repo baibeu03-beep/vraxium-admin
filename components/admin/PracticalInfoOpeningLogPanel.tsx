@@ -9,6 +9,11 @@ import {
 import { LoadingState } from "@/components/ui/loading-state";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import {
+  LineOpeningCardDot,
+  lineOpeningCardClass,
+  lineOpeningCardHeaderClass,
+} from "@/components/admin/lineOpeningCardStyles";
+import {
   AdminLogEntity,
   AdminLogEventLabel,
   AdminLogTimestamp,
@@ -93,9 +98,10 @@ export default function PracticalInfoOpeningLogPanel({
   const changeKey = useMemo(() => logChangeKey(logs), [logs]);
 
   return (
-    <Card className="flex flex-col">
-      <CardHeader className="pb-3">
+    <Card className={lineOpeningCardClass("log", "flex flex-col")}>
+      <CardHeader className={lineOpeningCardHeaderClass("log", "pb-3")}>
         <CardTitle className="flex items-center gap-1 text-base">
+          <LineOpeningCardDot tone="log" />
           로그창
           <AdminHelpIconButton
             helpKey="admin.lineOpening.info.section.openingLog"

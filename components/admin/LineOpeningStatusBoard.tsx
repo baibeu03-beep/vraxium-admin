@@ -16,6 +16,11 @@ import {
   StatusListItem,
   StatusTokens,
 } from "@/components/admin/lineOpeningStatusUi";
+import {
+  LineOpeningCardDot,
+  lineOpeningCardClass,
+  lineOpeningCardHeaderClass,
+} from "@/components/admin/lineOpeningCardStyles";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
@@ -200,10 +205,11 @@ export default function LineOpeningStatusBoard({
   }, [operating, hubLabel, variant]);
 
   return (
-    <Card>
-      {/* team/hub 공통으로 헤더는 '상태창' 제목만 유지. */}
-      <CardHeader className="pb-2">
+    <Card className={lineOpeningCardClass("status")}>
+      {/* team/hub 공통으로 헤더는 '상태창' 제목만 유지(틴트 배경 + accent 도트는 공용 카드 SoT). */}
+      <CardHeader className={lineOpeningCardHeaderClass("status", "pb-2")}>
         <CardTitle className="inline-flex items-center gap-1.5 text-base">
+          <LineOpeningCardDot tone="status" />
           상태창
           <AdminHelpIconButton
             size="sm"

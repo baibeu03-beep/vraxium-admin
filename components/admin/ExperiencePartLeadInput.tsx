@@ -10,6 +10,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { adminDialog } from "@/components/ui/admin-dialog";
+import {
+  LineOpeningCardDot,
+  lineOpeningCardClass,
+  lineOpeningCardHeaderBandClass,
+  lineOpeningCardHeaderClass,
+} from "@/components/admin/lineOpeningCardStyles";
 import { confirmReinforcementFailure } from "@/lib/experienceReinforcementFailureConfirm";
 import {
   REVIEW_RESET_APPLY_CANCEL_SUCCESS,
@@ -907,9 +913,10 @@ export default function ExperiencePartLeadInput({
 
   if (!org) {
     return (
-      <Card>
-        <CardHeader className="pb-3">
+      <Card className={lineOpeningCardClass("action")}>
+        <CardHeader className={lineOpeningCardHeaderClass("action", "pb-3")}>
           <CardTitle className="inline-flex items-center gap-1.5 text-base">
+            <LineOpeningCardDot tone="action" />
             파트장 입력
             <AdminHelpIconButton
               helpKey="admin.lineOpening.experience.title.partLeadInput"
@@ -928,14 +935,23 @@ export default function ExperiencePartLeadInput({
   }
 
   return (
-    <Card>
+    // 이 카드는 제목(CardHeader)이 없는 입력 보드 — 좌측 accent + 외곽선 강화를 적용하고,
+    //   헤더 밴드는 첫 줄(팀 탭)이 대신한다(공용 라인 개설 카드 SoT: lineOpeningCardStyles).
+    <Card className={lineOpeningCardClass("action")}>
       <CardContent className="space-y-4 pt-6">
         {bootLoading ? (
           <LoadingState active variant="inline" />
         ) : (
           <>
-            {/* 팀 탭(동적) */}
-            <div role="tablist" className="flex flex-wrap gap-2 border-b pb-px">
+            {/* 팀 탭(동적) — 이 카드는 CardHeader 가 없으므로 탭 줄 자체가 헤더 밴드 역할을 한다.
+                (공용 SoT: lineOpeningCardHeaderBandClass — 음수 마진 상쇄라 탭 위치는 불변) */}
+            <div
+              role="tablist"
+              className={lineOpeningCardHeaderBandClass(
+                "action",
+                "flex flex-wrap gap-2 border-b pb-px",
+              )}
+            >
               {teams.length === 0 ? (
                 <span className="text-sm text-muted-foreground">
                   등록된 팀이 없습니다.
