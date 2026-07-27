@@ -49,6 +49,7 @@ export default function ExperienceLineSelect({
   onChange,
   disabled,
   ariaLabel,
+  invalid,
   triggerClassName,
   triggerRef,
 }: {
@@ -57,6 +58,9 @@ export default function ExperienceLineSelect({
   onChange: (id: string | null) => void;
   disabled?: boolean;
   ariaLabel?: string;
+  // 필수 입력 누락 강조 — 공통 트리거가 aria-invalid 에 붉은 테두리+링을 자동 적용(ui/select.tsx).
+  //   개설 검수/완료의 누락 안내(openingInvalidHighlight SoT)에서만 켠다.
+  invalid?: boolean;
   triggerClassName?: string;
   triggerRef?: (element: HTMLButtonElement | null) => void;
 }) {
@@ -74,6 +78,7 @@ export default function ExperienceLineSelect({
         ref={triggerRef}
         size="sm"
         aria-label={ariaLabel}
+        aria-invalid={invalid || undefined}
         className={cn(
           "w-full min-w-0",
           EXPERIENCE_LINE_SELECT_WIDTH,

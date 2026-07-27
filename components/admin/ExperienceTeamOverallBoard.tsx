@@ -158,8 +158,12 @@ export default function ExperienceTeamOverallBoard({
   const outputWrapRefs = useRef(new Map<string, HTMLElement>());
   // 누락 강조 자동 해제 타이머(약 1.6s 후). 무한 깜빡임 방지 + 언마운트 시 정리.
   const invalidTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lineSelectionSectionRef = useRef<HTMLDivElement>(null);
+  // 팝업 닫힘 직후 포커스 재확정 타이머 — 아래 guideToInvalidTarget 주석 참고.
+  const refocusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 파트장 라인명 누락 안내 대상 — key=`${crewUserId}:${category}`.
+  //   포커스 대상=Select 트리거 버튼, 스크롤/강조 대상=라인명 슬롯 wrapper(아웃풋 필드와 동일 2벌 구조).
   const lineSelectionRefs = useRef(new Map<string, HTMLButtonElement>());
+  const lineSelectionWrapRefs = useRef(new Map<string, HTMLElement>());
 
   // 팀장 직접 입력(관리/확장) 로컬 편집값.
   const [leaderCells, setLeaderCells] = useState<Map<string, OverallCell>>(new Map());
@@ -175,20 +179,30 @@ export default function ExperienceTeamOverallBoard({
   //   (`${category}:link` | `${category}:image`). 해당 필드에 aria-invalid + 붉은 테두리를 표시하고,
   //   사용자가 아웃풋을 편집하거나 다음 검증을 통과하면 해제한다.
   const [invalidOutputKey, setInvalidOutputKey] = useState<string | null>(null);
+  // 필수 입력 누락 강조(일시) — 파트장 라인명 미선택 셀 키(`${crewUserId}:${category}`).
+  //   아웃풋 필드와 **동일한** 강조/스크롤/포커스 경로(guideToInvalidTarget)를 쓰며, 라인명을
+  //   다시 선택하거나 다음 검증을 통과하면 해제한다.
+  const [invalidLineKey, setInvalidLineKey] = useState<string | null>(null);
 
-  // 누락 강조 즉시 해제(타이머 정리 포함) — 아웃풋 편집·검증 통과·언마운트 시 호출.
+  // 누락 강조 즉시 해제(타이머 정리 포함) — 아웃풋/라인명 편집·검증 통과·언마운트 시 호출.
   const clearInvalidHighlight = useCallback(() => {
     if (invalidTimerRef.current) {
       clearTimeout(invalidTimerRef.current);
       invalidTimerRef.current = null;
     }
+    if (refocusTimerRef.current) {
+      clearTimeout(refocusTimerRef.current);
+      refocusTimerRef.current = null;
+    }
     setInvalidOutputKey((k) => (k === null ? k : null));
+    setInvalidLineKey((k) => (k === null ? k : null));
   }, []);
 
-  // 언마운트 시 강조 타이머 정리.
+  // 언마운트 시 강조/포커스 타이머 정리.
   useEffect(
     () => () => {
       if (invalidTimerRef.current) clearTimeout(invalidTimerRef.current);
+      if (refocusTimerRef.current) clearTimeout(refocusTimerRef.current);
     },
     [],
   );
@@ -373,13 +387,15 @@ export default function ExperienceTeamOverallBoard({
 
   const setLineSel = useCallback(
     (userId: string, category: ExperienceOverallCategory, id: string | null) => {
+      // 편집 시작 = 누락 강조 해제(다음 검증에서 다시 판정) — 아웃풋 필드(setOutput)와 동일 정책.
+      clearInvalidHighlight();
       setLineSelections((prev) => {
         const m = new Map(prev);
         m.set(leaderKey(userId, category), id);
         return m;
       });
     },
-    [],
+    [clearInvalidHighlight],
   );
 
   const getOutput = useCallback(
@@ -477,12 +493,63 @@ export default function ExperienceTeamOverallBoard({
 
   // 첫 누락 필드로 스크롤/포커스 — practical-info 와 동일한 공용 helper 재사용.
   //   wrap = 강조/스크롤 대상(필드 wrapper), target = 포커스 대상(링크 Input / 이미지 업로드 버튼).
-  const scrollFocusInvalidKey = useCallback((key: string) => {
+  const scrollFocusInvalidOutputKey = useCallback((key: string) => {
     scrollFocusInvalidTarget(
       outputWrapRefs.current.get(key) ?? null,
       outputFieldRefs.current.get(key) ?? null,
     );
   }, []);
+
+  // 파트장 라인명 누락 셀로 스크롤/포커스 — 동일 helper, 대상만 라인명 슬롯/Select 트리거.
+  const scrollFocusInvalidLineKey = useCallback((key: string) => {
+    scrollFocusInvalidTarget(
+      lineSelectionWrapRefs.current.get(key) ?? null,
+      lineSelectionRefs.current.get(key) ?? null,
+    );
+  }, []);
+
+  // ── 누락 안내 공통 시퀀스(단일 SoT) — 아웃풋 필드/파트장 라인명이 **같은 경로**를 쓴다.
+  //   [개설 검수]·[개설 완료] 어느 쪽에서 걸리든 동작이 동일하다(호출부는 대상 key/종류만 다름).
+  //   (1) 이전 강조/타이머 정리 → 대상 하나만 강조 + 스크롤/포커스
+  //   (2) 팝업(확인) — ⚠ 팝업 **전에** 포커스를 옮겨야 팝업이 닫힐 때 포커스 복원 대상이
+  //       [개설 검수]/[개설 완료] 버튼이 아니라 그 입력칸이 되어 스크롤이 버튼 쪽으로 되돌지 않는다.
+  //   (3) 닫힌 뒤 한 번 더 확정(포커스 복원 대비) + 약 1.6s 후 강조 해제(무한 깜빡임 금지).
+  const guideToInvalidTarget = useCallback(
+    async (kind: "output" | "line", key: string, message: string) => {
+      if (invalidTimerRef.current) {
+        clearTimeout(invalidTimerRef.current);
+        invalidTimerRef.current = null;
+      }
+      if (refocusTimerRef.current) {
+        clearTimeout(refocusTimerRef.current);
+        refocusTimerRef.current = null;
+      }
+      const scroll =
+        kind === "output" ? scrollFocusInvalidOutputKey : scrollFocusInvalidLineKey;
+      // 강조는 항상 첫 누락 대상 1곳만 — 이미 입력된 칸에 오류 효과가 남지 않도록 반대편은 해제한다.
+      setInvalidOutputKey(kind === "output" ? key : null);
+      setInvalidLineKey(kind === "line" ? key : null);
+      scroll(key);
+      await adminDialog.alert({
+        variant: "warning",
+        title: "필수 입력 안내",
+        description: message,
+        confirmLabel: "확인",
+      });
+      requestAnimationFrame(() => scroll(key));
+      // ⚠ 팝업의 포커스 복원은 닫힘 애니메이션 뒤에 실행돼 rAF 한 번만으로는 포커스가
+      //    다시 body 로 돌아간다(브라우저 실측). 복원 이후 시점에 한 번 더 확정한다.
+      refocusTimerRef.current = setTimeout(() => {
+        refocusTimerRef.current = null;
+        scroll(key);
+      }, 200);
+      invalidTimerRef.current = setTimeout(() => {
+        setInvalidOutputKey(null);
+        setInvalidLineKey(null);
+      }, OPENING_INVALID_HIGHLIGHT_MS);
+    },
+    [scrollFocusInvalidOutputKey, scrollFocusInvalidLineKey],
+  );
 
   const validateOutputsAndGuide = useCallback(async (): Promise<boolean> => {
     const { outs } = buildPayload();
@@ -492,29 +559,13 @@ export default function ExperienceTeamOverallBoard({
       return true;
     }
     // 공통 검증이 돌려준 첫 누락 필드(firstMissingCategory:firstMissingField)를 스크롤/포커스/강조의 단일 대상으로 삼는다.
-    const targetKey = `${issue.firstMissingCategory}:${issue.firstMissingField}`;
-    // ⚠ practical-info 와 동일: 팝업을 열기 전에 먼저 강조 + 스크롤/포커스한다. 이렇게 하면 팝업이 닫힐 때
-    //    포커스 복원 대상이 [개설 검수]/[개설 완료] 버튼이 아니라 이 필드가 되어, 스크롤이 버튼 쪽으로 되돌지 않는다.
-    if (invalidTimerRef.current) {
-      clearTimeout(invalidTimerRef.current);
-      invalidTimerRef.current = null;
-    }
-    setInvalidOutputKey(targetKey);
-    scrollFocusInvalidKey(targetKey);
-    await adminDialog.alert({
-      variant: "warning",
-      title: "필수 입력 안내",
-      description: issue.message,
-      confirmLabel: "확인",
-    });
-    // 닫힌 뒤 한 번 더 확정(포커스 복원 대비) + 약 1.6s 후 강조 해제(무한 깜빡임 금지).
-    requestAnimationFrame(() => scrollFocusInvalidKey(targetKey));
-    invalidTimerRef.current = setTimeout(
-      () => setInvalidOutputKey(null),
-      OPENING_INVALID_HIGHLIGHT_MS,
+    await guideToInvalidTarget(
+      "output",
+      `${issue.firstMissingCategory}:${issue.firstMissingField}`,
+      issue.message,
     );
     return false;
-  }, [buildPayload, extensionActive, clearInvalidHighlight, scrollFocusInvalidKey]);
+  }, [buildPayload, extensionActive, clearInvalidHighlight, guideToInvalidTarget]);
 
   const validatePartLeaderLinesAndGuide = useCallback(async (): Promise<boolean> => {
     const { lineSels } = buildPayload();
@@ -522,21 +573,20 @@ export default function ExperienceTeamOverallBoard({
       lineSels,
       allCrews.filter((crew) => crew.isPartLeader).map((crew) => crew.userId),
     );
-    if (!issue) return true;
-    await adminDialog.alert({
-      variant: "warning",
-      title: "필수 입력 안내",
-      description: issue.message,
-      confirmLabel: "확인",
-    });
-    lineSelectionSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    window.setTimeout(() => {
-      lineSelectionRefs.current
-        .get(`${issue.crewUserId}:${issue.category}`)
-        ?.focus({ preventScroll: true });
-    }, 350);
+    if (!issue) {
+      clearInvalidHighlight();
+      return true;
+    }
+    // 공통 검증이 돌려준 첫 누락 셀(crewUserId:category)이 곧 화면 배치상 첫 칸이다 —
+    //   크루는 렌더 순서(allCrews = parts.flatMap(crews), 위→아래)로, 카테고리는 열 순서
+    //   (OVERALL_PART_CATEGORIES = 도출/분석/견문, 왼→오른)로 순회하므로 행 우선 = 위→아래·왼→오른.
+    await guideToInvalidTarget(
+      "line",
+      `${issue.crewUserId}:${issue.category}`,
+      issue.message,
+    );
     return false;
-  }, [allCrews, buildPayload]);
+  }, [allCrews, buildPayload, clearInvalidHighlight, guideToInvalidTarget]);
 
   // ── 버튼 핸들러 ──
   const onReview = useCallback(async () => {
@@ -766,7 +816,7 @@ export default function ExperienceTeamOverallBoard({
           이 팀에 평가 대상 크루가 없습니다.
         </p>
       ) : (
-        <div ref={lineSelectionSectionRef} className="overflow-x-auto">
+        <div className="overflow-x-auto">
           <Table className="min-w-[1340px] table-fixed" pagination="off">
             <BoardColgroup />
             <TableHeader>
@@ -907,14 +957,28 @@ export default function ExperienceTeamOverallBoard({
                                   </select>
                                 </div>
                               </div>
-                              {/* 2단: 라인명 드롭다운 — 검수 편집(파트 신청 셀 SoT 로 write-back). */}
-                              <div className={OVERALL_CELL_LINE_SLOT_CLASS}>
+                              {/* 2단: 라인명 드롭다운 — 검수 편집(파트 신청 셀 SoT 로 write-back).
+                                  파트장 라인명은 필수값이라, 누락 시 아웃풋 필드와 동일한 붉은 ring+깜빡임
+                                  (OPENING_INVALID_HIGHLIGHT)을 이 wrapper 에 입힌다. */}
+                              <div
+                                ref={(element) => {
+                                  const key = `${crew.userId}:${c.key}`;
+                                  if (element) lineSelectionWrapRefs.current.set(key, element);
+                                  else lineSelectionWrapRefs.current.delete(key);
+                                }}
+                                className={cn(
+                                  OVERALL_CELL_LINE_SLOT_CLASS,
+                                  invalidLineKey === `${crew.userId}:${c.key}` &&
+                                    OPENING_INVALID_HIGHLIGHT,
+                                )}
+                              >
                                 <ExperienceLineSelect
                                   value={getLineSel(crew.userId, c.key)}
                                   options={lineOptions[partLineType]}
                                   onChange={(id) => setLineSel(crew.userId, c.key, id)}
                                   disabled={lineDisabled}
                                   ariaLabel={`${crew.displayName} ${c.label} 라인명`}
+                                  invalid={invalidLineKey === `${crew.userId}:${c.key}`}
                                   triggerRef={(element) => {
                                     const key = `${crew.userId}:${c.key}`;
                                     if (element) lineSelectionRefs.current.set(key, element);
