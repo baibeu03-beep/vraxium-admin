@@ -51,6 +51,7 @@ import {
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import SectionHeading from "@/components/admin/SectionHeading";
+import PageSection from "@/components/admin/PageSection";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { useToast } from "@/components/ui/toast";
@@ -534,10 +535,16 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
         />
       )}
 
-      {/* ════ [섹션.1] 액트 체크 ════ */}
-      <SectionTitle helpKey={PROCESS_CHECK_HELP_KEYS.sectionActCheck} helpTitle="액트 체크">
-        [액트 체크]
-      </SectionTitle>
+      {/* ════ [섹션.1] 액트 체크 ════
+          PageSection(divider="wave-dot") = [액트 관리](섹션.0) ↔ [액트 체크](섹션.1) 사이의 큰 섹션
+          경계 하나만 담당한다(/admin/periods/register 와 동일 SoT). 감싸는 대상은 섹션 제목 하나뿐 —
+          제목 아래 본문을 함께 넣으면 stack gap 이 사라져 제목↔본문 간격이 변하므로 형제로 남긴다.
+          제목 자체(SectionTitle→SectionHeading text-base·문구·도움말·mt-1 mb-3)는 무변경. */}
+      <PageSection divider="wave-dot">
+        <SectionTitle helpKey={PROCESS_CHECK_HELP_KEYS.sectionActCheck} helpTitle="액트 체크">
+          [액트 체크]
+        </SectionTitle>
+      </PageSection>
       {teamMode ? (
         <div className="flex flex-col gap-4">
           {/* 팀 탭 — org 동적, 첫 팀 기본 선택. */}

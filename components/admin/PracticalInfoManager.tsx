@@ -44,6 +44,7 @@ import { formatAdminDateWithWeekday } from "@/lib/adminDateTime";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { organizationAccent } from "@/lib/organizations";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import PageSection from "@/components/admin/PageSection";
 import { buildLineOpeningTabs } from "@/lib/adminHeaderTabs";
 import PracticalInfoOpeningSection0 from "@/components/admin/PracticalInfoOpeningSection0";
 import PracticalInfoCurrentSituation from "@/components/admin/PracticalInfoCurrentSituation";
@@ -1364,7 +1365,10 @@ export default function PracticalInfoManager() {
   return (
     <div
       className={cn(
-        "admin-section-stack-lg",
+        // 섹션 간 세로 리듬 = 공용 SoT admin-section-stack(32/40). divider 를 쓰는 페이지는 이 stack 을
+        //   루트로 쓴다 — PageSection 의 상쇄값(-mt-8 md:-mt-10)이 32/40 전제이므로 -lg(40/48)이면
+        //   구분선 위·아래가 8px 어긋난다. 기준 페이지(/admin/periods/register)와 동일 리듬.
+        "admin-section-stack",
         orgScoped ? "w-full min-w-0" : "w-full min-w-0 px-4 py-6",
       )}
     >
@@ -1415,12 +1419,19 @@ export default function PracticalInfoManager() {
       {/* 주차별 개설 결과(표시 전용 · read-only) — 주차 선택 + 요약 + 라인별 개설 상황 카드.
           라인 관리 탭에만 노출(라인 개설 탭은 입력 집중 위해 제외).
           이 카드의 주차 드롭다운이 manage 탭의 유일한 주차 선택 컨트롤(단일 SoT=selectedWeekId)이며,
-          선택을 바꾸면 아래 "신규 개설 주차" 라벨·라인 목록·탭 dot 이 동일 주차로 따라간다. */}
-      <PracticalInfoWeekResults
-        selectedWeekId={selectedWeekId}
-        onSelectWeek={setSelectedWeekId}
-        onWeekMetaResolved={setSelectedWeekMeta}
-      />
+          선택을 바꾸면 아래 "신규 개설 주차" 라벨·라인 목록·탭 dot 이 동일 주차로 따라간다.
+
+          PageSection(divider="wave-dot") = "현재 상황(컨텍스트)" ↔ "주차별 개설 결과(작업 영역)" 사이의
+          큰 섹션 경계 하나만 담당한다(/admin/periods/register 와 동일 SoT). 제목은 추가하지 않으며
+          (title prop 없음) CardTitle "주차별 개설 결과"는 카드 안에 그대로 둔다. 라인 개설 탭
+          (mainTab="open")과 숨겨진 섹션(SHOW_MANAGE_LINE_SECTIONS=false)에는 적용하지 않는다. */}
+      <PageSection divider="wave-dot">
+        <PracticalInfoWeekResults
+          selectedWeekId={selectedWeekId}
+          onSelectWeek={setSelectedWeekId}
+          onWeekMetaResolved={setSelectedWeekMeta}
+        />
+      </PageSection>
 
       {/* Selected week summary("신규 개설 주차: …" + 기입 기간) — 신규 라인 개설 대상 주차를
           안내하던 개설 컨텍스트 문구. 라인 개설이 '라인 개설' 탭(?tab=open)으로 이관되어

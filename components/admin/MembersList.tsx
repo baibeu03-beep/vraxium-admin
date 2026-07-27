@@ -32,6 +32,7 @@ import { cn } from "@/lib/utils";
 import { useStickyColumns, type StickyColProps } from "@/components/ui/sticky-columns";
 import { pointColorClass } from "@/components/ui/point-value";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import PageSection from "@/components/admin/PageSection";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 import { buildCrewsTabs, buildMembersTabs } from "@/lib/adminHeaderTabs";
@@ -1080,8 +1081,15 @@ function MembersInfoTab({
         </div>
       </div>
 
-      {/* [섹션.1] 역대 누적 + 주차별 데이터 — 선택 클럽(크루 모드는 org 고정) 스코프. */}
-      <InfoStatsPanel org={activeOrg} mode={mode} />
+      {/* [섹션.1] 역대 누적 + 주차별 데이터 — 선택 클럽(크루 모드는 org 고정) 스코프.
+          PageSection(divider="wave-dot") = "섹션.0 현재 정보 + 클럽 탭" ↔ "섹션.1 집계" 사이의 큰 섹션
+          경계 하나만 담당한다(/admin/periods/register 와 동일 SoT).
+          parentGap="gap-6" → 이 중첩 탭의 기존 gap-6(24px) 레이아웃을 그대로 두고 상쇄값만 맞춘다
+          (admin-section-stack 으로 강제 변경하지 않음 — 중첩 탭 세로 리듬 불변 원칙).
+          제목은 추가하지 않으며 CardTitle("역대 누적"·"주차별 데이터")은 카드 안에 그대로 둔다. */}
+      <PageSection divider="wave-dot" parentGap="gap-6">
+        <InfoStatsPanel org={activeOrg} mode={mode} />
+      </PageSection>
     </div>
   );
 }

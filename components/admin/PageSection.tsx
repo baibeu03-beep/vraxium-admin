@@ -11,21 +11,36 @@ import SectionHeading from "@/components/admin/SectionHeading";
 //   description : 선택 설명문(제목 아래 muted). title 없이도 렌더 가능.
 //   actions     : 선택 우측 액션(제목 라인 오른쪽, 좁으면 래핑).
 //   as          : "h2"(기본, 주요 섹션) | "h3"(하위 섹션).
-//   divider     : "none"(기본) | "fade" | "line" | "sparkle" — 이 섹션 "위"에 놓일 구분선.
+//   divider     : "none"(기본) | "fade" | "line" | "sparkle" | "wave" | "wave-dot" — 이 섹션 "위"에 놓일 구분선.
+//   parentGap   : 부모 컨테이너의 세로 gap 토큰(기본 "stack"). divider 상쇄값 계산에만 쓰인다.
 //   className   : 섹션 wrapper 확장(폭/여백 등).
 //
-//   ── 세로 간격(구분선 경계) — PageSection 이 "자체적으로" 책임진다(부모 값에 의존 X) ──────────
+//   ── 세로 간격(구분선 경계) ────────────────────────────────────────────────────
 //   divider 가 있는 섹션은:
-//     1) 부모 admin-section-stack 간격(32/40)을 음수 마진(-mt-8 md:-mt-10)으로 **상쇄**하고,
+//     1) 부모 컨테이너의 위쪽 gap 을 음수 마진으로 **상쇄**하고(PARENT_GAP_OFFSET),
 //     2) 구분선 블록이 위·아래로 각 48px(모바일)/56px(데스크톱)를 **직접** 부여한다(mt/mb 대칭).
-//       → 위=아래 완전 대칭(각 48/56). 총 48+8(wave)+48=104 / 56+8+56=120.
+//       → 부모 gap 이 얼마든 위=아래 완전 대칭(각 48/56). 총 48+8(wave)+48=104 / 56+8+56=120.
 //       구분선이 "독립된 경계"처럼 위·아래로 충분히 떨어져 보이도록(숨 쉬는 여백).
-//   ⚠ 이 상쇄는 부모가 admin-section-stack(32/40)일 때 정확하다 — divider 를 쓰는 페이지는 이 stack 을
-//      루트로 쓴다(SeasonParticipationsView 포함, 2026-07-24 -lg→stack 통일). divider 없는 섹션은 상쇄 없이
-//      부모 stack 간격만 사용(불변).
+//   상쇄값은 부모 gap 과 짝이 맞아야 정확하다 → 부모가 admin-section-stack 이 아니면 parentGap 을
+//     명시한다(예: 중첩 탭 내부의 `flex flex-col gap-6` → parentGap="gap-6"). 부모 레이아웃을
+//     admin-section-stack 으로 강제 변경하지 않고 이 prop 으로 맞추는 것이 원칙 —
+//     중첩 탭/서브패널의 기존 세로 리듬은 불변([[project_admin-section-vertical-rhythm-sot]] 의 의도적 제외).
+//   divider 없는 섹션은 상쇄 없이 부모 gap 만 사용(parentGap 무시).
 //   ⚠ 폼 필드·카드 내부·표 행·제목↔본문 간격은 건드리지 않는다(오직 섹션 사이 + 구분선 주변만).
 //   mode/org 분기 없음(순수 프레젠테이션).
 type DividerOption = "none" | SeparatorVariant;
+
+// 부모 컨테이너의 세로 gap 토큰 → 상쇄용 음수 마진. 정적 문자열이라 purge 안전.
+//   "stack"    = admin-section-stack    (32px → 40px@md)  ← 기본값(기존 동작 유지)
+//   "stack-lg" = admin-section-stack-lg (40px → 48px@md)
+//   "gap-6"    = Tailwind gap-6         (24px · 반응형 없음)
+type ParentGap = "stack" | "stack-lg" | "gap-6";
+
+const PARENT_GAP_OFFSET: Record<ParentGap, string> = {
+  stack: "-mt-8 md:-mt-10",
+  "stack-lg": "-mt-10 md:-mt-12",
+  "gap-6": "-mt-6",
+};
 
 export default function PageSection({
   title,
@@ -33,6 +48,7 @@ export default function PageSection({
   actions,
   as = "h2",
   divider = "none",
+  parentGap = "stack",
   id,
   tabIndex,
   className,
@@ -43,6 +59,7 @@ export default function PageSection({
   actions?: React.ReactNode;
   as?: "h2" | "h3";
   divider?: DividerOption;
+  parentGap?: ParentGap;
   id?: string;
   tabIndex?: number;
   className?: string;
@@ -59,9 +76,9 @@ export default function PageSection({
       tabIndex={tabIndex}
       className={cn(
         "flex flex-col",
-        // divider 가 있으면 부모 admin-section-stack 의 위쪽 gap(32/40)을 음수 마진으로 상쇄한다 →
-        //   그 자리에 구분선 블록이 위·아래 각 48/56 을 "직접" 세팅해 대칭 경계를 만든다(부모값 비의존).
-        hasDivider && "-mt-8 md:-mt-10",
+        // divider 가 있으면 부모 컨테이너의 위쪽 gap 을 음수 마진으로 상쇄한다 →
+        //   그 자리에 구분선 블록이 위·아래 각 48/56 을 "직접" 세팅해 대칭 경계를 만든다.
+        hasDivider && PARENT_GAP_OFFSET[parentGap],
         className,
       )}
     >

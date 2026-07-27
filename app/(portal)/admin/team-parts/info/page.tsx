@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import TeamPartsSummarySection from "@/components/admin/TeamPartsSummarySection";
 import ClubSummaryList from "@/components/admin/ClubSummaryList";
+import PageSection from "@/components/admin/PageSection";
 import { LoadingState } from "@/components/ui/loading-state";
-import { Separator } from "@/components/ui/separator";
 
 // 클럽 정보(상위 페이지).
 //   [섹션.1] 기존 팀 내역 요약(해당 시기·오늘 날짜/주차·전체 클럽/팀/파트 수·클럽별 팀 배지) — 유지.
@@ -14,13 +14,19 @@ import { Separator } from "@/components/ui/separator";
 export default function TeamPartsInfoPage() {
   return (
     <Suspense fallback={<LoadingState active />}>
-      <div className="space-y-10">
+      {/* 섹션 간 세로 리듬 = 공용 SoT(admin-section-stack). raw space-y-10 대신 공통 토큰을 쓰고,
+          PageSection(divider) 의 위·아래 대칭 여백 계산도 이 stack 값을 전제로 한다. */}
+      <div className="admin-section-stack">
         {/* 기존 상단 요약 섹션(대체·삭제 금지) */}
         <TeamPartsSummarySection />
-        {/* 두 섹션 사이 구분선 — 요약(§1)과 클럽 현황 표(§2)를 시각적으로 분리 */}
-        <Separator />
-        {/* 신규 클럽 현황 표(요약 섹션 아래에 추가) */}
-        <ClubSummaryList />
+        {/* 두 섹션 사이 구분선 — 요약(§1)과 클럽 현황 표(§2)를 시각적으로 분리.
+            기존 단독 <Separator/>(fade) 를 PageSection divider="wave-dot" 으로 교체했다(위치 의미 동일,
+            보이는 구분선은 이 경계에 1개뿐). /admin/periods/register 와 동일 SoT.
+            제목은 추가하지 않는다 — 각 섹션 제목은 자식 카드의 CardTitle 이 그대로 담당(위치 불변). */}
+        <PageSection divider="wave-dot">
+          {/* 신규 클럽 현황 표(요약 섹션 아래에 추가) */}
+          <ClubSummaryList />
+        </PageSection>
       </div>
     </Suspense>
   );

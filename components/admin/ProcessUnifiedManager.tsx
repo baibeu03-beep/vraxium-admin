@@ -25,6 +25,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import PageSection from "@/components/admin/PageSection";
 import ExecutionTimeCell from "@/components/admin/ExecutionTimeCell";
 import { useStickyColumns, type StickyColProps } from "@/components/ui/sticky-columns";
 import {
@@ -964,7 +965,10 @@ export default function ProcessUnifiedManager() {
   return (
     // 본문은 사이드바 제외 main 전체 폭을 사용(중앙 고정 캡 제거) → 넓은 모니터에서 좌우 여백 없이
     // 통합 표가 화면 폭을 최대한 쓴다. 폭이 부족할 때만 표 내부에서 가로 스크롤(fallback).
-    <div className="flex w-full min-w-0 flex-col gap-4">
+    // 섹션 사이 세로 리듬 = 공용 SoT(admin-section-stack 32/40px). 기존 raw gap-4(16px)를 대체한다 —
+    // PageSection(divider) 의 위·아래 대칭 여백 계산이 이 stack 값을 전제로 하므로 함께 맞춘다.
+    // 카드/폼/표 내부 간격은 무변경(섹션 "사이"만 담당).
+    <div className="admin-section-stack w-full min-w-0">
       <div className="flex justify-end">
         <AdminHelp />
       </div>
@@ -1372,15 +1376,21 @@ export default function ProcessUnifiedManager() {
 
       {/* ── 전역 요약 (전체 허브) ── 6개 통계를 독립 셀로 나열해 박스 전체 폭을 균등 분산.
           넓은 화면=3열×2행(긴 "…포인트 총합" 라벨 + A/B/C 가 찌그러지지 않게 6열 대신 3열 상한),
-          중간=2열, 좁은 화면=1열. 값·A/B/C 우측 정렬 유지. 계산/포맷/합산 로직 무변경. */}
-      <div className="grid grid-cols-1 gap-x-8 gap-y-2 rounded-lg border bg-muted/30 px-4 py-3 lg:grid-cols-2 xl:grid-cols-3">
-        <SummaryCell label="전체 액트 수" value={`${summary.actCount}개`} helpKey="admin.processes.register.stat.actCount" />
-        <SummaryCell label="전체 라인급 수" value={`${summary.lineGroupCount}개`} helpKey="admin.processes.register.stat.lineGroupCount" />
-        <SummaryCell label="총합 소요 시간" value={`${summary.totalDurationMinutes}m`} helpKey="admin.processes.register.stat.totalDuration" />
-        <SummaryCell label="필수 포인트 총합" value={<PointTripletCells t={summary.required} />} helpKey="admin.processes.register.stat.requiredPoint" growValue />
-        <SummaryCell label="우수 포인트 총합" value={<PointTripletCells t={summary.excellent} />} helpKey="admin.processes.register.stat.excellentPoint" growValue />
-        <SummaryCell label="최대 포인트 총합" value={<PointTripletCells t={summary.max} />} helpKey="admin.processes.register.stat.maxPoint" growValue />
-      </div>
+          중간=2열, 좁은 화면=1열. 값·A/B/C 우측 정렬 유지. 계산/포맷/합산 로직 무변경.
+
+          PageSection(divider="wave-dot") = "정의(등록 폼)" ↔ "조회(요약+통합 목록)" 사이의 큰 섹션
+          경계 하나만 담당한다(/admin/periods/register 와 동일 SoT). 제목은 추가하지 않으며
+          (title prop 없음 → 헤더 블록 미렌더) 카드/표/폼 내부는 무접촉. mode/org 분기 없음. */}
+      <PageSection divider="wave-dot">
+        <div className="grid grid-cols-1 gap-x-8 gap-y-2 rounded-lg border bg-muted/30 px-4 py-3 lg:grid-cols-2 xl:grid-cols-3">
+          <SummaryCell label="전체 액트 수" value={`${summary.actCount}개`} helpKey="admin.processes.register.stat.actCount" />
+          <SummaryCell label="전체 라인급 수" value={`${summary.lineGroupCount}개`} helpKey="admin.processes.register.stat.lineGroupCount" />
+          <SummaryCell label="총합 소요 시간" value={`${summary.totalDurationMinutes}m`} helpKey="admin.processes.register.stat.totalDuration" />
+          <SummaryCell label="필수 포인트 총합" value={<PointTripletCells t={summary.required} />} helpKey="admin.processes.register.stat.requiredPoint" growValue />
+          <SummaryCell label="우수 포인트 총합" value={<PointTripletCells t={summary.excellent} />} helpKey="admin.processes.register.stat.excellentPoint" growValue />
+          <SummaryCell label="최대 포인트 총합" value={<PointTripletCells t={summary.max} />} helpKey="admin.processes.register.stat.maxPoint" growValue />
+        </div>
+      </PageSection>
 
       {/* ── 통합 목록 표 (전체 허브) ── */}
       <Card>

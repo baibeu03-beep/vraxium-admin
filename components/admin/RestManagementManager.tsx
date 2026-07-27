@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/select";
 import { useConfirm, CONFIRM } from "@/components/ui/confirm-dialog";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import PageSection from "@/components/admin/PageSection";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import EmergencyRestModal from "@/components/admin/EmergencyRestModal";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
@@ -758,7 +759,11 @@ export default function RestManagementManager() {
             </CardContent>
           </Card>
 
-          {/* 신청 목록 — 헤더(정렬 + 도움말)는 로딩/빈 상태에서도 항상 유지. */}
+          {/* 신청 목록 — 헤더(정렬 + 도움말)는 로딩/빈 상태에서도 항상 유지.
+              PageSection(divider) = 요약 영역과의 큰 섹션 경계 하나만 담당한다(/admin/periods/register
+              와 동일 SoT: wave-dot + 위·아래 대칭 여백). 카드 내부 구조·간격은 무접촉이라
+              여는/닫는 태그만 감싸고 본문 들여쓰기는 유지한다. mode/org 분기 없음. */}
+          <PageSection divider="wave-dot">
           <Card>
             <CardContent className="pt-6">
               {listError ? (
@@ -888,6 +893,7 @@ export default function RestManagementManager() {
               )}
             </CardContent>
           </Card>
+          </PageSection>
 
           {/* 긴급 휴식 신청 모달 — 성공 시 요약+목록 재조회(refresh). activeOrg 는 이 분기에서 항상 존재. */}
           {emergencyOpen ? (

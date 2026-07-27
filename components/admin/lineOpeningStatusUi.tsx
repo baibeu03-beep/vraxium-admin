@@ -93,18 +93,23 @@ export function StatusListItem({
   );
 }
 
-// 상태창(상단)과 '라인 개설'(하단) 두 독립 섹션을 시각적으로 분리하는 공용 구분선.
+// 상태창·로그창(모니터링, 상단)과 '라인 개설'(실행/입력, 하단) 두 독립 업무 섹션을 분리하는 공용 구분선.
+//   실무 정보/경험/역량 세 화면의 [라인 개설] 탭이 모두 이 하나를 쓴다(경계당 구분선 1개).
 //   ⚠ 두 섹션 사이의 '바깥' 여백만 만든다 — 상태창 내부 간격이나 라인 개설 폼 내부 padding 은 건드리지 않는다.
 //   여백은 margin 이 아니라 padding 으로 준다: 소비 부모가 대부분 space-y-* 컨테이너라
 //     자식 margin-top 이 space-y 규칙(더 높은 specificity)에 덮인다 → 위/아래 비대칭 발생.
 //     padding 은 덮이지 않으므로 space-y 안에서도 구분선 위/아래가 대칭으로 유지된다.
-//   실효 여백(부모 space-y-4 기준): 모바일 32px(py-4 16 + space-y 16) → 데스크톱 40px(lg:py-6 24 + 16), 상하 대칭.
+//     (같은 이유로 PageSection 의 음수 마진 상쇄 방식은 여기서 못 쓴다 — 부모가 gap 이 아니라 space-y 라
+//      상쇄할 rowGap 자체가 없다. 그래서 이 컴포넌트가 자체 padding 으로 동일 리듬을 만든다.)
+//   실효 여백(부모 space-y-4=16px 기준) = padding + 16 → 모바일 48px(py-8 32+16) · 데스크톱 56px(md:py-10 40+16).
+//     이는 /admin/periods/register 의 PageSection divider 경계(48/56 대칭)와 픽셀 동일한 SoT 값이다.
+//     브레이크포인트도 기준 페이지와 같은 md(768px)로 맞춘다(기존 lg → md).
 export function LineOpeningSectionDivider() {
   return (
-    <div aria-hidden="true" className="py-4 lg:py-6">
-      {/* 공통 Separator(기본 fade) — 양끝이 흐려지는 부드러운 섹션 구분선.
+    <div aria-hidden="true" className="py-8 md:py-10">
+      {/* 공통 Separator wave-dot — 기준 페이지(/admin/periods/register)와 동일한 큰 섹션 경계 표식.
           바깥 py- 래퍼가 상/하 대칭 여백을 유지(space-y 부모에서도 안전) → 간격 규칙 불변. */}
-      <Separator />
+      <Separator variant="wave-dot" />
     </div>
   );
 }
