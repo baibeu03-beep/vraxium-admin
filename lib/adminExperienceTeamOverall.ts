@@ -21,6 +21,7 @@ import {
 } from "@/lib/userScope";
 import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { payLineOpenTargetsOnce } from "@/lib/processPointAccrual";
+import { computeLineOpenWindowForWeekStart } from "@/lib/cluster4LineSubmissionWindow";
 import { convergeLineChangeForUsers } from "@/lib/lineChangeDerivation";
 import { invalidateWeeklyCardsForLineOpen } from "@/lib/adminCluster4LinesData";
 import { assertWeekOpenable } from "@/lib/cluster4OfficialRestWeek";
@@ -1208,24 +1209,9 @@ export function resolveCategoryLineGroups(
   return reg ? [{ reg, targets }] : [];
 }
 
-// KST 기준 submission window(기존 openExperienceDrafts 와 동일 규칙).
-function computeSubmissionOpensAt(weekStartDate: string): string {
-  const ms = Date.UTC(
-    +weekStartDate.slice(0, 4),
-    +weekStartDate.slice(5, 7) - 1,
-    +weekStartDate.slice(8, 10),
-  );
-  return new Date(ms - 9 * 3600_000).toISOString();
-}
-function computeSubmissionClosesAt(weekStartDate: string): string {
-  const ms = Date.UTC(
-    +weekStartDate.slice(0, 4),
-    +weekStartDate.slice(5, 7) - 1,
-    +weekStartDate.slice(8, 10),
-  );
-  const wednesdayMs = ms + 2 * 86_400_000;
-  return new Date(wednesdayMs + 22 * 3600_000 - 9 * 3600_000).toISOString();
-}
+// (2026-07-27) 로컬 computeSubmissionOpensAt/ClosesAt(= weekStart + 2일, 귀속 주차 당주 수요일)는
+//   폐기했다. 2차 기입 창은 3허브 공용 SoT(computeLineOpenWindowForWeekStart = weekStart + 9일
+//   22:00 KST)만 쓴다 — experience-lines POST / openExperienceDrafts 와 동일 함수.
 
 export type OpenOverallResult = {
   status: "opened";
@@ -1347,8 +1333,10 @@ export async function openTeamOverall(input: {
   if (!weekDates) {
     throw Object.assign(new Error("주차 정보를 찾을 수 없습니다"), { status: 404 });
   }
-  const submissionOpensAt = computeSubmissionOpensAt(weekDates.startDate);
-  const submissionClosesAt = computeSubmissionClosesAt(weekDates.startDate);
+  // 2차 기입 창 = 귀속 주차 기준(N+1주차 수요일 22:00 KST) — 3허브 공용 SoT. 개설 시각(now) 무관.
+  const { submissionOpensAt, submissionClosesAt } = computeLineOpenWindowForWeekStart(
+    weekDates.startDate,
+  );
 
   // 출력 맵.
   const outputByCat = new Map(input.outputs.map((o) => [o.category, o]));

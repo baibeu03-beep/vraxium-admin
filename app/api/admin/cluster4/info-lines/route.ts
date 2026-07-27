@@ -59,7 +59,7 @@ import {
 } from "@/lib/userScope";
 import { loadWeekOpeningConfig } from "@/lib/adminTeamPartsInfoWeekDetailData";
 import { isInfoLineOpenForWeek } from "@/lib/weekOpenGate";
-import { computeLineOpenWindow } from "@/lib/cluster4LineSubmissionWindow";
+import { computeLineOpenWindowForWeekStart } from "@/lib/cluster4LineSubmissionWindow";
 
 // GET /api/admin/cluster4/info-lines?week_id=&activity_type_id=
 // 실무 정보(part_type='info') 라인을 활동 유형 탭별/주차별로 운영하기 위한
@@ -528,12 +528,30 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // ── 2차 기입 창 = 개설 시점 + 48h (주차 레벨 창 대체) ─────────────────────────
-  //   week_id(귀속 주차)는 위에서 확정한 effectiveWeekId 그대로 두고, submission window 만
-  //   개설 시점 기준(now / now+48h)으로 stamp 한다. 이 한 값이 크루 수정창 + 강화 deadlinePassed +
-  //   snapshot + payout 을 동시에 게이트하므로, 여기서 통일하면 하류 코드 변경 없이 48h 정책이 걸린다.
+  // ── 2차 기입 창 = 귀속 주차 기준(N+1주차 수요일 22:00 KST) ────────────────────
+  //   (2026-07-27) 종전 "개설 시점 + 48h" 를 폐기하고 3허브 공용 SoT 로 통일했다.
+  //   위 분기들이 각자 계산해 둔 값을 신뢰하지 않고, **확정된 effectiveWeekId 의 start_date 하나로**
+  //   여기서 재계산해 단일화한다 — 자동 정책/예외/org 수동/dev 어느 분기로 왔든 같은 값이 저장된다.
+  //   개설 시각(now)은 개입하지 않는다: 마감이 지난 과거 주차를 뒤늦게 개설하면 즉시 마감 후 상태가
+  //   되는 것이 의도된 동작이다.
   {
-    const openWindow = computeLineOpenWindow();
+    const { data: winWeekRow, error: winWeekErr } = await supabaseAdmin
+      .from("weeks")
+      .select("start_date")
+      .eq("id", effectiveWeekId)
+      .maybeSingle();
+    if (winWeekErr) {
+      return Response.json({ success: false, error: winWeekErr.message }, { status: 500 });
+    }
+    const winWeekStart = (winWeekRow as { start_date: string } | null)?.start_date ?? null;
+    if (!winWeekStart) {
+      // 주차 행이 없으면 창을 추정하지 않고 중단한다(now 폴백 금지 — 즉시 마감으로 오판정됨).
+      return Response.json(
+        { success: false, error: "개설 주차의 기입 기간을 계산할 수 없습니다 (주차 시작일 없음)" },
+        { status: 409 },
+      );
+    }
+    const openWindow = computeLineOpenWindowForWeekStart(winWeekStart);
     effectiveOpensAt = openWindow.submissionOpensAt;
     effectiveClosesAt = openWindow.submissionClosesAt;
   }

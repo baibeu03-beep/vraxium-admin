@@ -20,7 +20,7 @@ import {
 } from "@/lib/seasonCalendar";
 import { resolveWeekOfficialRest } from "@/lib/officialRestPeriodsData";
 import { hasActiveAllLineException } from "@/lib/lineOpeningWindowsData";
-import { computeLineOpenWindow } from "@/lib/cluster4LineSubmissionWindow";
+import { computeLineOpenWindowForWeekStart } from "@/lib/cluster4LineSubmissionWindow";
 import {
   type Cluster4OutputLink,
   outputLinksFromLegacy,
@@ -159,23 +159,12 @@ function parseBody(
 
 const DAY_MS = 86_400_000;
 
-function deriveSubmissionWindow(weekStartIso: string): {
-  submissionOpensAt: string;
-  submissionClosesAt: string;
-} {
-  const weekStartMs = Date.UTC(
-    +weekStartIso.slice(0, 4),
-    +weekStartIso.slice(5, 7) - 1,
-    +weekStartIso.slice(8, 10),
-  );
-  const wednesdayMs = weekStartMs + 2 * DAY_MS;
-  // KST = UTC+9 ⇒ open=주 시작 00:00 KST(-9h UTC), close=Wed 22:00 KST(+13h UTC).
-  return {
-    submissionOpensAt: new Date(weekStartMs - 9 * 3600_000).toISOString(),
-    submissionClosesAt: new Date(wednesdayMs + 22 * 3600_000 - 9 * 3600_000).toISOString(),
-  };
-}
+// (2026-07-27) 로컬 deriveSubmissionWindow(= weekStart + 2일, 귀속 주차 당주 수요일)는 폐기했다.
+//   2차 기입 창은 3허브 공용 SoT(computeLineOpenWindowForWeekStart = weekStart + 9일)만 쓴다.
 
+// ⚠ 기입 기간(submissionOpensAt/ClosesAt)은 **여기서 산출하지 않는다**(2026-07-27).
+//   종전에는 weekStart+2일(당주 수요일)을 함께 반환했으나, 개설 저장값과 어긋나는 dead 값이라
+//   제거했다. 창은 computeLineOpenWindowForWeekStart(weekStart+9일) 단일 SoT 만 쓴다.
 function resolveCurrentWeek(): {
   weekStart: string;
   weekEnd: string;
@@ -183,8 +172,6 @@ function resolveCurrentWeek(): {
   isoYear: number;
   isoWeek: number;
   isOfficialRest: boolean;
-  submissionOpensAt: string;
-  submissionClosesAt: string;
 } | null {
   const todayIso = getCurrentActivityDateIso();
   const season = getSeasonForDate(todayIso);
@@ -207,10 +194,6 @@ function resolveCurrentWeek(): {
   const yearStart = new Date(Date.UTC(isoYear, 0, 1));
   const isoWeek = Math.ceil(((d.getTime() - yearStart.getTime()) / DAY_MS + 1) / 7);
 
-  const wednesdayMs = weekStartMs + 2 * DAY_MS;
-  const submissionOpensAt = new Date(weekStartMs - 9 * 3600_000).toISOString();
-  const submissionClosesAt = new Date(wednesdayMs + 22 * 3600_000 - 9 * 3600_000).toISOString();
-
   return {
     weekStart: new Date(weekStartMs).toISOString().slice(0, 10),
     weekEnd: new Date(weekEndMs).toISOString().slice(0, 10),
@@ -218,8 +201,6 @@ function resolveCurrentWeek(): {
     isoYear,
     isoWeek,
     isOfficialRest,
-    submissionOpensAt,
-    submissionClosesAt,
   };
 }
 
@@ -299,9 +280,9 @@ export async function POST(request: NextRequest) {
 
   try {
     // 1. Resolve target week — override 우선, 미지정 시 current week.
+    //    창(submission window)은 여기서 정하지 않는다 — 아래 단일 지점에서 weekStartDate 로만 계산한다.
     let weekRowId: string;
-    let submissionOpensAt: string;
-    let submissionClosesAt: string;
+    let weekStartDate: string;
 
     if (input.week_id) {
       const { data: weekRow, error: weekError } = await supabaseAdmin
@@ -327,9 +308,9 @@ export async function POST(request: NextRequest) {
         );
       }
       weekRowId = (weekRow as { id: string }).id;
-      const derived = deriveSubmissionWindow(startDate);
-      submissionOpensAt = input.submission_opens_at ?? derived.submissionOpensAt;
-      submissionClosesAt = input.submission_closes_at ?? derived.submissionClosesAt;
+      // 클라이언트가 보낸 submission_opens_at / submission_closes_at 는 무시한다 —
+      //   창은 서버가 귀속 주차 start_date 로만 계산한다(payload 조작으로 마감 조기/연장 불가).
+      weekStartDate = startDate;
     } else {
       const week = resolveCurrentWeek();
       if (!week || week.isOfficialRest) {
@@ -359,19 +340,17 @@ export async function POST(request: NextRequest) {
         );
       }
       weekRowId = (weekRow as { id: string }).id;
-      submissionOpensAt = week.submissionOpensAt;
-      submissionClosesAt = week.submissionClosesAt;
+      weekStartDate = (weekRow as { start_date: string }).start_date;
     }
 
-    // ── 2차 기입 창 = 개설 시점 + 48h (주차 레벨 창 대체) ─────────────────────────
-    //   weekRowId(귀속 주차)는 그대로. submission window 만 개설 시점 기준(now/now+48h)으로 통일한다.
-    //   info/experience/career 4허브 공용 정책 — submission_closes_at 이 크루 수정창·강화 deadlinePassed·
-    //   snapshot·payout 을 동시에 게이트하므로 여기서 통일하면 하류 무변경으로 48h 정책이 걸린다.
-    {
-      const openWindow = computeLineOpenWindow();
-      submissionOpensAt = openWindow.submissionOpensAt;
-      submissionClosesAt = openWindow.submissionClosesAt;
-    }
+    // ── 2차 기입 창 = 귀속 주차 기준(N+1주차 수요일 22:00 KST) ────────────────────
+    //   (2026-07-27) 종전 "개설 시점 + 48h" 및 로컬 "당주 수요일(weekStart+2일)" 을 폐기하고
+    //   3허브 공용 SoT 로 통일했다. weekRowId(귀속 주차)는 그대로 두고 창만 이 한 곳에서 계산한다.
+    //   submission_closes_at 이 크루 수정창·강화 deadlinePassed·snapshot·payout 을 동시에
+    //   게이트하므로, 여기서 통일하면 하류 코드 변경 없이 정책이 걸린다.
+    //   개설 시각(now)은 개입하지 않는다 — 마감이 지난 과거 주차 소급 개설은 즉시 마감 후 상태.
+    const { submissionOpensAt, submissionClosesAt } =
+      computeLineOpenWindowForWeekStart(weekStartDate);
 
     // ── 라인 개설 오픈 게이트(강제) — 프로세스 체크·개설 대시보드와 동일 SoT ───────────────
     //   org-scoped 개설에만 적용(통합=단일 config 없음). 그 주차 실무 역량이 "정상 진행"

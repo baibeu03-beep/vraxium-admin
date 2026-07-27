@@ -10,7 +10,7 @@ import { invalidateWeeklyCardsForLineOpen } from "@/lib/adminCluster4LinesData";
 import { payLineOpenTargetsOnce } from "@/lib/processPointAccrual";
 import { getRegistrationByBridgedMasterId } from "@/lib/lineRegistrationLookup";
 import { assertExperienceLineOpenable } from "@/lib/experienceLineOpenGate";
-import { computeLineOpenWindow } from "@/lib/cluster4LineSubmissionWindow";
+import { computeLineOpenWindowForWeekStart } from "@/lib/cluster4LineSubmissionWindow";
 import {
   type Cluster4OutputLink,
   outputLinksFromLegacy,
@@ -255,7 +255,7 @@ export async function POST(request: NextRequest) {
   try {
     const { data: weekRow, error: weekError } = await supabaseAdmin
       .from("weeks")
-      .select("id")
+      .select("id,start_date")
       .eq("id", input.week_id)
       .maybeSingle();
     if (weekError) {
@@ -263,6 +263,14 @@ export async function POST(request: NextRequest) {
     }
     if (!weekRow) {
       return Response.json({ success: false, error: "week not found" }, { status: 404 });
+    }
+    const weekStartDate = (weekRow as { start_date: string | null }).start_date;
+    if (!weekStartDate) {
+      // 창을 추정하지 않고 중단한다(now 폴백 금지 — 즉시 마감으로 오판정됨).
+      return Response.json(
+        { success: false, error: "개설 주차의 기입 기간을 계산할 수 없습니다 (주차 시작일 없음)" },
+        { status: 409 },
+      );
     }
 
     // (2E-3) 개설 검증: line_registrations(bridged 역참조) 우선 — 연결 registration 이 있으면
@@ -294,9 +302,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 2차 기입 창 = 개설 시점 + 48h (주차 레벨 창 대체). 클라이언트가 보낸 window 값은 무시하고
-    //   개설 시점 기준(now/now+48h)으로 stamp — 4허브 공용 정책(submission_closes_at 단일 SoT).
-    const openWindow = computeLineOpenWindow();
+    // 2차 기입 창 = 귀속 주차 기준(N+1주차 수요일 22:00 KST). 클라이언트가 보낸 window 값은 무시하고
+    //   서버가 week_id 의 start_date 로만 계산한다 — 3허브 공용 SoT(submission_closes_at 단일 lever).
+    //   (2026-07-27) 종전 "개설 시점 + 48h" 폐기. 개설 시각(now)은 개입하지 않는다.
+    const openWindow = computeLineOpenWindowForWeekStart(weekStartDate);
 
     const { data: lineRow, error: lineError } = await supabaseAdmin
       .from("cluster4_lines")

@@ -12,6 +12,7 @@ import { loadCrewRecords } from "@/lib/cluster4CafeLineMatch";
 import { listCrewsForTargetSelection } from "@/lib/adminExperienceLineData";
 import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { payLineOpenTargetsOnce } from "@/lib/processPointAccrual";
+import { computeLineOpenWindowForWeekStart } from "@/lib/cluster4LineSubmissionWindow";
 import { filterGrowthStoppedUserIds } from "@/lib/cluster4GrowthStopPolicy";
 import {
   assertUserIdsInScope,
@@ -421,8 +422,6 @@ export async function addManualCompetencyApplication(input: {
 // 개설 취소: opened 라인/타깃 삭제 + resolution='pending' 복귀.
 // ⚠ snapshot 은 호출부(adminCompetencyLineOpening)가 markStale 위임. 본 함수는 라인 CRUD + resolution 만.
 
-const DAY_MS = 86_400_000;
-
 async function loadWeekStart(weekId: string): Promise<string | null> {
   const { data } = await supabaseAdmin
     .from("weeks")
@@ -432,19 +431,9 @@ async function loadWeekStart(weekId: string): Promise<string | null> {
   return (data as { start_date: string } | null)?.start_date ?? null;
 }
 
-// competency-lines POST 와 동일한 KST 기준 기입 기간(open=주 시작 00:00 KST, close=Wed 22:00 KST).
-function deriveWindow(weekStartIso: string): { opensAt: string; closesAt: string } {
-  const ms = Date.UTC(
-    +weekStartIso.slice(0, 4),
-    +weekStartIso.slice(5, 7) - 1,
-    +weekStartIso.slice(8, 10),
-  );
-  const wed = ms + 2 * DAY_MS;
-  return {
-    opensAt: new Date(ms - 9 * 3600_000).toISOString(),
-    closesAt: new Date(wed + 22 * 3600_000 - 9 * 3600_000).toISOString(),
-  };
-}
+// (2026-07-27) 로컬 deriveWindow(= weekStart + 2일, 귀속 주차 당주 수요일)는 폐기했다.
+//   기입 기간은 3허브 공용 SoT(computeLineOpenWindowForWeekStart = weekStart + 9일 22:00 KST)만 쓴다
+//   — competency-lines POST 와 동일 함수라 두 개설 경로의 저장값이 구조적으로 같아진다.
 
 export type ApprovalReflectResult = {
   openedCrews: number;
@@ -535,7 +524,13 @@ export async function openApprovedApplications(input: {
   const stoppedTargetIds = await filterGrowthStoppedUserIds(approvedTargetIds);
 
   const weekStart = await loadWeekStart(input.weekId);
-  const win = weekStart ? deriveWindow(weekStart) : null;
+  // 2차 기입 창 = 귀속 주차 기준(N+1주차 수요일 22:00 KST) — 3허브 공용 SoT.
+  //   ⚠ fail-closed: 주차 시작일이 없으면 창을 추정하지 않고 중단한다. 종전 `?? nowIso` 폴백은
+  //     마감을 "지금"으로 찍어 개설 즉시 강화 성공으로 오판정시켰다(now 폴백 금지).
+  if (!weekStart) {
+    throw new Error("개설 주차의 기입 기간을 계산할 수 없습니다 (주차 시작일 없음)");
+  }
+  const win = computeLineOpenWindowForWeekStart(weekStart);
   const nowIso = new Date().toISOString();
 
   const masterIds = Array.from(
@@ -603,8 +598,8 @@ export async function openApprovedApplications(input: {
         output_link_1: link1,
         output_link_2: link2,
         output_links: outputLinks,
-        submission_opens_at: win?.opensAt ?? nowIso,
-        submission_closes_at: win?.closesAt ?? nowIso,
+        submission_opens_at: win.submissionOpensAt,
+        submission_closes_at: win.submissionClosesAt,
         is_active: true,
         // QA 기간(QA_HIDE_REAL_USERS=true) 생성분 표식 — 운영 조회 제외. 기본 false.
         is_qa_test: QA_HIDE_REAL_USERS,

@@ -10,6 +10,7 @@ import type {
   InputStatus,
 } from "@/lib/adminExperienceDraftTypes";
 import { resolveOutputLinks } from "@/lib/cluster4OutputLinks";
+import { computeLineOpenWindowForWeekStart } from "@/lib/cluster4LineSubmissionWindow";
 import {
   outputImageUrls,
   outputImageCaptions as toOutputImageCaptions,
@@ -527,8 +528,10 @@ async function openExperienceDraftsImpl(
   }
 
   const week = weekRow as { id: string; start_date: string; end_date: string };
-  const submissionOpensAt = computeSubmissionOpensAt(week.start_date);
-  const submissionClosesAt = computeSubmissionClosesAt(week.start_date);
+  // 2차 기입 창 = 귀속 주차 기준(N+1주차 수요일 22:00 KST) — 3허브 공용 SoT. 개설 시각(now) 무관.
+  const { submissionOpensAt, submissionClosesAt } = computeLineOpenWindowForWeekStart(
+    week.start_date,
+  );
 
   // 개설 기간 게이트 — 팀 총괄/experience-lines POST 와 동일 SoT(cluster4_week_opening_configs).
   //   draft 의 (org, team) 조합마다 개설 기간이 아니면 어떤 라인 생성보다 먼저 409. org 미지정 draft 는
@@ -830,26 +833,9 @@ export async function getExperienceWorkflowSummary(
 
 // ── Helpers ────────────────────────────────────────────────
 
-// KST = UTC+9. 주 시작일(월요일) 00:00 KST 기준 submission open.
-function computeSubmissionOpensAt(weekStartDate: string): string {
-  const ms = Date.UTC(
-    +weekStartDate.slice(0, 4),
-    +weekStartDate.slice(5, 7) - 1,
-    +weekStartDate.slice(8, 10),
-  );
-  return new Date(ms - 9 * 3600_000).toISOString();
-}
-
-// 수요일 22:00 KST 기준 submission close.
-function computeSubmissionClosesAt(weekStartDate: string): string {
-  const ms = Date.UTC(
-    +weekStartDate.slice(0, 4),
-    +weekStartDate.slice(5, 7) - 1,
-    +weekStartDate.slice(8, 10),
-  );
-  const wednesdayMs = ms + 2 * 86_400_000;
-  return new Date(wednesdayMs + 22 * 3600_000 - 9 * 3600_000).toISOString();
-}
+// (2026-07-27) 로컬 computeSubmissionOpensAt/ClosesAt(= weekStart + 2일, 귀속 주차 당주 수요일)는
+//   폐기했다. 2차 기입 창은 3허브 공용 SoT(computeLineOpenWindowForWeekStart = weekStart + 9일
+//   22:00 KST)만 쓴다 — experience-lines POST / openTeamOverall 과 동일 함수.
 
 // Best-effort rollback: 생성된 행을 역순으로 삭제 시도.
 // 삭제 실패 시 콘솔 경고만 남기고 진행.
