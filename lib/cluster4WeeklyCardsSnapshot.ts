@@ -433,7 +433,20 @@ async function writeRosterCardStats(
 //   ⚠ **bump 필수** — 기존 v47 snapshot 에 잘못된 값이 baking 되어 있어 boundary-stale 로는 부족.
 //     v47 전량 stale(version_mismatch) → cron/lazy 재계산으로 교정된다.
 //   [[project_cluster4-week-position-override-sot]]
-export const WEEKLY_CARDS_DTO_VERSION = 48;
+// v49 (2026-07-27): 카드 소속(teamName/partName) fallback 에서 **현재 주차 override 재적용**을 제거.
+//   v48 로 "주차값은 carry-forward, 이전 주차 불변" 규칙을 세웠지만, override 가 **없는** 주차의
+//   fallback 이 crew DTO 의 teamName/partName 이었고 그 값은 getAdminCrewDtoByLegacyUserId 가
+//   resolveCurrentPositionBatch(현재 주차 override ?? UPH ?? 멤버십)로 이미 덮어쓴 값이었다.
+//   → W5 에 저장한 override 가 "현재 위치"로 승격돼 override 가 없는 W0~W4·지난 시즌 카드까지
+//     전부 그 파트로 표시됐다(2026-07-27 실측: 멤버십 파트=포토, W4 override=테스트 →
+//     2026-spring W14 ~ 2026-summer W5 전 주차 카드가 "테스트"). 시즌 대표 승격(v48)과 다른 두 번째
+//     소급 경로다. 이제 fallback = membershipTeamName/membershipPartName(override 무관 기준선).
+//   · 영향 필드: teamName · partName (shape 불변, **값**이 바뀜). 클래스/roleLabel 은 이미 override
+//     무관 tier③(현재 role/level)이라 무영향.
+//   ⚠ **bump 필수** — 기존 v48 snapshot 에 소급된 값이 baking 되어 있어 boundary-stale 로는 부족.
+//     v48 전량 stale(version_mismatch) → cron/lazy 재계산으로 교정된다.
+//   [[cluster4-week-position-override-sot]]
+export const WEEKLY_CARDS_DTO_VERSION = 49;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 

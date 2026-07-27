@@ -134,10 +134,18 @@ export type AdminCrewDto = {
   university: string | null;
   major: string | null;
   universityMajor: string | null;
+  // ⚠ teamName/partName 은 **현재 시점** 값이다 — 목록/상세 로더가 resolveCurrentPositionBatch
+  //   (= 현재 주차 override ?? UPH ?? 멤버십)로 덮어쓴다. "현재 화면"이 아닌 곳에서 쓰면 안 된다.
   teamName: string | null;
   team: string | null;
   partName: string | null;
   part: string | null;
+  // 주차 override 를 **섞지 않은** 소속 기준선(멤버십 → profile.current_* → legacy 이관).
+  //   주차별 이력 화면(크루 주차 카드 등)의 최후 fallback 전용 — 현재 주차 override 가 여기에
+  //   섞이면 그 값이 override 이전 주차 카드까지 소급된다(2026-07-27 회귀). 위 teamName 과 달리
+  //   graft 대상이 아니다. [[cluster4-week-position-override-sot]]
+  membershipTeamName: string | null;
+  membershipPartName: string | null;
   membershipLevel: string | null;
   membershipState: string | null;
   approvedWeeks: number | null;
@@ -511,6 +519,9 @@ function buildAdminCrewDtos(rows: CrewSourceRows): AdminCrewDto[] {
       team: teamName,
       partName,
       part: partName,
+      // graft(현재 주차 override) 이전의 소속 기준선을 별도 필드로 보존한다 — 위 타입 주석 참조.
+      membershipTeamName: teamName,
+      membershipPartName: partName,
       membershipLevel,
       membershipState,
       approvedWeeks,

@@ -611,7 +611,10 @@ async function computeWeeklyCards(
   //   ⚠ 의도적으로 UPH 는 원천에 넣지 않는다. 클래스는 v26 부터 이미 UPH 주차핀을 쓰고 있었지만
   //     소속은 한 번도 주차핀인 적이 없어(항상 현재 멤버십), 여기서 UPH 까지 켜면 이번 변경과 무관한
   //     과거 카드 수천 건의 팀/파트 표기가 한꺼번에 달라진다. 관리자 override 로 명시 지정한 주차만
-  //     주차값을 쓰고, 나머지는 종전대로 현재 멤버십(crewMeta)을 유지한다.
+  //     주차값을 쓰고, 나머지는 종전대로 멤버십 기준선(crewMeta)을 유지한다.
+  //   ⚠ crewMeta 의 소속은 **override 무관 기준선**이어야 한다(getWeeklyGrowth 의 baselineTeamName
+  //     주석 참조). 현재 주차 override 가 섞인 값을 fallback 으로 쓰면, 이 맵이 비어 있는 과거 주차가
+  //     전부 그 override 값으로 소급된다 — v49 에서 고친 회귀.
   const weekTeamPartByStart = new Map<string, { team: string | null; part: string | null }>();
   if (seasonKeys.length > 0) {
     // 조립은 **공통 resolver 단일 구현**(loadUserWeekPositionSeries). carry-forward · UPH 없는 주차
@@ -1655,16 +1658,25 @@ export async function getWeeklyGrowth(
   const tCurrentWeek = Date.now();
   // 클린 파이프라인: 카드(resolved)를 먼저 만든 뒤 그 카드로 요약을 fold 한다.
   //   → growthSummary 와 weeklyCards 가 동일 ResolvedWeek 소스를 공유(수동 보정 불필요).
+  // ⚠ 소속 fallback 은 **override 를 섞지 않은 기준선**(membershipTeamName/membershipPartName)이어야 한다.
+  //   crew.teamName/partName 은 getAdminCrewDtoByLegacyUserId 가 resolveCurrentPositionBatch(= 현재 주차
+  //   override ?? UPH ?? 멤버십)로 덮어쓴 **현재 시점** 값이다. 그 값을 카드 fallback 으로 쓰면,
+  //   관리자가 W5 에 저장한 override 가 "현재 위치"가 되어 override 가 없는 W1~W4 카드까지 소급됐다
+  //   (2026-07-27 실측: 멤버십 파트=포토 · W4 override=테스트 → 봄~여름 전 주차 카드가 테스트).
+  //   주차값은 weekTeamPartByStart(= override carry-forward, 주차 기준)만 담당하고, fallback 은
+  //   override 무관 기준선으로 고정한다. [[cluster4-week-position-override-sot]]
+  const baselineTeamName = crew.membershipTeamName ?? crew.teamName ?? null;
+  const baselinePartName = crew.membershipPartName ?? crew.partName ?? null;
   const weeklyResult = await traceSpan("computeWeeklyCards", () =>
     computeWeeklyCards(
       crew.userId,
       (crew.organizationSlug as OrganizationSlug) ?? null,
       {
-        teamLabel: crew.teamName ?? "-",
-        partLabel: crew.partName ?? "-",
+        teamLabel: baselineTeamName ?? "-",
+        partLabel: baselinePartName ?? "-",
         activityStatus: crew.membershipLevel ?? "일반",
-        teamNameRaw: crew.teamName ?? null,
-        partNameRaw: crew.partName ?? null,
+        teamNameRaw: baselineTeamName,
+        partNameRaw: baselinePartName,
         roleLabelRaw: crew.membershipLevel ?? null,
         membershipStatusLabelRaw: crew.membershipState ?? null,
         organizationSlug: crew.organizationSlug ?? null,

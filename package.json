@@ -129,7 +129,8 @@
     "backfill:published-act-rate": "tsx --env-file=.env.local scripts/backfill-published-act-rate.ts",
     "backfill:line-rating-awards": "tsx --env-file=.env.local scripts/backfill-line-rating-awards.ts",
     "verify:published-act-rate-read": "tsx --env-file=.env.local scripts/verify-published-act-rate-read-parity.ts",
-    "verify:line-award-era-gate": "tsx --env-file=.env.local scripts/verify-line-award-era-gate.ts"
+    "verify:line-award-era-gate": "tsx --env-file=.env.local scripts/verify-line-award-era-gate.ts",
+    "verify:week-position-nonretro": "node scripts/verify-week-position-nonretro-cards-http.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
