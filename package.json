@@ -24,6 +24,8 @@
     "verify:info-line-registration-http": "node scripts/browser-verify-info-line-registration-http.mjs",
     "verify:info-line-registration-render": "node scripts/browser-verify-info-line-registration-render.mjs",
     "verify:crew-week-results-http": "node scripts/browser-verify-crew-week-results-http.mjs",
+    "verify:week-criterion-sot-http": "tsx --env-file=.env.local scripts/verify-week-criterion-sot-http.ts",
+    "verify:week-criterion-render": "node scripts/browser-verify-week-criterion-parity.mjs",
     "verify:crew-week-results-render": "node scripts/browser-verify-crew-week-results-render.mjs",
     "audit:crew-week-snapshot-migration": "tsx --env-file=.env.local scripts/audit-crew-week-publish-snapshot-migration.ts",
     "backfill:crew-week-snapshots": "tsx --env-file=.env.local scripts/backfill-crew-week-publish-snapshots.ts",

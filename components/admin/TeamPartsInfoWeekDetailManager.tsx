@@ -47,12 +47,11 @@ import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 // 도움말 help key prefix(요청 네임스페이스). org/mode 로 갈라지지 않는 공통 키.
 const HELP = "admin.teamParts.info.weeks.activity";
 
-// [임시·Phase 1] 주차별 활동 인정 개수 N.
-//   최종 계산(오픈 확인 시점의 확정 설정으로 A·B 집계 → N = A + 0.4×(B−A))은 Phase 3 에서 도입한다.
-//   현재는 계산 로직/저장을 연결하지 않고 기존 정책의 임시 기본값(30)만 표시한다. DTO/DB 에
-//   아직 주차별 인정 개수 필드가 없으므로 이 단일 상수를 표시값 SoT 로 둔다(JSX 하드코딩 금지).
-//   Phase 3 에서 DTO 에 인정 개수 필드가 추가되면 `dto.… ?? DEFAULT_WEEK_RECOGNITION_COUNT` 로 폴백한다.
-const DEFAULT_WEEK_RECOGNITION_COUNT = 30;
+// [주차 기준값 SoT] 주차별 활동 인정 개수 N = `cluster4_week_opening_configs.recognition_count_n`
+//   (= [오픈 확인] 시점에 확정·고정된 값). 이 화면은 그 값을 DTO 필드(managedWeek.weekRecognitionCount)
+//   로 **그대로 소비**한다 — 크루 주차 결과의 "주차 성장 성공 별 기준"(criterionPointA)·주차 성공 판정
+//   (fetchWeekRecognitionRequiredByOrg)·공표 snapshot(criterion_point_a) 이 읽는 컬럼과 동일하다.
+//   화면 자체 재계산·기본값(30) 폴백은 두지 않는다(미확정 = "-", 크루 화면과 동일 표기).
 
 // ── 표 정렬 공용(클라이언트 — 이 페이지의 표는 전 행을 한 번에 받으므로 전체 정렬이 곧 정답) ──
 type SortDir = "asc" | "desc";
@@ -1290,9 +1289,11 @@ export default function TeamPartsInfoWeekDetailManager({
   });
 
   // [활동 인정 개수 N] 라이브 재계산 — 오픈 설정 체크 상태가 바뀔 때마다(디바운스 300ms) 서버
-  //   recognition-preview 를 호출해 표시 N 을 갱신한다. 서버는 [오픈 확인] 저장과 **동일한**
-  //   prepareWeekRecognition(순수 read+compute)을 실행하므로, 화면 표시 N == 오픈 확인 저장값 ==
-  //   snapshot == 이후 집계값 이 항상 일치한다(클라 재계산·산식 복제 없음). 편집 대상 6개 상태
+  //   recognition-preview 를 호출한다. 서버는 [오픈 확인] 저장과 **동일한** prepareWeekRecognition
+  //   (순수 read+compute)을 실행하므로 "지금 오픈 확인하면 확정될 N" 과 같다.
+  //   ⚠ 이 값은 **표시 기준값이 아니다**(보조 안내 전용). 확정 기준값은 오픈 확인 시점에 고정된
+  //   managedWeek.weekRecognitionCount 이고, 미리보기는 액트/라인 포인트처럼 확정 이후에도 변하는
+  //   원천을 지금 시점으로 다시 읽으므로 설정을 안 건드려도 확정값과 갈릴 수 있다. 편집 대상 6개 상태
   //   (라인급/라인 정보·경험·클럽·역량) 무엇이 바뀌어도 재계산되고, 초기 로드/초기화/저장 상태 불러오기도
   //   상태 변경이므로 자동 반영된다. 조회 전용(readOnly)은 편집이 없어 호출하지 않고 저장값을 그대로 쓴다.
   //   경합 방지: 최신 요청 seq 만 반영. 실패는 무음(기존 표시 유지).
@@ -1631,14 +1632,19 @@ export default function TeamPartsInfoWeekDetailManager({
 
   const currentWeek = data?.currentWeek ?? null;
   const managedWeek = data?.managedWeek ?? null;
-  // 인정 개수 표시값 — 우선순위:
-  //   1) 라이브 미리보기(현재 체크 상태 기준·featureAvailable && N!=null) — 편집 즉시 반영·저장값과 동일 산식.
-  //   2) 저장된 확정값(managedWeek.weekRecognitionCount) — 아직 미리보기 전이거나 조회 전용(readOnly).
-  //   3) Phase1 기본값(인정 컬럼 미적용/미계산 폴백).
-  const recognitionCount =
-    recognitionPreview && recognitionPreview.featureAvailable && recognitionPreview.recognitionCountN != null
+  // [인정 개수 표시값] = 이 주차·이 조직의 **확정 기준값** 하나뿐이다(managedWeek.weekRecognitionCount).
+  //   라이브 미리보기로 덮어쓰지 않는다 — 미리보기는 액트/라인 포인트 등 **오픈 확인 이후에도 바뀌는 원천**을
+  //   지금 시점으로 다시 읽으므로, 설정을 건드리지 않아도 확정값과 갈린다(예: 확정 뒤 새 액트가 등록되면 증가).
+  //   확정값은 크루 주차 결과·주차 성공 판정·공표 snapshot 이 쓰는 값이므로 이 화면도 같은 값을 보여야 한다.
+  const recognitionCount = managedWeek?.weekRecognitionCount ?? null;
+  // 보조 안내(값 대체 아님) — 현재(미저장) 오픈 설정으로 다시 [오픈 확인] 하면 확정될 값. 확정값과 다를 때만.
+  const recognitionPendingCount =
+    recognitionPreview &&
+    recognitionPreview.featureAvailable &&
+    recognitionPreview.recognitionCountN != null &&
+    recognitionPreview.recognitionCountN !== recognitionCount
       ? recognitionPreview.recognitionCountN
-      : managedWeek?.weekRecognitionCount ?? DEFAULT_WEEK_RECOGNITION_COUNT;
+      : null;
 
   return (
     <>
@@ -1980,10 +1986,19 @@ export default function TeamPartsInfoWeekDetailManager({
                     data-week-recognition-count="true"
                     className="text-4xl font-extrabold tabular-nums leading-none text-foreground md:text-5xl"
                   >
-                    {recognitionCount}
+                    {recognitionCount ?? "-"}
                   </strong>
-                  <span className="text-base text-muted-foreground">개</span>
+                  {recognitionCount == null ? null : <span className="text-base text-muted-foreground">개</span>}
                 </span>
+                {/* 확정값을 덮지 않는 보조 안내 — 지금 설정으로 다시 [오픈 확인] 하면 바뀔 값. */}
+                {recognitionPendingCount != null ? (
+                  <span
+                    data-week-recognition-pending={recognitionPendingCount}
+                    className="text-xs text-muted-foreground"
+                  >
+                    현재 오픈 설정 기준으로 [클럽 활동 진행] 을 실행하면 {recognitionPendingCount}개로 확정됩니다.
+                  </span>
+                ) : null}
               </div>
 
               {/* 허브별로 라인 급(체크)→(7) 액트 체크 / 라인(개설)→(8) 라인 개설 을 독립 열로 분리.
