@@ -9,6 +9,8 @@
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { normalizeMemberRole, resolvePositionLabels } from "@/lib/adminMembersTypes";
+import { listOperatedTeamParts } from "@/lib/adminTeamSelectedWeekSummary";
+import type { OrganizationSlug } from "@/lib/organizations";
 import { loadCurrentWeekOverrideLabels } from "@/lib/positionResolver";
 import {
   assertUserIdsInScope,
@@ -187,15 +189,31 @@ export async function resolveActorContext(
 
 // ── Parts / Crews ──
 
+// 팀의 <운용> 파트명 목록 — **권위 원천은 listOperatedTeamParts(팀 상세와 동일 SoT)** 다.
+//
+// ⚠ 2026-07-27 정정. 종전 구현은 "평가 대상 크루 로스터(loadTeamCrewRows)에서 파트명을 역산"하는
+//   방식이라, 같은 파트를 두 화면이 서로 다른 규칙으로 판정했다:
+//     · /admin/team-parts/info/*   — 선택 주차 effective 배정(override→UPH→멤버십), 휴식 무관
+//     · 실무 경험 라인 개설(여기)  — **현재 주차 고정** + **멤버십 팀명** + 시즌 휴식자 제외
+//   그래서 "새 파트에 크루 1명 배정 → 팀 상세는 <운용>인데 라인 개설 드롭다운에는 없음"이 발생했다
+//   (실측: encre 비주얼랩(T) '테스트' — 유일 배정 크루가 시즌 휴식자라 로스터에서 탈락 → 파트도 소멸).
+//   파트 카탈로그(어떤 파트가 운용 중인가)와 크루 후보 풀(누가 평가 대상인가)은 **다른 질문**이다.
+//   전자는 아래 SoT 로 통일하고, 후자(listPartCrews/listTeamCrews)만 후보 규칙(휴식 제외 등)을 적용한다.
+//
+// @deprecated 새 호출부는 listOperatedTeamParts 를 직접 쓸 것. 이 함수는 기존 호출부/검증 스크립트
+//   호환을 위한 얇은 위임이며, weekId 미지정 시 현재 주차로 폴백한다(요약과 동일).
 export async function listTeamParts(
   organization: string,
   teamName: string,
   mode: ScopeMode = "operating",
+  weekId?: string | null,
 ): Promise<string[]> {
-  const rows = await loadTeamCrewRows(organization, teamName, mode);
-  const set = new Set<string>();
-  for (const r of rows) if (r.partName) set.add(r.partName);
-  return Array.from(set).sort();
+  return listOperatedTeamParts({
+    organization: organization as OrganizationSlug,
+    teamName,
+    weekId: weekId ?? null,
+    mode,
+  });
 }
 
 export async function listPartCrews(

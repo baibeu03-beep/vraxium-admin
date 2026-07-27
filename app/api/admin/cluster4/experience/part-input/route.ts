@@ -19,10 +19,11 @@ import {
   getPartSubmission,
   getTeamOverall,
   listPartCrews,
-  listTeamParts,
   resolveActorContext,
   savePartSubmission,
 } from "@/lib/adminExperiencePartInput";
+import { listOperatedTeamParts } from "@/lib/adminTeamSelectedWeekSummary";
+import type { OrganizationSlug } from "@/lib/organizations";
 import { buildLineIdCategoryMap, listExperienceLineOptions } from "@/lib/adminExperienceLineData";
 import { loadOpenedLineMasterByUserCategory } from "@/lib/adminExperienceTeamOverall";
 import {
@@ -119,9 +120,19 @@ export async function GET(request: NextRequest) {
       return Response.json({ success: true, data });
     }
 
+    // 파트 드롭다운 = 그 주차의 <운용> 파트 — /admin/team-parts/info/* 와 **동일 권위 원천**
+    //   (listOperatedTeamParts = getTeamSelectedWeekSummary.operatedParts 파생, 프로세스/액트 체크 보드 공용).
+    //   ⚠ 종전엔 평가 대상 크루 로스터에서 파트를 역산해(현재 주차 고정·시즌 휴식자 제외) 팀 상세가
+    //     <운용>으로 보는 신규 파트가 드롭다운에서 통째로 사라졌다. 파트 카탈로그와 크루 후보 풀은 분리한다.
+    //   weekId 미지정/선택 불가 주차면 현재 주차로 폴백(요약과 동일 규칙). mode 는 모집단만 바꾼다.
     // 라인명 드롭다운 옵션(유형별) — org+공통 활성 라인. 개설신청/검수/검증 공용 단일 원천.
     const [parts, lineOptions] = await Promise.all([
-      listTeamParts(organization, teamName, mode),
+      listOperatedTeamParts({
+        organization: organization as OrganizationSlug,
+        teamName,
+        weekId: weekId || null,
+        mode,
+      }),
       listExperienceLineOptions(organization),
     ]);
 

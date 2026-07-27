@@ -61,6 +61,8 @@ import {
   listExperienceOverallLineOptions,
 } from "@/lib/adminExperienceLineData";
 import { updateOverallPartCellLines } from "@/lib/adminExperiencePartInput";
+import { listOperatedTeamParts } from "@/lib/adminTeamSelectedWeekSummary";
+import type { OrganizationSlug } from "@/lib/organizations";
 
 // part_submissions line_type(도출/분석/견문) ↔ overall category 동일 키.
 type PartLineType = "derivation" | "analysis" | "evaluation";
@@ -471,13 +473,22 @@ export async function getTeamOverallBoard(
   //   화면 조회(GET route)만 true 로 켜 "이미 개설된 실제 라인명"이 트리거에 뜨게 한다(요구 §3·§6).
   resolveAssignedLineFallback = false,
 ): Promise<ExperienceTeamOverallBoard> {
-  const [members, partCellsData, stored, weekDates, lineOptions] = await Promise.all([
+  const [members, partCellsData, stored, weekDates, lineOptions, operatedParts] = await Promise.all([
     loadTeamMembersWithLeaders(organization, teamName, mode),
     loadPartSubmissionCells(organization, weekId, teamId),
     loadOverallStored(organization, weekId, teamId),
     loadWeekDates(weekId),
     // 라인명 드롭다운 옵션(5카테고리) — 개설 신청과 동일 원천(org+공통 활성 라인).
     listExperienceOverallLineOptions(organization),
+    // 그 주차의 <운용> 파트 — 파트 드롭다운(part-input)과 **동일 권위 원천**. 파트장 입력 화면의
+    //   드롭다운 옵션과 이 보드의 파트 집합이 갈리면, 드롭다운에만 있는 파트는 submitted 상태를
+    //   영영 못 받아 "신청했는데 개설 신청 필요" 로 보인다. 두 목록을 같은 함수로 맞춘다.
+    listOperatedTeamParts({
+      organization: organization as OrganizationSlug,
+      teamName,
+      weekId,
+      mode,
+    }),
   ]);
 
   const extension = weekDates
@@ -506,7 +517,11 @@ export async function getTeamOverallBoard(
   };
 
   // 파트별 그룹.
+  //   ⚠ 시드 = SoT <운용> 파트(크루 0명이어도 파트는 존재). 그 위에 멤버를 얹는다(멤버의 파트가 SoT
+  //     목록에 없어도 유실되지 않도록 합집합). 평가 대상 크루가 0명인 파트는 빈 crews 로 남아
+  //     보드 행에는 나타나지 않고(행은 crews 를 평탄화해 만든다) 파트별 상태 표시에만 쓰인다.
   const partMap = new Map<string, OverallBoardCrew[]>();
+  for (const p of operatedParts) if (!partMap.has(p)) partMap.set(p, []);
   for (const m of members) {
     const cells = defaultCells();
     // 도출/분석/견문 = 파트 신청 라이브(파트장/미신청은 기본값 유지).
@@ -577,7 +592,10 @@ export async function getTeamOverallBoard(
     extensionKind: extension.kind,
     parts,
     // 대상 파트 신청 완료 판정 — 프론트가 그대로 소비(버튼 게이팅). 서버 가드와 동일 순수 함수 사용.
-    application: resolveOverallApplicationReadiness(parts),
+    //   ⚠ **신청할 크루가 있는 파트만** 대상이다. 운용 파트지만 평가 대상 크루가 0명(전원 시즌 휴식 등)인
+    //     파트까지 요구하면 아무도 신청할 수 없어 [개설 검수]가 영구 차단된다. 이 필터가 있어야
+    //     loadOverallApplicationReadiness(멤버 기반 파트 집합)와 판정이 정확히 일치한다.
+    application: resolveOverallApplicationReadiness(parts.filter((p) => p.crews.length > 0)),
     outputs,
     lineOptions,
     reviewedAt: stored.reviewedAt,

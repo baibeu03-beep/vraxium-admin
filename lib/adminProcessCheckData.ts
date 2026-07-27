@@ -44,7 +44,7 @@ import { isActOpenAtTime, type ActOpenTimeline } from "@/lib/weekOpenGate";
 import { loadWeekOpeningTimeline } from "@/lib/weekOpeningTimeline";
 import { resolveRegularActOccurredAtMs } from "@/lib/regularActRequiredAt";
 import { filterTeamsByScope, isTestTeam } from "@/lib/cluster4ExperienceTestScope";
-import { listPartCrews, listTeamCrews, listTeamParts } from "@/lib/adminExperiencePartInput";
+import { listPartCrews, listTeamCrews } from "@/lib/adminExperiencePartInput";
 import { listOperatedTeamParts } from "@/lib/adminTeamSelectedWeekSummary";
 import { uncompleteResetStamp } from "@/lib/processCheckCollectionReset";
 import type { ScopeMode } from "@/lib/userScopeShared";
@@ -1405,7 +1405,7 @@ export async function applyProcessCheckAction(input: {
 
   // 팀·파트 스코프 검증 — 팀 구분 허브(experience)만. 프론트 숨김에 의존하지 않고 서버에서
   //   강제 POST(다른 팀/파트/org/mode 범위)를 fail-closed(422)로 차단한다.
-  //   액트 파트 여부 = 라인급명("파트" 포함). 파트 식별 = user_memberships 실제 파트(listTeamParts).
+  //   액트 파트 여부 = 라인급명("파트" 포함). 파트 식별 = 그 주차의 <운용> 파트(listOperatedTeamParts).
   //   info 등 비팀 허브는 scope 미참조(회귀 금지).
   let partNameToStore: string | null = null;
   if (teamBased) {

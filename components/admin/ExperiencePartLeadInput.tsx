@@ -396,6 +396,9 @@ export default function ExperiencePartLeadInput({
         if (org) qs.set("organization", org);
         qs.set("team_id", team.id);
         qs.set("team_name", team.teamName);
+        // 파트 목록은 **그 주차의 <운용> 파트**다(팀 상세와 동일 SoT) — 주차를 넘기지 않으면 서버가
+        //   현재 주차로 폴백해, 개설 주차를 바꿔도 목록이 따라오지 않는다. 주차 변경 시 재조회(deps).
+        if (selectedWeekId) qs.set("week_id", selectedWeekId);
         if (mode === "test") qs.set("mode", "test");
         if (actAsTestUserId) qs.set("actAsTestUserId", actAsTestUserId);
         const res = await fetch(
@@ -436,7 +439,7 @@ export default function ExperiencePartLeadInput({
     return () => {
       cancelled = true;
     };
-  }, [bootLoading, org, mode, selectedTeamId, teams, actor]);
+  }, [bootLoading, org, mode, actAsTestUserId, selectedTeamId, selectedWeekId, teams, actor]);
 
   // part_leader 임퍼소네이션: 파트를 자기 파트로 강제(드롭다운 비활성 + 다른 값 방지).
   useEffect(() => {
