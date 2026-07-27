@@ -67,6 +67,15 @@
   --color-badge-orange-fg: var(--badge-orange-fg);
   --color-badge-orange-bg: var(--badge-orange-bg);
   --color-badge-orange-border: var(--badge-orange-border);
+  --color-badge-org-encre-fg: var(--badge-org-encre-fg);
+  --color-badge-org-encre-bg: var(--badge-org-encre-bg);
+  --color-badge-org-encre-border: var(--badge-org-encre-border);
+  --color-badge-org-oranke-fg: var(--badge-org-oranke-fg);
+  --color-badge-org-oranke-bg: var(--badge-org-oranke-bg);
+  --color-badge-org-oranke-border: var(--badge-org-oranke-border);
+  --color-badge-org-phalanx-fg: var(--badge-org-phalanx-fg);
+  --color-badge-org-phalanx-bg: var(--badge-org-phalanx-bg);
+  --color-badge-org-phalanx-border: var(--badge-org-phalanx-border);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
@@ -247,6 +256,18 @@
   --badge-orange-fg: oklch(0.55 0.16 50);
   --badge-orange-bg: oklch(0.96 0.06 55);
   --badge-orange-border: oklch(0.87 0.1 55);
+  /* 조직(클럽) 정체성 tone — 상태/품계 같은 "판정"이 아니라 "어느 클럽인지"를 나타낸다.
+     색 계열은 ORGANIZATION_TEXT_CLASS(encre=pink · oranke=amber · phalanx=emerald) 와 동일하게 맞춘다.
+     hue 만 조직별로 다르고 명도/채도 규칙은 위 tone 들과 같은 패턴(fg 진함 · bg 옅음 · border 중간). */
+  --badge-org-encre-fg: oklch(0.52 0.19 350);
+  --badge-org-encre-bg: oklch(0.95 0.04 350);
+  --badge-org-encre-border: oklch(0.86 0.09 350);
+  --badge-org-oranke-fg: oklch(0.52 0.13 75);
+  --badge-org-oranke-bg: oklch(0.96 0.06 78);
+  --badge-org-oranke-border: oklch(0.86 0.1 78);
+  --badge-org-phalanx-fg: oklch(0.48 0.13 163);
+  --badge-org-phalanx-bg: oklch(0.95 0.05 163);
+  --badge-org-phalanx-border: oklch(0.85 0.09 163);
   /* 공통 드롭다운(커스텀 Select/Combobox 등) 목록 높이 — 어드민 전역 단일 SoT.
      최대 표시 행 수 × 한 행 높이 = 펼친 목록의 최대 높이(≈280px). 초과분은 내부 세로 스크롤.
      · row-height(40px)는 실측 한 행 높이(~38px)보다 약간 여유 → 7행은 스크롤 없음, 8행부터 스크롤.
@@ -332,6 +353,16 @@
   --badge-orange-fg: oklch(0.86 0.13 55);
   --badge-orange-bg: oklch(0.34 0.08 55);
   --badge-orange-border: oklch(0.48 0.1 55);
+  /* 조직(클럽) tone (dark) — 라이트와 같은 hue, 어두운 배경 대비로 fg 밝게/bg 어둡게. */
+  --badge-org-encre-fg: oklch(0.85 0.14 350);
+  --badge-org-encre-bg: oklch(0.33 0.08 350);
+  --badge-org-encre-border: oklch(0.48 0.1 350);
+  --badge-org-oranke-fg: oklch(0.87 0.13 78);
+  --badge-org-oranke-bg: oklch(0.34 0.07 78);
+  --badge-org-oranke-border: oklch(0.48 0.09 78);
+  --badge-org-phalanx-fg: oklch(0.85 0.13 163);
+  --badge-org-phalanx-bg: oklch(0.32 0.06 163);
+  --badge-org-phalanx-border: oklch(0.46 0.08 163);
 }
 
 /* ── 모달 패널 폭 SoT ──────────────────────────────────────────────────────

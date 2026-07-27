@@ -26,6 +26,14 @@ export const badgeVariants = cva(
           "[--bt-fg:var(--badge-violet-fg)] [--bt-bg:var(--badge-violet-bg)] [--bt-bd:var(--badge-violet-border)]",
         orange:
           "[--bt-fg:var(--badge-orange-fg)] [--bt-bg:var(--badge-orange-bg)] [--bt-bd:var(--badge-orange-border)]",
+        // 조직(클럽) 정체성 tone — 상태/품계 같은 판정이 아니라 "어느 클럽인지" 표시용.
+        //   라벨→tone 매핑은 lib/organizations.organizationBadgeTone 이 단일 SoT(화면별 하드코딩 금지).
+        orgEncre:
+          "[--bt-fg:var(--badge-org-encre-fg)] [--bt-bg:var(--badge-org-encre-bg)] [--bt-bd:var(--badge-org-encre-border)]",
+        orgOranke:
+          "[--bt-fg:var(--badge-org-oranke-fg)] [--bt-bg:var(--badge-org-oranke-bg)] [--bt-bd:var(--badge-org-oranke-border)]",
+        orgPhalanx:
+          "[--bt-fg:var(--badge-org-phalanx-fg)] [--bt-bg:var(--badge-org-phalanx-bg)] [--bt-bd:var(--badge-org-phalanx-border)]",
         // default = 약한 중립(매핑되지 않은 라벨 폴백).
         default:
           "[--bt-fg:var(--muted-foreground)] [--bt-bg:var(--muted)] [--bt-bd:var(--border)]",

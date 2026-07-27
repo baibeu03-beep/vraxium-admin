@@ -37,6 +37,7 @@ import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 import { buildCrewsTabs, buildMembersTabs } from "@/lib/adminHeaderTabs";
 import {
+  organizationBadgeTone,
   organizationLabelKo,
   organizationSelectOptions,
   type OrganizationSlug,
@@ -878,6 +879,19 @@ export default function MembersList({
                               >
                                 {val}
                               </button>
+                            ) : c.key === "club" && val !== "-" ? (
+                              // 클럽 — 조직 정체성 배지(엥크레=pink · 오랑캐=amber · 팔랑크스=emerald).
+                              //   색은 lib/organizations.organizationBadgeTone 단일 SoT → globals.css
+                              //   --badge-org-* 토큰 → 라이트/다크 자동. 화면별 색 하드코딩 없음.
+                              //   appearance="soft" — 판정값인 상태(solid)보다 한 단계 약하게 두어
+                              //   같은 행에서 상태 배지와 시각적으로 경쟁하지 않게 한다.
+                              //   미지정("-")은 배지 없이 기존 텍스트 유지(임의 조직색 금지).
+                              <StatusBadge
+                                label={val}
+                                size="sm"
+                                appearance="soft"
+                                tone={organizationBadgeTone(m.organizationSlug)}
+                              />
                             ) : c.key === "status" && val !== "-" ? (
                               // 상태 — 가장 눈에 띄는 solid 배지(같은 상태=같은 색).
                               <StatusBadge label={val} size="sm" />

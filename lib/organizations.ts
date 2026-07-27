@@ -1,3 +1,5 @@
+import type { BadgeTone } from "@/components/ui/badge";
+
 // 단일 출처. 앱 어디에서든 이 상수를 사용한다.
 export const ORGANIZATIONS = ["encre", "oranke", "phalanx"] as const;
 
@@ -259,6 +261,24 @@ export function organizationAccent(
   slug: string | null | undefined,
 ): OrganizationAccent | null {
   return isOrganizationSlug(slug) ? ORGANIZATION_ACCENT[slug] : null;
+}
+
+// ── 조직 배지 tone — 표/목록에서 클럽을 배지로 보여줄 때의 색 단일 SoT ──────────
+// 공통 Badge 의 tone 토큰(globals.css --badge-org-*)을 가리키는 이름만 돌려준다.
+//   · 색 계열은 ORGANIZATION_TEXT_CLASS(encre=pink · oranke=amber · phalanx=emerald)와 동일.
+//   · 토큰 기반이라 라이트/다크 자동 대응(화면별 색 하드코딩 금지 — 이 함수만 사용).
+//   · 미지정/미매핑(통합·"-")은 "default"(중립) — 특정 조직색을 임의로 칠하지 않는다.
+//   · 순수 프레젠테이션: mode(일반/test) 분기 없음.
+export const ORGANIZATION_BADGE_TONE: Record<OrganizationSlug, BadgeTone> = {
+  encre: "orgEncre",
+  oranke: "orgOranke",
+  phalanx: "orgPhalanx",
+};
+
+export function organizationBadgeTone(
+  slug: string | null | undefined,
+): BadgeTone {
+  return isOrganizationSlug(slug) ? ORGANIZATION_BADGE_TONE[slug] : "default";
 }
 
 // ── 조직 선택 탭(캡슐)의 공통 클래스 — 단일 SoT ─────────────────────────────
