@@ -59,6 +59,7 @@ import {
   listExperienceOverallLineOptions,
 } from "@/lib/adminExperienceLineData";
 import {
+  experienceBoardRows,
   experienceEvaluablePartNames,
   loadExperienceWeekRoster,
   updateOverallPartCellLines,
@@ -87,7 +88,8 @@ export async function loadTeamMembersWithLeaders(
   weekId?: string | null,
 ): Promise<OverallMemberRow[]> {
   const roster = await loadExperienceWeekRoster(organization, teamName, mode, weekId);
-  return roster.rows.map((r) => ({
+  // 보드/코호트 행 = 평가 대상 ∪ 평가자(파트장). 엘리트/바사노스 파트장은 역할 유지를 위해 남는다.
+  return experienceBoardRows(roster.rows).map((r) => ({
     userId: r.userId,
     displayName: r.displayName,
     partName: r.partName,
@@ -278,9 +280,12 @@ async function assertOverallOutputsRequired(input: {
 }
 
 /** 파트장 라인명 필수 서버 가드. mode 별 사용자 스코프는 기존 멤버 조회 SoT를 그대로 사용한다. */
+//   ⚠ weekId 필수 — 보드(getTeamOverallBoard)가 그 주차 로스터로 파트장을 정하는데 가드가 현재 주차
+//     로스터를 보면, 과거 주차 검수에서 "화면엔 없는 파트장"의 라인을 요구하거나 반대로 놓친다.
 async function assertPartLeaderLinesRequired(input: {
   organization: string;
   teamName: string;
+  weekId: string;
   mode?: ScopeMode;
   lineSelections?: OverallLineSelectionDto[];
 }): Promise<void> {
@@ -288,6 +293,7 @@ async function assertPartLeaderLinesRequired(input: {
     input.organization,
     input.teamName,
     input.mode ?? "operating",
+    input.weekId,
   );
   const issue = validatePartLeaderLineRequirements(
     input.lineSelections ?? [],
@@ -404,7 +410,7 @@ export async function getTeamOverallBoard(
     // 라인명 드롭다운 옵션(5카테고리) — 개설 신청과 동일 원천(org+공통 활성 라인).
     listExperienceOverallLineOptions(organization),
   ]);
-  const members: OverallMemberRow[] = roster.rows.map((r) => ({
+  const members: OverallMemberRow[] = experienceBoardRows(roster.rows).map((r) => ({
     userId: r.userId,
     displayName: r.displayName,
     partName: r.partName,
@@ -540,7 +546,8 @@ export async function loadOverallApplicationReadiness(
   mode: ScopeMode = "operating",
 ): Promise<OverallApplicationReadiness> {
   const [members, partCellsData] = await Promise.all([
-    loadTeamMembersWithLeaders(organization, teamName, mode),
+    // 보드와 동일 주차 로스터 — weekId 를 빼면 프론트(board.application)와 서버 가드가 갈린다.
+    loadTeamMembersWithLeaders(organization, teamName, mode, weekId),
     loadPartSubmissionCells(organization, weekId, teamId),
   ]);
   const partNames = Array.from(new Set(members.map((m) => m.partName))).sort(
@@ -661,15 +668,17 @@ async function persistReviewState(input: {
 // 관리(management) 류는 파트장/에이전트 전용 — 일반 크루 관리 셀이 섞이면 fail-closed(422).
 //   프론트 disable + payload 제외와 정합. 직접 호출/우회 요청도 여기서 차단(저장 전 검증 → DB write 금지).
 //   확장(extension) 셀은 자격 무관 — 검사 대상 아님.
+//   ⚠ weekId 필수 — 자격 판정(파트장/에이전트)은 보드가 그린 그 주차 로스터와 같아야 한다.
 async function assertNoIneligibleManagementCells(
   organization: string,
   teamName: string,
   mode: ScopeMode,
   leaderCells: OverallLeaderCellDto[],
+  weekId: string,
 ): Promise<void> {
   const mgmtCells = leaderCells.filter((c) => c.category === "management");
   if (mgmtCells.length === 0) return;
-  const members = await loadTeamMembersWithLeaders(organization, teamName, mode);
+  const members = await loadTeamMembersWithLeaders(organization, teamName, mode, weekId);
   const byId = new Map(members.map((m) => [m.userId, m]));
   for (const cell of mgmtCells) {
     const m = byId.get(cell.crewUserId);
@@ -722,6 +731,7 @@ async function materializePartLeaderPartCells(input: {
     input.organization,
     input.teamName,
     input.mode,
+    input.weekId, // 저장 대상 주차의 파트장 — 보드/가드와 동일 로스터.
   );
   const leaderPartByUser = new Map<string, string>();
   for (const m of members) if (m.isPartLeader) leaderPartByUser.set(m.userId, m.partName);
@@ -898,6 +908,7 @@ export async function saveTeamOverallReview(input: {
     input.teamName,
     input.mode ?? "operating",
     input.leaderCells,
+    input.weekId,
   );
 
   // 도출/분석/견문 라인명 편집 → 파트 신청 셀 write-back. 유형 불일치는 422 로 여기서 중단.
@@ -1290,6 +1301,7 @@ export async function openTeamOverall(input: {
     input.teamName,
     mode,
     input.leaderCells,
+    input.weekId,
   );
   mark("guards+loadExisting");
 

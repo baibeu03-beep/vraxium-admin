@@ -10,6 +10,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { normalizeMemberRole } from "@/lib/adminMembersTypes";
 import { loadTeamWeekEffectiveRoster } from "@/lib/adminTeamSelectedWeekSummary";
+import { loadEvaluationEligibility } from "@/lib/evaluationEligibility";
 import type { OrganizationSlug } from "@/lib/organizations";
 import {
   assertUserIdsInScope,
@@ -18,7 +19,6 @@ import {
 } from "@/lib/userScope";
 import { assertWeekOpenable } from "@/lib/cluster4OfficialRestWeek";
 import { assertExperienceLineOpenable } from "@/lib/experienceLineOpenGate";
-import { getCurrentSeasonRestUserIds, getSeasonRestUserIds } from "@/lib/currentSeasonRest";
 import {
   EXPERIENCE_PART_LINE_KEYS,
   normalizePartInputCell,
@@ -41,8 +41,8 @@ import {
 //
 // 이 로스터에 남는 조건(= 라인 개설 후보 규칙. 파트/크루 양쪽에 **동시에** 적용된다):
 //   ① 그 주차 effective 팀 = teamName · 클래스 = 크루 3종(일반/에이전트/파트장)   ← 주차 SoT
-//   ② 그 주차 시즌의 시즌 전체 휴식자 제외(user_season_statuses.status='rest')
-//   ③ effective 파트가 실제 파트(미배정·placeholder '일반' 제외)
+//      (그 주차 시즌의 시즌 휴식자는 이 단계에서 이미 빠져 있다 — 팀·파트 미배정으로 본다)
+//   ② effective 파트가 실제 파트(미배정·placeholder '일반' 제외)
 // 평가 대상(도출/분석/견문 그리드)은 여기서 파트장만 더 뺀다 — isPartLeader.
 
 // 파트가 아닌 placeholder part_name(미배정 기본값). 등급 단어 '일반' 이 part_name 으로 새는 경우 등.
@@ -58,6 +58,12 @@ export type ExperienceRosterRow = {
   /** 상태 라벨 — 일반/에이전트/파트장. */
   statusLabel: string;
   isPartLeader: boolean;
+  /**
+   * 실무 평가 가능 모집단(집합 ②) 소속 여부 — 엘리트/바사노스면 false.
+   * ⚠ 로스터에서 빼지 않고 플래그로 남긴다. 엘리트 파트장처럼 **평가 대상은 아니지만 평가자 역할은
+   *   유지해야 하는** 사람이 있기 때문(팀 총괄 보드 행·관리 라인은 그대로 부여된다).
+   */
+  isEvaluable: boolean;
 };
 
 export type ExperienceWeekRoster = {
@@ -95,12 +101,16 @@ export async function loadExperienceWeekRoster(
     };
   }
 
-  // 라인 개설 후보 = 그 주차 시즌의 시즌 전체 휴식자 제외(season_key 기준·growth_status 미사용).
-  //   ⚠ 현재 시즌 고정이 아니라 **선택 주차의 시즌**을 쓴다 — 파트 판정과 기준 시점을 일치시킨다.
-  //   season_key 가 없으면(갭/전환) 현재 시즌으로 폴백(종전 동작).
-  const restIds = roster.week.seasonKey
-    ? await getSeasonRestUserIds(roster.week.seasonKey)
-    : await getCurrentSeasonRestUserIds();
+  // ── 휴식 판정 정책 (2026-07-27 명문화) ───────────────────────────────────────
+  //   ① 로스터 판정 기준은 **그 주차의 effective position** 하나뿐이다.
+  //   ② 시즌 휴식 제외는 여기서 하지 않는다 — loadTeamWeekEffectiveRoster(공용 SoT)가 이미
+  //      "그 주차 시즌의 시즌 휴식자 = 팀·파트 미배정"으로 처리한다(2026-07-27 정책).
+  //      화면별로 조건을 덧붙이면 팀 상세와 다시 갈린다 — 절대 재추가하지 말 것.
+  //   ③ legacy `user_memberships.membership_state`('rest')는 **로스터 판정에 사용하지 않는다.**
+  //      이 값은 주차 개념이 없어 과거 주차 조회에서 "지금 휴식이면 그때도 빠짐"이 된다.
+  //   ⚠ membership_state 는 여전히 **쓰기 가능한 자유 입력 필드**다(이력서 카드 편집기 →
+  //     adminResumeCardData.MEMBERSHIP_FIELDS, 값 검증 없음). 누군가 'rest' 를 입력해도 이 로스터는
+  //     반응하지 않는다. 주차 개념이 있는 휴식은 user_season_statuses / 주차 override 로 표현할 것.
 
   // 표시 이름 — 목록 정렬 기준(display_name 오름차순)도 여기서 확정한다.
   const ids = roster.members.map((m) => m.userId);
@@ -118,9 +128,16 @@ export async function loadExperienceWeekRoster(
     }
   }
 
+  // 집합 ② 실무 평가 가능 모집단 — 엘리트/바사노스 축(그 주차 기준). 공통 eligibility 단일 모듈.
+  //   ⚠ 여기서 **행을 제거하지 않는다**. 엘리트 파트장은 평가 대상이 아니지만 평가자로 보드에 남아야 한다.
+  const evalEligibility = await loadEvaluationEligibility({
+    userIds: ids,
+    weekStartDate: roster.week.weekStartDate,
+    seasonKey: roster.week.seasonKey,
+  });
+
   const rows: ExperienceRosterRow[] = [];
   for (const m of roster.members) {
-    if (restIds.has(m.userId)) continue; // 시즌 전체 휴식자 = 라인 개설 후보 아님.
     const part = m.rawPart?.trim() ?? "";
     if (!part || EXCLUDED_PART_NAMES.has(part)) continue; // 미배정/placeholder '일반'.
     const status = rosterStatus(m.positionCode);
@@ -132,17 +149,26 @@ export async function loadExperienceWeekRoster(
       positionCode: m.positionCode,
       statusLabel: status.label,
       isPartLeader: status.isPartLeader,
+      isEvaluable: evalEligibility.isEvaluable(m.userId),
     });
   }
   rows.sort((a, b) => a.displayName.localeCompare(b.displayName));
   return { weekId: roster.week.weekId, weekStartDate: roster.week.weekStartDate, rows };
 }
 
-// 평가 대상(도출/분석/견문 그리드) = 로스터에서 파트장만 제외. 파트 목록/크루 목록 공용 술어.
+// 평가 대상(도출/분석/견문 그리드) = 실무 평가 가능 모집단(집합 ②) ∩ 평가자 아님(파트장 제외).
+//   상태 축(시즌휴식/활동중단/엘리트/바사노스) = isEvaluable · 역할 축 = isPartLeader. 둘을 섞지 않는다.
 export function experienceEvaluableRows(
   rows: ReadonlyArray<ExperienceRosterRow>,
 ): ExperienceRosterRow[] {
-  return rows.filter((r) => !r.isPartLeader);
+  return rows.filter((r) => !r.isPartLeader && r.isEvaluable);
+}
+
+// 팀 총괄 보드 행 = 평가 대상 ∪ 평가자 역할자(파트장). 엘리트/바사노스 파트장은 여기 남는다.
+export function experienceBoardRows(
+  rows: ReadonlyArray<ExperienceRosterRow>,
+): ExperienceRosterRow[] {
+  return rows.filter((r) => r.isEvaluable || r.isPartLeader);
 }
 
 // 평가 대상 크루가 1명 이상인 파트 = 이 화면의 <운용> 파트. 드롭다운 옵션 SoT.

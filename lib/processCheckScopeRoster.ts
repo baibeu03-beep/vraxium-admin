@@ -19,6 +19,10 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { resolveUserScope, type ScopeMode } from "@/lib/userScope";
 import { loadCrewRecords } from "@/lib/cluster4CafeLineMatch";
 import { listPartCrews, listTeamCrews } from "@/lib/adminExperiencePartInput";
+import { resolveWeekStartDateForWeekId } from "@/lib/seasonRestWeekScope";
+import { loadEvaluationEligibility } from "@/lib/evaluationEligibility";
+import { resolveCurrentWeekStartDate } from "@/lib/teamWeekPositionOverride";
+import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import { isTeamBasedProcessHub } from "@/lib/adminProcessCheckTypes";
 import type { ProcessHub } from "@/lib/adminProcessesTypes";
 import type { OrganizationSlug } from "@/lib/organizations";
@@ -29,6 +33,8 @@ export type CheckScope = {
   mode: ScopeMode;
   teamId: string | null;
   partName: string | null;
+  /** 이 체크가 속한 주차(weeks.id). 시즌 휴식 판정 기준 시즌을 여기서 얻는다(미지정=현재 시즌 폴백). */
+  weekId?: string | null;
 };
 
 // 팀 id → 팀명(org·active 검증). adminProcessCheckData 의 private resolveTeamName 과 동일 질의(순환 import 회피 위해 국소 복제).
@@ -49,7 +55,7 @@ async function resolveTeamName(teamId: string, organization: string): Promise<st
 
 // 체크 스코프의 체크 대상자 userId 집합(정렬·중복 제거). "화면에 보이는 대상자" 와 동일.
 export async function resolveCheckScopeRoster(scope: CheckScope): Promise<string[]> {
-  const { hub, organization, mode, teamId, partName } = scope;
+  const { hub, organization, mode, teamId, partName, weekId } = scope;
   if (!organization) return []; // org 불명 → 로스터 불명(fail-closed, C 미지급).
 
   if (isTeamBasedProcessHub(hub)) {
@@ -57,17 +63,32 @@ export async function resolveCheckScopeRoster(scope: CheckScope): Promise<string
     if (!teamId) return [];
     const teamName = await resolveTeamName(teamId, organization);
     if (!teamName) return [];
+    // 시즌 휴식 제외는 주차 로스터(loadTeamWeekEffectiveRoster) 안에서 이미 적용된다 — 여기서 덧붙이지 않는다.
     const crews = partName
-      ? await listPartCrews(organization, teamName, partName, mode)
-      : await listTeamCrews(organization, teamName, mode);
+      ? await listPartCrews(organization, teamName, partName, mode, weekId ?? null)
+      : await listTeamCrews(organization, teamName, mode, weekId ?? null);
     return dedup(crews.map((c) => c.userId));
   }
 
   // 비팀 허브(info/competency/club) — 카페 검수 매칭 모집단과 동일(org+mode). QA_HIDE_REAL_USERS 도
   //   resolveUserScope 안에서 동일하게 반영되므로 "화면 대상자 == 매칭 후보 == C 모집단" 이 유지된다.
+  //   ⚠ 집합 ② **실무 평가 가능 모집단**을 적용한다(2026-07-27 정책) — 시즌 휴식 · (효력 발생 후)
+  //     활동 중단 · 엘리트 · 바사노스 제외. 팀 허브(주차 로스터)와 **같은 공통 모듈**이 판정한다.
+  //     기준 시점 = 이 체크의 주차(현재 시점 고정 아님). 상태 문자열을 여기서 비교하지 않는다.
   const resolved = await resolveUserScope(mode, organization);
-  const crews = await loadCrewRecords(organization);
-  return dedup(resolved.filter(crews, (c) => c.userId).map((c) => c.userId));
+  const [crews, weekStart] = await Promise.all([
+    loadCrewRecords(organization),
+    resolveWeekStartDateForWeekId(weekId ?? null),
+  ]);
+  const scoped = resolved.filter(crews, (c) => c.userId);
+  const eligibilityWeekStart =
+    weekStart ?? (await resolveCurrentWeekStartDate(getCurrentActivityDateIso()));
+  if (!eligibilityWeekStart) return dedup(scoped.map((c) => c.userId));
+  const eligibility = await loadEvaluationEligibility({
+    userIds: scoped.map((c) => c.userId),
+    weekStartDate: eligibilityWeekStart,
+  });
+  return dedup(scoped.filter((c) => eligibility.isEvaluable(c.userId)).map((c) => c.userId));
 }
 
 function dedup(ids: Array<string | null | undefined>): string[] {

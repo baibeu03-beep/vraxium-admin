@@ -17,8 +17,10 @@ import {
   resolveUserScope,
   type ScopeMode,
 } from "@/lib/userScope";
-import { getSeasonRestUserIdsForWeekId } from "@/lib/seasonRestWeekScope";
-import { filterGrowthStoppedUserIds } from "@/lib/cluster4GrowthStopPolicy";
+import { resolveWeekStartDateForWeekId } from "@/lib/seasonRestWeekScope";
+import { loadEvaluationEligibility } from "@/lib/evaluationEligibility";
+import { resolveCurrentWeekStartDate } from "@/lib/teamWeekPositionOverride";
+import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 
 // 현재 URL org 컨텍스트 → organization_slug. 라인 개설 크루는 해당 조직 소속만 매칭한다(org 격리).
 //   미지정/무효 = null(통합 모드, 전체 크루). 실무 정보 개설 폼은 항상 org-scoped 로 진입한다.
@@ -41,28 +43,33 @@ async function loadScopedCrews(
   const scope = await resolveUserScope(readScopeMode(request.nextUrl.searchParams), organization);
   const crews = await loadCrewRecords(organization);
   const scoped = scope.filter(crews, (c) => c.userId);
-  // 라인 개설/수정 후보 한정: 시즌 전체 휴식자(user_season_statuses(season_key,rest))를 후보에서 제외한다.
-  //   excludeSeasonRest 플래그가 있을 때만 적용 — 라인 개설 UI(CafeCrewPicker/CompetencyApplicantSection)만
-  //   전달하고, 프로세스 수동부여 등 비-개설 소비처는 기존 동작을 보존한다(growth_status 미사용).
-  //   ⚠ 2026-07-27 정정: 종전엔 getCurrentSeasonRestUserIds() 로 **현재 시즌을 고정** 적용해, 과거 시즌
-  //     주차의 후보 목록에도 "지금 휴식"을 소급했다. 이제 week_id 가 속한 시즌으로 판정한다
-  //     (week_id 미전달 시에만 현재 시즌 폴백 — 종전 동작 보존).
-  let filtered = scoped;
-  const exParam = request.nextUrl.searchParams.get("excludeSeasonRest");
-  if (exParam === "1" || exParam === "true") {
-    const weekId = request.nextUrl.searchParams.get("week_id")?.trim() || null;
-    const restIds = await getSeasonRestUserIdsForWeekId(weekId);
-    filtered = filtered.filter((c) => !restIds.has(c.userId));
-  }
-  // 성장 중단(paused/suspended) 후보 제외 — 개설해도 truncateCardsForGrowthStop 로 고객앱 미노출이라
-  //   개설 대상에서 뺀다(opt-in: excludeGrowthStopped 플래그가 있을 때만 — 실무 역량 개설 피커 등).
-  //   과거/비개설 소비처(프로세스 수동부여 등)는 이 플래그 미전달로 기존 동작 보존.
-  const exGrowth = request.nextUrl.searchParams.get("excludeGrowthStopped");
-  if (exGrowth === "1" || exGrowth === "true") {
-    const stoppedIds = await filterGrowthStoppedUserIds(filtered.map((c) => c.userId));
-    filtered = filtered.filter((c) => !stoppedIds.has(c.userId));
-  }
-  return { crews: filtered, mode: scope.mode };
+  // 라인 개설/수정 후보 = 집합 ② **실무 평가 가능 모집단**(2026-07-27 정책 확정).
+  //   시즌 휴식 · (효력 발생 후) 활동 중단 · 엘리트 · 바사노스를 한 번에 제외한다.
+  //   판정은 lib/evaluationEligibility 공통 모듈 단일 경로 — 이 라우트가 상태 문자열을 비교하지 않는다.
+  //
+  //   opt-in 유지: excludeSeasonRest / excludeGrowthStopped 중 **하나라도** 오면 적용한다.
+  //     · 두 플래그는 이제 같은 것(평가 모집단)을 뜻한다 — 종전엔 각각 시즌 휴식 / 성장 중단만 걸러
+  //       엘리트·바사노스가 개설 후보에 그대로 남았다(2026-07-27 실측 누수).
+  //     · 플래그를 안 보내는 소비처(프로세스 수동부여 등)는 기존 동작 그대로(모집단 무필터).
+  //   ⚠ 기준 시점 = week_id 가 속한 주차. 현재 상태를 과거 주차 후보 목록에 소급하지 않는다
+  //     (week_id 미전달 시에만 현재 주차 폴백 — 종전 동작 보존).
+  const sp = request.nextUrl.searchParams;
+  const on = (v: string | null) => v === "1" || v === "true";
+  const evaluationPool =
+    on(sp.get("excludeSeasonRest")) ||
+    on(sp.get("excludeGrowthStopped")) ||
+    sp.get("population") === "evaluation";
+  if (!evaluationPool) return { crews: scoped, mode: scope.mode };
+
+  const weekStart =
+    (await resolveWeekStartDateForWeekId(sp.get("week_id")?.trim() || null)) ??
+    (await resolveCurrentWeekStartDate(getCurrentActivityDateIso()));
+  if (!weekStart) return { crews: scoped, mode: scope.mode };
+  const eligibility = await loadEvaluationEligibility({
+    userIds: scoped.map((c) => c.userId),
+    weekStartDate: weekStart,
+  });
+  return { crews: scoped.filter((c) => eligibility.isEvaluable(c.userId)), mode: scope.mode };
 }
 
 // 라인 개설 크루 — 카페 링크 검수(POST) + 수동추가 검색(GET).

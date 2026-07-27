@@ -30,8 +30,12 @@ const PAST_WEEKS = 2;
 let pass = 0;
 let fail = 0;
 const ck = (label: string, ok: boolean, detail = "") => {
-  if (!ok) console.log(`  ✗ ${label}${detail ? ` — ${detail}` : ""}`);
-  ok ? pass++ : fail++;
+  if (ok) {
+    pass++;
+    return;
+  }
+  console.log(`  ✗ ${label}${detail ? ` — ${detail}` : ""}`);
+  fail++;
 };
 const sorted = (a: string[]) => [...a].sort();
 const J = (v: unknown) => JSON.stringify(v);

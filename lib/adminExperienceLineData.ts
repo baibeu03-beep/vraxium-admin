@@ -5,10 +5,10 @@ import {
 } from "@/lib/adminLineRegistrationsData";
 import { fetchCrewNoMap } from "@/lib/adminCrewNo";
 import { loadCurrentWeekOverrideLabels, resolvePositionAtBatch } from "@/lib/positionResolver";
-import {
-  getSeasonRestUserIdsForWeekId,
-  resolveWeekStartDateForWeekId,
-} from "@/lib/seasonRestWeekScope";
+import { resolveWeekStartDateForWeekId } from "@/lib/seasonRestWeekScope";
+import { loadEvaluationEligibility } from "@/lib/evaluationEligibility";
+import { resolveCurrentWeekStartDate } from "@/lib/teamWeekPositionOverride";
+import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import {
   resolveUserScope,
   type ScopeMode,
@@ -531,12 +531,18 @@ export async function listCrewsForTargetSelection(options: {
     };
   });
 
-  // 시즌 휴식 = 그 시즌 동안 팀·파트 미배정(2026-07-27 정책) → 평가/개설 대상 후보에서 제외한다.
-  //   ⚠ 기준은 **weekId 가 속한 시즌**. 현재 시즌 휴식을 과거 주차 목록에 소급하지 않는다.
-  //   판정 규칙 자체는 lib/currentSeasonRest 단일 SoT — 여기서 status 문자열을 다시 비교하지 않는다.
-  const seasonRestIds = await getSeasonRestUserIdsForWeekId(options.weekId);
-  if (seasonRestIds.size > 0) {
-    result = result.filter((c) => !seasonRestIds.has(c.userId));
+  // 집합 ② **실무 평가 가능 모집단** — 시즌 휴식·(효력 발생 후) 활동 중단·엘리트·바사노스 제외.
+  //   ⚠ 상태 문자열을 여기서 비교하지 않는다. 판정은 lib/evaluationEligibility 공통 모듈 단일 경로.
+  //   ⚠ 기준 시점은 **weekId 가 속한 주차/시즌**. 현재 상태를 과거 주차 목록에 소급하지 않는다
+  //     (weekId 미전달 시에만 현재 주차 폴백 — 종전 동작 보존).
+  const eligibilityWeekStart =
+    weekStart ?? (await resolveCurrentWeekStartDate(getCurrentActivityDateIso()));
+  if (eligibilityWeekStart) {
+    const eligibility = await loadEvaluationEligibility({
+      userIds: result.map((c) => c.userId),
+      weekStartDate: eligibilityWeekStart,
+    });
+    result = result.filter((c) => eligibility.isEvaluable(c.userId));
   }
 
   if (options.team) {

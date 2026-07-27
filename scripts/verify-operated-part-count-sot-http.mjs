@@ -3,11 +3,13 @@
 //   node --dns-result-order=ipv4first scripts/verify-operated-part-count-sot-http.mjs
 //
 // C1: 팀 상세 상단 operatedPartCount == [A] 선택 주차 요약 operatedParts.length
-// C2: 클럽 요약 partCount == Σ 팀별 listOperatedTeamParts(=[A] 목록에서 '일반' 제외).length
-//     + 행 합계 == 조직 합계 == totalParts 불변식
-// 파리티: operating / test / test+actAsTestUserId 가 같은 수·같은 DTO 키
+// C2: 클럽 요약 partCount == Σ 팀별 <운용> 파트('일반' 제외 = listOperatedTeamParts).length
+//     + 행 합계 == totals.partCount == structureTotals.totalParts 불변식
+// 파리티: operating / test / test+actAsTestUserId — 같은 수·같은 DTO 키·타입
 //
 // 읽기 전용(GET only). 데이터 변경 없음.
+// ⚠ 호출 수 주의: team-detail·week-summary·summary 모두 주차 effective 계산을 타는 무거운 엔드포인트다.
+//   기대값(팀별 운용 파트)은 **한 mode 당 1회만** 계산하고 경로 간에는 재사용한다(파리티는 별도 단언).
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
@@ -26,6 +28,7 @@ const SUPABASE_URL = get("NEXT_PUBLIC_SUPABASE_URL");
 const ANON = get("NEXT_PUBLIC_SUPABASE_ANON_KEY");
 const sb = createClient(SUPABASE_URL, get("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false } });
 
+const ORGS = ["encre", "oranke", "phalanx"];
 const FOCUS_ORG = "encre";
 const FOCUS_TEAM = "비주얼랩(T)";
 const DEFAULT_PART = "일반";
@@ -69,137 +72,125 @@ async function api(path) {
 
 const modeQs = (mode, actAs) =>
   `${mode === "test" ? "&mode=test" : ""}${actAs ? `&actAsTestUserId=${actAs}` : ""}`;
-
 const teamDetail = (org, halfId, mode, actAs) =>
   api(`/api/admin/team-parts/info/team-detail?organization=${org}&teamHalfId=${halfId}${modeQs(mode, actAs)}`);
-const weekSummary = (org, halfId, mode, actAs, weekId) =>
-  api(
-    `/api/admin/team-parts/info/team-detail/week-summary?organization=${org}&teamHalfId=${halfId}` +
-      `${weekId ? `&weekId=${weekId}` : ""}${modeQs(mode, actAs)}`,
-  );
+const weekSummary = (org, halfId, mode, actAs) =>
+  api(`/api/admin/team-parts/info/team-detail/week-summary?organization=${org}&teamHalfId=${halfId}${modeQs(mode, actAs)}`);
 const clubSummary = (mode, actAs) =>
-  api(`/api/admin/team-parts/info/summary?x=1${modeQs(mode, actAs)}`);
+  api(`/api/admin/team-parts/info/summary?_=1${modeQs(mode, actAs)}`);
+// 현재 반기 팀 목록(= loadCurrentClubStructure 가 세는 모집단과 같은 원천).
+const currentHalfTeams = (org, mode) =>
+  api(`/api/admin/team-parts/info?organization=${org}${mode === "test" ? "&mode=test" : ""}`);
 
 void (async () => {
   COOKIE = await makeAdminCookie();
-
-  const { data: halves } = await sb
-    .from("cluster4_team_halves")
-    .select("id,organization_slug,half_key,team_name")
-    .eq("is_active", true)
-    .order("half_key", { ascending: false });
-  const halfOf = (org, team) =>
-    (halves ?? []).find((h) => h.organization_slug === org && h.team_name === team)?.id ?? null;
-
   const { data: markers } = await sb.from("test_user_markers").select("user_id").limit(1);
   const ACT_AS = markers?.[0]?.user_id ?? null;
   const PATHS = [
     { label: "operating", mode: "operating", actAs: null },
     { label: "test", mode: "test", actAs: null },
-    { label: "test+actAs", mode: "test", actAs: ACT_AS },
+    ...(ACT_AS ? [{ label: "test+actAs", mode: "test", actAs: ACT_AS }] : []),
   ];
+  console.log(`actAsTestUserId = ${ACT_AS ?? "(없음 — 해당 경로 생략)"}`);
 
-  // ── C1: 팀 상세 상단 == [A] ────────────────────────────────────────────
-  console.log("\n═══ C1. 팀 상세 상단 operatedPartCount == [A] operatedParts.length ═══");
-  const focusHalf = halfOf(FOCUS_ORG, FOCUS_TEAM);
+  // 현재 반기 팀(org별 teamHalfId) — mode 별로 모집단이 다를 수 있어 각각 조회.
+  const teamsByMode = new Map();
+  for (const mode of ["operating", "test"]) {
+    const list = [];
+    for (const org of ORGS) {
+      const r = await currentHalfTeams(org, mode);
+      for (const t of r.json?.data?.teams ?? []) {
+        list.push({ org, teamHalfId: t.teamHalfId, teamName: t.teamName });
+      }
+    }
+    teamsByMode.set(mode, list);
+    console.log(`현재 반기 팀(${mode}) = ${list.length}개`);
+  }
+
+  const focus = teamsByMode.get("test").find((t) => t.org === FOCUS_ORG && t.teamName === FOCUS_TEAM);
+  if (!focus) { console.error("픽스처 팀 없음"); process.exit(1); }
+
+  // ── C1 ────────────────────────────────────────────────────────────────
+  console.log(`\n═══ C1. 팀 상세 상단 == [A] (${FOCUS_ORG}/${FOCUS_TEAM}) ═══`);
   const focusCounts = [];
+  const detailKeys = [];
   for (const p of PATHS) {
-    if (p.actAs === null && p.label === "test+actAs") continue;
-    const d = await teamDetail(FOCUS_ORG, focusHalf, p.mode, p.actAs);
-    const a = await weekSummary(FOCUS_ORG, focusHalf, p.mode, p.actAs, null);
+    const d = await teamDetail(FOCUS_ORG, focus.teamHalfId, p.mode, p.actAs);
+    const a = await weekSummary(FOCUS_ORG, focus.teamHalfId, p.mode, p.actAs);
     const top = d.json?.data?.operatedPartCount;
     const names = (a.json?.data?.operatedParts ?? []).map((x) => x.partName);
     focusCounts.push(top);
-    console.log(`  [${p.label}] status=${d.status}/${a.status} 상단=${top} [A]=${names.length} ${J(names)}`);
-    ck(`[${p.label}] HTTP 200`, d.status === 200 && a.status === 200);
+    detailKeys.push(J(Object.keys(d.json?.data ?? {})));
+    console.log(`  [${p.label}] week=${a.json?.data?.week?.weekStartDate} 상단=${top} [A]=${J(names)}`);
+    ck(`[${p.label}] HTTP 200`, d.status === 200 && a.status === 200, `${d.status}/${a.status}`);
     ck(`[${p.label}] 상단 == [A].length`, top === names.length, `${top} vs ${names.length}`);
-    ck(`[${p.label}] 비주얼랩(T) = 4 (수정 전 3)`, top === 4, String(top));
-    ck(`[${p.label}] override 전용 '테스트' 파트 포함`, names.includes("테스트"), J(names));
+    ck(`[${p.label}] = 4 (수정 전 3)`, top === 4, String(top));
+    ck(`[${p.label}] override 전용 '테스트' 포함`, names.includes("테스트"), J(names));
     ck(`[${p.label}] 파트명 중복 없음`, new Set(names).size === names.length, J(names));
-    ck(
-      `[${p.label}] 팀 카드 파트 수와 동일`,
-      (d.json?.data?.selectedTeam?.partNames ?? d.json?.data?.currentTeam?.partNames ?? null) == null ||
-        true,
-      "카드 partNames 는 별도 기준(derivePartsFromMatrix) — 아래 참고 출력",
-    );
-    console.log(
-      `      참고: 팀 카드 partNames = ${J(
-        d.json?.data?.currentTeam?.partNames ?? d.json?.data?.selectedTeam?.partNames ?? null,
-      )} / generatedParts = ${J(d.json?.data?.generatedParts ?? null)}`,
-    );
+    ck(`[${p.label}] operatedPartCount 타입 number`, typeof top === "number");
+    console.log(`      참고 카드 partNames = ${J(d.json?.data?.currentTeam?.partNames ?? null)} / 생성 파트 = ${J(d.json?.data?.generatedParts ?? null)}`);
   }
-  ck("C1 파리티: operating/test/actAs 모두 같은 수", new Set(focusCounts).size === 1, J(focusCounts));
+  ck("C1 파리티: 세 경로 동일 값", new Set(focusCounts).size === 1, J(focusCounts));
+  ck("C1 DTO 키 동일", new Set(detailKeys).size === 1, detailKeys[0]);
 
-  // 전 팀 스윕 — 상단 == [A]
-  console.log("\n  전 팀 스윕(상단 == [A]):");
+  // 전 팀 스윕(test) — 상단 == [A]
+  console.log("\n  현재 반기 전 팀 스윕(test):");
   let sweepDiff = 0;
-  let sweepN = 0;
-  for (const h of halves ?? []) {
-    for (const mode of ["operating", "test"]) {
-      const d = await teamDetail(h.organization_slug, h.id, mode, null);
-      if (d.status !== 200) continue;
-      const a = await weekSummary(h.organization_slug, h.id, mode, null, null);
-      const top = d.json?.data?.operatedPartCount;
-      const len = (a.json?.data?.operatedParts ?? []).length;
-      sweepN++;
-      if (top !== len) {
-        sweepDiff++;
-        console.log(`    ✗ [${h.organization_slug}] ${h.team_name} (${mode}) 상단=${top} [A]=${len}`);
-      }
-    }
+  const sweepTeams = teamsByMode.get("test");
+  for (const t of sweepTeams) {
+    const d = await teamDetail(t.org, t.teamHalfId, "test", null);
+    const a = await weekSummary(t.org, t.teamHalfId, "test", null);
+    const top = d.json?.data?.operatedPartCount;
+    const len = (a.json?.data?.operatedParts ?? []).length;
+    if (top !== len) { sweepDiff++; console.log(`    ✗ [${t.org}] ${t.teamName} 상단=${top} [A]=${len}`); }
   }
-  ck(`전 팀 스윕 불일치 0 (${sweepN}조합)`, sweepDiff === 0, `불일치 ${sweepDiff}`);
+  ck(`전 팀 스윕 불일치 0 (${sweepTeams.length}팀)`, sweepDiff === 0, `불일치 ${sweepDiff}`);
 
-  // ── C2: 클럽 요약 ──────────────────────────────────────────────────────
-  console.log("\n═══ C2. 클럽 요약 partCount == Σ listOperatedTeamParts ═══");
-  const summaryKeys = [];
+  // ── C2 ────────────────────────────────────────────────────────────────
+  console.log("\n═══ C2. 클럽 요약 partCount == Σ <운용> 파트('일반' 제외) ═══");
+  // 기대값 = mode 당 1회만 계산(팀별 [A] 목록에서 '일반' 제외).
+  const expectByMode = new Map();
+  for (const mode of ["operating", "test"]) {
+    const byOrg = Object.fromEntries(ORGS.map((o) => [o, 0]));
+    const detail = [];
+    for (const t of teamsByMode.get(mode)) {
+      const a = await weekSummary(t.org, t.teamHalfId, mode, null);
+      const names = (a.json?.data?.operatedParts ?? []).map((x) => x.partName).filter((x) => x !== DEFAULT_PART);
+      byOrg[t.org] += names.length;
+      detail.push(`${t.org}/${t.teamName}:${names.length}`);
+    }
+    expectByMode.set(mode, byOrg);
+    console.log(`  기대(${mode}) = ${J(byOrg)} 합계=${Object.values(byOrg).reduce((a, b) => a + b, 0)}`);
+    console.log(`    내역: ${detail.join(", ")}`);
+  }
+
   const totalsByPath = [];
+  const summaryKeys = [];
+  const rowKeys = [];
   for (const p of PATHS) {
-    if (p.actAs === null && p.label === "test+actAs") continue;
     const s = await clubSummary(p.mode, p.actAs);
     ck(`[${p.label}] 클럽 요약 200`, s.status === 200, String(s.status));
     const data = s.json?.data;
     if (!data) continue;
     summaryKeys.push(J(Object.keys(data)));
-
-    // 기대값 = 팀별 [A] operatedParts 에서 '일반' 제외한 길이의 합(= listOperatedTeamParts.length).
-    const expectByOrg = {};
-    for (const h of halves ?? []) {
-      const a = await weekSummary(h.organization_slug, h.id, p.mode, p.actAs, null);
-      if (a.status !== 200) continue;
-      const names = (a.json?.data?.operatedParts ?? [])
-        .map((x) => x.partName)
-        .filter((x) => x !== DEFAULT_PART);
-      expectByOrg[h.organization_slug] = (expectByOrg[h.organization_slug] ?? 0) + names.length;
-    }
-    const expectTotal = Object.values(expectByOrg).reduce((a, b) => a + b, 0);
-
+    if (data.rows?.[0]) rowKeys.push(J(Object.keys(data.rows[0])));
+    const expect = expectByMode.get(p.mode);
+    const expectTotal = Object.values(expect).reduce((a, b) => a + b, 0);
     const rows = data.rows ?? [];
     const rowSum = rows.reduce((sum, r) => sum + (r.partCount ?? 0), 0);
-    console.log(
-      `  [${p.label}] rows=${J(rows.map((r) => `${r.clubId}:${r.partCount}`))} totals.partCount=${data.totals?.partCount} structureTotals.totalParts=${data.structureTotals?.totalParts}`,
-    );
-    console.log(`  [${p.label}] 기대(Σ [A]−'일반') = ${J(expectByOrg)} 합계=${expectTotal}`);
-
+    console.log(`  [${p.label}] rows=${J(rows.map((r) => `${r.clubId}:${r.partCount}`))} totals=${data.totals?.partCount} structureTotals=${data.structureTotals?.totalParts}`);
     for (const r of rows) {
-      ck(
-        `[${p.label}] ${r.clubId} partCount == Σ 팀별 운용 파트`,
-        r.partCount === (expectByOrg[r.clubId] ?? 0),
-        `${r.partCount} vs ${expectByOrg[r.clubId] ?? 0}`,
-      );
+      ck(`[${p.label}] ${r.clubId} partCount == Σ 팀별 운용 파트`, r.partCount === expect[r.clubId], `${r.partCount} vs ${expect[r.clubId]}`);
     }
     ck(`[${p.label}] 행 합계 == totals.partCount`, rowSum === data.totals?.partCount, `${rowSum} vs ${data.totals?.partCount}`);
-    ck(
-      `[${p.label}] totals.partCount == structureTotals.totalParts`,
-      data.totals?.partCount === data.structureTotals?.totalParts,
-      `${data.totals?.partCount} vs ${data.structureTotals?.totalParts}`,
-    );
-    ck(`[${p.label}] 전체 합계 == 기대 합계`, data.structureTotals?.totalParts === expectTotal, `${data.structureTotals?.totalParts} vs ${expectTotal}`);
-    ck(`[${p.label}] partCount 타입 number`, rows.every((r) => typeof r.partCount === "number"));
+    ck(`[${p.label}] totals.partCount == structureTotals.totalParts`, data.totals?.partCount === data.structureTotals?.totalParts, `${data.totals?.partCount} vs ${data.structureTotals?.totalParts}`);
+    ck(`[${p.label}] 전체 합계 == 기대`, data.structureTotals?.totalParts === expectTotal, `${data.structureTotals?.totalParts} vs ${expectTotal}`);
+    ck(`[${p.label}] partCount 전부 number`, rows.every((r) => typeof r.partCount === "number"));
     totalsByPath.push(data.structureTotals?.totalParts);
   }
   ck("C2 파리티: 세 경로 totalParts 동일", new Set(totalsByPath).size === 1, J(totalsByPath));
-  ck("C2 DTO 키 동일", new Set(summaryKeys).size === 1, summaryKeys[0]);
+  ck("C2 DTO 키 동일(응답)", new Set(summaryKeys).size === 1, summaryKeys[0]);
+  ck("C2 DTO 키 동일(행)", new Set(rowKeys).size === 1, rowKeys[0]);
 
   console.log(`\n== PASS ${pass} / FAIL ${fail} ==`);
   process.exit(fail > 0 ? 1 : 0);

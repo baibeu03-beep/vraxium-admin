@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import { loadSeasonWeeks } from "@/lib/adminSeasonWeeksData";
 import { resolveUserScope } from "@/lib/userScope";
+import { loadTeamActivityEligibility } from "@/lib/evaluationEligibility";
 import {
   loadWeekOrgResultStates,
   resolveWeekOrgResultState,
@@ -216,6 +217,7 @@ async function loadTeamWeekRosterAt(
   organization: OrganizationSlug,
   teamName: string,
   weekStart: string,
+  seasonKey: string | null,
   mode: ScopeMode,
 ): Promise<TeamWeekRosterMember[]> {
   // 모집단 스코프(operating=실사용자·test=테스트 마커).
@@ -236,11 +238,21 @@ async function loadTeamWeekRosterAt(
       .eq("week_start_date", weekStart),
     loadWeekPositionOverrides(organization, weekStart),
   ]);
-  const candidateUserIds = Array.from(new Set([
+  const scopedCandidates = Array.from(new Set([
     ...((positionCandidates ?? []) as Array<{ user_id: string }>).map((row) => row.user_id),
     ...((uphData ?? []) as Array<{ user_id: string }>).map((row) => row.user_id),
     ...Array.from(overrides.keys()).map((key) => key.slice(0, key.indexOf("::"))),
   ])).filter((userId) => scopeSet.includes(userId));
+
+  // 집합 ① 팀·파트 활동 가능 모집단 — 시즌 휴식 + (효력 발생 후) 활동 중단 제외.
+  //   ⚠ 엘리트/바사노스는 **여기서 빼지 않는다**(소속·평가자/운영자 역할 유지). 그 둘은 집합 ②(평가) 축이다.
+  //   ⚠ 기준 시점은 이 주차다 — 현재 상태를 과거 주차에 소급하지 않는다(lib/evaluationEligibility).
+  const eligibility = await loadTeamActivityEligibility({
+    userIds: scopedCandidates,
+    weekStartDate: weekStart,
+    seasonKey,
+  });
+  const candidateUserIds = scopedCandidates.filter((userId) => eligibility.isTeamActive(userId));
 
   const resolvedPositions = await resolvePositionAtBatch({
     userIds: candidateUserIds,
@@ -273,6 +285,7 @@ export async function loadTeamWeekEffectiveRoster(opts: {
     opts.organization,
     opts.teamName,
     targetRow.week_start_date,
+    targetRow.season_key ?? null,
     opts.mode ?? "operating",
   );
   return {
@@ -334,7 +347,14 @@ export async function getTeamSelectedWeekSummary(opts: {
 
   // 4~5) effective 로스터 — 공용 SoT(loadTeamWeekRosterAt) 단일 호출. 파트 카탈로그(운용 파트)·파트별
   //      크루 목록(실무 경험 평가 대상)도 같은 함수를 판다 — 화면별 후보 풀을 다시 만들지 않는다.
-  const rosterMembers = await loadTeamWeekRosterAt(organization, teamName, weekStart, mode);
+  //      그 주차 시즌의 시즌 휴식자는 여기서 이미 빠진다(팀 크루 수·파트 크루 수·<운용> 파트 전부 반영).
+  const rosterMembers = await loadTeamWeekRosterAt(
+    organization,
+    teamName,
+    weekStart,
+    targetRow.season_key ?? null,
+    mode,
+  );
   const effectiveByUser = new Map(
     rosterMembers.map((m) => [m.userId, { positionCode: m.positionCode, rawPart: m.rawPart }] as const),
   );

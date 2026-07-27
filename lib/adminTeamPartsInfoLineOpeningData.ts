@@ -436,9 +436,13 @@ async function loadExperienceLineOpening(opts: {
   const openerIds = Array.from(new Set([...headerByTeam.values()].map((h) => h.openedBy).filter((v): v is string => !!v)));
   const nameById = await resolveDisplayNames(openerIds);
 
-  // 6) 팀 코호트(개설 가능 크루 모수) — 팀별 활동 크루. 관리 라인 = 심화 크루(파트장/에이전트)만.
+  // 6) 팀 코호트(개설 가능 크루 모수) — **그 개설 주차의** 활동 크루. 관리 라인 = 심화 크루(파트장/에이전트)만.
+  //   ⚠ weekId 필수(2026-07-27). 종전엔 현재 주차 로스터라, 과거 주차 화면에서 파트는 그 주차 기준인데
+  //     모수만 오늘 기준이라 "개설 수 > 모수" 역전을 하한 보정(Math.max)으로 덮고 있었다.
   const cohorts = await Promise.all(
-    teams.map((t) => loadTeamMembersWithLeaders(organization, t.teamName, mode).catch(() => [])),
+    teams.map((t) =>
+      loadTeamMembersWithLeaders(organization, t.teamName, mode, weekId).catch(() => []),
+    ),
   );
 
   // 7) 팀 DTO 조립.
@@ -599,7 +603,7 @@ export async function loadTeamPartsInfoLineOpeningManagement(opts: {
     }),
     loadWeekMeta(weekId, organization, resolveOrgResultScope(mode)),
     // 개설 가능했던 크루(모집단) = 조직 활동 크루(휴식 제외·현재 모드 스코프). 라인 공통 분모.
-    listCrewsForTargetSelection({ organization, status: "active", mode }).catch((e) => {
+    listCrewsForTargetSelection({ organization, status: "active", mode, weekId }).catch((e) => {
       console.warn(
         "[line-opening-management] eligible crews unavailable:",
         e instanceof Error ? e.message : e,

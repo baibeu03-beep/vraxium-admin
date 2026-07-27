@@ -959,7 +959,11 @@ export async function getProcessCheckBoard(
   //     한 번의 listTeamCrews 로 파트별 로스터까지 파생해(동치) 조회를 줄인다 → 명단·인원·적립이 항상 일치.
   const rosterByPart = new Map<string, Set<string>>();
   if (teamBased && teamId && teamName) {
-    const teamCrews = await listTeamCrews(organization, teamName, mode);
+    // ⚠ teamParts 와 **같은 weekId** 로 조회한다(2026-07-27). 종전엔 파트 목록만 effectiveWeekId,
+    //   로스터는 현재 주차라 축이 갈렸다 — 과거 주차를 열면 "그 주차의 파트"에 "지금의 크루"가 담겼다
+    //   (실측: encre 비주얼랩(T) 1~3주차에서 현재 주차 override 가 소급 적용돼 4명이 뒤바뀜).
+    //   Point C 적립 모집단(resolveCheckScopeRoster)은 **이 경로가 아니다** — 그쪽은 현재 주차 정책 유지.
+    const teamCrews = await listTeamCrews(organization, teamName, mode, effectiveWeekId);
     rosterByPart.set("", new Set(teamCrews.map((c) => c.userId)));
     for (const part of teamParts) {
       rosterByPart.set(part, new Set(teamCrews.filter((c) => c.partName === part).map((c) => c.userId)));
@@ -1187,7 +1191,8 @@ export async function getProcessCheckBoard(
   // 선택 파트의 체크 대상 크루 수(표시·가드 참고) — scope=part 일 때만.
   let selectedPart: { name: string; crewCount: number } | null = null;
   if (effScope === "part" && effPart && teamName) {
-    const crews = await listPartCrews(organization, teamName, effPart, mode);
+    // 주차 기준을 명시한다 — 위 rosterByPart(listTeamCrews(effectiveWeekId))·적립 로스터와 동일 모집단.
+    const crews = await listPartCrews(organization, teamName, effPart, mode, effectiveWeekId);
     selectedPart = { name: effPart, crewCount: crews.length };
   }
 

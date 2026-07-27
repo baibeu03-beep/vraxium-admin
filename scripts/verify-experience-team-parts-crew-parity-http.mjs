@@ -11,8 +11,8 @@
 //   ② B.parts ⊆ A.operatedParts
 //   ③ B.crews(userId) ⊆ A.crewRows(같은 파트, userId)  — 파트가 갈리는 크루 0명
 //   ④ A 에는 있는데 B 에 없는 크루는 **정책 규칙**으로만 설명된다:
-//        · classLabel 이 심화(파트장) = 평가자(평가 대상 아님)
-//        · user_season_statuses(그 주차 시즌, status='rest') = 라인 개설 후보 아님
+//        · classLabel 이 심화(파트장) = 평가자 전용 역할(평가 대상 아님)
+//        · 집합 ② 평가 제외 축: 시즌 휴식 · (효력 발생 후) 활동 중단 · 엘리트 · 바사노스
 //      그 외 사유가 1건이라도 있으면 FAIL(크루 ID 를 출력한다).
 //   ⑤ A.operatedParts 인데 B.parts 에 없는 파트는 평가 대상 크루가 실제 0명이다.
 //
@@ -110,6 +110,30 @@ void (async () => {
 
   // 그 주차 시즌의 시즌 전체 휴식자(정책 사유 확인용).
   const restCache = new Map();
+  // 평가 제외 축(집합 ②) — 엘리트(growth_status='graduated') · 바사노스(그 주차까지 누적 승인 ≥ 29).
+  const evalExcludeCache = new Map();
+  const evalExclude = async (weekStart) => {
+    if (evalExcludeCache.has(weekStart)) return evalExcludeCache.get(weekStart);
+    const elite = new Set();
+    const basanos = new Set();
+    const { data: gr } = await sb.from('user_profiles').select('user_id').eq('growth_status', 'graduated');
+    for (const r of gr ?? []) elite.add(r.user_id);
+    // ⚠ PostgREST 1000행 cap — range 페이지네이션 없이는 누적이 잘려 바사노스가 통째로 누락된다.
+    const cnt = new Map();
+    for (let from = 0; ; from += 1000) {
+      const { data: succ } = await sb.from('user_week_statuses').select('user_id')
+        .eq('status', 'success').lte('week_start_date', weekStart)
+        .order('user_id', { ascending: true }).range(from, from + 999);
+      const rows = succ ?? [];
+      for (const r of rows) cnt.set(r.user_id, (cnt.get(r.user_id) ?? 0) + 1);
+      if (rows.length < 1000) break;
+    }
+    for (const [uid, n] of cnt) if (n >= 29 && !elite.has(uid)) basanos.add(uid);
+    const out = { elite, basanos };
+    evalExcludeCache.set(weekStart, out);
+    return out;
+  };
+
   const seasonRest = async (weekId) => {
     if (restCache.has(weekId)) return restCache.get(weekId);
     const { data: w } = await sb.from("weeks").select("season_key").eq("id", weekId).maybeSingle();
@@ -152,6 +176,9 @@ void (async () => {
         .filter((p) => p !== "일반");
       const crewRows = sum.json.data.crewRows ?? [];
       const restIds = await seasonRest(weekId);
+      const { data: wkRow } = await sb.from('weeks').select('start_date').eq('id', weekId).maybeSingle();
+      const weekStart = String(wkRow?.start_date ?? '').slice(0, 10);
+      const { elite: eliteIds, basanos: basanosIds } = await evalExclude(weekStart);
 
       const teamQs =
         `organization=${h.organization_slug}&team_id=${tid}` +
@@ -192,14 +219,16 @@ void (async () => {
           if (crewIds.has(row.userId)) continue;
           const isLeader = row.positionCode === "advanced_part_leader";
           const isRest = restIds.has(row.userId);
+          const isElite = eliteIds.has(row.userId);
+          const isBasanos = basanosIds.has(row.userId);
           ck(
             `${label} '${part}' 제외 크루 ${row.userId} 사유가 정책 규칙`,
-            isLeader || isRest,
-            `class=${row.classLabel}(${row.positionCode}) seasonRest=${isRest} name=${row.name ?? ""}`,
+            isLeader || isRest || isElite || isBasanos,
+            `class=${row.classLabel}(${row.positionCode}) rest=${isRest} elite=${isElite} basanos=${isBasanos} name=${row.name ?? ""}`,
           );
-          if (isLeader || isRest) {
+          if (isLeader || isRest || isElite || isBasanos) {
             policyDrops.push(
-              `${label} '${part}' ${row.name ?? row.userId} — ${isLeader ? "파트장(평가자)" : ""}${isLeader && isRest ? " + " : ""}${isRest ? "시즌 전체 휴식자" : ""}`,
+              `${label} '${part}' ${row.name ?? row.userId} — ${[isLeader && "파트장(평가자)", isRest && "시즌 휴식", isElite && "엘리트", isBasanos && "바사노스"].filter(Boolean).join(" + ")}`,
             );
           }
         }

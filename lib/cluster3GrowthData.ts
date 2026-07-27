@@ -27,6 +27,7 @@ import {
 import { loadFinalizedWeeklyCardsReadOnly } from "@/lib/cluster4WeeklyCardsService";
 import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 import { foldGrowthMetrics, resolveGrowthStatusDetail } from "@/lib/growthCore";
+import { isSeasonRestActiveIn, isSeasonStoppedActiveIn } from "@/lib/currentSeasonRest";
 import { rosterActivityRate } from "@/lib/rosterCardStats";
 import { GROWTH_CARD_CONCURRENCY, mapWithConcurrency } from "@/lib/concurrency";
 import type { WeekResultStatusKey } from "@/shared/growth.contracts";
@@ -325,18 +326,9 @@ function buildIndicators(
     else g++;
   }
 
-  // 시즌 휴식 자동 판정 = 현재 시즌에 user_season_statuses.status='rest' 존재.
-  const seasonRestActive =
-    currentSeasonKey !== null &&
-    seasonRows.some(
-      (sr) => sr.status === "rest" && sr.season_key === currentSeasonKey,
-    );
-  // 시즌 중단 자동 판정 = 현재 시즌에 user_season_statuses.status='stopped' 존재(season-scoped).
-  const seasonStoppedActive =
-    currentSeasonKey !== null &&
-    seasonRows.some(
-      (sr) => sr.status === "stopped" && sr.season_key === currentSeasonKey,
-    );
+  // 시즌 휴식/중단 자동 판정 = 팀·파트 모집단 제외와 **동일 규칙 단일 술어**(lib/currentSeasonRest).
+  const seasonRestActive = isSeasonRestActiveIn(seasonRows, currentSeasonKey);
+  const seasonStoppedActive = isSeasonStoppedActiveIn(seasonRows, currentSeasonKey);
 
   const resolution = resolveGrowthStatusDetail({
     growthStatus: profile.growth_status,
@@ -694,12 +686,10 @@ export async function getGrowthStatusResolutionBatch(
       const orgValid = org && isOrganizationSlug(org) ? (org as OrganizationSlug) : null;
       const threshold = orgValid ? getGraduationThreshold(orgValid) : null;
       const seasonRows = seasonsByUser.get(profile.user_id) ?? [];
-      const seasonRestActive =
-        seasonKey !== null &&
-        seasonRows.some((sr) => sr.status === "rest" && sr.season_key === seasonKey);
-      const seasonStoppedActive =
-        seasonKey !== null &&
-        seasonRows.some((sr) => sr.status === "stopped" && sr.season_key === seasonKey);
+      // 시즌 휴식/중단 판정 = 팀·파트 모집단 제외와 **동일 규칙 단일 술어**(lib/currentSeasonRest).
+      //   /admin/members 클러빙_축소의 '시즌 휴식' 버킷이 여기서 나온다 — 두 곳이 갈리면 안 된다.
+      const seasonRestActive = isSeasonRestActiveIn(seasonRows, seasonKey);
+      const seasonStoppedActive = isSeasonStoppedActiveIn(seasonRows, seasonKey);
       const detail = resolveGrowthStatusDetail({
         growthStatus: profile.growth_status,
         seasonRestActive,
@@ -1115,12 +1105,10 @@ export async function getGrowthRosterBatchFast(
       const orgValid = org && isOrganizationSlug(org) ? (org as OrganizationSlug) : null;
       const threshold = orgValid ? getGraduationThreshold(orgValid) : null;
       const seasonRows = seasonsByUser.get(profile.user_id) ?? [];
-      const seasonRestActive =
-        seasonKey !== null &&
-        seasonRows.some((sr) => sr.status === "rest" && sr.season_key === seasonKey);
-      const seasonStoppedActive =
-        seasonKey !== null &&
-        seasonRows.some((sr) => sr.status === "stopped" && sr.season_key === seasonKey);
+      // 시즌 휴식/중단 판정 = 팀·파트 모집단 제외와 **동일 규칙 단일 술어**(lib/currentSeasonRest).
+      //   /admin/members 클러빙_축소의 '시즌 휴식' 버킷이 여기서 나온다 — 두 곳이 갈리면 안 된다.
+      const seasonRestActive = isSeasonRestActiveIn(seasonRows, seasonKey);
+      const seasonStoppedActive = isSeasonStoppedActiveIn(seasonRows, seasonKey);
       const display = resolveGrowthStatusDetail({
         growthStatus: profile.growth_status,
         seasonRestActive,
