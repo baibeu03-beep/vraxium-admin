@@ -300,9 +300,11 @@ export default function ProcessCheckActTable({
                     sortKey: "lineGroupName",
                   })}
                   {renderHead({
-                    label: "소요(m)",
+                    // 표시 문구 SoT = "소요 시간(m)". 정렬 aria-label·도움말 제목도 이 label 을 쓴다.
+                    label: "소요 시간(m)",
                     helpKey: "admin.processCheck.actTable.column.duration",
                     sortKey: "durationMinutes",
+                    className: "whitespace-nowrap",
                   })}
                   {renderHead({
                     label: poLabels.a,

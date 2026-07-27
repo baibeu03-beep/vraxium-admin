@@ -109,6 +109,68 @@ export function rankTone(gradeNumber: number | null | undefined): BadgeTone {
   return "neutral" // 하위
 }
 
+// ── 열거/자유값 → tone (컬럼 스코프 결정론 매핑) ─────────────────────────────
+// "같은 컬럼 안에서 같은 값 = 항상 같은 색". 정렬·필터·재렌더로 행 순서가 바뀌어도
+// 색이 따라 움직이면 안 되므로, **렌더 순서가 아니라 값 자체**로만 색을 정한다.
+//
+// 컬럼(category)을 색 키에 포함한다 — 같은 문자열이라도 컬럼이 다르면 의미가 다르다.
+//   키 = `${category}:${value}`
+//
+// 값 집합이 고정 enum 인 컬럼은 VALUE_TONE 에 명시 매핑을 두고, 값이 계속 늘어날 수
+// 있는 컬럼(소속 라인 급 등)은 문자열 해시(FNV-1a)로 제한된 팔레트에 안정 매핑한다.
+// danger(빨강)는 팔레트에서 제외 — 단순 분류값이 오류/실패로 오독되지 않게.
+
+/**
+ * 값 종류가 동적인 컬럼용 팔레트. 순서를 바꾸면 기존 값의 색이 바뀌므로 append-only.
+ * danger(빨강)는 오류 오독 때문에, orange 는 라이트 모드 명암비가 AA(4.5:1) 미만(실측 4.34)이라 제외.
+ */
+const VALUE_TONE_PALETTE: readonly BadgeTone[] = [
+  "info",
+  "violet",
+  "success",
+  "warning",
+  "neutral",
+]
+
+/** 고정 enum 컬럼의 명시 매핑 — 값 종류가 닫혀 있으면 해시에 맡기지 않고 서로 다른 색을 보장한다. */
+const VALUE_TONE: Record<string, BadgeTone> = {
+  // 허브 급(PROCESS_HUB_LABEL + " 급") — 5종이 서로 구분되도록 각각 다른 tone.
+  "hub:클럽 총괄 급": "violet",
+  "hub:실무 정보 급": "info",
+  "hub:실무 경험 급": "success",
+  "hub:실무 역량 급": "warning",
+  "hub:실무 경력 급": "neutral",
+  // 체크 대상(PROCESS_CHECK_TARGET_LABEL)
+  "checkTarget:체크": "violet",
+  "checkTarget:미체크": "neutral",
+  // 카페 발생 여부(PROCESS_CAFE_LABEL)
+  "cafe:발생": "success",
+  "cafe:미발생": "neutral",
+}
+
+/** FNV-1a 32bit — 같은 문자열이면 언제나 같은 수(런타임·세션 무관). */
+function fnv1a(s: string): number {
+  let h = 0x811c9dc5
+  for (let i = 0; i < s.length; i += 1) {
+    h ^= s.charCodeAt(i)
+    h = Math.imul(h, 0x01000193)
+  }
+  return h >>> 0
+}
+
+/**
+ * 컬럼 스코프 값 → tone. 명시 매핑 우선, 없으면 `${category}:${value}` 해시로 팔레트 배정.
+ * 빈 값은 배지를 만들지 않는 쪽(호출부에서 "-" 표시)이라 "default" 를 돌려준다.
+ */
+export function valueTone(category: string, value: string | null | undefined): BadgeTone {
+  const v = (value ?? "").trim()
+  if (!v) return "default"
+  const key = `${category}:${v}`
+  const explicit = VALUE_TONE[key]
+  if (explicit) return explicit
+  return VALUE_TONE_PALETTE[fnv1a(key) % VALUE_TONE_PALETTE.length]
+}
+
 // ── 클래스(등급) → tone ─────────────────────────────────────────────────────
 // classLabel: 정규 / 심화(파트장·에이전트) / 운영진(팀장·앰배서더). 계층별 3색.
 // 같은 클래스 라벨 → 항상 같은 색. outline(가장 은은한) 비중으로 표시.

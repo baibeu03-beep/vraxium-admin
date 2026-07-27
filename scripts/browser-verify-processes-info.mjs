@@ -140,7 +140,7 @@ try {
   await page.selectOption('select[aria-label="정렬"]', "duration");
   await page.waitForTimeout(200);
   const durRows = await readRows();
-  check("[정렬] 소요 시간 순 — page1 소요(m) 오름차순", isAsc(durRows.map((r) => Number(r[3]))));
+  check("[정렬] 소요 시간 순 — page1 소요 시간(m) 오름차순", isAsc(durRows.map((r) => Number(r[3]))));
   // 정렬 변경 시 page=1 유지(리셋) — 현재 page 버튼 1이 활성.
   const onPage1 = await page.evaluate(() => document.querySelector('button[aria-current="page"]')?.textContent?.trim() === "1");
   check("[정렬] 정렬 변경 시 1페이지로 리셋", onPage1);

@@ -36,7 +36,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { SelectBadge } from "@/components/ui/status-badge";
+import { SelectBadge, ValueBadge } from "@/components/ui/status-badge";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
@@ -163,7 +163,9 @@ const PROC_COLUMNS: ProcColumnDef[] = [
   { key: "hub", label: "허브 급", helpKey: "admin.processes.register.column.hub", headClass: "w-[84px]", align: "center", sortable: true, sortValue: (a) => (PROCESS_HUBS as readonly string[]).indexOf(a.hub) },
   { key: "actName", label: "액트명", helpKey: "admin.processes.register.column.actName", headClass: "min-w-[320px] text-left", align: "left", sortable: true, sortValue: (a) => a.actName },
   { key: "lineGroup", label: "소속 라인 급", helpKey: "admin.processes.register.column.lineGroup", headClass: "min-w-[150px] text-left", align: "left", sortable: true, sortValue: (a) => a.lineGroupName ?? null },
-  { key: "duration", label: "소요(m)", helpKey: "admin.processes.register.column.duration", headClass: "w-[64px]", align: "center", sortable: true, sortValue: (a) => a.durationMinutes },
+  // 표시 문구는 "소요 시간(m)"(SoT) — 정렬 aria-label·도움말 제목도 이 label 을 그대로 쓴다.
+  // 정렬 아이콘+돋보기까지 한 줄에 들어가도록 폭을 넓히고 whitespace-nowrap 으로 줄바꿈을 금지.
+  { key: "duration", label: "소요 시간(m)", helpKey: "admin.processes.register.column.duration", headClass: "w-[132px] whitespace-nowrap", align: "center", sortable: true, sortValue: (a) => a.durationMinutes },
   // 이행 시점(필요) = 신청 시점(필요)+검수 시점(필요) 통합(셀 안 2행). 정렬은 신청(occur) 기준.
   { key: "execution", label: "이행 시점(필요)", helpKey: "admin.processes.register.column.executionWhen", headClass: "w-[172px]", align: "center", sortable: true, sortValue: (a) => processWhenOrdinal(a.occurWeek, a.occurDow, a.occurTime) },
   { key: "pointA", label: "Po.A", helpKey: "admin.processes.register.column.pointA", headClass: "w-[52px]", align: "center", sortable: true, sortValue: (a) => a.pointCheck },
@@ -231,9 +233,10 @@ function ProcSortableHeader({
 // A/B/C 를 균등 분산으로 표시 (붙어보이지 않게) — 요약 카드 공용.
 function PointTripletCells({ t }: { t: ProcessPointTriplet }) {
   return (
-    // 3열 균등(grid-cols-3)·넓은 간격(gap-x-6)·flex-1 로 값 컨테이너의 남는 폭을 모두 채운다.
-    // 부모 값 컨테이너(SummaryCell growValue)가 flex 로 확장되므로 고정 min-w 대신 가변 폭.
-    <div className="grid flex-1 grid-cols-3 gap-x-6 tabular-nums">
+    // 콘텐츠 기준 3칸 — 남는 가로를 모두 삼키는 flex-1/균등 grid-cols-3 을 쓰지 않는다.
+    // 각 칸은 max-content 이되 minmax 하한(2.75rem)을 둬서 3개 행(필수/우수/최대)의
+    // A·B·C 시작 위치가 자릿수 차이와 무관하게 같은 x 에 정렬된다(tabular-nums 와 함께).
+    <div className="grid grid-cols-[repeat(3,minmax(2.75rem,max-content))] gap-x-5 tabular-nums">
       {(
         [
           ["A", t.check],
@@ -250,39 +253,32 @@ function PointTripletCells({ t }: { t: ProcessPointTriplet }) {
   );
 }
 
-// 독립 통계 셀 — 라벨(좌) + 값(우, 우측정렬). 그리드로 나열해 박스 전체 폭을 균등 분산한다.
+// 독립 통계 셀 — [라벨 열 | 값 열] 2열 grid.
+// 배경 박스는 부모 열 폭을 그대로 채우되(박스 크기·배경 무변경), **내부 콘텐츠는 왼쪽부터
+// 모인다** — justify-between/flex-1 로 라벨과 값을 박스 양끝까지 벌리지 않는다.
+// 라벨 열은 고정폭(SUMMARY_LABEL_COL)이라 같은 그룹 3개 행의 값 시작 x 가 정확히 일치하고,
+// 값 열은 max-content 라 오른쪽 끝까지 밀려나지 않는다.
+// 10rem = 실측 기준값 — 가장 긴 라벨("…포인트 총합" 160px, 돋보기 포함)이 트랙 안에 들어가는
+// 최소치. 더 줄이면 라벨이 트랙을 넘어 gap 을 잡아먹고 값과 붙는다.
+const SUMMARY_LABEL_COL = "grid min-w-0 grid-cols-[10rem_max-content] items-center gap-x-4";
+
 function SummaryCell({
   label,
   value,
   helpKey,
-  growValue = false,
 }: {
   label: string;
   value: React.ReactNode;
   helpKey?: string;
-  // A/B/C 삼중값처럼 값 영역이 남는 가로 폭을 모두 채워야 할 때 true.
-  growValue?: boolean;
 }) {
   return (
-    <div className="flex min-w-0 items-center justify-between gap-4 rounded-md bg-background/50 px-3 py-2">
-      {/* growValue 시 라벨은 고정폭(shrink-0)·줄바꿈 금지로 유지해 값 영역에 남는 폭을 넘긴다. */}
-      <span
-        className={cn(
-          "inline-flex items-center gap-1 text-sm text-muted-foreground",
-          growValue && "shrink-0 whitespace-nowrap",
-        )}
-      >
+    <div className={cn(SUMMARY_LABEL_COL, "rounded-md bg-background/50 px-3 py-2")}>
+      {/* 라벨(+돋보기) — 고정 트랙 안에서 줄바꿈 금지. */}
+      <span className="inline-flex items-center gap-1 whitespace-nowrap text-sm text-muted-foreground">
         {label}
         {helpKey && <AdminHelpIconButton helpKey={helpKey} title={label} size="xs" />}
       </span>
-      <span
-        className={cn(
-          "text-sm font-semibold tabular-nums",
-          growValue ? "flex min-w-0 flex-1" : "shrink-0",
-        )}
-      >
-        {value}
-      </span>
+      <span className="text-sm font-semibold tabular-nums">{value}</span>
     </div>
   );
 }
@@ -1374,21 +1370,33 @@ export default function ProcessUnifiedManager() {
         </CardContent>
       </Card>
 
-      {/* ── 전역 요약 (전체 허브) ── 6개 통계를 독립 셀로 나열해 박스 전체 폭을 균등 분산.
-          넓은 화면=3열×2행(긴 "…포인트 총합" 라벨 + A/B/C 가 찌그러지지 않게 6열 대신 3열 상한),
-          중간=2열, 좁은 화면=1열. 값·A/B/C 우측 정렬 유지. 계산/포맷/합산 로직 무변경.
+      {/* ── 전역 요약 (전체 허브) ── 6개 통계를 "의미별 열"로 고정 배치한다.
+          왼쪽 열=일반 통계 3종(액트 수·라인급 수·소요 시간), 오른쪽 열=포인트 총합 3종(필수·우수·최대).
+          배열 순서에 기댄 단일 grid(자동 흐름)가 아니라 열마다 독립 그룹을 두어, lg 이상에서
+          "전체 액트 수 ↔ 필수 / 전체 라인급 수 ↔ 우수 / 총합 소요 시간 ↔ 최대" 가 항상 같은 행에 선다.
+          좁은 화면=1열 6행. 계산/포맷/합산 로직 무변경.
+
+          폭: 컨테이너는 w-full·두 열은 균등(lg:grid-cols-2) — 바깥 크기는 건드리지 않는다.
+          대신 각 셀 내부를 [고정 라벨 열 | max-content 값 열]로 바꿔(SummaryCell) 라벨과 값이
+          박스 양끝까지 벌어지던 justify-between/flex-1 여백만 제거했다.
 
           PageSection(divider="wave-dot") = "정의(등록 폼)" ↔ "조회(요약+통합 목록)" 사이의 큰 섹션
           경계 하나만 담당한다(/admin/periods/register 와 동일 SoT). 제목은 추가하지 않으며
           (title prop 없음 → 헤더 블록 미렌더) 카드/표/폼 내부는 무접촉. mode/org 분기 없음. */}
       <PageSection divider="wave-dot">
-        <div className="grid grid-cols-1 gap-x-8 gap-y-2 rounded-lg border bg-muted/30 px-4 py-3 lg:grid-cols-2 xl:grid-cols-3">
-          <SummaryCell label="전체 액트 수" value={`${summary.actCount}개`} helpKey="admin.processes.register.stat.actCount" />
-          <SummaryCell label="전체 라인급 수" value={`${summary.lineGroupCount}개`} helpKey="admin.processes.register.stat.lineGroupCount" />
-          <SummaryCell label="총합 소요 시간" value={`${summary.totalDurationMinutes}m`} helpKey="admin.processes.register.stat.totalDuration" />
-          <SummaryCell label="필수 포인트 총합" value={<PointTripletCells t={summary.required} />} helpKey="admin.processes.register.stat.requiredPoint" growValue />
-          <SummaryCell label="우수 포인트 총합" value={<PointTripletCells t={summary.excellent} />} helpKey="admin.processes.register.stat.excellentPoint" growValue />
-          <SummaryCell label="최대 포인트 총합" value={<PointTripletCells t={summary.max} />} helpKey="admin.processes.register.stat.maxPoint" growValue />
+        <div className="grid w-full grid-cols-1 gap-2 rounded-lg border bg-muted/30 px-4 py-3 lg:grid-cols-2 lg:gap-x-8">
+          {/* 왼쪽 열 — 일반 통계 */}
+          <div className="grid auto-rows-min gap-2">
+            <SummaryCell label="전체 액트 수" value={`${summary.actCount}개`} helpKey="admin.processes.register.stat.actCount" />
+            <SummaryCell label="전체 라인급 수" value={`${summary.lineGroupCount}개`} helpKey="admin.processes.register.stat.lineGroupCount" />
+            <SummaryCell label="총합 소요 시간" value={`${summary.totalDurationMinutes}m`} helpKey="admin.processes.register.stat.totalDuration" />
+          </div>
+          {/* 오른쪽 열 — 포인트 총합(A/B/C) */}
+          <div className="grid auto-rows-min gap-2">
+            <SummaryCell label="필수 포인트 총합" value={<PointTripletCells t={summary.required} />} helpKey="admin.processes.register.stat.requiredPoint" />
+            <SummaryCell label="우수 포인트 총합" value={<PointTripletCells t={summary.excellent} />} helpKey="admin.processes.register.stat.excellentPoint" />
+            <SummaryCell label="최대 포인트 총합" value={<PointTripletCells t={summary.max} />} helpKey="admin.processes.register.stat.maxPoint" />
+          </div>
         </div>
       </PageSection>
 
@@ -1455,13 +1463,17 @@ export default function ProcessUnifiedManager() {
               <Table containerRef={sticky.ref} regionClassName={sticky.regionClassName} stickyLeft>
                 <TableHeader>
                   <TableRow>
+                    {/* 좌측 고정 = 앞 두 열(허브 급 · 액트명). 공용 계약(components/ui/sticky-columns)
+                        의 col(1)=left:0, col(2)=left:var(--sticky-col-1-w) 를 그대로 쓴다 —
+                        col(1) 실측폭을 훅이 발행하므로 헤더/본문 offset 이 구조적으로 일치한다.
+                        경계선·그림자·불투명 배경·z-index(본문 20 / 헤더 40)는 globals.css 계약 소유. */}
                     {PROC_COLUMNS.map((col, idx) => (
                       <ProcSortableHeader
                         key={col.key}
                         col={col}
                         dir={columnSort?.key === col.key ? columnSort.dir : null}
                         onSort={() => cycleProcSort(col.key)}
-                        sticky={idx === 0 ? sticky.col(2) : undefined}
+                        sticky={idx === 0 ? sticky.col(1) : idx === 1 ? sticky.col(2) : undefined}
                       />
                     ))}
                   </TableRow>
@@ -1470,15 +1482,23 @@ export default function ProcessUnifiedManager() {
                   {pageRows.map((a) => (
                     <TableRow key={a.id}>
                       <TableCell
-                        {...sticky.col(2)}
-                        className={cn("whitespace-nowrap", sticky.col(2).className)}
+                        {...sticky.col(1)}
+                        className={cn("whitespace-nowrap", sticky.col(1).className)}
                       >
-                        {a.hubLabel} 급
+                        <ValueBadge category="hub" value={`${a.hubLabel} 급`} />
                       </TableCell>
-                      {/* 액트명 = 남는 폭 우선 배분 대상. 넉넉한 상한으로 넓은 화면 슬랙을 흡수(초장문 독식만 방지). */}
-                      <TableCell className="min-w-[320px] max-w-[760px] whitespace-normal break-words text-left font-medium">
+                      {/* 액트명 = 두 번째 고정 열. 남는 폭 우선 배분 대상이되 넉넉한 상한으로
+                          넓은 화면 슬랙을 흡수(초장문 독식만 방지). */}
+                      <TableCell
+                        {...sticky.col(2)}
+                        className={cn(
+                          "min-w-[320px] max-w-[760px] whitespace-normal break-words text-left font-medium",
+                          sticky.col(2).className,
+                        )}
+                      >
                         {a.actName}
                       </TableCell>
+                      {/* 소속 라인 급 = 배지 미적용(일반 텍스트 유지). */}
                       <TableCell className="min-w-[150px] max-w-[260px] whitespace-normal break-words text-left">
                         {a.lineGroupName ?? "-"}
                       </TableCell>
@@ -1496,8 +1516,14 @@ export default function ProcessUnifiedManager() {
                       <TableCell className="text-center">
                         <SelectBadge label={PROCESS_ACT_TYPE_LABEL[a.actType]} size="sm" />
                       </TableCell>
-                      <TableCell>{PROCESS_CHECK_TARGET_LABEL[a.checkTarget]}</TableCell>
-                      <TableCell>{PROCESS_CAFE_LABEL[a.cafe]}</TableCell>
+                      {/* 허브 급 · 체크 대상 · 카페 = 분류값 배지(3개 컬럼). 색은 값 자체
+                          (ValueBadge/valueTone)로만 결정되므로 정렬·필터 후에도 같은 값은 같은 색. */}
+                      <TableCell className="text-center">
+                        <ValueBadge category="checkTarget" value={PROCESS_CHECK_TARGET_LABEL[a.checkTarget]} />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <ValueBadge category="cafe" value={PROCESS_CAFE_LABEL[a.cafe]} />
+                      </TableCell>
                       <TableCell>
                         <Button
                           type="button"

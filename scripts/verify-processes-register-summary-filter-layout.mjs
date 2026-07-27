@@ -1,7 +1,8 @@
 /**
  * /admin/processes/register — 요약 통계/필터 레이아웃 검증 (READ-ONLY).
  *   npx tsx --env-file=.env.local scripts/verify-processes-register-summary-filter-layout.mjs
- * 요약 6셀 분산·포인트 A/B/C 무줄바꿈 / 필터 3그룹 분산·돋보기 유지·select 무말줄임 / 무스크롤 / 도움말 비간섭.
+ * 요약 6셀 = 의미별 2열×3행(왼쪽 일반 3종 / 오른쪽 포인트 3종, 행 수평 대응)·포인트 A/B/C 무줄바꿈
+ * / 필터 3그룹 분산·돋보기 유지·select 무말줄임 / 무스크롤 / 도움말 비간섭.
  */
 import { chromium } from "playwright-core";
 import { createClient } from "@supabase/supabase-js";
@@ -44,14 +45,14 @@ async function main() {
       if ((await page.locator(`text=${l}`).count()) < 1) fail(`summary cell missing: ${l}`);
     }
 
-    // 필터 도움말 3개 유지 + 클릭이 select 를 열지 않음
-    const filterHelp = page.locator('span:has-text("정렬") button[aria-label="이 항목 도움말"]').first();
+    // 필터 도움말 유지 + 클릭이 select 를 열지 않음 (정렬은 표 헤더로 이동 → 허브 급 필터로 검증)
+    const filterHelp = page.locator('span:has-text("허브 급") button[aria-label="이 항목 도움말"]').first();
     R.filterHelpPresent = (await page.locator('button[aria-label="이 항목 도움말"]').count()) >= 30;
-    // 정렬 도움말 클릭 → 모달 열림, select value 불변
-    const sortBefore = await page.locator('select[aria-label="정렬"]').inputValue();
+    // 허브 급 도움말 클릭 → 모달 열림, select value 불변
+    const sortBefore = await page.locator('select[aria-label="허브 급 필터"]').inputValue();
     await filterHelp.click();
     await page.waitForSelector('[role="dialog"]');
-    const sortAfter = await page.locator('select[aria-label="정렬"]').inputValue();
+    const sortAfter = await page.locator('select[aria-label="허브 급 필터"]').inputValue();
     R.helpNoSelectOpen = sortBefore === sortAfter;
     if (!R.helpNoSelectOpen) fail("filter help changed select value");
     await page.locator('[role="dialog"] button[aria-label="닫기"]').click();
@@ -62,39 +63,62 @@ async function main() {
       await page.waitForTimeout(250);
       const sx = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       const info = await page.evaluate((labels) => {
-        // 요약 박스 = "전체 액트 수" 를 포함하는 grid 컨테이너
-        const cellByLabel = (t) => [...document.querySelectorAll("*")].find((e) => e.children.length <= 3 && e.textContent.trim().startsWith(t) && String(e.className).includes("justify-between") && String(e.className).includes("rounded-md"));
+        // 요약 박스 = 왼쪽/오른쪽 열 그룹 2개를 자식으로 갖는 바깥 grid.
+        const cellByLabel = (t) => [...document.querySelectorAll("*")].find((e) => e.children.length === 2 && e.textContent.trim().startsWith(t) && String(e.className).includes("bg-background/50") && String(e.className).includes("rounded-md"));
         const first = cellByLabel("전체 액트 수");
-        const box = first?.parentElement;
+        const leftCol = first?.parentElement;          // 왼쪽 열 그룹
+        const box = leftCol?.parentElement;            // 바깥 grid (열 그룹 2개)
         const boxRect = box?.getBoundingClientRect();
-        const cells = box ? [...box.children].map((c) => { const r = c.getBoundingClientRect(); return { top: Math.round(r.top), w: Math.round(r.width) }; }) : [];
+        const colCount = box ? box.children.length : 0;
+        const cells = labels.map((l) => {
+          const el = cellByLabel(l);
+          const r = el?.getBoundingClientRect();
+          return { label: l, top: r ? Math.round(r.top) : null, left: r ? Math.round(r.left) : null, w: r ? Math.round(r.width) : 0 };
+        }).filter((c) => c.top !== null);
         const rows = new Set(cells.map((c) => c.top)).size;
         const cols = cells.length ? cells.filter((c) => c.top === cells[0].top).length : 0;
+        // 의미별 행 대응 — [액트↔필수, 라인급↔우수, 소요시간↔최대] 각 쌍의 top 이 같은가
+        const byLabel = Object.fromEntries(cells.map((c) => [c.label, c]));
+        const pairs = [["전체 액트 수", "필수 포인트 총합"], ["전체 라인급 수", "우수 포인트 총합"], ["총합 소요 시간", "최대 포인트 총합"]];
+        const pairRows = pairs.map(([a, b]) => ({
+          pair: `${a} | ${b}`,
+          aligned: !!byLabel[a] && !!byLabel[b] && Math.abs(byLabel[a].top - byLabel[b].top) <= 1,
+          dy: byLabel[a] && byLabel[b] ? byLabel[a].top - byLabel[b].top : null,
+          sameRowExpected: cols === 2,
+        }));
         // 포인트 triplet 줄바꿈 여부 — 높이가 한 줄 수준인지
-        const trip = [...document.querySelectorAll("*")].find((e) => String(e.className).includes("grid-cols-3") && String(e.className).includes("min-w-[132px]"));
+        const trip = [...document.querySelectorAll("*")].find((e) => String(e.className).includes("minmax(2.75rem,max-content)") && String(e.className).includes("tabular-nums"));
         const tripH = trip ? Math.round(trip.getBoundingClientRect().height) : 0;
-        // 필터 3그룹 분산: 그룹들의 좌표 범위가 컨테이너 폭의 상당 부분을 차지하는지
-        const sorts = document.querySelector('select[aria-label="정렬"]');
+        // 필터 그룹 분산: 그룹들의 좌표 범위가 컨테이너 폭의 상당 부분을 차지하는지
+        const sorts = document.querySelector('select[aria-label="허브 급 필터"]');
         const filterBox = sorts?.closest(".grid");
         const fRect = filterBox?.getBoundingClientRect();
         const groups = filterBox ? [...filterBox.children].map((c) => Math.round(c.getBoundingClientRect().left)) : [];
         const spread = fRect && groups.length ? Math.round((groups[groups.length - 1] - groups[0]) / fRect.width * 100) : 0;
         // select 말줄임 여부(정렬): scrollWidth<=clientWidth
         const sortTrunc = sorts ? sorts.scrollWidth > sorts.clientWidth + 1 : false;
-        return { boxW: Math.round(boxRect?.width ?? 0), cellCount: cells.length, rows, cols, tripH, filterSpreadPct: spread, sortTrunc };
+        return { boxW: Math.round(boxRect?.width ?? 0), colGroups: colCount, cellCount: cells.length, rows, cols, pairRows, tripH, filterSpreadPct: spread, sortTrunc };
       }, labels);
       await page.screenshot({ path: `claudedocs/qa-proc-sf-${w}.png`, fullPage: false, clip: { x: 0, y: 0, width: w, height: 1000 } });
       R.byWidth[w] = { pageHScroll: sx, ...info };
       if (sx > 0) fail(`h-scroll at ${w}: ${sx}`);
       if (info.cellCount !== 6) fail(`${w}: summary cells ${info.cellCount} != 6`);
+      if (info.colGroups !== 2) fail(`${w}: summary column groups ${info.colGroups} != 2`);
       if (info.tripH > 40) fail(`${w}: point triplet wrapped (h=${info.tripH})`);
       if (info.sortTrunc) fail(`${w}: 정렬 select truncated`);
+      // lg(1024) 이상 = 2열 3행 + 의미별 행 수평 대응 / 그 미만 = 1열 6행
+      if (w >= 1024) {
+        if (info.cols !== 2) fail(`${w}: summary cols ${info.cols} != 2`);
+        if (info.rows !== 3) fail(`${w}: summary rows ${info.rows} != 3`);
+        for (const p of info.pairRows) if (!p.aligned) fail(`${w}: row not aligned — ${p.pair} (dy=${p.dy})`);
+      } else {
+        if (info.cols !== 1) fail(`${w}: narrow summary cols ${info.cols} != 1`);
+        if (info.rows !== 6) fail(`${w}: narrow summary rows ${info.rows} != 6`);
+      }
     }
     for (const w of [1440, 1280, 1024, 768]) await measure(w);
-    // 넓은 화면 분산 확인(1440): 필터 그룹이 좌측에 몰리지 않음(spread>=55%)
-    if ((R.byWidth[1440].filterSpreadPct ?? 0) < 55) fail(`1440: filters clustered (spread ${R.byWidth[1440].filterSpreadPct}%)`);
-    // 1440 요약은 3열 (cols===3)
-    if (R.byWidth[1440].cols !== 3) fail(`1440: summary cols ${R.byWidth[1440].cols} != 3`);
+    // 넓은 화면 분산 확인(1440): 필터 2그룹이 좌측에 몰리지 않음(2열 grid → spread≈50%)
+    if ((R.byWidth[1440].filterSpreadPct ?? 0) < 40) fail(`1440: filters clustered (spread ${R.byWidth[1440].filterSpreadPct}%)`);
 
     await ctx.close();
   } finally {

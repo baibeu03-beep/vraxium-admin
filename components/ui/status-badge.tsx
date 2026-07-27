@@ -2,7 +2,7 @@ import * as React from "react"
 
 import { Badge, BadgeButton, type BadgeTone } from "@/components/ui/badge"
 import { TableCell } from "@/components/ui/table"
-import { statusTone } from "@/lib/statusBadge"
+import { statusTone, valueTone } from "@/lib/statusBadge"
 import { cn } from "@/lib/utils"
 
 type BadgeSize = "sm" | "md" | "lg"
@@ -74,6 +74,47 @@ export function StatusBadge({
 // 호출부 가독성을 위해 의미를 분리해 둔다(같은 레지스트리·같은 색 규칙).
 export function SelectBadge(props: React.ComponentProps<typeof StatusBadge>) {
   return <StatusBadge {...props} />
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ValueBadge — "상태"가 아닌 **분류값**(소속 라인 급 · 체크 대상 · 카페 …)을 배지로.
+// 색은 lib/statusBadge.valueTone(category, value) 이 값 자체로만 결정하므로,
+// 정렬/필터/재렌더로 행 순서가 바뀌어도 같은 값은 항상 같은 색을 유지한다.
+// 셀마다 색 조건문을 중복 작성하지 않기 위한 공용 진입점(SoT).
+//
+// 빈 값(null/""/"-")은 임의 색 배지를 만들지 않고 기존 빈 값 표기("-")를 그대로 쓴다.
+// ─────────────────────────────────────────────────────────────────────────────
+export function ValueBadge({
+  category,
+  value,
+  size = "sm",
+  appearance = "solid",
+  className,
+  emptyText = "-",
+}: {
+  /** 컬럼 스코프 — 같은 문자열이라도 컬럼이 다르면 다른 색 키가 된다. */
+  category: string
+  value: string | null | undefined
+  size?: BadgeSize
+  appearance?: BadgeAppearance
+  className?: string
+  emptyText?: string
+}) {
+  const v = (value ?? "").trim()
+  if (!v || v === "-") {
+    return <span className="text-muted-foreground">{emptyText}</span>
+  }
+  return (
+    <Badge
+      tone={valueTone(category, v)}
+      appearance={appearance}
+      size={size}
+      className={cn("whitespace-nowrap", className)}
+      title={v}
+    >
+      {v}
+    </Badge>
+  )
 }
 
 // TableCellBadge — 배지 컬럼용 TableCell. 가운데 정렬(요구사항 #6) + StatusBadge 렌더.
