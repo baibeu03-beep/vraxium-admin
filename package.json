@@ -36,6 +36,8 @@
     "verify:process-check-experience-cells": "node scripts/browser-verify-process-check-experience-cells.mjs",
     "audit:experience-rating-pointa": "tsx --env-file=.env.local scripts/audit-experience-rating-pointa-impact.ts",
     "verify:experience-required-line-guide": "node scripts/browser-verify-experience-overall-required-line-guide.mjs",
+    "verify:experience-output-required": "tsx --env-file=.env.local scripts/verify-experience-output-required.ts",
+    "verify:experience-output-description-required": "tsx --env-file=.env.local scripts/verify-experience-output-description-required-http.ts",
     "verify:crew-week-results-render": "node scripts/browser-verify-crew-week-results-render.mjs",
     "verify:crew-week-results-sort": "node scripts/browser-verify-crew-week-results-sort.mjs",
     "audit:crew-week-snapshot-migration": "tsx --env-file=.env.local scripts/audit-crew-week-publish-snapshot-migration.ts",
@@ -130,7 +132,8 @@
     "backfill:line-rating-awards": "tsx --env-file=.env.local scripts/backfill-line-rating-awards.ts",
     "verify:published-act-rate-read": "tsx --env-file=.env.local scripts/verify-published-act-rate-read-parity.ts",
     "verify:line-award-era-gate": "tsx --env-file=.env.local scripts/verify-line-award-era-gate.ts",
-    "verify:week-position-nonretro": "node scripts/verify-week-position-nonretro-cards-http.mjs"
+    "verify:week-position-nonretro": "node scripts/verify-week-position-nonretro-cards-http.mjs",
+    "converge:weekly-card-snapshots": "tsx --env-file=.env.local scripts/converge-weekly-card-snapshots-version.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

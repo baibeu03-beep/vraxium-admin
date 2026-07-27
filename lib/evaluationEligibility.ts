@@ -77,14 +77,21 @@ async function weekStartContaining(dateIso: string | null): Promise<string | nul
   return (data as { start_date?: string } | null)?.start_date?.slice(0, 10) ?? null;
 }
 
-async function loadEligibilityInternal(
-  input: Input,
-  withEvaluationAxes: boolean,
-): Promise<Eligibility> {
-  const weekStartDate = String(input.weekStartDate).slice(0, 10);
-  const ids = Array.from(new Set(input.userIds.filter(Boolean)));
-  const flagsByUser = new Map<string, EligibilityFlags>();
-  const resolver: Eligibility = {
+// 여러 주차를 한 번에 판정한다(주차별 재호출 금지 — 26주 매트릭스가 N+1 이 되지 않게).
+//   공유 원천(프로필·중단 주차·현재 주차)은 1패스, 시즌축 원천(휴식/중단)은 **시즌 키별 1회**만 읽고
+//   주차 루프는 메모리에서 돈다. 판정식은 단일 주차와 완전히 같은 코드다(아래 judge 루프 하나뿐).
+type BulkInput = {
+  userIds: readonly string[];
+  /** 판정 기준 주차들. seasonKey 미지정(undefined)이면 weekStartDate 로 해소. */
+  weeks: ReadonlyArray<{ weekStartDate: string; seasonKey?: string | null }>;
+  today?: string;
+};
+
+function makeResolver(
+  weekStartDate: string,
+  flagsByUser: Map<string, EligibilityFlags>,
+): Eligibility {
+  return {
     weekStartDate,
     flags: (userId) => flagsByUser.get(userId) ?? NO_FLAGS,
     isTeamActive: (userId) => {
@@ -96,24 +103,52 @@ async function loadEligibilityInternal(
       return !f.seasonRest && !f.suspended && !f.elite && !f.basanos;
     },
   };
-  if (ids.length === 0 || !weekStartDate) return resolver;
+}
 
-  const seasonKey =
-    input.seasonKey !== undefined
-      ? input.seasonKey
-      : await resolveSeasonKeyForWeekStart(weekStartDate);
+async function loadEligibilityBulkInternal(
+  input: BulkInput,
+  withEvaluationAxes: boolean,
+): Promise<Map<string, Eligibility>> {
+  const ids = Array.from(new Set(input.userIds.filter(Boolean)));
+
+  // 주차 정규화(중복 제거·seasonKey 미지정은 나중에 해소).
+  const weekList: Array<{ weekStartDate: string; seasonKey: string | null | undefined }> = [];
+  const seenWeek = new Set<string>();
+  for (const w of input.weeks) {
+    const ws = String(w.weekStartDate ?? "").slice(0, 10);
+    if (!ws || seenWeek.has(ws)) continue;
+    seenWeek.add(ws);
+    weekList.push({ weekStartDate: ws, seasonKey: w.seasonKey });
+  }
+
+  const flagsByWeek = new Map<string, Map<string, EligibilityFlags>>();
+  const out = new Map<string, Eligibility>();
+  for (const w of weekList) {
+    const flagsByUser = new Map<string, EligibilityFlags>();
+    flagsByWeek.set(w.weekStartDate, flagsByUser);
+    out.set(w.weekStartDate, makeResolver(w.weekStartDate, flagsByUser));
+  }
+  if (ids.length === 0 || weekList.length === 0) return out;
+
+  for (const w of weekList) {
+    if (w.seasonKey === undefined) w.seasonKey = await resolveSeasonKeyForWeekStart(w.weekStartDate);
+  }
 
   // 현재 주차 시작일 — 시점 정보가 없는 상태(활동 중단/엘리트)를 "현재·미래에만" 적용하는 경계.
   //   과거 주차 조회에는 적용하지 않는다(소급 금지).
   const currentWeekStart = await weekStartContaining(input.today ?? getCurrentActivityDateIso());
-  const isCurrentOrFuture = currentWeekStart ? weekStartDate >= currentWeekStart : true;
 
   // ── 원천 조회 ────────────────────────────────────────────────────────────
   //   ① 시즌 휴식 = 그 주차 시즌의 rest 집합(lib/currentSeasonRest 단일 규칙).
   //   ② 프로필 = growth_status(수동 override) + suspended_week_id + activity_ended_at.
   //   ③ 시즌 중단 = 그 주차 시즌의 stopped 집합.
-  const [seasonRestIds, profileRows, seasonStoppedIds] = await Promise.all([
-    getSeasonRestUserIds(seasonKey),
+  const seasonKeys = Array.from(new Set(weekList.map((w) => w.seasonKey ?? null)));
+  const [seasonRestBySeason, profileRows, seasonStoppedBySeason] = await Promise.all([
+    (async () => {
+      const m = new Map<string | null, Set<string>>();
+      for (const sk of seasonKeys) m.set(sk, await getSeasonRestUserIds(sk));
+      return m;
+    })(),
     (async () => {
       const out: Array<{
         user_id: string;
@@ -132,19 +167,23 @@ async function loadEligibilityInternal(
       return out;
     })(),
     (async () => {
-      const set = new Set<string>();
-      if (!seasonKey) return set;
-      for (let i = 0; i < ids.length; i += CHUNK) {
-        const { data, error } = await supabaseAdmin
-          .from("user_season_statuses")
-          .select("user_id")
-          .eq("season_key", seasonKey)
-          .eq("status", "stopped")
-          .in("user_id", ids.slice(i, i + CHUNK));
-        if (error) throw new Error(error.message);
-        for (const r of (data ?? []) as Array<{ user_id: string }>) set.add(r.user_id);
+      const m = new Map<string | null, Set<string>>();
+      for (const sk of seasonKeys) {
+        const set = new Set<string>();
+        m.set(sk, set);
+        if (!sk) continue;
+        for (let i = 0; i < ids.length; i += CHUNK) {
+          const { data, error } = await supabaseAdmin
+            .from("user_season_statuses")
+            .select("user_id")
+            .eq("season_key", sk)
+            .eq("status", "stopped")
+            .in("user_id", ids.slice(i, i + CHUNK));
+          if (error) throw new Error(error.message);
+          for (const r of (data ?? []) as Array<{ user_id: string }>) set.add(r.user_id);
+        }
       }
-      return set;
+      return m;
     })(),
   ]);
 
@@ -182,67 +221,96 @@ async function loadEligibilityInternal(
     }
   }
 
-  // 바사노스 — **그 주차까지의 승인 주차 누적**(user_week_statuses.status='success', week_start_date ≤ W).
-  //   ⚠ 현재 누적(cluster4_roster_card_stats.success_weeks)을 과거 주차에 쓰지 않는다(소급 금지).
-  //     그 캐시는 진행 주차 처리 차이로 ±1 이 날 수 있어 임계값 판정에도 부적합하다.
-  const approvedByUser = new Map<string, number>();
-  if (withEvaluationAxes) {
-    for (let i = 0; i < ids.length; i += CHUNK) {
-      const chunk = ids.slice(i, i + CHUNK);
-      const { data, error } = await supabaseAdmin
-        .from("user_week_statuses")
-        .select("user_id")
-        .eq("status", "success")
-        .lte("week_start_date", weekStartDate)
-        .in("user_id", chunk);
-      if (error) throw new Error(error.message);
-      for (const r of (data ?? []) as Array<{ user_id: string }>)
-        approvedByUser.set(r.user_id, (approvedByUser.get(r.user_id) ?? 0) + 1);
-    }
-  }
-
-  // ── 판정 ─────────────────────────────────────────────────────────────────
   const profileByUser = new Map(profileRows.map((p) => [p.user_id, p]));
-  for (const uid of ids) {
-    const p = profileByUser.get(uid);
-    const growthStatus = p?.growth_status ?? null;
 
-    // ② 활동 중단 — 우선순위: suspended_week_id → 시즌 stopped → 시점 없는 growth_status.
-    let suspended = false;
-    const susWeek = p?.suspended_week_id ? suspendedWeekStartById.get(p.suspended_week_id) : null;
-    if (susWeek) {
-      // 중단 주차 자체는 마지막 활동 주차로 본다(주차 결과 표시 정책과 동일) → 그 **다음** 주차부터 제외.
-      suspended = weekStartDate > susWeek;
-    } else if (seasonStoppedIds.has(uid)) {
-      // 그 시즌 전체가 중단 — 해당 시즌 주차에서 제외(과거 시즌 무영향).
-      suspended = true;
-    } else if (deriveEndStatus(growthStatus) === "stopped") {
-      // 시점 정보 없음 → **현재·미래 주차에만** 적용. 과거 주차는 그대로 둔다(소급 금지).
-      suspended = isCurrentOrFuture;
-    }
+  // ── 판정(주차별) ─────────────────────────────────────────────────────────
+  for (const w of weekList) {
+    const weekStartDate = w.weekStartDate;
+    const seasonKey = w.seasonKey ?? null;
+    const flagsByUser = flagsByWeek.get(weekStartDate) as Map<string, EligibilityFlags>;
+    const seasonRestIds = seasonRestBySeason.get(seasonKey) ?? new Set<string>();
+    const seasonStoppedIds = seasonStoppedBySeason.get(seasonKey) ?? new Set<string>();
+    const isCurrentOrFuture = currentWeekStart ? weekStartDate >= currentWeekStart : true;
 
-    let elite = false;
-    let basanos = false;
+    // 바사노스 — **그 주차까지의 승인 주차 누적**(user_week_statuses.status='success', week_start_date ≤ W).
+    //   ⚠ 현재 누적(cluster4_roster_card_stats.success_weeks)을 과거 주차에 쓰지 않는다(소급 금지).
+    //     그 캐시는 진행 주차 처리 차이로 ±1 이 날 수 있어 임계값 판정에도 부적합하다.
+    //   주차마다 누적이 달라 이 축만 주차별 조회다 — 축 ②(평가)는 실제로 항상 단일 주차 호출이다.
+    const approvedByUser = new Map<string, number>();
     if (withEvaluationAxes) {
-      // ③ 엘리트 — activity_ended_at 이 있으면 그 주차 다음부터, 없으면 현재·미래만.
-      if (growthStatus === "graduated") {
-        const endWeek = eliteEndWeekByUser.get(uid) ?? null;
-        elite = endWeek ? weekStartDate > endWeek : isCurrentOrFuture;
-      }
-      // ④ 바사노스 — 그 주차까지 누적 승인 ≥ 29. 엘리트(졸업 확정)는 바사노스로 이중 계산하지 않는다.
-      if (!elite && growthStatus !== "graduated") {
-        basanos = (approvedByUser.get(uid) ?? 0) >= GRADUATING_FROM_APPROVED_WEEKS;
+      for (let i = 0; i < ids.length; i += CHUNK) {
+        const chunk = ids.slice(i, i + CHUNK);
+        const { data, error } = await supabaseAdmin
+          .from("user_week_statuses")
+          .select("user_id")
+          .eq("status", "success")
+          .lte("week_start_date", weekStartDate)
+          .in("user_id", chunk);
+        if (error) throw new Error(error.message);
+        for (const r of (data ?? []) as Array<{ user_id: string }>)
+          approvedByUser.set(r.user_id, (approvedByUser.get(r.user_id) ?? 0) + 1);
       }
     }
 
-    flagsByUser.set(uid, {
-      seasonRest: seasonRestIds.has(uid),
-      suspended,
-      elite,
-      basanos,
-    });
+    for (const uid of ids) {
+      const p = profileByUser.get(uid);
+      const growthStatus = p?.growth_status ?? null;
+
+      // ② 활동 중단 — 우선순위: suspended_week_id → 시즌 stopped → 시점 없는 growth_status.
+      let suspended = false;
+      const susWeek = p?.suspended_week_id ? suspendedWeekStartById.get(p.suspended_week_id) : null;
+      if (susWeek) {
+        // 중단 주차 자체는 마지막 활동 주차로 본다(주차 결과 표시 정책과 동일) → 그 **다음** 주차부터 제외.
+        suspended = weekStartDate > susWeek;
+      } else if (seasonStoppedIds.has(uid)) {
+        // 그 시즌 전체가 중단 — 해당 시즌 주차에서 제외(과거 시즌 무영향).
+        suspended = true;
+      } else if (deriveEndStatus(growthStatus) === "stopped") {
+        // 시점 정보 없음 → **현재·미래 주차에만** 적용. 과거 주차는 그대로 둔다(소급 금지).
+        suspended = isCurrentOrFuture;
+      }
+
+      let elite = false;
+      let basanos = false;
+      if (withEvaluationAxes) {
+        // ③ 엘리트 — activity_ended_at 이 있으면 그 주차 다음부터, 없으면 현재·미래만.
+        if (growthStatus === "graduated") {
+          const endWeek = eliteEndWeekByUser.get(uid) ?? null;
+          elite = endWeek ? weekStartDate > endWeek : isCurrentOrFuture;
+        }
+        // ④ 바사노스 — 그 주차까지 누적 승인 ≥ 29. 엘리트(졸업 확정)는 바사노스로 이중 계산하지 않는다.
+        if (!elite && growthStatus !== "graduated") {
+          basanos = (approvedByUser.get(uid) ?? 0) >= GRADUATING_FROM_APPROVED_WEEKS;
+        }
+      }
+
+      flagsByUser.set(uid, {
+        seasonRest: seasonRestIds.has(uid),
+        suspended,
+        elite,
+        basanos,
+      });
+    }
   }
-  return resolver;
+  return out;
+}
+
+async function loadEligibilityInternal(
+  input: Input,
+  withEvaluationAxes: boolean,
+): Promise<Eligibility> {
+  const weekStartDate = String(input.weekStartDate ?? "").slice(0, 10);
+  const flagsByUser = new Map<string, EligibilityFlags>();
+  if (!weekStartDate) return makeResolver(weekStartDate, flagsByUser);
+  const byWeek = await loadEligibilityBulkInternal(
+    {
+      userIds: input.userIds,
+      weeks: [{ weekStartDate, seasonKey: input.seasonKey }],
+      today: input.today,
+    },
+    withEvaluationAxes,
+  );
+  return byWeek.get(weekStartDate) ?? makeResolver(weekStartDate, flagsByUser);
 }
 
 /**
@@ -251,6 +319,16 @@ async function loadEligibilityInternal(
  */
 export async function loadTeamActivityEligibility(input: Input): Promise<Eligibility> {
   return loadEligibilityInternal(input, false);
+}
+
+/**
+ * ① 을 여러 주차에 대해 한 번에 — 파트×주차 존재표처럼 26주를 동시에 판정할 때 쓴다.
+ *   반환 = weekStartDate → Eligibility. 판정식은 단일 주차와 **같은 코드**(N+1 만 없앤 형태).
+ */
+export async function loadTeamActivityEligibilityBulk(
+  input: BulkInput,
+): Promise<Map<string, Eligibility>> {
+  return loadEligibilityBulkInternal(input, false);
 }
 
 /**

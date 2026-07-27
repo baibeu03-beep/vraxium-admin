@@ -18,12 +18,15 @@ const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const admin = createClient(SUPABASE_URL, SERVICE);
 
-function outputs(link: string, imageUrl: string): OverallOutput[] {
+// 설명(description)도 필수값이므로 기본값을 채운다 — 링크/이미지 우선순위만 보는 케이스가
+//   설명 누락으로 먼저 걸리지 않도록. 설명 자체의 필수 검증은
+//   verify-experience-output-description-required-http.ts 가 전담한다.
+function outputs(link: string, imageUrl: string, description = "설명"): OverallOutput[] {
   return EXPERIENCE_OVERALL_CATEGORIES.map(({ key }) => ({
     category: key,
     link,
     imageUrl,
-    description: "",
+    description,
     imageDescription: "",
   }));
 }

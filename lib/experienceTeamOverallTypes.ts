@@ -163,45 +163,65 @@ export type OverallOutput = {
   imageDescription: string;
 };
 
+// 필수 아웃풋 필드 = 링크 · 설명 · 이미지. 안내/강조 대상은 항상 이 중 첫 누락 1곳.
+//   ⚠ imageDescription(이미지 설명)은 필수 대상이 아니다 — 필수는 "산출물 링크 1세트"(링크+설명)와 이미지 1건.
+export type OverallOutputRequiredField = "link" | "description" | "image";
+
 export type OverallOutputRequirementIssue = {
   missingLink: boolean;
+  missingDescription: boolean;
   missingImage: boolean;
   firstMissingCategory: ExperienceOverallCategory;
-  firstMissingField: "link" | "image";
+  firstMissingField: OverallOutputRequiredField;
   message: string;
 };
 
 export const OVERALL_OUTPUT_REQUIRED_MESSAGES = {
   both: "아웃풋 링크와 아웃풋 이미지를 모두 입력해야 합니다.",
   link: "아웃풋 링크를 1개 이상 입력해주세요.",
+  description: "아웃풋 설명을 1개 이상 입력해주세요.",
   image: "아웃풋 이미지를 1개 이상 등록해주세요.",
 } as const;
 
-/** 프론트와 서버가 함께 쓰는 카테고리별 아웃풋 필수값 판정. 설명 필드는 기존 선택 정책을 유지한다. */
+// 공백만 입력한 값은 미입력으로 판정한다(trim). 필드 누락/undefined 도 미입력.
+function isBlankOutputValue(value: string | null | undefined): boolean {
+  return (value ?? "").trim().length === 0;
+}
+
+/** 프론트와 서버가 함께 쓰는 카테고리별 아웃풋 필수값 판정 — 링크·설명·이미지 3종 모두 필수. */
 export function validateOverallOutputRequirements(
   outputs: ReadonlyArray<OverallOutput>,
   extensionActive: boolean,
 ): OverallOutputRequirementIssue | null {
   const byCategory = new Map(outputs.map((output) => [output.category, output]));
   let firstMissingLinkCategory: ExperienceOverallCategory | null = null;
+  let firstMissingDescriptionCategory: ExperienceOverallCategory | null = null;
   let firstMissingImageCategory: ExperienceOverallCategory | null = null;
   for (const category of EXPERIENCE_OVERALL_CATEGORIES) {
     if (category.key === "extension" && !extensionActive) continue;
     const output = byCategory.get(category.key);
-    if (!output?.link.trim() && !firstMissingLinkCategory) firstMissingLinkCategory = category.key;
-    if (!output?.imageUrl.trim() && !firstMissingImageCategory) firstMissingImageCategory = category.key;
+    if (isBlankOutputValue(output?.link) && !firstMissingLinkCategory) firstMissingLinkCategory = category.key;
+    if (isBlankOutputValue(output?.description) && !firstMissingDescriptionCategory) firstMissingDescriptionCategory = category.key;
+    if (isBlankOutputValue(output?.imageUrl) && !firstMissingImageCategory) firstMissingImageCategory = category.key;
   }
-  if (!firstMissingLinkCategory && !firstMissingImageCategory) return null;
-  // 입력 흐름 우선순위: 모든 활성 류의 링크를 먼저 채운 뒤 이미지를 안내한다.
-  const firstMissingField = firstMissingLinkCategory ? "link" : "image";
+  if (!firstMissingLinkCategory && !firstMissingDescriptionCategory && !firstMissingImageCategory) {
+    return null;
+  }
+  // 입력 흐름 우선순위(필드 우선 = 화면 한 행의 좌→우 순서): 모든 활성 류의 링크를 먼저 채우고,
+  //   그다음 설명, 마지막에 이미지를 안내한다. 여러 칸이 비어도 강조/스크롤 대상은 첫 1곳뿐.
+  const firstMissingField: OverallOutputRequiredField = firstMissingLinkCategory
+    ? "link"
+    : firstMissingDescriptionCategory
+      ? "description"
+      : "image";
   return {
     missingLink: Boolean(firstMissingLinkCategory),
+    missingDescription: Boolean(firstMissingDescriptionCategory),
     missingImage: Boolean(firstMissingImageCategory),
-    firstMissingCategory: firstMissingLinkCategory ?? firstMissingImageCategory!,
+    firstMissingCategory:
+      firstMissingLinkCategory ?? firstMissingDescriptionCategory ?? firstMissingImageCategory!,
     firstMissingField,
-    message: firstMissingField === "link"
-      ? OVERALL_OUTPUT_REQUIRED_MESSAGES.link
-      : OVERALL_OUTPUT_REQUIRED_MESSAGES.image,
+    message: OVERALL_OUTPUT_REQUIRED_MESSAGES[firstMissingField],
   };
 }
 

@@ -184,35 +184,165 @@ async function loadMembershipFallback(
   return out;
 }
 
-// 그 주차의 UPH 행(정확히 그 주차). 한 주차에 복수 팀 행이면 마지막 행이 이긴다(카드/칩은 1개 표시).
-async function loadUphAt(
+type UphEntry = { team: string | null; part: string | null; code: PositionCode };
+
+// 여러 주차의 UPH 행을 한 번에(정확히 그 주차들). 반환 = weekStart → (userId → 행).
+//   한 주차에 복수 팀 행이면 마지막 행이 이긴다(단일 주차 loadUphAt 과 동일 규칙).
+//   ⚠ PostgREST 1000행 cap — 유저 청크 안에서 range 페이지네이션한다(주차 26개 × 유저 100명이면
+//     쉽게 1000행을 넘는다). 청크 크기는 .in() URL 길이 절벽을 피하려 100 고정.
+async function loadUphAtWeeks(
   userIds: string[],
-  weekStartDate: string,
+  weekStarts: string[],
   organization?: string | null,
-): Promise<Map<string, { team: string | null; part: string | null; code: PositionCode }>> {
-  const out = new Map<string, { team: string | null; part: string | null; code: PositionCode }>();
+): Promise<Map<string, Map<string, UphEntry>>> {
+  const out = new Map<string, Map<string, UphEntry>>();
+  const weeks = Array.from(new Set(weekStarts.map((w) => String(w).slice(0, 10)).filter(Boolean)));
+  for (const w of weeks) out.set(w, new Map());
   const ids = Array.from(new Set(userIds.filter(Boolean)));
-  if (ids.length === 0 || !weekStartDate) return out;
+  if (ids.length === 0 || weeks.length === 0) return out;
   const CHUNK = 100;
+  const PAGE = 1000;
   for (let i = 0; i < ids.length; i += CHUNK) {
-    let q = supabaseAdmin
-      .from("user_position_histories")
-      .select("user_id,raw_team,raw_part,position_code")
-      .eq("week_start_date", weekStartDate)
-      .in("user_id", ids.slice(i, i + CHUNK));
-    if (organization) q = q.eq("organization", organization);
-    const { data, error } = await q;
-    if (error) {
-      console.warn("[positionResolver] UPH 조회 실패 → 멤버십 fallback", { message: error.message });
-      return out;
+    const chunk = ids.slice(i, i + CHUNK);
+    for (let from = 0; ; from += PAGE) {
+      let q = supabaseAdmin
+        .from("user_position_histories")
+        .select("user_id,raw_team,raw_part,position_code,week_start_date")
+        .in("week_start_date", weeks)
+        .in("user_id", chunk)
+        // range 페이지네이션은 결정적 정렬이 전제 — (주차, 유저) 복합키로 고정한다.
+        .order("week_start_date", { ascending: true })
+        .order("user_id", { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (organization) q = q.eq("organization", organization);
+      const { data, error } = await q;
+      if (error) {
+        console.warn("[positionResolver] UPH 조회 실패 → 멤버십 fallback", { message: error.message });
+        return out;
+      }
+      const batch = (data ?? []) as Array<{
+        user_id: string;
+        raw_team: string | null;
+        raw_part: string | null;
+        position_code: PositionCode;
+        week_start_date: string;
+      }>;
+      for (const r of batch) {
+        const wk = String(r.week_start_date).slice(0, 10);
+        const byUser = out.get(wk);
+        if (!byUser) continue;
+        byUser.set(r.user_id, { team: r.raw_team, part: r.raw_part, code: r.position_code });
+      }
+      if (batch.length < PAGE) break;
     }
-    for (const r of (data ?? []) as Array<{
-      user_id: string;
-      raw_team: string | null;
-      raw_part: string | null;
-      position_code: PositionCode;
-    }>)
-      out.set(r.user_id, { team: r.raw_team, part: r.raw_part, code: r.position_code });
+  }
+  return out;
+}
+
+// 한 유저 × 한 주차의 결정 — override(≤W 최신) → UPH(W) → 현재 멤버십. 단일/벌크 공용 순수 로직.
+function decidePositionAt(
+  userId: string,
+  week: string,
+  ovr: { weekStartDate: string; rawTeam: string | null; rawPart: string | null; positionCode: PositionCode | null } | null,
+  uphEntry: UphEntry | null,
+  membershipFallback: MembershipFallback | null,
+): ResolvedPosition {
+  if (ovr) {
+    const values = resolvePositionValues({
+      override: ovr,
+      history: uphEntry,
+      membership: membershipFallback,
+    });
+    return withLabels({
+      userId,
+      rawTeam: values.teamName,
+      rawPart: values.partName,
+      positionCode: values.positionCode,
+      source: "override",
+      effectiveFromWeek: ovr.weekStartDate,
+      role: membershipFallback?.role ?? null,
+      membershipLevel: membershipFallback?.level ?? null,
+    });
+  }
+  if (uphEntry) {
+    const values = resolvePositionValues({
+      override: null,
+      history: uphEntry,
+      membership: membershipFallback,
+    });
+    return withLabels({
+      userId,
+      rawTeam: values.teamName,
+      rawPart: values.partName,
+      positionCode: values.positionCode,
+      source: "uph",
+      effectiveFromWeek: null,
+      role: membershipFallback?.role ?? null,
+      membershipLevel: membershipFallback?.level ?? null,
+    });
+  }
+  const m = membershipFallback;
+  if (m && (m.code !== null || m.team !== null || m.part !== null)) {
+    return withLabels({
+      userId,
+      rawTeam: m.team,
+      rawPart: m.part,
+      positionCode: m.code,
+      // 코드로 정규화 안 되는 role(관리자/최고 관리자)도 라벨을 잃지 않도록 원본을 넘긴다.
+      role: m.role,
+      membershipLevel: m.level,
+      source: "membership",
+      effectiveFromWeek: null,
+    });
+  }
+  void week;
+  return EMPTY(userId);
+}
+
+/**
+ * 여러 주차 기준 effective 팀/파트/클래스(배치의 배치).
+ *   반환 = weekStart → (userId → ResolvedPosition). 규칙은 resolvePositionAtBatch 와 **완전히 동일**
+ *   (decidePositionAt 단일 함수 — 단일 주차 경로가 이 함수의 weekStarts.length===1 형태다).
+ *
+ * ⚠ 주차별로 따로 호출하지 말 것. override(≤max) · UPH(전 주차) · 멤버십을 각 1패스로 읽고
+ *   주차 루프는 메모리에서 돈다. 26주 × 팀 매트릭스가 이 함수 하나로 끝나야 N+1 이 안 생긴다.
+ */
+export async function resolvePositionAtWeeksBulk(input: {
+  userIds: string[];
+  weekStarts: string[];
+  organization?: string | null;
+}): Promise<Map<string, Map<string, ResolvedPosition>>> {
+  const ids = Array.from(new Set(input.userIds.filter(Boolean)));
+  const weeks = Array.from(
+    new Set(input.weekStarts.map((w) => String(w ?? "").slice(0, 10)).filter(Boolean)),
+  ).sort();
+  const out = new Map<string, Map<string, ResolvedPosition>>();
+  for (const w of weeks) out.set(w, new Map());
+  if (ids.length === 0 || weeks.length === 0) return out;
+
+  const maxWeek = weeks[weeks.length - 1];
+  const [overrideRows, uphByWeek, membership] = await Promise.all([
+    loadUserOverrideRowsUpTo(ids, maxWeek, input.organization ?? null),
+    loadUphAtWeeks(ids, weeks, input.organization ?? null),
+    loadMembershipFallback(ids),
+  ]);
+  const ovrIndex = buildOverrideIndex(overrideRows, (r) => r.userId);
+
+  for (const week of weeks) {
+    const byUser = out.get(week) as Map<string, ResolvedPosition>;
+    const uph = uphByWeek.get(week) ?? new Map<string, UphEntry>();
+    for (const id of ids) {
+      byUser.set(
+        id,
+        decidePositionAt(
+          id,
+          week,
+          resolveOverrideAt(ovrIndex.get(id), week),
+          uph.get(id) ?? null,
+          membership.get(id) ?? null,
+        ),
+      );
+    }
   }
   return out;
 }
@@ -220,6 +350,7 @@ async function loadUphAt(
 /**
  * 특정 주차 기준 effective 팀/파트/클래스(배치).
  *   override(≤W 최신) → UPH(W) → 현재 멤버십 순.
+ *   ⚠ 구현은 resolvePositionAtWeeksBulk(주차 1개) 위임 — 규칙을 두 벌 두지 않는다.
  */
 export async function resolvePositionAtBatch(input: {
   userIds: string[];
@@ -227,87 +358,19 @@ export async function resolvePositionAtBatch(input: {
   organization?: string | null;
 }): Promise<Map<string, ResolvedPosition>> {
   const ids = Array.from(new Set(input.userIds.filter(Boolean)));
-  const out = new Map<string, ResolvedPosition>();
-  if (ids.length === 0) return out;
-  if (!input.targetWeekStart) {
+  if (ids.length === 0) return new Map();
+  const week = String(input.targetWeekStart ?? "").slice(0, 10);
+  if (!week) {
+    const out = new Map<string, ResolvedPosition>();
     for (const id of ids) out.set(id, EMPTY(id));
     return out;
   }
-  const week = input.targetWeekStart.slice(0, 10);
-  const [overrideRows, uph, membership] = await Promise.all([
-    loadUserOverrideRowsUpTo(ids, week, input.organization ?? null),
-    loadUphAt(ids, week, input.organization ?? null),
-    loadMembershipFallback(ids),
-  ]);
-  const ovrIndex = buildOverrideIndex(overrideRows, (r) => r.userId);
-
-  for (const id of ids) {
-    const ovr = resolveOverrideAt(ovrIndex.get(id), week);
-    const membershipFallback = membership.get(id);
-    if (ovr) {
-      const values = resolvePositionValues({
-        override: ovr,
-        history: uph.get(id) ?? null,
-        membership: membershipFallback ?? null,
-      });
-      out.set(
-        id,
-        withLabels({
-          userId: id,
-          rawTeam: values.teamName,
-          rawPart: values.partName,
-          positionCode: values.positionCode,
-          source: "override",
-          effectiveFromWeek: ovr.weekStartDate,
-          role: membershipFallback?.role ?? null,
-          membershipLevel: membershipFallback?.level ?? null,
-        }),
-      );
-      continue;
-    }
-    const u = uph.get(id);
-    if (u) {
-      const values = resolvePositionValues({
-        override: null,
-        history: u,
-        membership: membershipFallback ?? null,
-      });
-      out.set(
-        id,
-        withLabels({
-          userId: id,
-          rawTeam: values.teamName,
-          rawPart: values.partName,
-          positionCode: values.positionCode,
-          source: "uph",
-          effectiveFromWeek: null,
-          role: membershipFallback?.role ?? null,
-          membershipLevel: membershipFallback?.level ?? null,
-        }),
-      );
-      continue;
-    }
-    const m = membership.get(id);
-    if (m && (m.code !== null || m.team !== null || m.part !== null)) {
-      out.set(
-        id,
-        withLabels({
-          userId: id,
-          rawTeam: m.team,
-          rawPart: m.part,
-          positionCode: m.code,
-          // 코드로 정규화 안 되는 role(관리자/최고 관리자)도 라벨을 잃지 않도록 원본을 넘긴다.
-          role: m.role,
-          membershipLevel: m.level,
-          source: "membership",
-          effectiveFromWeek: null,
-        }),
-      );
-      continue;
-    }
-    out.set(id, EMPTY(id));
-  }
-  return out;
+  const byWeek = await resolvePositionAtWeeksBulk({
+    userIds: ids,
+    weekStarts: [week],
+    organization: input.organization ?? null,
+  });
+  return byWeek.get(week) ?? new Map();
 }
 
 /**

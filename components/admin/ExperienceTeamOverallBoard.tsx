@@ -153,7 +153,8 @@ export default function ExperienceTeamOverallBoard({
   const { toast, loading: showLoadingToast, dismiss: dismissToast } = useToast();
   const t = useActionToast();
   const outputSectionRef = useRef<HTMLDivElement>(null);
-  // 포커스 대상(링크 Input / 이미지 업로드 버튼) — key=`${category}:link` | `${category}:image`.
+  // 포커스 대상(링크/설명 Input · 이미지 업로드 버튼) —
+  //   key=`${category}:link` | `${category}:description` | `${category}:image`.
   const outputFieldRefs = useRef(new Map<string, HTMLElement>());
   // 스크롤/강조 대상 wrapper(필드 묶음 div) — 같은 key. 붉은 ring+깜빡임을 이 wrapper 에 입힌다.
   const outputWrapRefs = useRef(new Map<string, HTMLElement>());
@@ -177,8 +178,8 @@ export default function ExperienceTeamOverallBoard({
     new Map(),
   );
   // 필수 입력 누락 강조(일시) — validateOutputsAndGuide 가 스크롤/포커스하는 첫 누락 필드 키
-  //   (`${category}:link` | `${category}:image`). 해당 필드에 aria-invalid + 붉은 테두리를 표시하고,
-  //   사용자가 아웃풋을 편집하거나 다음 검증을 통과하면 해제한다.
+  //   (`${category}:link` | `${category}:description` | `${category}:image`). 해당 필드에 aria-invalid +
+  //   붉은 테두리를 표시하고, 사용자가 아웃풋을 편집하거나 다음 검증을 통과하면 해제한다.
   const [invalidOutputKey, setInvalidOutputKey] = useState<string | null>(null);
   // 필수 입력 누락 강조(일시) — 파트장 라인명 미선택 셀 키(`${crewUserId}:${category}`).
   //   아웃풋 필드와 **동일한** 강조/스크롤/포커스 경로(guideToInvalidTarget)를 쓰며, 라인명을
@@ -493,7 +494,7 @@ export default function ExperienceTeamOverallBoard({
   );
 
   // 첫 누락 필드로 스크롤/포커스 — practical-info 와 동일한 공용 helper 재사용.
-  //   wrap = 강조/스크롤 대상(필드 wrapper), target = 포커스 대상(링크 Input / 이미지 업로드 버튼).
+  //   wrap = 강조/스크롤 대상(필드 wrapper), target = 포커스 대상(링크/설명 Input · 이미지 업로드 버튼).
   const scrollFocusInvalidOutputKey = useCallback((key: string) => {
     scrollFocusInvalidTarget(
       outputWrapRefs.current.get(key) ?? null,
@@ -1145,7 +1146,7 @@ export default function ExperienceTeamOverallBoard({
           />
         </p>
         <p className="text-xs text-muted-foreground">
-          <span className="text-destructive">*</span> 활성 류별 링크 1개와 이미지 1개는 필수 입력입니다.
+          <span className="text-destructive">*</span> 활성 류별 링크 1개, 그 설명, 이미지 1개는 필수 입력입니다.
         </p>
         {EXPERIENCE_OVERALL_CATEGORIES.map((c) => {
           const o = getOutput(c.key);
@@ -1203,10 +1204,23 @@ export default function ExperienceTeamOverallBoard({
                     onChange={(e) => setOutput(c.key, { link: e.target.value })}
                   />
                 </div>
-                {/* 링크 설명 */}
-                <div className="space-y-1.5">
+                {/* 링크 설명 — 링크와 동일하게 필수(누락 강조/스크롤/포커스 경로도 동일). */}
+                <div
+                  ref={(element) => {
+                    const key = `${c.key}:description`;
+                    if (element) outputWrapRefs.current.set(key, element);
+                    else outputWrapRefs.current.delete(key);
+                  }}
+                  className={cn(
+                    "space-y-1.5",
+                    invalidOutputKey === `${c.key}:description` && OPENING_INVALID_HIGHLIGHT,
+                  )}
+                >
                   <Label className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-medium text-muted-foreground">
                     설명1
+                    {!(c.key === "extension" && !extensionActive) && (
+                      <span className="text-destructive" aria-hidden="true">*</span>
+                    )}
                     <AdminHelpIconButton
                       size="xs"
                       helpKey="admin.lineOpening.field.outputLinkDescription"
@@ -1214,10 +1228,17 @@ export default function ExperienceTeamOverallBoard({
                     />
                   </Label>
                   <Input
+                    ref={(element) => {
+                      const key = `${c.key}:description`;
+                      if (element) outputFieldRefs.current.set(key, element);
+                      else outputFieldRefs.current.delete(key);
+                    }}
                     className="w-full"
                     value={o.description}
                     disabled={disabled}
                     placeholder="설명 입력"
+                    // 누락 강조 — Input 은 aria-invalid 에 붉은 테두리+링을 자동 적용(ui/input.tsx).
+                    aria-invalid={invalidOutputKey === `${c.key}:description` || undefined}
                     onChange={(e) => setOutput(c.key, { description: e.target.value })}
                   />
                 </div>
