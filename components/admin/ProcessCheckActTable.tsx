@@ -7,6 +7,14 @@
 //     원본 acts 는 mutate 하지 않고 파생 복사본만 정렬. 빈값(null/""/"-"/공백)은 오름/내림 모두 마지막.
 //     동값은 원본(서버) 순서 유지(안정 정렬). 정렬 아이콘 클릭 = 정렬만 · 돋보기 클릭 = 도움말만(stopPropagation).
 //   ⚠ 정렬은 화면 표시 순서만 바꾼다 — 수동 실행/검수/저장 대상은 항상 stable id(a.checkStatusId)로 처리.
+//
+//   셀 표현 SoT(2026-07-27) — 페이지별 색 조건문 금지. 아래 공용 진입점만 사용한다.
+//     소속 라인 급 · 카페 = ValueBadge(category, value) → lib/statusBadge.valueTone
+//         색 키 = `${category}:${value}` (렌더 순서 무관 · 조직/허브/모드 무관 · 빈값은 배지 없음)
+//     종류        = SelectBadge(label)   → lib/statusBadge.statusTone (프로세스 등록 화면과 동일 매핑)
+//     po.A/B/C(별·방패·번개) = pointColorClass("a"|"b"|"c") → components/ui/point-value
+//         A/B=text-point-good · C=text-point-danger (globals.css --point-good/--point-danger, light/dark)
+//   ⚠ 이 파일에는 mode/actAsTestUserId/조직 슬러그 분기가 없다 — 일반·테스트 모드가 같은 셀 렌더러를 탄다.
 
 import { useCallback, useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
@@ -20,10 +28,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { SelectBadge, StatusBadge } from "@/components/ui/status-badge";
+import { SelectBadge, StatusBadge, ValueBadge } from "@/components/ui/status-badge";
+import { pointColorClass } from "@/components/ui/point-value";
 import { useStickyColumns } from "@/components/ui/sticky-columns";
 import { cn } from "@/lib/utils";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+// 카드 표현·배지 색 — /admin/integrated/line-opening/* 과 동일한 공용 SoT 재사용(신규 스타일 정의 없음).
+import {
+  completionCardTone,
+  lineOpeningCardClass,
+  lineOpeningCardTopBandClass,
+} from "@/components/admin/lineOpeningCardStyles";
+import { lineManagementBadgeClass } from "@/components/admin/lineManagementTone";
 import CommentCollectionStatusView from "@/components/admin/CommentCollectionStatusView";
 import ExecutionTimeCell from "@/components/admin/ExecutionTimeCell";
 import { ActionControl, INSTANT_REVIEW_BUTTON_CLASS } from "@/components/admin/ActionControl";
@@ -228,8 +244,15 @@ export default function ProcessCheckActTable({
     );
   };
 
+  // 카드 tone — 이번 주 오픈 대상(openTargets) 기준. 전부 완료=에메랄드 / 남음=앰버 / 대상 0건=중립.
+  //   ⚠ 집계식(openTargets/completedCount)은 위에서 이미 계산된 값을 그대로 쓴다 — 판정 로직 무변경.
+  const cardTone = completionCardTone({
+    total: openTargets.length,
+    allCompleted: neededCount === 0,
+  });
+
   return (
-    <Card>
+    <Card className={lineOpeningCardClass(cardTone)}>
       <CardContent>
         {loading ? (
           <p className="py-8 text-center text-sm text-muted-foreground">불러오는 중…</p>
@@ -241,21 +264,46 @@ export default function ProcessCheckActTable({
           <div>
             {/* 액트 목록 요약 — 테이블 바로 위 스탯 칩(체크 필요·체크 완료·항목 수). 집계 로직 무변.
                 통계 라벨 돋보기는 라벨 1회(반복 행 아님) — 4개 허브 공용 key. */}
-            <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
-              <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2.5 py-1">
+            {/* 이 카드는 CardHeader 가 없다 — 요약 칩 줄을 공용 '상단 밴드'(틴트 + 하단 경계선)로 만들어
+                헤더와 본문(표)의 시각 분리를 라인 개설 카드와 동일하게 맞춘다. 음수 마진 상쇄 방식이라
+                칩의 화면 위치는 적용 전과 동일하다(레이아웃 좌표 불변). 칩 색은 공용 배지 tone SoT. */}
+            <div
+              // 검증 스크립트(browser-verify-process-check-card-design)가 밴드 위치를 실측하는 훅.
+              data-pc-band=""
+              className={lineOpeningCardTopBandClass(
+                cardTone,
+                "mb-3 flex flex-wrap items-center gap-2 border-b border-foreground/10 pb-3 text-sm",
+              )}
+            >
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1",
+                  lineManagementBadgeClass("warning"),
+                )}
+              >
                 체크 필요
                 <AdminHelpIconButton helpKey={PROCESS_CHECK_HELP_KEYS.statNeeded} title="체크 필요" />
-                <span className="font-semibold tabular-nums text-amber-700">{neededCount}</span>
+                <span className="font-semibold tabular-nums">{neededCount}</span>
               </span>
-              <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2.5 py-1">
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1",
+                  lineManagementBadgeClass("success"),
+                )}
+              >
                 체크 완료
                 <AdminHelpIconButton helpKey={PROCESS_CHECK_HELP_KEYS.statCompleted} title="체크 완료" />
-                <span className="font-semibold tabular-nums text-green-700">{completedCount}</span>
+                <span className="font-semibold tabular-nums">{completedCount}</span>
               </span>
-              <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2.5 py-1">
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1",
+                  lineManagementBadgeClass("neutral"),
+                )}
+              >
                 항목 수
                 <AdminHelpIconButton helpKey={PROCESS_CHECK_HELP_KEYS.statTotal} title="항목 수" />
-                <span className="font-semibold tabular-nums text-foreground">{acts.length}</span>
+                <span className="font-semibold tabular-nums">{acts.length}</span>
               </span>
             </div>
             <Table containerRef={sticky.ref} regionClassName={sticky.regionClassName} stickyLeft>
@@ -448,28 +496,31 @@ export default function ProcessCheckActTable({
                       </TableCell>
                     )}
                     <TableCell className="font-medium">{a.actName}</TableCell>
-                    {/* 소속 라인 급 — experience(showScopeColumn) 는 긴 라인명이 옆 컬럼을 침범하지
-                        않도록 base TableCell 의 whitespace-nowrap 을 whitespace-normal 로 override +
-                        break-keep(한글 단어 유지·가능하면 한 줄) + max-w 로 셀 안에 가둔다. 폰트 크기는
-                        override 하지 않고 공통 TableCell 기본(text-sm)을 그대로 상속 → 다른 컬럼과 동일.
-                        info 는 기존 크기(text-sm·nowrap) 유지. */}
-                    <TableCell
-                      className={
-                        showScopeColumn
-                          ? "max-w-[9rem] whitespace-normal break-keep px-2 leading-tight"
-                          : undefined
-                      }
-                    >
-                      {a.lineGroupName}
+                    {/* 소속 라인 급 — 분류값 배지(ValueBadge/valueTone). 색은 `lineGroup:<값>` 해시로만
+                        결정되므로 정렬·필터·페이지 이동·재렌더 후에도 같은 라인급 = 항상 같은 색이고,
+                        조직/허브가 달라도 동일하다. 값이 비면("-"/공백) 배지 없이 기존 빈 값 표기 유지.
+                        ⚠ 허브별(showScopeColumn) 줄바꿈 분기는 제거 — 배지는 whitespace-nowrap 이 기본이라
+                        4개 허브가 같은 셀 렌더러를 탄다(일반/테스트 모드 포함 단일 경로). */}
+                    <TableCell className="text-center">
+                      <ValueBadge category="lineGroup" value={a.lineGroupName} />
                     </TableCell>
                     <TableCell className="tabular-nums">{a.durationMinutes}</TableCell>
-                    <TableCell className="tabular-nums">{a.pointCheck}</TableCell>
-                    <TableCell className="tabular-nums">{a.pointAdvantage}</TableCell>
-                    <TableCell className="tabular-nums">{a.pointPenalty}</TableCell>
+                    {/* po.A/B/C 셀값 색 = 어드민 전역 포인트 색 SoT(components/ui/point-value).
+                        A(별)·B(방패)=text-point-good(초록) / C(번개)=text-point-danger(빨강).
+                        값 0 도 같은 색을 유지한다(색은 부호가 아니라 포인트 종류로 정한다). */}
+                    <TableCell className={cn("tabular-nums", pointColorClass("a"))}>{a.pointCheck}</TableCell>
+                    <TableCell className={cn("tabular-nums", pointColorClass("b"))}>{a.pointAdvantage}</TableCell>
+                    <TableCell className={cn("tabular-nums", pointColorClass("c"))}>{a.pointPenalty}</TableCell>
+                    {/* 종류 = 액트 종류 라벨(필수/선별/자율/기타). 프로세스 등록 화면과 같은
+                        SelectBadge + lib/statusBadge 레지스트리 → 두 화면의 같은 값이 같은 색. */}
                     <TableCell className="text-center">
                       <SelectBadge label={a.crewReactionLabel} size="sm" />
                     </TableCell>
-                    <TableCell>{a.cafeLabel}</TableCell>
+                    {/* 카페 = 발생/미발생. 프로세스 등록 화면과 동일한 category="cafe" 키를 써서
+                        같은 값이 같은 색(발생=success · 미발생=neutral)이 되도록 한다. */}
+                    <TableCell className="text-center">
+                      <ValueBadge category="cafe" value={a.cafeLabel} />
+                    </TableCell>
                     {/* 이행 시점(실제) — 신청(requestedAt)/검수(completedAt=실제 완료 서버시각) 2행.
                         미완료 검수는 "—"(예정 시각 scheduled_check_at 을 실제로 위장하지 않는다). */}
                     <TableCell className="whitespace-nowrap text-left text-muted-foreground">
