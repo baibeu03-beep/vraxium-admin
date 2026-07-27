@@ -17,7 +17,7 @@ import {
   resolveUserScope,
   type ScopeMode,
 } from "@/lib/userScope";
-import { getCurrentSeasonRestUserIds } from "@/lib/currentSeasonRest";
+import { getSeasonRestUserIdsForWeekId } from "@/lib/seasonRestWeekScope";
 import { filterGrowthStoppedUserIds } from "@/lib/cluster4GrowthStopPolicy";
 
 // 현재 URL org 컨텍스트 → organization_slug. 라인 개설 크루는 해당 조직 소속만 매칭한다(org 격리).
@@ -41,13 +41,17 @@ async function loadScopedCrews(
   const scope = await resolveUserScope(readScopeMode(request.nextUrl.searchParams), organization);
   const crews = await loadCrewRecords(organization);
   const scoped = scope.filter(crews, (c) => c.userId);
-  // 라인 개설/수정 후보 한정: 현재 시즌 전체 휴식자(user_season_statuses(현재시즌,rest))를 후보에서 제외한다.
+  // 라인 개설/수정 후보 한정: 시즌 전체 휴식자(user_season_statuses(season_key,rest))를 후보에서 제외한다.
   //   excludeSeasonRest 플래그가 있을 때만 적용 — 라인 개설 UI(CafeCrewPicker/CompetencyApplicantSection)만
-  //   전달하고, 프로세스 수동부여 등 비-개설 소비처는 기존 동작을 보존한다(growth_status 미사용·과거 무소급).
+  //   전달하고, 프로세스 수동부여 등 비-개설 소비처는 기존 동작을 보존한다(growth_status 미사용).
+  //   ⚠ 2026-07-27 정정: 종전엔 getCurrentSeasonRestUserIds() 로 **현재 시즌을 고정** 적용해, 과거 시즌
+  //     주차의 후보 목록에도 "지금 휴식"을 소급했다. 이제 week_id 가 속한 시즌으로 판정한다
+  //     (week_id 미전달 시에만 현재 시즌 폴백 — 종전 동작 보존).
   let filtered = scoped;
   const exParam = request.nextUrl.searchParams.get("excludeSeasonRest");
   if (exParam === "1" || exParam === "true") {
-    const restIds = await getCurrentSeasonRestUserIds();
+    const weekId = request.nextUrl.searchParams.get("week_id")?.trim() || null;
+    const restIds = await getSeasonRestUserIdsForWeekId(weekId);
     filtered = filtered.filter((c) => !restIds.has(c.userId));
   }
   // 성장 중단(paused/suspended) 후보 제외 — 개설해도 truncateCardsForGrowthStop 로 고객앱 미노출이라

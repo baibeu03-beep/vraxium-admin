@@ -23,6 +23,9 @@ export async function GET(request: NextRequest) {
       status: params.get("status")?.trim() || null,
       search: params.get("q")?.trim() || null,
       mode: parseScopeMode(params.get("mode")),
+      // 조회 기준 주차 — 소속(effective 배정)과 시즌 휴식 제외의 기준 시점.
+      //   미전달 시 현재 주차/현재 시즌(종전 동작). 화면은 반드시 명시 전달할 것.
+      weekId: params.get("week_id")?.trim() || null,
     });
     return Response.json({ success: true, data: crews });
   } catch (error) {

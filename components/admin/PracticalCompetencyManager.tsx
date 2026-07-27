@@ -302,11 +302,16 @@ export default function PracticalCompetencyManager() {
       const org = selectedOrg ?? adminOrganization;
       setAdminOrg(org);
       const weeksJson = await weeksRes.json();
+      // ⚠ 크루 후보 API 는 **effectiveWeekId 해소 후 1회만** 호출한다(week_id 없이 먼저 부르고
+      //   refetch 로 덮는 방식 금지 — 과거 주차로 직접 진입했을 때 최초 응답이 현재 시즌 기준으로
+      //   그려졌다가 뒤늦게 바뀐다). setSelectedWeekId 는 비동기라 로컬 변수로 확정한다.
+      let effectiveWeekId: string | null = selectedWeekId || null;
       if (weeksJson.success) {
         const opts: WeekOption[] = weeksJson.data.weeks ?? [];
         setWeekOptions(opts);
         const current = opts.find((o) => o.isCurrent) ?? opts[0];
         if (current) setSelectedWeekId((prev) => prev || current.id);
+        effectiveWeekId = effectiveWeekId || current?.id || null;
       }
 
       const orgParam = org ? `?organization=${org}` : "";
@@ -330,9 +335,11 @@ export default function PracticalCompetencyManager() {
         ),
         fetch(`/api/admin/cluster4/competency-line-masters${masterOrgParam}`),
         fetch(`/api/admin/cluster4/lines?${linesQs.toString()}`),
+        // 후보 = 그 주차 시즌 기준(시즌 휴식자 제외). effectiveWeekId 해소 후 호출되는 위치다.
         fetch(
           appendModeQuery(
-            `/api/admin/cluster4/crews${orgParam ? orgParam + "&" : "?"}status=active`,
+            `/api/admin/cluster4/crews${orgParam ? orgParam + "&" : "?"}status=active` +
+              (effectiveWeekId ? `&week_id=${encodeURIComponent(effectiveWeekId)}` : ""),
             readScopeMode(new URLSearchParams(window.location.search)),
           ),
         ),
@@ -354,8 +361,10 @@ export default function PracticalCompetencyManager() {
     if (!adminOrg) return;
     const params = new URLSearchParams(); params.set("organization", adminOrg);
     if (crewFilterStatus) params.set("status", crewFilterStatus);
+    // 조회 주차 기준 — 그 주차 시즌의 시즌 휴식자를 후보에서 제외(미전달 시 서버가 현재 시즌 폴백).
+    if (selectedWeekId) params.set("week_id", selectedWeekId);
     try { const res = await fetch(`/api/admin/cluster4/crews?${params}`); const json = await res.json(); if (json.success) setCrews(json.data); } catch { /* silent */ }
-  }, [adminOrg, crewFilterStatus]);
+  }, [adminOrg, crewFilterStatus, selectedWeekId]);
 
   useEffect(() => { if (SHOW_LEGACY_SECTIONS && !loading) refetchCrews(); }, [crewFilterStatus]); // eslint-disable-line react-hooks/exhaustive-deps
 

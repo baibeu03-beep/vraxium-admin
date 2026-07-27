@@ -47,8 +47,8 @@ import { classLabel } from "@/lib/adminMembersTypes";
 import {
   BUCKET_LABEL,
   statusBucket,
-  type MemberStatusBucket,
 } from "@/lib/memberStatusBucket";
+import { FILTER_OPTIONS, type FilterValue } from "@/lib/membersRosterView";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import { buildAdminContextHref } from "@/lib/adminOrgContext";
 import {
@@ -121,47 +121,15 @@ function clubLabelKo(slug: string | null): string {
 
 // ── 상태 버킷 — 표시 성장상태(GrowthStatusKey) → 상태 컬럼/필터 공용 버킷 ──
 //   statusBucket/BUCKET_LABEL 은 lib/memberStatusBucket(단일 SoT, 크루 상세 페이지와 공유)에서 import.
-type Bucket = MemberStatusBucket;
+// ⚠ 종전 FilterValue/FILTER_OPTIONS/FILTER_BUCKETS 는 lib/membersRosterView 의 **복제본**이었다.
+//   실제 필터링은 서버(listMembersRoster → membersRosterView.FILTER_BUCKETS)가 수행하므로
+//   여기 복제본이 어긋나면 드롭다운에 있는 값이 서버에서 다르게 해석된다(2026-07-27 공식 휴식 분리 때
+//   실제로 갈릴 뻔했다). 이제 공용 SoT 를 그대로 import 해 쓴다 — 여기서 다시 정의하지 말 것.
 
 // ── 조건: 필터 ──────────────────────────────────────────────────────
-type FilterValue =
-  | "clubbing_expand"
-  | "clubbing_reduce"
-  | "elite"
-  | "seasonal_rest"
-  | "weekly_rest"
-  | "suspended"
-  | "onboarding"
-  | "basanos"
-  | "none";
-
-const FILTER_OPTIONS: { value: FilterValue; label: string }[] = [
-  { value: "clubbing_expand", label: "클러빙_확대" },
-  { value: "clubbing_reduce", label: "클러빙_축소" },
-  { value: "elite", label: "엘리트" },
-  { value: "seasonal_rest", label: "시즌 휴식" },
-  { value: "weekly_rest", label: "주차 휴식" },
-  { value: "suspended", label: "활동 중단" },
-  { value: "onboarding", label: "온보딩" },
-  { value: "basanos", label: "바사노스" },
-  { value: "none", label: "-" },
-];
-
-// 필터 → 허용 상태 버킷. null = 필터 없음(전체 통과).
-//   클러빙_확대 = 활동 중 + 주차 휴식 + 시즌 휴식 + 온보딩 + 바사노스
-//   클러빙_축소 = 확대 − 시즌 휴식 − 바사노스
-const FILTER_BUCKETS: Record<FilterValue, Bucket[] | null> = {
-  clubbing_expand: ["active", "weekly_rest", "seasonal_rest", "onboarding", "basanos"],
-  clubbing_reduce: ["active", "weekly_rest", "onboarding"],
-  elite: ["elite"],
-  seasonal_rest: ["seasonal_rest"],
-  weekly_rest: ["weekly_rest"],
-  suspended: ["suspended"],
-  onboarding: ["onboarding"],
-  basanos: ["basanos"],
-  none: null,
-};
-
+//   정의는 lib/membersRosterView 단일 SoT(서버 필터와 같은 상수). 여기서 재정의하지 않는다.
+//   클러빙_확대 = 활동 중 + 주차 휴식 + 공식 휴식 + 시즌 휴식 + 온보딩 + 바사노스
+//   클러빙_축소 = 확대 − 바사노스 − 시즌 휴식 (공식 휴식은 주차 상태라 남는다)
 const DEFAULT_CLUB: ClubValue = "all";
 const DEFAULT_FILTER: FilterValue = "clubbing_expand";
 

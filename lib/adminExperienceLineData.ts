@@ -4,7 +4,11 @@ import {
   toLineDurationDto,
 } from "@/lib/adminLineRegistrationsData";
 import { fetchCrewNoMap } from "@/lib/adminCrewNo";
-import { loadCurrentWeekOverrideLabels } from "@/lib/positionResolver";
+import { loadCurrentWeekOverrideLabels, resolvePositionAtBatch } from "@/lib/positionResolver";
+import {
+  getSeasonRestUserIdsForWeekId,
+  resolveWeekStartDateForWeekId,
+} from "@/lib/seasonRestWeekScope";
 import {
   resolveUserScope,
   type ScopeMode,
@@ -440,6 +444,9 @@ type MembershipRow = {
   is_current: boolean | null;
 };
 
+// 라인 개설/평가 대상 크루 선택 목록(실무 경험·역량·커리어 공용).
+//   weekId 를 넘기면 그 주차 기준으로 ① 소속(effective 배정) ② 시즌 휴식 제외를 적용한다.
+//   미전달 = 현재 주차/현재 시즌(종전 동작) — 기존 호출부 무회귀.
 export async function listCrewsForTargetSelection(options: {
   organization?: string | null;
   team?: string | null;
@@ -448,6 +455,8 @@ export async function listCrewsForTargetSelection(options: {
   status?: string | null;
   search?: string | null;
   mode?: ScopeMode;
+  /** 조회 기준 주차(weeks.id). 소속 해석 + 시즌 휴식 제외의 기준 시점. */
+  weekId?: string | null;
 }): Promise<CrewItemDto[]> {
   let profileQuery = supabaseAdmin
     .from("user_profiles")
@@ -489,28 +498,46 @@ export async function listCrewsForTargetSelection(options: {
   }
 
   // 운영용 크루 번호 — best-effort(컬럼 미존재 시 빈 맵). 기존 select 무변경.
-  // 소속(팀/파트)은 현재 주차 override 우선 — 라인 개설 대상자 목록이 회원 목록/팀 상세와 같은
-  //   소속을 보여야 한다(현재 상태 화면 규칙). 등급 필터(membershipLevel)는 멤버십 등급 원본 유지.
-  const [crewNoMap, weekOverrides] = await Promise.all([
+  // 소속(팀/파트) = **선택 주차 effective 배정**(resolvePositionAtBatch — 팀 상세/주차 로스터와 동일
+  //   공용 계산기). weekId 미전달이면 종전대로 현재 주차 override 만 얹는다(무회귀).
+  //   등급 필터(membershipLevel)는 멤버십 등급 원본 유지.
+  const weekStart = await resolveWeekStartDateForWeekId(options.weekId);
+  const [crewNoMap, weekOverrides, weekPositions] = await Promise.all([
     fetchCrewNoMap(userIds),
-    loadCurrentWeekOverrideLabels(userIds),
+    weekStart ? Promise.resolve(null) : loadCurrentWeekOverrideLabels(userIds),
+    weekStart
+      ? resolvePositionAtBatch({
+          userIds,
+          targetWeekStart: weekStart,
+          organization: options.organization ?? null,
+        })
+      : Promise.resolve(null),
   ]);
 
   let result: CrewItemDto[] = scopedProfiles.map((p) => {
     const m = memMap.get(p.user_id);
-    const ovr = weekOverrides.get(p.user_id) ?? null;
+    const pos = weekPositions?.get(p.user_id) ?? null;
+    const ovr = weekOverrides?.get(p.user_id) ?? null;
     return {
       userId: p.user_id,
       displayName: p.display_name ?? "",
       crewNo: crewNoMap.get(p.user_id) ?? null,
       profileImg: p.profile_photo_url,
       organization: p.organization_slug,
-      teamName: ovr?.rawTeam ?? m?.team_name ?? null,
-      partName: ovr ? ovr.rawPart : m?.part_name ?? null,
+      teamName: pos ? pos.rawTeam ?? m?.team_name ?? null : ovr?.rawTeam ?? m?.team_name ?? null,
+      partName: pos ? pos.rawPart ?? m?.part_name ?? null : ovr ? ovr.rawPart : m?.part_name ?? null,
       membershipLevel: m?.membership_level ?? null,
       membershipState: m?.membership_state ?? null,
     };
   });
+
+  // 시즌 휴식 = 그 시즌 동안 팀·파트 미배정(2026-07-27 정책) → 평가/개설 대상 후보에서 제외한다.
+  //   ⚠ 기준은 **weekId 가 속한 시즌**. 현재 시즌 휴식을 과거 주차 목록에 소급하지 않는다.
+  //   판정 규칙 자체는 lib/currentSeasonRest 단일 SoT — 여기서 status 문자열을 다시 비교하지 않는다.
+  const seasonRestIds = await getSeasonRestUserIdsForWeekId(options.weekId);
+  if (seasonRestIds.size > 0) {
+    result = result.filter((c) => !seasonRestIds.has(c.userId));
+  }
 
   if (options.team) {
     result = result.filter((c) => c.teamName === options.team);

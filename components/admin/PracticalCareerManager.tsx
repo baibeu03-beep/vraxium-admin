@@ -763,14 +763,14 @@ export default function PracticalCareerManager() {
       const orgParam = org ? `?organization=${org}` : "";
       // 팀 목록 스코프(operating=운영 팀만 / test=(T) 팀만) — URL ?mode 보존(서버 listTeams 가 filterTeamsByScope 적용).
       const scopeMode = readScopeMode(new URLSearchParams(window.location.search));
-      const [teamsRes, projectsRes, optionsRes, linesRes, crewsRes, weeksRes] = await Promise.all([
+      // ⚠ 크루 후보(crews)는 이 배치에서 빼고 **주차 해소 후** 1회 호출한다 — week_id 없이 먼저 부르면
+      //   과거 주차로 직접 진입했을 때 최초 응답이 현재 시즌 기준 후보로 그려졌다가 뒤늦게 바뀐다.
+      const [teamsRes, projectsRes, optionsRes, linesRes, weeksRes] = await Promise.all([
         fetch(appendModeQuery(`/api/admin/cluster4/teams${orgParam}`, scopeMode)),
         fetch(`/api/admin/career-projects?limit=200`),
         fetch(`/api/admin/cluster4/career-line-options${orgParam}`),
         // ⚠ QA 누수 차단: 라인 대상자(개설 대상 크루)도 mode 전달 필수 — 미전달=operating(실사용자 라인) 노출.
         fetch(appendModeQuery("/api/admin/cluster4/lines?partType=career&limit=100", scopeMode)),
-        // ⚠ QA 누수 차단: 개설 대상 크루(crews)는 mode 전달 필수(미전달=operating 기본 → 실사용자 노출).
-        fetch(appendModeQuery(`/api/admin/cluster4/crews${orgParam ? orgParam + "&" : "?"}status=active`, scopeMode)),
         // 테스트 모드는 ?mode=test 전달 → 휴식꼬리에서 W13 을 드롭다운에 포함(operating 미부착=불변).
         fetch(appendModeQuery("/api/admin/cluster4/weeks-options?limit=3", scopeMode)),
       ]);
@@ -792,6 +792,8 @@ export default function PracticalCareerManager() {
       }
 
       const weeksJson = await weeksRes.json();
+      // setSelectedWeekId 는 비동기라 이 스코프에서 쓸 값은 로컬 변수로 확정한다.
+      let effectiveWeekId: string | null = selectedWeekId || null;
       if (weeksJson.success) {
         const opts: WeekOption[] = weeksJson.data.weeks ?? [];
         setWeekOptions(opts);
@@ -801,11 +803,21 @@ export default function PracticalCareerManager() {
           opts.find((o) => o.isCurrent) ??
           opts[0];
         if (current) setSelectedWeekId((prev) => prev || current.id);
+        effectiveWeekId = effectiveWeekId || current?.id || null;
       }
 
       const linesJson = await linesRes.json();
       if (linesJson.success) setExistingLines(linesJson.data?.rows ?? linesJson.data ?? []);
 
+      // 후보 = 그 주차 시즌 기준(시즌 휴식자 제외). 주차 확정 후 최초 1회.
+      // ⚠ QA 누수 차단: crews 는 mode 전달 필수(미전달=operating 기본 → 실사용자 노출).
+      const crewsRes = await fetch(
+        appendModeQuery(
+          `/api/admin/cluster4/crews${orgParam ? orgParam + "&" : "?"}status=active` +
+            (effectiveWeekId ? `&week_id=${encodeURIComponent(effectiveWeekId)}` : ""),
+          scopeMode,
+        ),
+      );
       const crewsJson = await crewsRes.json();
       if (crewsJson.success) setCrews(crewsJson.data);
     } catch (error) {
@@ -826,6 +838,8 @@ export default function PracticalCareerManager() {
       const params = new URLSearchParams();
       params.set("organization", adminOrg);
       if (status) params.set("status", status);
+      // 조회 주차 기준 — 그 주차 시즌의 시즌 휴식자를 후보에서 제외(미전달 시 서버가 현재 시즌 폴백).
+      if (selectedWeekId) params.set("week_id", selectedWeekId);
       const scopeMode = readScopeMode(new URLSearchParams(window.location.search)); // QA 누수 차단
       const res = await fetch(appendModeQuery(`/api/admin/cluster4/crews?${params}`, scopeMode));
       const json = await res.json();

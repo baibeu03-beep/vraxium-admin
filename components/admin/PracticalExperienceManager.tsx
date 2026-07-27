@@ -871,9 +871,12 @@ export default function PracticalExperienceManager() {
           ),
         ),
         fetch(`/api/admin/cluster4/experience-line-masters${masterOrgParam}`),
+        // 대상자 목록도 **조회 주차** 기준 — 그 주차 시즌의 시즌 휴식자는 후보에서 빠진다.
+        //   week_id 미전달 시 서버가 현재 시즌으로 폴백하므로, 주차가 해소된 뒤에 붙인다.
         fetch(
           appendModeQuery(
-            `/api/admin/cluster4/crews${orgParam ? orgParam + "&" : "?"}status=active`,
+            `/api/admin/cluster4/crews${orgParam ? orgParam + "&" : "?"}status=active` +
+              (effectiveWeekId ? `&week_id=${encodeURIComponent(effectiveWeekId)}` : ""),
             readScopeMode(new URLSearchParams(window.location.search)),
           ),
         ),

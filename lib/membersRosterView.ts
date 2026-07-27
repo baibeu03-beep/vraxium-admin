@@ -96,7 +96,7 @@ export function rowSearchText(m: MemberRosterRow): string {
 }
 
 export type FilterValue =
-  | "clubbing_expand" | "clubbing_reduce" | "elite" | "seasonal_rest"
+  | "clubbing_expand" | "clubbing_reduce" | "elite" | "seasonal_rest" | "official_rest"
   | "weekly_rest" | "suspended" | "onboarding" | "basanos" | "none";
 
 export const FILTER_OPTIONS: { value: FilterValue; label: string }[] = [
@@ -104,6 +104,7 @@ export const FILTER_OPTIONS: { value: FilterValue; label: string }[] = [
   { value: "clubbing_reduce", label: "클러빙_축소" },
   { value: "elite", label: "엘리트" },
   { value: "seasonal_rest", label: "시즌 휴식" },
+  { value: "official_rest", label: "공식 휴식" },
   { value: "weekly_rest", label: "주차 휴식" },
   { value: "suspended", label: "활동 중단" },
   { value: "onboarding", label: "온보딩" },
@@ -111,11 +112,20 @@ export const FILTER_OPTIONS: { value: FilterValue; label: string }[] = [
   { value: "none", label: "-" },
 ];
 
+// 확정 집합 관계(2026-07-27): 클러빙_축소 = 클러빙_확대 − 바사노스 − **시즌 휴식**.
+//   ⚠ 공식 휴식(official_rest)은 **주차** 단위 상태라 시즌 휴식과 다르다 — 축소에 그대로 남는다.
+//     종전엔 statusBucket 이 official_rest 를 seasonal_rest 로 접어 축소에서도 함께 빠졌다(정정).
+//   기준 시즌 = /admin/members 는 **운영 기준 시즌**(operationalSeasonDbKey(오늘)) 하나로 본다.
+//     주차 선택 화면(team-parts/실무 개설)은 **선택 주차의 season_key** 를 쓴다 — 전환 주차엔 갈릴 수
+//     있으므로, 두 화면 숫자를 비교할 땐 기준 시즌이 다를 수 있음을 전제할 것.
 export const FILTER_BUCKETS: Record<FilterValue, MemberStatusBucket[] | null> = {
-  clubbing_expand: ["active", "weekly_rest", "seasonal_rest", "onboarding", "basanos"],
-  clubbing_reduce: ["active", "weekly_rest", "onboarding"],
+  clubbing_expand: [
+    "active", "weekly_rest", "official_rest", "seasonal_rest", "onboarding", "basanos",
+  ],
+  clubbing_reduce: ["active", "weekly_rest", "official_rest", "onboarding"],
   elite: ["elite"],
   seasonal_rest: ["seasonal_rest"],
+  official_rest: ["official_rest"],
   weekly_rest: ["weekly_rest"],
   suspended: ["suspended"],
   onboarding: ["onboarding"],
