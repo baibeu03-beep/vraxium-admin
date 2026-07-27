@@ -12,6 +12,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
+import { LineOpeningOpenedNotice } from "@/components/admin/lineOpeningStatusUi";
 import { LINE_OPENING_RESULT, lineOpenSuccessMessage } from "@/lib/lineOpeningResultMessages";
 import {
   Table,
@@ -791,20 +792,20 @@ export default function ExperienceTeamOverallBoard({
           {openBlockedReason ?? "선택한 주차는 실무 경험 라인의 개설 기간이 아닙니다."}
         </div>
       )}
+      {/* 개설 완료 배너 — 실무 정보/역량과 동일한 공용 SoT(LineOpeningOpenedNotice).
+          종전 muted 한 줄 텍스트는 잠금 상태를 알아채기 어려웠다. 표시만 바뀌고 판정(opened)·잠금 조건은 불변. */}
+      {opened && (
+        <LineOpeningOpenedNotice description="아래는 이 팀·주차에 저장된 개설 정보입니다(읽기 전용). 수정하려면 [개설 취소] 후 다시 진행하세요." />
+      )}
       {/* 상태 헤더 */}
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        {/* 확장 주간일 때만 안내(확장 비활성 배지는 노이즈라 제거 — 대체 문구/placeholder 없음). */}
-        {extensionActive && (
+      {extensionActive && (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          {/* 확장 주간일 때만 안내(확장 비활성 배지는 노이즈라 제거 — 대체 문구/placeholder 없음). */}
           <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
             확장 주간 · {board.extensionKind === "online" ? "온라인" : "오프라인"}
           </span>
-        )}
-        {opened && (
-          <span className="text-xs text-muted-foreground">
-            개설 완료됨 — 수정하려면 [개설 취소] 후 진행하세요.
-          </span>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* 데스크톱(lg+): 좌측 콘텐츠(그리드+아웃풋) + 우측 고정 액션 컬럼. 모바일: 세로 stack.
           파트 선택(PartGrid) 화면의 우측 액션 영역과 동일 구조. */}

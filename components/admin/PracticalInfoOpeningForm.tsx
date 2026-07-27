@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, Upload, Trash2, X, Lock, Unlock, CheckCircle2 } from "lucide-react";
+import { Loader2, Upload, Trash2, X, Lock, Unlock } from "lucide-react";
 import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 import type { Cluster4InfoLineDetail } from "@/lib/adminCluster4LinesTypes";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
@@ -26,6 +26,7 @@ import {
   lineOpeningCardHeaderClass,
   lineOpeningStateTone,
 } from "@/components/admin/lineOpeningCardStyles";
+import { LineOpeningOpenedNotice } from "@/components/admin/lineOpeningStatusUi";
 import CafeCrewPicker, {
   type CafeCrew,
   type CafeCrewMeta,
@@ -923,17 +924,10 @@ export default function PracticalInfoOpeningForm({
           </div>
         ) : (
         <>
-        {/* 개설 완료 배지 — 폼 구조/레이아웃은 개설 전과 동일하게 두고, 상태만 작은 배지로 표시한다. */}
+        {/* 개설 완료 배지 — 폼 구조/레이아웃은 개설 전과 동일하게 두고, 상태만 작은 배지로 표시한다.
+            배지 자체는 공용 SoT(LineOpeningOpenedNotice) — 실무 경험/역량 화면과 같은 문구·시각을 쓴다. */}
         {locked && (
-          <div className="flex items-start gap-2 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2.5 dark:border-emerald-800 dark:bg-emerald-950/40">
-            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">개설 완료</p>
-              <p className="text-xs text-emerald-700/90 dark:text-emerald-400/90">
-                아래는 이 주차·라인에 저장된 개설 정보입니다(읽기 전용). 수정하려면 하단 [개설 취소] 후 다시 개설하세요.
-              </p>
-            </div>
-          </div>
+          <LineOpeningOpenedNotice description="아래는 이 주차·라인에 저장된 개설 정보입니다(읽기 전용). 수정하려면 하단 [개설 취소] 후 다시 개설하세요." />
         )}
         {/* 상단 입력 — 데스크톱 2열(라인명 · 메인 타이틀). 좁은 화면은 1열로 쌓인다.
             대상 주차는 게이트 바깥(최상단)에 남아 이 그리드에 포함하지 않는다. */}

@@ -9,11 +9,15 @@ import {
   deleteManualCompetencyApplication,
   updateCompetencyApplication,
 } from "@/lib/adminCompetencyApplications";
+import { guardCompetencyApplicationNotOpened } from "@/lib/adminCompetencyApplicationLock";
 import { publicErrorMessage } from "@/lib/apiError";
 
 // 실무 역량 신청 1건 갱신/삭제.
 //   PATCH  { cafe_checked?, approval_checked?, rejection_reason? }
 //   DELETE  — source='manual'(수동 추가) 항목만 삭제 허용. 고객 신청(customer)은 403.
+//
+// [개설 완료 잠금] 그 org·주차가 이미 개설 완료면 둘 다 409(write 0) — 화면 비활성화와 동일 판정.
+//   수정 경로는 [개설 취소] 하나로 강제한다(실무 정보/경험과 동일 규칙).
 
 export async function PATCH(
   request: NextRequest,
@@ -56,6 +60,8 @@ export async function PATCH(
   }
 
   try {
+    const guard = await guardCompetencyApplicationNotOpened(id);
+    if (guard.locked) return guard.response;
     await updateCompetencyApplication(id, patch);
     return Response.json({ success: true });
   } catch (error) {
@@ -89,6 +95,8 @@ export async function DELETE(
   }
 
   try {
+    const guard = await guardCompetencyApplicationNotOpened(id);
+    if (guard.locked) return guard.response;
     const data = await deleteManualCompetencyApplication(id);
     return Response.json({ success: true, data });
   } catch (error) {

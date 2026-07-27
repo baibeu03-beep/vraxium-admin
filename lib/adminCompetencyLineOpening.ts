@@ -358,6 +358,22 @@ export type CompetencyOpeningStatus = {
   outputDescription: string;
 };
 
+/**
+ * 실무 역량 허브 "개설 완료" 판정 — **단일 SoT**.
+ *
+ *   opened = 활성 org 역량 라인 ≥1 OR 신청 명단 기반 개설(resolution='opened') ≥1.
+ *
+ * 대시보드(opening-status DTO)·명단 write 가드가 모두 이 함수 하나를 쓴다. 화면/라우트가 각자
+ * 조건식을 만들면 "화면은 잠겼는데 API 는 열려 있는" 비대칭이 생기므로 판정은 여기서만 한다.
+ */
+export async function isCompetencyHubOpened(
+  org: OrganizationSlug,
+  weekId: string,
+): Promise<boolean> {
+  const lines = await loadOrgCompetencyLines(org, weekId);
+  return lines.some((l) => l.isActive) || (await hasOpenedApplications(org, weekId));
+}
+
 // 상태창용 — 대상 주차에 활성(그 조직 소유) 역량 라인이 ≥1 이면 opened.
 //   mode 는 개설 대상 주차 판정에 사용(테스트 모드 W13 예외와 동일 SoT 라 상태창·개설이 같은 주차를 본다).
 export async function getCompetencyOpeningStatus(
@@ -375,9 +391,8 @@ export async function getCompetencyOpeningStatus(
   let outputLink1 = "";
   let outputDescription = "";
   if (org && targetWeekId) {
-    const lines = await loadOrgCompetencyLines(org, targetWeekId);
-    // opened = 활성 org 라인 ≥1 OR 신청 명단 기반 개설(resolution='opened') ≥1.
-    opened = lines.some((l) => l.isActive) || (await hasOpenedApplications(org, targetWeekId));
+    // opened 판정은 공용 SoT(isCompetencyHubOpened) 위임 — 명단 write 가드와 같은 함수.
+    opened = await isCompetencyHubOpened(org, targetWeekId);
     // 개설 가능 여부 = 그 주차 실무 역량 정상 진행 설정(프로세스 체크와 동일 SoT).
     canOpen = await resolveCompetencyLineOpenGate(org, targetWeekId);
     const wo = await loadWeekOutput(org, targetWeekId);

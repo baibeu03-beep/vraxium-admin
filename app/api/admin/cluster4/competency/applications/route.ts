@@ -25,6 +25,7 @@ import {
   getCompetencyApplicationsBundle,
 } from "@/lib/adminCompetencyApplications";
 import { resolveEffectiveWeek } from "@/lib/adminCompetencyLineOpening";
+import { guardCompetencyWeekNotOpened } from "@/lib/adminCompetencyApplicationLock";
 import { deriveEndStatus } from "@/lib/growthCore";
 import { publicErrorMessage } from "@/lib/apiError";
 
@@ -230,6 +231,10 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
+    // [개설 완료 잠금] 그 org·주차가 이미 개설 완료면 수동 추가 거부(insert 0) — 화면 비활성화와 동일 판정.
+    //   판정은 대시보드 opening-status.opened 와 **같은 함수**(isCompetencyHubOpened).
+    const guard = await guardCompetencyWeekNotOpened(orgRaw, weekId);
+    if (guard.locked) return guard.response;
     const result = await addManualCompetencyApplication({
       org: orgRaw,
       weekId,

@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import SectionDivider from "@/components/admin/SectionDivider";
 import type { StatusToken, StatusTokenKind } from "@/lib/lineOpeningStatusEngine";
@@ -107,4 +108,38 @@ export function StatusListItem({
 //     "line-opening 세 화면의 그 경계" 라는 의미 이름만 유지한다.
 export function LineOpeningSectionDivider() {
   return <SectionDivider parentSpaceY="space-y-4" />;
+}
+
+// 개설 완료(잠금) 배너 — 실무 정보/경험/역량 세 화면의 [라인 개설] 탭 공용 SoT.
+//   "개설 완료" 상태를 사용자가 즉시 인지하고, 왜 입력이 잠겼는지·어떻게 푸는지(=[개설 취소])를
+//   한 곳에서 같은 문구·같은 시각으로 안내한다. 화면마다 배지를 따로 만들지 않는다.
+//   ⚠ 표시 전용 — 개설 여부 판정(서버 SoT)이나 disabled 조건 계산은 각 화면이 소유한다.
+export const LINE_OPENING_OPENED_NOTICE_DESCRIPTION =
+  "아래는 이 주차에 저장된 개설 정보입니다(읽기 전용). 수정하려면 [개설 취소] 후 다시 개설하세요.";
+
+export function LineOpeningOpenedNotice({
+  description = LINE_OPENING_OPENED_NOTICE_DESCRIPTION,
+  className,
+}: {
+  description?: string;
+  className?: string;
+}) {
+  return (
+    <div
+      // role="status" — 개설 직후 상태 전환(편집 가능 → 읽기 전용)을 보조기기에도 알린다.
+      role="status"
+      className={cn(
+        "flex items-start gap-2 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2.5 dark:border-emerald-800 dark:bg-emerald-950/40",
+        className,
+      )}
+    >
+      <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+          개설 완료
+        </p>
+        <p className="text-xs text-emerald-700/90 dark:text-emerald-400/90">{description}</p>
+      </div>
+    </div>
+  );
 }

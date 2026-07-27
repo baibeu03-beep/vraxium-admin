@@ -59,6 +59,7 @@ import { readScopeMode } from "@/lib/userScopeShared";
 import { formatSeasonWeekLabel } from "@/lib/practicalInfoSection0Format";
 import { formatTeamTabLabel } from "@/lib/teamLabel";
 import ExperienceTeamOverallBoard from "@/components/admin/ExperienceTeamOverallBoard";
+import { LineOpeningOpenedNotice } from "@/components/admin/lineOpeningStatusUi";
 import type {
   ExperienceLineManageSummary,
   LineManageTeamLeader,
@@ -727,6 +728,12 @@ export default function ExperiencePartLeadInput({
 
   const submit = useCallback(async () => {
     if (!selectedTeam || !selectedWeekId || part === TEAM_OVERALL) return;
+    // 개설 완료 잠금 — 버튼은 이미 비활성이지만 직접 호출/키보드 우회도 여기서 막는다.
+    //   최종 방어선은 서버(part-input POST 409, OVERALL_OPENED_LOCK_CODE).
+    if (openingStatus?.boardStatus === "opened") {
+      toast("error", "이미 개설 완료된 팀·주차입니다. [팀 총괄]에서 [개설 취소] 후 진행하세요.");
+      return;
+    }
     // ④ 라인 미선택 신청 금지 — 체크(강화 성공/실패, 점수≥1)된 셀은 라인명이 반드시 선택돼야 한다.
     //   하나라도 라인 미선택이면 저장하지 않고 안내한다(프론트 게이트 — 서버 저장 로직/SoT 무변경).
     for (const crew of data?.crews ?? []) {
@@ -797,11 +804,16 @@ export default function ExperiencePartLeadInput({
     } finally {
       setSaving(false);
     }
-  }, [selectedTeam, selectedWeekId, part, data, getCell, org, mode, actAsTestUserId, fetchGrid, handleActivity, toast, confirmReviewResetDialog, notifyReviewResetOutcome]);
+  }, [selectedTeam, selectedWeekId, part, data, getCell, org, mode, actAsTestUserId, openingStatus, fetchGrid, handleActivity, toast, confirmReviewResetDialog, notifyReviewResetOutcome]);
 
   const cancelSubmission = useCallback(async () => {
     if (!selectedTeam || !selectedWeekId || part === TEAM_OVERALL) return;
     if (!data?.submitted) return; // 연속 2회 취소 방지(신청 상태에서만 가능)
+    // 개설 완료 잠금 — POST 와 동일(서버 DELETE 도 409 로 차단).
+    if (openingStatus?.boardStatus === "opened") {
+      toast("error", "이미 개설 완료된 팀·주차입니다. [팀 총괄]에서 [개설 취소] 후 진행하세요.");
+      return;
+    }
     setSaving(true);
     try {
       // 신청 취소도 검수된 데이터를 없애는 실제 변경 — 저장과 동일한 확인 규약을 쓴다.
@@ -844,7 +856,7 @@ export default function ExperiencePartLeadInput({
     } finally {
       setSaving(false);
     }
-  }, [selectedTeam, selectedWeekId, part, data, org, mode, actAsTestUserId, fetchGrid, handleActivity, toast, confirmReviewResetDialog, notifyReviewResetOutcome]);
+  }, [selectedTeam, selectedWeekId, part, data, org, mode, actAsTestUserId, openingStatus, fetchGrid, handleActivity, toast, confirmReviewResetDialog, notifyReviewResetOutcome]);
 
   const isOverall = part === TEAM_OVERALL;
   const submitted = data?.submitted ?? false;
@@ -1166,6 +1178,11 @@ export default function ExperiencePartLeadInput({
                 lineOptions={data?.lineOptions ?? EMPTY_PART_INPUT_LINE_OPTIONS}
                 saving={saving}
                 submitted={submitted}
+                // 팀 총괄 [개설 완료] 후에는 파트 신청도 잠근다 — SoT 는 팀 총괄 보드와 **동일한**
+                //   서버 판정(team-overall board.status==='opened' = openingStatus.boardStatus).
+                //   잠그지 않으면 개설된 라인/평가는 그대로인데 파트 신청 셀만 바뀌어 두 저장소가 어긋난다.
+                //   수정 경로는 팀 총괄의 [개설 취소] 하나뿐(서버 part-input 도 409 로 동일 차단).
+                teamOpened={overallCompleted}
                 openPeriodBlocked={openPeriodBlocked}
                 openBlockedReason={openBlockedReason}
                 onReset={resetLocal}
@@ -1190,6 +1207,7 @@ function PartGrid({
   lineOptions,
   saving,
   submitted,
+  teamOpened,
   openPeriodBlocked,
   openBlockedReason,
   onReset,
@@ -1204,6 +1222,9 @@ function PartGrid({
   lineOptions: PartInputLineOptions;
   saving: boolean;
   submitted: boolean;
+  // 팀 총괄 [개설 완료] 여부(SoT=team-overall board.status==='opened'). true 면 저장값을 그대로 둔 채
+  //   그리드/액션 전체를 읽기 전용으로 잠근다(실무 정보 PracticalInfoOpeningForm.locked 와 동일 UX).
+  teamOpened: boolean;
   // 선택 주차·팀이 개설 기간이 아님(SoT=board.canOpen). true 면 [개설 신청] 비활성 + 안내 배너.
   openPeriodBlocked: boolean;
   openBlockedReason: string;
@@ -1212,8 +1233,14 @@ function PartGrid({
   onCancel: () => void;
 }) {
   const crews = data?.crews ?? [];
+  // 잠금 = 저장 중이거나 팀이 이미 개설 완료. 모든 편집 컨트롤이 이 하나를 쓴다(조건식 분산 금지).
+  const locked = saving || teamOpened;
   return (
     <div className="space-y-3">
+      {/* 개설 완료(팀 총괄) 안내 — 실무 정보/역량과 동일한 공용 배너. 왜 잠겼는지와 푸는 방법을 알린다. */}
+      {teamOpened && (
+        <LineOpeningOpenedNotice description="이 팀·주차는 개설 완료 상태입니다. 아래 신청 내용은 읽기 전용이며, 수정하려면 [팀 총괄]에서 [개설 취소] 후 진행하세요." />
+      )}
       {/* 개설 기간 아님(!canOpen) 안내 — 개설되지 않은 상태와 구분. [개설 신청] 비활성(서버 409 게이트와 동일 판정). */}
       {openPeriodBlocked && (
         <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
@@ -1314,8 +1341,9 @@ function PartGrid({
                   {EXPERIENCE_PART_LINE_TYPES.map((line) => {
                     const cell = getCell(crew.userId, line.key);
                     const fail = isPartCellFail(cell);
-                    // 라인명 선택은 평점과 분리(2026-07-24) — 평점 0점에서도 항상 선택 가능(disabled 금지).
-                    const lineDisabled = false;
+                    // 라인명 선택은 평점과 분리(2026-07-24) — 평점 0점에서도 항상 선택 가능.
+                    //   단, 팀이 개설 완료(locked)면 다른 컨트롤과 함께 잠근다.
+                    const lineDisabled = locked;
                     return (
                       <TableCell key={line.key} className="text-center align-top">
                         <div className="flex flex-col items-center gap-1">
@@ -1330,14 +1358,16 @@ function PartGrid({
                           >
                             <Checkbox
                               checked={cell.checked}
+                              disabled={locked}
                               onChange={() =>
                                 toggleCheck(crew.userId, crew.displayName, line.key, cell)
                               }
                               aria-label={`${crew.displayName} ${line.label} 체크`}
                             />
                             <select
-                              className="rounded border border-input bg-background px-1.5 py-0.5 text-sm"
+                              className="rounded border border-input bg-background px-1.5 py-0.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
                               value={cell.score}
+                              disabled={locked}
                               onChange={(e) =>
                                 setScore(
                                   crew.userId,
@@ -1389,7 +1419,8 @@ function PartGrid({
             variant="outline"
             className="w-full justify-center"
             onClick={onReset}
-            disabled={saving || crews.length === 0}
+            disabled={locked || crews.length === 0}
+            title={teamOpened ? "개설 완료 상태에서는 입력을 변경할 수 없습니다." : undefined}
           >
             <RotateCcw className="mr-1.5 h-4 w-4" /> 초기화
           </Button>
@@ -1408,8 +1439,15 @@ function PartGrid({
             // ⑧ 재신청 허용 — 개설 신청 완료(submitted) 후에도 라인명/평점을 수정해 다시 신청할 수 있다.
             //   (서버 POST 는 upsert=멱등이라 중복 행을 만들지 않음.) 개설 기간 아님·대상 0명일 때만 비활성.
             //   ⚠ openPeriodBlocked 는 서버 assertExperienceLineOpenable(409)와 동일 판정(UI 우회 대비).
-            disabled={saving || crews.length === 0 || openPeriodBlocked}
-            title={openPeriodBlocked ? openBlockedReason : undefined}
+            //   ⚠ teamOpened(개설 완료)면 재신청 금지 — 서버 part-input POST 도 409 로 동일 차단한다.
+            disabled={locked || crews.length === 0 || openPeriodBlocked}
+            title={
+              teamOpened
+                ? "이미 개설 완료됨 — [팀 총괄]에서 [개설 취소] 후 다시 신청할 수 있습니다."
+                : openPeriodBlocked
+                  ? openBlockedReason
+                  : undefined
+            }
           >
             <Send className="mr-1.5 h-4 w-4" />
             {submitted ? "재신청" : "개설 신청"}
@@ -1427,8 +1465,14 @@ function PartGrid({
             className="w-full justify-center border-red-300 text-red-700 hover:bg-red-50"
             onClick={onCancel}
             loading={saving}
-            disabled={saving || !submitted}
-            title={!submitted ? "신청 후에만 취소할 수 있습니다" : undefined}
+            disabled={locked || !submitted}
+            title={
+              teamOpened
+                ? "이미 개설 완료됨 — [팀 총괄]에서 [개설 취소] 후 진행하세요."
+                : !submitted
+                  ? "신청 후에만 취소할 수 있습니다"
+                  : undefined
+            }
           >
             신청 취소
           </Button>

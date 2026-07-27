@@ -34,6 +34,19 @@ export const REVIEW_RESET_APPLY_CANCEL_SUCCESS =
 export const REVIEW_RESET_FAILED_MESSAGE =
   "저장은 되었지만 개설 검수 취소에 실패했습니다. 새로고침 후 다시 시도해주세요.";
 
+/**
+ * 팀 총괄이 이미 [개설 완료](status='opened')인 주차·팀에서 파트 신청을 저장/취소하려 할 때의 차단 사유.
+ *
+ *   개설 완료 시점에 라인/타깃/평가가 이미 생성되어 크루 페이지에 반영된다. 그 뒤 파트 신청 셀만
+ *   바뀌면 "고객에게 보이는 개설 결과"와 "신청 원장"이 조용히 어긋난다(되돌릴 수 없는 불일치).
+ *   → 개설 완료 상태에서는 파트 신청을 잠그고, 수정 경로를 [개설 취소] 하나로 강제한다.
+ *   화면은 [개설 신청]/[신청 취소] 버튼을 이미 비활성화하지만, 서버가 최종 방어선이다
+ *   (HTTP 직접 호출·숨은 이벤트 우회 차단). REVIEW_RESET(검수 완료)과는 별개의 상위 게이트다.
+ */
+export const OVERALL_OPENED_LOCK_CODE = "experience_overall_opened_locked";
+export const OVERALL_OPENED_LOCK_MESSAGE =
+  "이미 개설 완료된 팀·주차입니다. [팀 총괄]에서 [개설 취소] 후 다시 신청할 수 있습니다.";
+
 // ── 검수 취소 상태 판독(단일 SoT) ──
 //
 // 검수 취소는 팀 총괄 헤더를 status='none' 으로 되돌린다(헤더/팀장 입력/아웃풋은 보존).

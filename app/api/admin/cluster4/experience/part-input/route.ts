@@ -39,6 +39,8 @@ import {
   hasPartSubmissionChanges,
   REVIEW_RESET_CONFIRM_CODE,
   REVIEW_RESET_CONFIRM_MESSAGE,
+  OVERALL_OPENED_LOCK_CODE,
+  OVERALL_OPENED_LOCK_MESSAGE,
 } from "@/lib/experienceReviewResetPolicy";
 import { parseScopeMode } from "@/lib/userScope";
 import {
@@ -319,10 +321,28 @@ export async function POST(request: NextRequest) {
         ? impersonation.userId
         : admin.userId;
 
+    // ── 개설 완료 잠금 게이트(최우선 — 저장·비교보다 먼저) ──
+    //   팀 총괄이 이미 [개설 완료](status='opened')면 파트 신청 저장을 거부한다(write 0).
+    //   개설 완료 시점에 라인/타깃/평가가 고객에게 반영되므로, 그 뒤 신청 셀만 바뀌면
+    //   "보이는 개설 결과 ≠ 신청 원장"이 조용히 생긴다. 수정 경로는 [개설 취소] 하나로 강제한다.
+    //   화면([개설 신청]/[신청 취소] 비활성)과 동일 판정 — 여기가 HTTP 직접 호출까지 막는 최종 방어선.
+    //   mode/org/임퍼소네이션 무관 동일 로직·동일 code/문구.
+    const openedLockState = await loadOverallReviewState(organization, weekId, teamId);
+    if (openedLockState.status === "opened") {
+      return Response.json(
+        {
+          success: false,
+          error: OVERALL_OPENED_LOCK_MESSAGE,
+          code: OVERALL_OPENED_LOCK_CODE,
+        },
+        { status: 409 },
+      );
+    }
+
     // ── 개설 검수 취소 게이트(저장 전 판정) ──
     //   ① 저장된 신청과 이번 요청이 실제로 다른가(정규화 후 비교 — 그리드 소유 셀만).
     //   ② 다르고 그 팀·주차가 검수 완료 상태면 확인(confirmReviewReset) 없이는 저장하지 않는다.
-    //   변경이 없으면 상태 조회조차 하지 않는다 — 검수 상태는 그대로 유지된다.
+    //   위 잠금 게이트가 이미 헤더 상태를 읽었으므로 재조회하지 않고 그 값을 재사용한다.
     const storedSubmission = await getPartSubmission(organization, weekId, teamId, part);
     // 신청 취소로 헤더가 삭제된 뒤의 재신청도 구분하기 위해 구조화된 과거 apply/reapply 이력을 확인한다.
     // 현재 헤더가 있으면 이미 재신청이 확정되므로 불필요한 로그 조회는 생략한다.
@@ -339,10 +359,7 @@ export async function POST(request: NextRequest) {
       stored: storedSubmission.cells,
       storedHeaderExists: storedSubmission.submitted,
     });
-    const reviewState = changed
-      ? await loadOverallReviewState(organization, weekId, teamId)
-      : null;
-    const needsReviewReset = changed && reviewState?.status === "reviewed";
+    const needsReviewReset = changed && openedLockState.status === "reviewed";
     if (needsReviewReset && !confirmReviewReset) {
       return Response.json(
         {
@@ -441,13 +458,25 @@ export async function DELETE(request: NextRequest) {
   }
 
   try {
+    // 개설 완료 잠금 게이트(POST 와 동일) — 이미 [개설 완료]면 신청 취소도 거부한다(delete 0).
+    //   신청 헤더만 지워지면 개설된 라인/타깃은 남은 채 원장만 사라져 복구 불가한 불일치가 된다.
+    const openedLockState = await loadOverallReviewState(organization, weekId, teamId);
+    if (openedLockState.status === "opened") {
+      return Response.json(
+        {
+          success: false,
+          error: OVERALL_OPENED_LOCK_MESSAGE,
+          code: OVERALL_OPENED_LOCK_CODE,
+        },
+        { status: 409 },
+      );
+    }
+
     // 개설 검수 취소 게이트(POST 와 동일 판정) — 신청이 실제로 존재할 때만 "변경"이다.
     //   이미 신청이 없으면(멱등 재호출) 검수 상태를 건드리지 않는다.
     const storedSubmission = await getPartSubmission(organization, weekId, teamId, part);
-    const reviewState = storedSubmission.submitted
-      ? await loadOverallReviewState(organization, weekId, teamId)
-      : null;
-    const needsReviewReset = reviewState?.status === "reviewed";
+    const needsReviewReset =
+      storedSubmission.submitted && openedLockState.status === "reviewed";
     if (needsReviewReset && !confirmReviewReset) {
       return Response.json(
         {

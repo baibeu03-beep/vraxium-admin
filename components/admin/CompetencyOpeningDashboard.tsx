@@ -19,7 +19,10 @@ import {
   formatFullDateRangeKo,
 } from "@/lib/practicalInfoSection0Format";
 import LineOpeningStatusBoard from "@/components/admin/LineOpeningStatusBoard";
-import { LineOpeningSectionDivider } from "@/components/admin/lineOpeningStatusUi";
+import {
+  LineOpeningOpenedNotice,
+  LineOpeningSectionDivider,
+} from "@/components/admin/lineOpeningStatusUi";
 import {
   LineOpeningCardDot,
   lineOpeningCardClass,
@@ -185,8 +188,12 @@ export default function CompetencyOpeningDashboard() {
       if (org) params.set("organization", org);
       // 선택 주차(허용 예외 포함)가 있으면 그 주차 기준 opened/prefill 조회.
       if (selectedWeekId) params.set("week_id", selectedWeekId);
+      // ⚠ mode 보존(필수) — 서버 readScopeMode 는 ?mode 미부착을 operating 으로 판독한다.
+      //   미전달 시 테스트 모드 화면이 운영 모드 기준 opened/canOpen/개설 대상 주차(W13 예외 미적용)를
+      //   읽어, 쓰기(개설/취소, mode=test)와 다른 주차·다른 판정을 보게 된다(read/write 비대칭).
+      //   실무 정보(info-lines GET)·실무 경험(team-overall GET)과 동일한 규약.
+      if (mode === "test") params.set("mode", "test");
       const qs = params.toString() ? `?${params.toString()}` : "";
-      // mode 보존 — 상태창/개설과 동일 모드로 개설 대상 주차(테스트 W13 예외)를 판정.
       const res = await fetch(`/api/admin/cluster4/competency/opening-status${qs}`);
       const json = await res.json();
       if (json?.success) {
@@ -211,7 +218,7 @@ export default function CompetencyOpeningDashboard() {
     } finally {
       setLoadingStatus(false);
     }
-  }, [org, selectedWeekId]);
+  }, [org, mode, selectedWeekId]);
 
   useEffect(() => {
     void fetchStatus();
@@ -223,10 +230,12 @@ export default function CompetencyOpeningDashboard() {
     (async () => {
       try {
         // ?org·?hub=competency 전달 → line_opening_windows 예외를 org+역량 스코프로만 드롭다운에 노출.
+        //   ?mode 도 전달 — 테스트 휴식꼬리에서 W13(테스트 예외 주차)이 목록에서 빠지지 않게 한다
+        //   (실무 경험 부트스트랩과 동일 규약). operating 은 미부착 = 기존 요청과 byte-identical.
         const res = await fetch(
           `/api/admin/cluster4/weeks-options?limit=8${
-            org ? `&org=${encodeURIComponent(org)}` : ""
-          }&hub=competency`,
+            mode === "test" ? "&mode=test" : ""
+          }${org ? `&org=${encodeURIComponent(org)}` : ""}&hub=competency`,
         );
         const json = await res.json();
         if (cancelled) return;
@@ -238,7 +247,7 @@ export default function CompetencyOpeningDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [org]);
+  }, [org, mode]);
 
   // 개설 주차 드롭다운 바깥 클릭 시 닫기.
   useEffect(() => {
@@ -251,6 +260,12 @@ export default function CompetencyOpeningDashboard() {
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, [weekMenuOpen]);
+
+  // 개설 완료(잠금) — 서버 SoT(opening-status.opened) 단일 판정. URL 파라미터나 로컬 낙관적
+  //   상태로 추정하지 않는다(실무 정보 PracticalInfoOpeningForm.locked 와 동일 규약).
+  //   true 면 입력/추가/삭제 등 모든 수정 기능을 실제로 비활성화하고 [개설 취소]만 남긴다.
+  //   opened===null(조회 실패)은 잠그지 않는다 — 개설 여부 미상에서 화면을 잠그면 복구 불가.
+  const locked = opened === true;
 
   // [초기화] — DB 통신 없이 현재 프론트 입력값만 로드 시점(prefill)으로 복원.
   //   (실무 역량 대시보드에는 크루/카페 검수·승인 체크 영역이 없어 링크/설명 입력만 복원한다.)
@@ -270,6 +285,12 @@ export default function CompetencyOpeningDashboard() {
       //   클라에서도 선차단(취소는 원복이라 게이트 없음). URL 조작 등으로 버튼이 눌려도 여기서 막힘.
       if (action === "open" && !canOpen) {
         toast("error", "미오픈 — 활동 관리에서 ‘정상 진행’으로 설정한 뒤 개설할 수 있습니다.");
+        return;
+      }
+      // 이미 개설 완료면 재개설 차단(실무 정보 executeOpen 의 `!openedLine` 가드와 동일).
+      //   버튼은 이미 비활성이지만 키보드/직접 호출 우회도 여기서 막는다.
+      if (action === "open" && opened === true) {
+        toast("error", "이미 개설 완료된 주차입니다. [개설 취소] 후 다시 개설할 수 있습니다.");
         return;
       }
       // 필수 입력 검증(개설 한정) — 선행 필수값(주차·오픈) 다음, 개설 확인 팝업 이전.
@@ -372,7 +393,7 @@ export default function CompetencyOpeningDashboard() {
         setActing(false);
       }
     },
-    [org, mode, linkUrl, linkDesc, fetchStatus, openTargetWeek, toast, canOpen],
+    [org, mode, linkUrl, linkDesc, fetchStatus, openTargetWeek, toast, canOpen, opened],
   );
 
   // 라인 개설 카드의 accent 색 = 현재 개설 상태(표시 전용).
@@ -412,6 +433,11 @@ export default function CompetencyOpeningDashboard() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* 개설 완료 배너 — 실무 정보와 동일한 공용 SoT. 폼 구조/레이아웃은 개설 전과 동일하게 두고
+              상태만 배너로 알린다(저장값은 fetchStatus prefill 로 그대로 남아 있다). */}
+          {locked && (
+            <LineOpeningOpenedNotice description="아래는 이 주차에 저장된 개설 정보입니다(읽기 전용). 수정하려면 하단 [개설 취소] 후 다시 개설하세요." />
+          )}
           {/* 액션 버튼([개설]/[초기화]/[개설 취소])은 '해당 크루' 아래 최종 액션 영역으로 이동.
               이 카드에는 기본 정보(개설 주차·아웃풋 링크/설명) 입력만 남긴다. */}
           {/* [개설 주차] | [아웃풋 링크 1] | [설명 1] — 한 행 */}
@@ -504,7 +530,8 @@ export default function CompetencyOpeningDashboard() {
                 placeholder="카페 공표 게시물 링크 (https://...)"
                 aria-label="아웃풋 링크 1"
                 aria-invalid={invalidKey === "link" || undefined}
-                disabled={acting}
+                // 개설 완료면 실제로 편집 불가(native disabled — 키보드 입력·붙여넣기 모두 차단).
+                disabled={acting || locked}
               />
             </div>
 
@@ -529,7 +556,7 @@ export default function CompetencyOpeningDashboard() {
                 placeholder="아웃풋 링크 1 설명"
                 aria-label="설명 1"
                 aria-invalid={invalidKey === "desc" || undefined}
-                disabled={acting}
+                disabled={acting || locked}
               />
             </div>
           </div>
@@ -541,6 +568,9 @@ export default function CompetencyOpeningDashboard() {
       <CompetencyApplicantSection
         refreshKey={refreshKey}
         selectedWeekId={openTargetWeek?.id ?? null}
+        // 개설 완료면 명단 수정(수동 추가·카페/승인 체크·반려·삭제)도 함께 잠근다 — 화면 전체가
+        //   같은 서버 판정(opened) 하나로 잠기고, [개설 취소] 후 한 번에 다시 열린다.
+        locked={locked}
       />
 
       {/* 최종 액션 (기본 정보·해당 크루 다음 최하단) — [개설] [초기화] [개설 취소].
@@ -552,7 +582,10 @@ export default function CompetencyOpeningDashboard() {
             loading={acting}
             // 개설은 그 주차 실무 역량이 "정상 진행" 으로 설정된 경우에만 가능(프로세스 체크와 동일 SoT).
             //   미오픈이면 버튼 라벨 자체를 "미오픈" 으로 바꿔 왜 개설이 안 되는지 즉시 드러낸다.
-            disabled={acting || loadingStatus || !org || !canOpen}
+            //   개설 완료(locked)면 재개설 차단 — 실무 정보와 동일하게 [개설]/[초기화]는 비활성,
+            //   [개설 취소]만 활성으로 남는다.
+            disabled={acting || loadingStatus || !org || !canOpen || locked}
+            title={locked ? "이미 개설 완료됨 — 수정하려면 [개설 취소] 후 진행하세요." : undefined}
             className="h-11 px-6 text-base"
           >
             {org && !loadingStatus && !canOpen ? "미오픈" : "개설"}
@@ -565,7 +598,8 @@ export default function CompetencyOpeningDashboard() {
           <Button
             variant="outline"
             onClick={handleReset}
-            disabled={acting}
+            disabled={acting || locked}
+            title={locked ? "개설 완료 상태에서는 입력을 변경할 수 없습니다." : undefined}
             className="h-11 px-6 text-base"
           >
             초기화
@@ -581,7 +615,8 @@ export default function CompetencyOpeningDashboard() {
             onClick={() => runAction("cancel")}
             loading={acting}
             // 기본적으로 개설 완료(opened) 상태일 때만 enabled.
-            disabled={acting || loadingStatus || !org || opened !== true}
+            disabled={acting || loadingStatus || !org || !locked}
+            title={locked ? "개설된 라인을 취소(되돌리기)합니다" : "이 주차에 개설된 라인이 없습니다"}
           >
             개설 취소
           </Button>

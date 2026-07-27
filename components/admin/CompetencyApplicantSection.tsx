@@ -37,6 +37,7 @@ import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { Checkbox, checkedTextClass, checkedRowClass } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { readOrgParam } from "@/lib/adminOrgContext";
+import { readScopeMode } from "@/lib/userScopeShared";
 import { excludeAddedByUserId } from "@/lib/crewSearchExclude";
 import { formatLogPeriodLabel } from "@/lib/practicalInfoSection0Format";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
@@ -297,12 +298,19 @@ export default function CompetencyApplicantSection({
   // 상단 대시보드에서 선택한 개설 주차 — 명단 조회/수동 추가가 이 주차를 대상으로 한다.
   //   미지정(null)이면 백엔드가 개설 대상 주차(금요일 경계·테스트 W13 예외)로 fallback(상태창과 동일 SoT).
   selectedWeekId,
+  // 개설 완료(잠금). SoT = 상위 대시보드가 서버 opening-status.opened 로 판정한 값 — 이 컴포넌트는
+  //   자체적으로 개설 여부를 추정하지 않는다. true 면 명단 수정(수동 추가/카페·승인 체크/반려/삭제)을
+  //   native disabled 로 실제 차단한다(스타일만 비활성이 아니라 이벤트 자체가 발생하지 않음).
+  locked = false,
 }: {
   refreshKey?: number;
   selectedWeekId?: string | null;
+  locked?: boolean;
 }) {
   const searchParams = useSearchParams();
   const org = readOrgParam(searchParams);
+  // 운영/테스트 모드 — 명단/집계 조회를 개설·취소(쓰기)와 같은 모집단으로 맞춘다.
+  const mode = readScopeMode(searchParams);
   const { toast } = useToast();
   // 왼쪽 2열 고정(크루명·라인명) — 공통 sticky 계약. col-1 실측폭으로 col-2 offset.
   const sticky = useStickyColumns({ headerSticky: true });
@@ -364,6 +372,9 @@ export default function CompetencyApplicantSection({
       // 선택한 개설 주차 전달 — 서버가 그 주차 명단/집계를 반환(미전달 시 개설 대상 주차 fallback).
       if (selectedWeekId) qs.set("week_id", selectedWeekId);
       // 집계/결과 모집단 = 서버 QA_HIDE_REAL_USERS 스위치 기준(QA=테스트 유저 / 종료 후 실사용자).
+      //   ⚠ ?mode 미부착은 서버가 operating 으로 판독한다 — 테스트 모드에서 명단/집계가 운영 모집단으로
+      //   내려와 개설(mode=test) 대상과 어긋나는 것을 막기 위해 읽기에도 동일 mode 를 전달한다.
+      if (mode === "test") qs.set("mode", "test");
       const res = await fetch(
         `/api/admin/cluster4/competency/applications?${qs.toString()}`,
       );
@@ -384,7 +395,7 @@ export default function CompetencyApplicantSection({
     } finally {
       setLoading(false);
     }
-  }, [org, selectedWeekId]);
+  }, [org, mode, selectedWeekId]);
 
   useEffect(() => {
     void fetchData();
@@ -546,6 +557,11 @@ export default function CompetencyApplicantSection({
   }, []);
 
   const openAddPopup = useCallback(() => {
+    // 개설 완료 상태에서는 명단을 늘릴 수 없다 — 버튼은 이미 비활성이지만 직접 호출도 여기서 차단.
+    if (locked) {
+      toast("error", "개설 완료 상태입니다. [개설 취소] 후 명단을 수정할 수 있습니다.");
+      return;
+    }
     if (!selectedCrew) {
       toast("error", "추가할 크루를 검색해 선택해주세요");
       return;
@@ -556,10 +572,14 @@ export default function CompetencyApplicantSection({
     // 팝업을 열 때마다 라인 옵션을 재조회한다 — 화면을 열어둔 채 다른 탭에서 [개설 연결]
     //   (bridge) 한 신규 라인이 mount 시점 state 에 갇혀 누락되지 않게 한다.
     void loadMasters().then(setMasters);
-  }, [selectedCrew, loadMasters]);
+  }, [locked, selectedCrew, loadMasters, toast]);
 
   const submitAdd = useCallback(async () => {
     if (!org || !selectedCrew) return;
+    if (locked) {
+      toast("error", "개설 완료 상태입니다. [개설 취소] 후 명단을 수정할 수 있습니다.");
+      return;
+    }
     const master = masters.find((m) => m.id === addMasterId);
     if (!master) {
       toast("error", "라인을 드롭다운에서 선택해주세요");
@@ -598,10 +618,15 @@ export default function CompetencyApplicantSection({
     } finally {
       setSaving(false);
     }
-  }, [org, selectedCrew, masters, addMasterId, addLink, selectedWeekId, fetchData]);
+  }, [org, locked, selectedCrew, masters, addMasterId, addLink, selectedWeekId, fetchData, toast]);
 
   const patchApp = useCallback(
     async (id: string, patch: Record<string, unknown>) => {
+      // 개설 완료 상태에서는 카페/승인 체크·반려 사유를 바꿀 수 없다(컨트롤도 disabled).
+      if (locked) {
+        toast("error", "개설 완료 상태입니다. [개설 취소] 후 명단을 수정할 수 있습니다.");
+        return false;
+      }
       try {
         const res = await fetch(`/api/admin/cluster4/competency/applications/${id}`, {
           method: "PATCH",
@@ -620,11 +645,15 @@ export default function CompetencyApplicantSection({
         return false;
       }
     },
-    [fetchData],
+    [locked, fetchData, toast],
   );
 
   // 수동 추가 항목 삭제(고객 신청은 X 버튼 자체가 없음 + 서버 source 게이트로 이중 차단).
   const submitDelete = useCallback(async (app: ApplicationDto) => {
+    if (locked) {
+      toast("error", "개설 완료 상태입니다. [개설 취소] 후 명단을 수정할 수 있습니다.");
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch(`/api/admin/cluster4/competency/applications/${app.id}`, {
@@ -642,7 +671,7 @@ export default function CompetencyApplicantSection({
     } finally {
       setSaving(false);
     }
-  }, [fetchData]);
+  }, [locked, fetchData, toast]);
 
   // 수동 추가 삭제 확인(공통 adminDialog·danger) → 확인 시 submitDelete 실행.
   const requestDelete = useCallback(
@@ -735,8 +764,10 @@ export default function CompetencyApplicantSection({
                   setQ(e.target.value);
                   setSelectedCrew(null);
                 }}
-                onFocus={() => visibleResults.length > 0 && setMenuOpen(true)}
+                onFocus={() => !locked && visibleResults.length > 0 && setMenuOpen(true)}
                 aria-label="수동 추가 크루 검색"
+                // 개설 완료면 검색창 자체를 잠근다(검색 → 추가 경로 진입 차단).
+                disabled={locked}
               />
               {/* 검색 결과 — body 로 portal(위치는 검색 입력 rect 기준 fixed). 표시 규격(테두리/그림자/
                   최대 높이/항목 스타일)은 기존과 동일하게 유지한다. */}
@@ -773,7 +804,12 @@ export default function CompetencyApplicantSection({
               </AnchoredPortalMenu>
             </div>
           </div>
-          <Button type="button" onClick={openAddPopup} disabled={!selectedCrew || !org}>
+          <Button
+            type="button"
+            onClick={openAddPopup}
+            disabled={!selectedCrew || !org || locked}
+            title={locked ? "개설 완료 상태에서는 명단을 수정할 수 없습니다." : undefined}
+          >
             <Plus className="mr-1 h-4 w-4" /> 추가
           </Button>
           <AdminHelpIconButton
@@ -880,6 +916,7 @@ export default function CompetencyApplicantSection({
                         checked={a.cafeChecked}
                         onChange={(e) => patchApp(a.id, { cafe_checked: e.target.checked })}
                         aria-label={`${a.displayName} 카페 체크`}
+                        disabled={locked}
                       />
                     </TableCell>
                     <TableCell className="text-center">
@@ -887,6 +924,7 @@ export default function CompetencyApplicantSection({
                         checked={a.approvalChecked}
                         onChange={(e) => patchApp(a.id, { approval_checked: e.target.checked })}
                         aria-label={`${a.displayName} 승인 체크`}
+                        disabled={locked}
                       />
                     </TableCell>
                     <TableCell>
@@ -902,6 +940,8 @@ export default function CompetencyApplicantSection({
                             setRejectApp(a);
                             setRejectDraft(a.rejectionReason ?? "");
                           }}
+                          disabled={locked}
+                          title={locked ? "개설 완료 상태에서는 명단을 수정할 수 없습니다." : undefined}
                         >
                           반려 사유
                           {a.rejectionReason ? " ✓" : ""}
@@ -918,7 +958,12 @@ export default function CompetencyApplicantSection({
                           className="h-7 w-7"
                           onClick={() => void requestDelete(a)}
                           aria-label={`${a.displayName} 수동 추가 삭제`}
-                          title="수동 추가 항목 삭제"
+                          disabled={locked}
+                          title={
+                            locked
+                              ? "개설 완료 상태에서는 명단을 수정할 수 없습니다."
+                              : "수동 추가 항목 삭제"
+                          }
                         >
                           <X className="h-4 w-4 text-red-500" />
                         </Button>
