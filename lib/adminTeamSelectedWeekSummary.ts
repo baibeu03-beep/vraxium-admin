@@ -8,11 +8,7 @@ import {
   resolveOrgResultScope,
 } from "@/lib/weekOrgResultState";
 import { seasonKeyToHalfKey, seasonKeyToSeasonLabel } from "@/lib/teamHalf";
-import {
-  resolveCurrentHalfKey,
-  DEFAULT_PART_NAME,
-  getLeaderBasicsBatch,
-} from "@/lib/adminTeamHalvesData";
+import { DEFAULT_PART_NAME, getLeaderBasicsBatch } from "@/lib/adminTeamHalvesData";
 import { SUPER_ADMIN_EXCLUDE_OR } from "@/lib/superAdmins";
 import { resolvePositionLabels } from "@/lib/adminMembersTypes";
 import { loadWeekPositionOverrides } from "@/lib/teamWeekPositionOverride";
@@ -106,6 +102,28 @@ export type TeamSelectedWeekSummary = {
   crewRows: CrewRow[];
 };
 
+// ── 주차 effective 로스터(팀 상세 [A]/[B]·매트릭스·실무 경험 공용 SoT) ───────────────
+//   "그 주차에 이 팀 소속으로 배정된 크루는 누구이고, 각자의 파트/클래스는 무엇인가" 단 하나의 답.
+//   운용 파트 판정도, 파트별 크루 목록도 모두 이 결과만 파생한다(후보 풀을 따로 만들지 않는다).
+export type TeamWeekRosterMember = {
+  userId: string;
+  /** 크루 3종(regular/advanced_agent/advanced_part_leader)만. 운영진·관리자는 애초에 미포함. */
+  positionCode: string;
+  /** 그 주차 effective 소속 파트. 미배정이면 null. */
+  rawPart: string | null;
+};
+
+export type TeamWeekRoster = {
+  /** 대상 주차(선택 가능 목록 내 weekId, 없으면 현재 주차 폴백). 달력이 비면 null. */
+  week: {
+    weekId: string;
+    weekStartDate: string;
+    seasonKey: string | null;
+    isCurrentWeek: boolean;
+  } | null;
+  members: TeamWeekRosterMember[];
+};
+
 export type CrewRow = {
   userId: string;
   name: string | null;
@@ -137,22 +155,22 @@ function emptyBody(): Pick<
   };
 }
 
-export async function getTeamSelectedWeekSummary(opts: {
-  organization: OrganizationSlug;
-  teamName: string;
+// 선택 가능 주차 목록 + 대상 주차 해석 — 요약/로스터 공용(같은 폴백 규칙을 두 번 쓰지 않는다).
+//   대상 주차 = weekId(선택 가능 목록 내) 또는 현재 주차(없으면 최신). 목록 밖 weekId 는 조용히 폴백.
+async function resolveSelectableWeeks(opts: {
   weekId?: string | null;
   halfKey?: string | null;
-  mode?: ScopeMode;
   today?: string;
-}): Promise<TeamSelectedWeekSummary> {
-  const { organization, teamName } = opts;
-  const mode = opts.mode ?? "operating";
+}): Promise<{
+  selectableWeeks: SelectableWeek[];
+  targetRow: Awaited<ReturnType<typeof loadSeasonWeeks>>["rows"][number] | null;
+}> {
   const today = opts.today;
   const todayIso = today ?? getCurrentActivityDateIso();
 
-  // 1) 선택 가능 주차 = 현재+과거(week_start_date <= 현재 활동일). 미래 제외 + **0주차(전환 주차) 제외**. 최신순.
-  //    ⚠ 이 페이지 전용 UI 필터(공식 week_number 기준) — DB 의 0주차 데이터·다른 페이지(기간 관리 등)엔 영향 없음.
-  //    현재 활동일은 월요일 00:01 KST 경계(getCurrentActivityDateIso) — "그 주 월요일 00:01부터 현재 주차 노출".
+  // 선택 가능 주차 = 현재+과거(week_start_date <= 현재 활동일). 미래 제외 + **0주차(전환 주차) 제외**. 최신순.
+  //   ⚠ 이 페이지 전용 UI 필터(공식 week_number 기준) — DB 의 0주차 데이터·다른 페이지(기간 관리 등)엔 영향 없음.
+  //   현재 활동일은 월요일 00:01 KST 경계(getCurrentActivityDateIso) — "그 주 월요일 00:01부터 현재 주차 노출".
   const { rows: weekRows } = await loadSeasonWeeks(today);
   const selectable = weekRows
     .filter(
@@ -182,10 +200,105 @@ export async function getTeamSelectedWeekSummary(opts: {
     isCurrent: w.is_current_week,
   }));
 
-  // 2) 대상 주차 = weekId(선택 가능 목록 내) 또는 현재 주차(없으면 최신).
   const currentRow = selectable.find((w) => w.is_current_week) ?? selectable[0] ?? null;
   const targetRow =
     (opts.weekId && selectable.find((w) => w.week_id === opts.weekId)) || currentRow;
+  return {
+    selectableWeeks,
+    targetRow: targetRow && targetRow.week_start_date ? targetRow : null,
+  };
+}
+
+// 그 주차 · 그 팀의 effective 크루 로스터(공통 주차 resolver 단일 경로).
+//   override(≤W 최신) → UPH(W) → 현재 멤버십 순으로 팀/파트/클래스를 확정하고, 크루 3종만 남긴다.
+//   ⚠ 파트 카탈로그·크루 목록·평가 대상 판정은 전부 이 결과 하나만 판다. 화면별 후보 풀 금지.
+async function loadTeamWeekRosterAt(
+  organization: OrganizationSlug,
+  teamName: string,
+  weekStart: string,
+  mode: ScopeMode,
+): Promise<TeamWeekRosterMember[]> {
+  // 모집단 스코프(operating=실사용자·test=테스트 마커).
+  const scopeSet = await resolveUserScope(mode, null);
+
+  // 후보 = org 프로필(슈퍼 관리자 제외) ∪ 그 주차 UPH 보유자 ∪ 그 주차 override 대상자.
+  //   (UPH/override 는 프로필 org 가 바뀐 뒤에도 그 주차 이력을 잃지 않기 위한 합집합 항이다.)
+  const [{ data: positionCandidates }, { data: uphData }, overrides] = await Promise.all([
+    supabaseAdmin
+      .from("user_profiles")
+      .select("user_id")
+      .eq("organization_slug", organization)
+      .or(SUPER_ADMIN_EXCLUDE_OR),
+    supabaseAdmin
+      .from("user_position_histories")
+      .select("user_id")
+      .eq("organization", organization)
+      .eq("week_start_date", weekStart),
+    loadWeekPositionOverrides(organization, weekStart),
+  ]);
+  const candidateUserIds = Array.from(new Set([
+    ...((positionCandidates ?? []) as Array<{ user_id: string }>).map((row) => row.user_id),
+    ...((uphData ?? []) as Array<{ user_id: string }>).map((row) => row.user_id),
+    ...Array.from(overrides.keys()).map((key) => key.slice(0, key.indexOf("::"))),
+  ])).filter((userId) => scopeSet.includes(userId));
+
+  const resolvedPositions = await resolvePositionAtBatch({
+    userIds: candidateUserIds,
+    targetWeekStart: weekStart,
+    organization,
+  });
+  const members: TeamWeekRosterMember[] = [];
+  for (const [uid, position] of resolvedPositions) {
+    const resolvedTeam = position.teamName ?? "";
+    if (resolvedTeam !== teamName && stripParen(resolvedTeam) !== stripParen(teamName)) continue;
+    const code = crewPositionCodeOrNull(position.positionCode);
+    if (code === null) continue; // 운영진/관리자 등 = 크루 아님(미집계)
+    members.push({ userId: uid, positionCode: code, rawPart: position.partName });
+  }
+  return members;
+}
+
+// 주차 effective 로스터 공개 진입점 — weekId 미지정/목록 밖이면 현재 주차 폴백(요약과 동일 규칙).
+export async function loadTeamWeekEffectiveRoster(opts: {
+  organization: OrganizationSlug;
+  teamName: string;
+  weekId?: string | null;
+  halfKey?: string | null;
+  mode?: ScopeMode;
+  today?: string;
+}): Promise<TeamWeekRoster> {
+  const { targetRow } = await resolveSelectableWeeks(opts);
+  if (!targetRow || !targetRow.week_start_date) return { week: null, members: [] };
+  const members = await loadTeamWeekRosterAt(
+    opts.organization,
+    opts.teamName,
+    targetRow.week_start_date,
+    opts.mode ?? "operating",
+  );
+  return {
+    week: {
+      weekId: targetRow.week_id,
+      weekStartDate: targetRow.week_start_date,
+      seasonKey: targetRow.season_key ?? null,
+      isCurrentWeek: targetRow.is_current_week,
+    },
+    members,
+  };
+}
+
+export async function getTeamSelectedWeekSummary(opts: {
+  organization: OrganizationSlug;
+  teamName: string;
+  weekId?: string | null;
+  halfKey?: string | null;
+  mode?: ScopeMode;
+  today?: string;
+}): Promise<TeamSelectedWeekSummary> {
+  const { organization, teamName } = opts;
+  const mode = opts.mode ?? "operating";
+
+  // 1~2) 선택 가능 주차 + 대상 주차.
+  const { selectableWeeks, targetRow } = await resolveSelectableWeeks(opts);
   if (!targetRow || !targetRow.week_start_date) {
     return { selectableWeeks, week: null, ...emptyBody() };
   }
@@ -219,117 +332,12 @@ export async function getTeamSelectedWeekSummary(opts: {
     canEdit: !reviewCompleted,
   };
 
-  // 4) 모집단 스코프(operating=실사용자·test=테스트 마커).
-  const scopeSet = await resolveUserScope(mode, null);
-
-  // 5) effective 로스터 — 팀(teamName) 소속 유저별 {positionCode, rawPart}. base(UPH 우선, 폴백=현재 멤버십)
-  //    위에 관리자 override(override ?? base) 를 coalesce. [A]/[B]/매트릭스 공용 규칙([[teamWeekPositionOverride]]).
-  const baseByUser = new Map<string, { positionCode: string | null; rawPart: string | null }>();
-
-  const { data: uphData } = await supabaseAdmin
-    .from("user_position_histories")
-    .select("user_id,raw_team,raw_part,position_code")
-    .eq("organization", organization)
-    .eq("week_start_date", weekStart);
-  for (const r of ((uphData ?? []) as Array<{
-    user_id: string;
-    raw_team: string | null;
-    raw_part: string | null;
-    position_code: string | null;
-  }>)) {
-    const rt = r.raw_team ?? "";
-    if (!((rt === teamName || stripParen(rt) === teamName) && scopeSet.includes(r.user_id))) continue;
-    if (!baseByUser.has(r.user_id))
-      baseByUser.set(r.user_id, { positionCode: r.position_code, rawPart: r.raw_part });
-  }
-
-  if (baseByUser.size === 0) {
-    // UPH 없음 — 매트릭스와 동일 조건(현재 반기 & 경과 주차)에서만 현재 멤버십 폴백.
-    const currentHalfKey = await resolveCurrentHalfKey(today);
-    const weekHalf = targetRow.season_key ? seasonKeyToHalfKey(targetRow.season_key) : null;
-    const fallback = weekHalf != null && weekHalf === currentHalfKey && weekStart <= todayIso;
-    if (fallback) {
-      const { data: profs } = await supabaseAdmin
-        .from("user_profiles")
-        .select("user_id,role")
-        .eq("organization_slug", organization)
-        .or(SUPER_ADMIN_EXCLUDE_OR);
-      const roleByUser = new Map<string, string | null>();
-      for (const p of (profs ?? []) as Array<{ user_id: string; role: string | null }>)
-        if (scopeSet.includes(p.user_id)) roleByUser.set(p.user_id, p.role);
-      const uids = [...roleByUser.keys()];
-      for (let i = 0; i < uids.length; i += 100) {
-        const chunk = uids.slice(i, i + 100);
-        if (chunk.length === 0) break;
-        const { data: mems } = await supabaseAdmin
-          .from("user_memberships")
-          .select("user_id,team_name,part_name,membership_level,membership_state,is_current")
-          .in("user_id", chunk)
-          .eq("is_current", true);
-        for (const m of (mems ?? []) as Array<{
-          user_id: string;
-          team_name: string | null;
-          part_name: string | null;
-          membership_level: string | null;
-          membership_state: string | null;
-        }>) {
-          if ((m.team_name ?? "").trim() !== teamName) continue;
-          if (baseByUser.has(m.user_id)) continue;
-          const code = crewPositionCodeOrNull(
-            resolvePositionLabels({
-              role: roleByUser.get(m.user_id) ?? null,
-              membershipLevel: m.membership_level ?? null,
-            }).positionCode,
-          );
-          if (code === null) continue; // 운영진/관리자 등 = 크루 아님(미집계)
-          // 파트 — 매트릭스 폴백과 동일: 비휴식만 part_name 반영(휴식 크루는 전체엔 포함·파트엔 미포함).
-          baseByUser.set(m.user_id, {
-            positionCode: code,
-            rawPart: m.membership_state !== "rest" ? m.part_name : null,
-          });
-        }
-      }
-    }
-  }
-
-  // override coalesce — teamName 대상 override 로 base 를 대체(없던 유저면 추가).
-  const overrides = await loadWeekPositionOverrides(organization, weekStart);
-  const effectiveByUser = new Map(baseByUser);
-  for (const [key, v] of overrides) {
-    if (v.rawTeam !== teamName) continue;
-    const uid = key.slice(0, key.indexOf("::"));
-    if (!scopeSet.includes(uid)) continue;
-    effectiveByUser.set(uid, { positionCode: v.positionCode, rawPart: v.rawPart });
-  }
-
-  // 최종 로스터는 공통 주차 resolver로 다시 수렴시킨다. 위 조립은 구 스키마
-  // 호환 조회를 보존하지만, 표시/집계에 쓰는 값은 이 단일 결과뿐이다.
-  const { data: positionCandidates } = await supabaseAdmin
-    .from("user_profiles")
-    .select("user_id")
-    .eq("organization_slug", organization)
-    .or(SUPER_ADMIN_EXCLUDE_OR);
-  const candidateUserIds = Array.from(new Set([
-    ...((positionCandidates ?? []) as Array<{ user_id: string }>).map((row) => row.user_id),
-    ...((uphData ?? []) as Array<{ user_id: string }>).map((row) => row.user_id),
-    ...Array.from(overrides.keys()).map((key) => key.slice(0, key.indexOf("::"))),
-  ])).filter((userId) => scopeSet.includes(userId));
-  const resolvedPositions = await resolvePositionAtBatch({
-    userIds: candidateUserIds,
-    targetWeekStart: weekStart,
-    organization,
-  });
-  effectiveByUser.clear();
-  for (const [uid, position] of resolvedPositions) {
-    const resolvedTeam = position.teamName ?? "";
-    if (resolvedTeam !== teamName && stripParen(resolvedTeam) !== stripParen(teamName)) continue;
-    const code = crewPositionCodeOrNull(position.positionCode);
-    if (code === null) continue;
-    effectiveByUser.set(uid, {
-      positionCode: code,
-      rawPart: position.partName,
-    });
-  }
+  // 4~5) effective 로스터 — 공용 SoT(loadTeamWeekRosterAt) 단일 호출. 파트 카탈로그(운용 파트)·파트별
+  //      크루 목록(실무 경험 평가 대상)도 같은 함수를 판다 — 화면별 후보 풀을 다시 만들지 않는다.
+  const rosterMembers = await loadTeamWeekRosterAt(organization, teamName, weekStart, mode);
+  const effectiveByUser = new Map(
+    rosterMembers.map((m) => [m.userId, { positionCode: m.positionCode, rawPart: m.rawPart }] as const),
+  );
 
   // 집계 — 전체 크루(정규+심화·운영진 제외·userId 고유) + 파트별 크루 수.
   const crewUserIds = new Set<string>();

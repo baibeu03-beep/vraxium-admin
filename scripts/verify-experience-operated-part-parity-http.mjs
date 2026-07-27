@@ -2,10 +2,14 @@
 //
 //   node --dns-result-order=ipv4first scripts/verify-experience-operated-part-parity-http.mjs
 //
+// 계약(2026-07-27 개정): 개설 화면 드롭다운 = <운용> 파트 ∩ "평가 대상 크루 ≥1".
+//   드롭다운에 있는데 크루가 0명이거나, 크루가 있는데 드롭다운에 없으면 FAIL(ckPartSetContract).
+//   <운용> 인데 드롭다운에 없는 파트는 평가 대상이 실제 0명임을 HTTP 로 확인한다(파트장만 배정/전원 휴식).
+//
 // 시나리오(같은 org·시즌·주차):
-//   ① 신규 파트 생성 전            — team-parts 요약 == part-input 파트 목록
+//   ① 신규 파트 생성 전            — 계약 성립(기준선)
 //   ② 신규 파트 생성 후(크루 0명)  — 양쪽 모두 미노출(<운용> 아님)
-//   ③ 크루 1명 배정 후             — 양쪽 모두 노출(동일 목록)
+//   ③ 크루 1명 배정 후             — 양쪽 모두 노출 + 그리드 크루 ≥1
 //   ④ 개설 신청 후                 — 같은 파트가 '개설 신청 완료'(team-overall partSubmitted)
 // 추가: 일반 모드 / mode=test / mode=test&actAsTestUserId / demoUserId 경로 DTO·상태 동등성.
 //
@@ -113,6 +117,35 @@ async function experienceParts(teamId, weekId, mode = MODE, actAs = null, demoUs
   return { status: r.status, parts: r.json?.data?.parts ?? [], data: r.json?.data ?? null };
 }
 
+// 파트 목록 계약(2026-07-27 개정) — 개설 화면 드롭다운 = <운용> 파트 ∩ "평가 대상 크루 ≥1".
+//   · 드롭다운 파트는 전부 <운용> 파트이면서 크루 ≥1 이어야 한다(있는데 비는 상태 금지).
+//   · <운용> 인데 드롭다운에 없는 파트는 **평가 대상 크루가 실제로 0명**이어야 한다(경우 2).
+//     (파트장만 배정 / 전원 시즌 전체 휴식 — 신청 자체가 불가능하므로 노출하지 않는다.)
+async function ckPartSetContract(label, teamParts, expParts, teamId, weekId, mode = MODE) {
+  const notOperated = expParts.filter((p) => !teamParts.includes(p));
+  ck(`${label} — 드롭다운 ⊆ <운용> 파트`, notOperated.length === 0, `초과=${J(notOperated)}`);
+  for (const p of expParts) {
+    const r = await experiencePartCrews(teamId, weekId, p, mode);
+    ck(`${label} — 드롭다운 파트 '${p}' 크루 ≥1`, r.crews.length > 0, `crews=${r.crews.length}`);
+  }
+  for (const p of teamParts.filter((x) => !expParts.includes(x))) {
+    const r = await experiencePartCrews(teamId, weekId, p, mode);
+    ck(
+      `${label} — 드롭다운 제외 파트 '${p}' 는 평가 대상 0명`,
+      r.crews.length === 0,
+      `crews=${r.crews.length}`,
+    );
+  }
+}
+
+async function experiencePartCrews(teamId, weekId, part, mode = MODE) {
+  const qs = new URLSearchParams({ organization: ORG, team_id: teamId, team_name: TEAM_NAME, part });
+  if (weekId) qs.set("week_id", weekId);
+  if (mode === "test") qs.set("mode", "test");
+  const r = await api(`/api/admin/cluster4/experience/part-input?${qs}`);
+  return { status: r.status, crews: r.json?.data?.crews ?? [] };
+}
+
 async function overallBoard(teamId, weekId, mode = MODE) {
   const qs = new URLSearchParams({ organization: ORG, week_id: weekId, team_id: teamId, team_name: TEAM_NAME });
   if (mode === "test") qs.set("mode", "test");
@@ -194,7 +227,7 @@ void (async () => {
     const a1 = await teamPartsOperated(TEAM_HALF_ID, WEEK_ID);
     const b1 = await experienceParts(TEAM_ID, WEEK_ID);
     ck("team-parts 200 / practical-experience 200", a1.status === 200 && b1.status === 200, `${a1.status}/${b1.status}`);
-    ck("파트 목록 동일(기준선)", setEq(a1.parts, b1.parts), `teamParts=${J(a1.parts)} exp=${J(b1.parts)}`);
+    await ckPartSetContract("기준선", a1.parts, b1.parts, TEAM_ID, WEEK_ID);
     ck("신규 파트 미존재(전제)", !b1.parts.includes(NEWPART));
 
     // ── ② 신규 파트 생성(크루 미배정) ─────────────────────────────────────
@@ -208,7 +241,7 @@ void (async () => {
     const b2 = await experienceParts(TEAM_ID, WEEK_ID);
     ck("team-parts: 크루 미배정 파트는 <운용> 아님", !a2.parts.includes(NEWPART), J(a2.parts));
     ck("practical-experience: 크루 미배정 파트는 후보 아님", !b2.parts.includes(NEWPART), J(b2.parts));
-    ck("파트 목록 동일(생성 후)", setEq(a2.parts, b2.parts));
+    await ckPartSetContract("생성 후", a2.parts, b2.parts, TEAM_ID, WEEK_ID);
 
     // ── ③ 크루 1명 배정 ───────────────────────────────────────────────────
     console.log("\n③ 신규 파트에 크루 1명 배정");
@@ -253,7 +286,7 @@ void (async () => {
       const b3 = await experienceParts(TEAM_ID, WEEK_ID);
       ck("team-parts: 신규 파트 = <운용>", a3.parts.includes(NEWPART), J(a3.parts));
       ck("practical-experience: 신규 파트 후보 포함", b3.parts.includes(NEWPART), J(b3.parts));
-      ck("파트 목록 동일(배정 후)", setEq(a3.parts, b3.parts));
+      await ckPartSetContract("배정 후", a3.parts, b3.parts, TEAM_ID, WEEK_ID);
       ck("중복 파트 없음", new Set(b3.parts).size === b3.parts.length, J(b3.parts));
 
       // 파트 스코프 조회 — 배정한 크루가 그리드에 뜨는가.
@@ -336,7 +369,7 @@ void (async () => {
           const b4 = await experienceParts(TEAM_ID, WEEK_ID);
           ck("신청 후에도 후보 목록에 유지", b4.parts.includes(NEWPART), J(b4.parts));
           const a4 = await teamPartsOperated(TEAM_HALF_ID, WEEK_ID);
-          ck("신청 후에도 두 화면 목록 동일", setEq(a4.parts, b4.parts));
+          await ckPartSetContract("신청 후", a4.parts, b4.parts, TEAM_ID, WEEK_ID);
           ck(
             "기존 파트 상태 독립(신규 파트 신청이 기존 파트 submitted 를 바꾸지 않음)",
             (after.data?.parts ?? [])

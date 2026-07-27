@@ -23,6 +23,14 @@ import {
 } from "@/lib/educationResolver";
 import { displayNameFromProfile } from "@/lib/displayNameResolver";
 import { isOrganizationSlug, ORGANIZATIONS, type OrganizationSlug } from "@/lib/organizations";
+// <운용> 파트 판정 공용 SoT. 이 파일에서 멤버십으로 다시 세지 않는다(2026-07-27 C1/C2).
+//   ⚠ adminTeamSelectedWeekSummary 는 여기서 DEFAULT_PART_NAME/getLeaderBasicsBatch 를 가져가므로
+//     순환 import 다. 양쪽 다 **함수 본문에서만** 상대 바인딩을 읽어(호출 시점 해소) 안전하다 —
+//     top-level 에서 상대 모듈 값을 읽는 코드를 새로 추가하지 말 것(TDZ 로 깨진다).
+import {
+  getTeamSelectedWeekSummary,
+  listOperatedTeamParts,
+} from "@/lib/adminTeamSelectedWeekSummary";
 import { loadSeasonWeeks } from "@/lib/adminSeasonWeeksData";
 import {
   isTestTeam,
@@ -590,20 +598,12 @@ async function currentMembershipAssignmentsByTeam(
   return out;
 }
 
-// 팀 → 점유 파트(중복 제거, 등장 순서). 위 유저 단위 원천에서 파생 — 쿼리/필터 규칙 단일화.
-async function currentMembershipPartsByTeam(
-  organization: string,
-  teamNames: string[],
-): Promise<Map<string, string[]>> {
-  const byTeam = await currentMembershipAssignmentsByTeam(organization, teamNames);
-  const out = new Map<string, string[]>();
-  for (const [team, rows] of byTeam) {
-    const parts: string[] = [];
-    for (const r of rows) if (!parts.includes(r.part)) parts.push(r.part);
-    out.set(team, parts);
-  }
-  return out;
-}
+// (제거됨 2026-07-27) currentMembershipPartsByTeam — "현재 멤버십으로 팀별 점유 파트 세기".
+//   팀 상세 상단 '운용 파트 수'와 클럽 요약 '전체 파트 수'가 이걸 썼는데, 주차 override 를 반영하지
+//   못해 같은 화면의 [A] 와 갈렸다. 두 소비처 모두 공용 SoT(listOperatedTeamParts /
+//   getTeamSelectedWeekSummary.operatedParts)로 이관했다. 다시 만들지 말 것.
+//   ⚠ currentMembershipAssignmentsByTeam(유저 단위)은 파트×주차 존재표의 **멤버십 폴백**에서 계속
+//     쓰인다 — 그건 파트 수 집계가 아니라 UPH 없는 주차를 메우는 base 이므로 이관 대상이 아니다.
 
 // 팀별 "현재 시점" 크루 수(클러빙/정규/심화) — team_name 기준. 클럽 요약(buildClubRoleCounts)과 동일
 //   원천·스코프·라벨 SoT 를 팀 단위로 좁힌 것. 개인 휴식 포함, userId 고유.
@@ -1011,7 +1011,10 @@ export async function resolveCurrentWeekInfo(
 //   ⚠ 상단 '전체 팀 수/전체 파트 수'와 하단 표의 클럽별 실제 팀 수/파트 수는 반드시 이 함수에서 파생한다
 //     → SUM(perOrg.partCount) === totals.totalParts 가 항상 성립(별도 재집계 금지).
 //   · teamEntityCount = 현재 반기 활성·스코프 팀(entity) 수(사람 아님).
-//   · partCount = "현재 소속 멤버 ≥1 인 활성 파트" 수(팀별 dedup 합). 카탈로그 레코드 수 아님(멤버 0 제외).
+//   · partCount = Σ listOperatedTeamParts(org, team, 현재 주차, mode).length — **공용 SoT 그대로**.
+//     = 그 주차 effective 배정 크루 ≥1 인 파트('일반' 제외). 카탈로그 레코드 수 아님(크루 0 파트 제외).
+//     ⚠ 포함/제외 규칙(주차 override·휴식자·super admin·'일반')을 여기서 재구현하지 않는다 —
+//       규칙이 필요하면 listOperatedTeamParts 쪽을 고쳐 모든 소비처가 함께 움직이게 한다.
 //   · mode/org 분기 없음 — operating/test/actAs/demo 동일 경로(스코프만 반영).
 export type CurrentClubStructureRow = {
   orgSlug: OrganizationSlug;
@@ -1045,13 +1048,16 @@ export async function loadCurrentClubStructure(
       const scoped = (
         await loadHalfRows(org, currentHalfKey, { activeOnly: true })
       ).filter((r) => r.is_qa_test === wantQaTest);
-      // 현재 시점 점유 파트 SoT = user_memberships(is_current·비휴식·org 매칭)·part_name 비어있지 않음.
-      const occupied = await currentMembershipPartsByTeam(
-        org,
-        scoped.map((r) => r.team_name),
+      // 파트 수 SoT = 팀별 listOperatedTeamParts(현재 주차).length 합.
+      //   ⚠ 종전엔 user_memberships(is_current·비휴식) 로 따로 셌다. 주차 override 가 반영되지 않고
+      //     휴식자 제외 규칙도 달라, 팀 상세/[A] 와 총합이 갈렸다(실측 2026-07-27: 22 vs 24).
+      //   '일반' 제외·휴식자·super admin 처리는 전부 공용 SoT 안의 규칙을 그대로 따른다(재구현 금지).
+      const partsPerTeam = await Promise.all(
+        scoped.map((r) =>
+          listOperatedTeamParts({ organization: org, teamName: r.team_name, weekId: null, mode, today }),
+        ),
       );
-      let partCount = 0;
-      for (const r of scoped) partCount += (occupied.get(r.team_name) ?? []).length;
+      const partCount = partsPerTeam.reduce((sum, parts) => sum + parts.length, 0);
       return { orgSlug: org, teamEntityCount: scoped.length, partCount };
     }),
   );
@@ -1289,12 +1295,16 @@ export async function loadTeamDetail(opts: {
   const teamName = await resolveTeamAnchorName(organization, anchorTeamHalfId, mode);
   if (!teamName) return null;
 
-  // 2) 현재 접속 시점 기준 — 현재 반기 정보 + 날짜/주차 + 현재 배정 파트 점유.
-  const [currentInfo, week, currentWeekStartDate, occupiedByTeam] = await Promise.all([
+  // 2) 현재 접속 시점 기준 — 현재 반기 정보 + 날짜/주차 + 현재 주차 요약([A] 와 동일 원천).
+  const [currentInfo, week, currentWeekStartDate, currentWeekSummary] = await Promise.all([
     loadTeamPartsInfo(organization, null, today, mode), // half 미지정 → 현재 반기
     resolveCurrentWeekInfo(today),
     resolveCurrentWeekStartDate(today),
-    currentMembershipPartsByTeam(organization, [teamName]),
+    // 상단 '운용 파트 수' SoT — [A] 선택 주차 요약과 **같은 함수·같은 주차(weekId 미지정=현재 주차)**.
+    //   ⚠ 종전엔 currentMembershipPartsByTeam(현재 멤버십)으로 따로 셌다. 그래서 주차 override 로만
+    //     배정된 파트가 상단에서만 빠져, 같은 화면의 [A] 와 숫자가 갈렸다
+    //     (실측 2026-07-27: encre 비주얼랩(T) 상단 3 vs [A] 4 — override 전용 '테스트' 파트 누락).
+    getTeamSelectedWeekSummary({ organization, teamName, weekId: null, mode, today }),
   ]);
   const currentTeam = currentInfo.teams.find((t) => t.teamName === teamName) ?? null;
 
@@ -1313,9 +1323,8 @@ export async function loadTeamDetail(opts: {
         .filter((p) => !p.isDefault)
         .map((p) => p.partName)
     : [];
-  const operatedPartCount = new Set(
-    (occupiedByTeam.get(teamName) ?? []).filter((p) => p !== DEFAULT_PART_NAME),
-  ).size;
+  // [A] 가 표시하는 목록의 길이 그대로 — 여기서 '일반' 제외 등 규칙을 재구현하지 않는다.
+  const operatedPartCount = currentWeekSummary.operatedParts.length;
 
   const currentCrew =
     currentTeam?.currentCrew ??

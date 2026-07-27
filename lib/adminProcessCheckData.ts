@@ -942,7 +942,9 @@ export async function getProcessCheckBoard(
   //   isAllCompleted 는 아래에서 실제 체크 데이터로 재산정한다(loadProcessCheckTeams 는 목록만).
   let teams = teamBased ? await loadProcessCheckTeams(organization, mode) : [];
 
-  // 실제 팀 파트 목록(드롭다운) — user_memberships(part_name) · org+mode 스코프. 팀 선택 시에만.
+  // 파트 드롭다운 = 그 주차의 <운용> 파트. **현재 멤버십이 아니다.**
+  //   SoT 경로: listOperatedTeamParts → getTeamSelectedWeekSummary.operatedParts → resolvePositionAtBatch
+  //             (= override(≤W) → UPH(W) → 현재 멤버십, '일반' 제외). 팀 선택 시에만 조회.
   const teamName = teamBased && teamId ? await resolveTeamName(teamId, organization) : null;
   // 파트 드롭다운 = 선택 주차(effectiveWeekId) 기준 운용 파트(배정 크루 ≥1). 현재 시점 아님·팀 상세와 동일 SoT.
   const teamParts = teamName

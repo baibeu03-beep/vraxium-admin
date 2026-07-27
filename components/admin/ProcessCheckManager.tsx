@@ -231,7 +231,9 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
   }, [teamMode, selectedTeamId, teams]);
   const effectiveTeamName = teams.find((t) => t.teamId === effectiveTeamId)?.teamName ?? null;
 
-  // 파트 구분 드롭다운 옵션 — 선택 팀의 실제 파트(user_memberships) · 서버 제공(teamParts).
+  // 파트 구분 드롭다운 옵션 — 선택 팀·**선택 주차의 <운용> 파트**(서버 제공 teamParts).
+  //   서버 SoT 경로 = listOperatedTeamParts → getTeamSelectedWeekSummary.operatedParts →
+  //   resolvePositionAtBatch(override(≤W) → UPH(W) → 현재 멤버십). 현재 멤버십 스냅샷이 아니다.
   //   process_line_groups 가 아니라 실제 팀 구조가 출처 — 파트 라인급 미등록이어도 노출.
   const teamParts = teamBoard.teamParts;
   // 유효 스코프값 — 팀 전환/모드 변경으로 더 이상 없는 파트면 "all"(팀 종합)로 폴백(setState-in-effect 회피).

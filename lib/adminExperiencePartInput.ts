@@ -8,10 +8,9 @@
 // 평가 대상 = 일반/에이전트(파트장·팀장 제외).
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { normalizeMemberRole, resolvePositionLabels } from "@/lib/adminMembersTypes";
-import { listOperatedTeamParts } from "@/lib/adminTeamSelectedWeekSummary";
+import { normalizeMemberRole } from "@/lib/adminMembersTypes";
+import { loadTeamWeekEffectiveRoster } from "@/lib/adminTeamSelectedWeekSummary";
 import type { OrganizationSlug } from "@/lib/organizations";
-import { loadCurrentWeekOverrideLabels } from "@/lib/positionResolver";
 import {
   assertUserIdsInScope,
   resolveUserScope,
@@ -19,7 +18,7 @@ import {
 } from "@/lib/userScope";
 import { assertWeekOpenable } from "@/lib/cluster4OfficialRestWeek";
 import { assertExperienceLineOpenable } from "@/lib/experienceLineOpenGate";
-import { getCurrentSeasonRestUserIds } from "@/lib/currentSeasonRest";
+import { getCurrentSeasonRestUserIds, getSeasonRestUserIds } from "@/lib/currentSeasonRest";
 import {
   EXPERIENCE_PART_LINE_KEYS,
   normalizePartInputCell,
@@ -33,123 +32,136 @@ import {
   listExperienceLineOptions,
 } from "@/lib/adminExperienceLineData";
 
-// ── 크루 행(팀 기준 enriched) ──
-
-type TeamCrewRow = {
-  userId: string;
-  displayName: string;
-  partName: string | null;
-  role: string | null;
-  membershipLevel: string | null;
-  membershipState: string | null;
-  /** 현재 주차 override 의 position_code(없으면 null → role+등급 정규화로 판정). */
-  overridePositionCode?: string | null;
-};
+// ── 실무 경험 주차 로스터(파트 카탈로그·평가 대상 크루 **공통 단일 원천**) ────────────────
+//
+// ⚠ 2026-07-27 정정. 종전엔 파트 목록만 주차 SoT(listOperatedTeamParts)를 쓰고, 크루 목록은
+//   여기서 "현재 멤버십 + 현재 주차 override" 로 후보 풀을 다시 만들었다. 두 판정이 갈려
+//   "드롭다운엔 있는데 평가 대상 크루가 없습니다" 가 발생했다(실측: encre 비주얼랩(T) '테스트').
+//   이제 파트도 크루도 **선택 주차 effective 배정 결과(loadTeamWeekEffectiveRoster)** 하나만 판다.
+//
+// 이 로스터에 남는 조건(= 라인 개설 후보 규칙. 파트/크루 양쪽에 **동시에** 적용된다):
+//   ① 그 주차 effective 팀 = teamName · 클래스 = 크루 3종(일반/에이전트/파트장)   ← 주차 SoT
+//   ② 그 주차 시즌의 시즌 전체 휴식자 제외(user_season_statuses.status='rest')
+//   ③ effective 파트가 실제 파트(미배정·placeholder '일반' 제외)
+// 평가 대상(도출/분석/견문 그리드)은 여기서 파트장만 더 뺀다 — isPartLeader.
 
 // 파트가 아닌 placeholder part_name(미배정 기본값). 등급 단어 '일반' 이 part_name 으로 새는 경우 등.
 // 실제 파트만 노출하기 위해 파트 목록/크루 목록에서 제외한다.
 const EXCLUDED_PART_NAMES = new Set<string>(["일반"]);
 
-// 평가 대상 크루의 상태 라벨(일반/에이전트)만 반환. 파트장/팀장/기타는 null(목록 제외).
-function crewDisplayStatus(
-  role: string | null,
-  membershipLevel: string | null,
-  // 현재 주차 override 의 position_code. 있으면 멤버십 대신 이 값으로 판정(현재 상태 화면 규칙)
-  //   — 평가 대상 선별이 화면 클래스 컬럼과 갈리지 않게 한다.
-  overridePositionCode?: string | null,
-): "일반" | "에이전트" | null {
-  // ⚠ 라벨 문자열이 아니라 positionCode 로 판정한다(어휘 2종 혼선 원천 차단).
-  const code = resolvePositionLabels({
-    positionCode: overridePositionCode ?? null,
-    role,
-    membershipLevel,
-  }).positionCode;
-  if (code === "regular") return "일반";
-  if (code === "advanced_agent") return "에이전트";
-  return null;
+export type ExperienceRosterRow = {
+  userId: string;
+  displayName: string;
+  /** 그 주차 effective 파트(비어 있지 않음). */
+  partName: string;
+  positionCode: string;
+  /** 상태 라벨 — 일반/에이전트/파트장. */
+  statusLabel: string;
+  isPartLeader: boolean;
+};
+
+export type ExperienceWeekRoster = {
+  /** 실제로 적용된 주차(요청 weekId 가 선택 불가면 현재 주차 폴백). 달력이 비면 null. */
+  weekId: string | null;
+  weekStartDate: string | null;
+  rows: ExperienceRosterRow[];
+};
+
+// positionCode → 화면 상태 라벨. 라벨 문자열이 아니라 코드로만 판정한다(어휘 2종 혼선 차단).
+function rosterStatus(code: string): { label: string; isPartLeader: boolean } | null {
+  if (code === "regular") return { label: "일반", isPartLeader: false };
+  if (code === "advanced_agent") return { label: "에이전트", isPartLeader: false };
+  if (code === "advanced_part_leader") return { label: "파트장", isPartLeader: true };
+  return null; // 팀장/관리자/앰배서더 등은 애초에 주차 로스터에 없다(방어적 기본값).
 }
 
-// (org, teamName) 의 활동 크루 행 — user_profiles(role) + user_memberships(현재행) join.
-//   모집단 = mode 스코프(operating=실사용자만 / test=test_user_markers 만). 단일 SoT: lib/userScope.
-export async function loadTeamCrewRows(
+export async function loadExperienceWeekRoster(
   organization: string,
   teamName: string,
   mode: ScopeMode = "operating",
-): Promise<TeamCrewRow[]> {
-  let profileQuery = supabaseAdmin
-    .from("user_profiles")
-    .select("user_id,display_name,role")
-    .order("display_name", { ascending: true });
-  if (organization) {
-    profileQuery = profileQuery.eq("organization_slug", organization);
-  }
-  const { data: profiles, error: profileError } = await profileQuery;
-  if (profileError) throw new Error(profileError.message);
-  const profs = (profiles ?? []) as Array<{
-    user_id: string;
-    display_name: string | null;
-    role: string | null;
-  }>;
-  if (profs.length === 0) return [];
-
-  const userIds = profs.map((p) => p.user_id);
-  const { data: memberships, error: memError } = await supabaseAdmin
-    .from("user_memberships")
-    .select("user_id,team_name,part_name,membership_level,membership_state,is_current")
-    .in("user_id", userIds);
-  if (memError) throw new Error(memError.message);
-
-  // 모집단 스코프(operating=실사용자만 / test=테스트 유저만) — userScope resolver(SoT=test_user_markers).
-  // org 필터는 위 profileQuery 가 이미 적용하므로 scope.org 는 null(includes 판정은 org 무관).
-  const scope = await resolveUserScope(mode, null);
-  // 라인 개설 후보 = 현재 시즌 전체 휴식자 제외(season_key 기준·growth_status 미사용·과거 무소급).
-  const restIds = await getCurrentSeasonRestUserIds();
-
-  type MemRow = {
-    user_id: string;
-    team_name: string | null;
-    part_name: string | null;
-    membership_level: string | null;
-    membership_state: string | null;
-    is_current: boolean | null;
-  };
-  const memMap = new Map<string, MemRow>();
-  for (const m of (memberships ?? []) as MemRow[]) {
-    const existing = memMap.get(m.user_id);
-    if (!existing || (m.is_current && !existing.is_current)) memMap.set(m.user_id, m);
+  weekId?: string | null,
+): Promise<ExperienceWeekRoster> {
+  const roster = await loadTeamWeekEffectiveRoster({
+    organization: organization as OrganizationSlug,
+    teamName,
+    weekId: weekId ?? null,
+    mode,
+  });
+  if (!roster.week || roster.members.length === 0) {
+    return {
+      weekId: roster.week?.weekId ?? null,
+      weekStartDate: roster.week?.weekStartDate ?? null,
+      rows: [],
+    };
   }
 
-  // 현재 주차 파트/클래스 override — 평가 대상 선별/표시가 화면 클래스와 갈리지 않게 함께 읽는다.
-  const weekOverrides = await loadCurrentWeekOverrideLabels(
-    profs.map((x) => x.user_id),
-    organization,
-  );
-  const rows: TeamCrewRow[] = [];
-  for (const p of profs) {
-    // 모집단 스코프: operating=실사용자만 / test=테스트 유저만.
-    if (!scope.includes(p.user_id)) continue;
-    if (restIds.has(p.user_id)) continue; // 현재 시즌 전체 휴식자 제외(라인 개설 후보 아님).
-    const m = memMap.get(p.user_id);
-    if (!m || m.team_name !== teamName) continue;
-    // 휴식 크루는 평가 대상에서 제외(active 만).
-    if (m.membership_state === "rest") continue;
-    // 실제 파트만(미배정/placeholder '일반' 제외).
-    //   ⚠ 클래스만 override 를 따르고 파트는 멤버십을 쓰면 같은 사람이 화면마다 다른 파트로 잡힌다 — 동일 SoT.
-    const ovr = weekOverrides.get(p.user_id) ?? null;
-    const effPart = ovr ? ovr.rawPart : m.part_name;
-    const part = effPart?.trim() ?? "";
-    if (!part || EXCLUDED_PART_NAMES.has(part)) continue;
+  // 라인 개설 후보 = 그 주차 시즌의 시즌 전체 휴식자 제외(season_key 기준·growth_status 미사용).
+  //   ⚠ 현재 시즌 고정이 아니라 **선택 주차의 시즌**을 쓴다 — 파트 판정과 기준 시점을 일치시킨다.
+  //   season_key 가 없으면(갭/전환) 현재 시즌으로 폴백(종전 동작).
+  const restIds = roster.week.seasonKey
+    ? await getSeasonRestUserIds(roster.week.seasonKey)
+    : await getCurrentSeasonRestUserIds();
+
+  // 표시 이름 — 목록 정렬 기준(display_name 오름차순)도 여기서 확정한다.
+  const ids = roster.members.map((m) => m.userId);
+  const nameByUser = new Map<string, string>();
+  for (let i = 0; i < ids.length; i += 100) {
+    const chunk = ids.slice(i, i + 100);
+    if (chunk.length === 0) break;
+    const { data, error } = await supabaseAdmin
+      .from("user_profiles")
+      .select("user_id,display_name")
+      .in("user_id", chunk);
+    if (error) throw new Error(error.message);
+    for (const p of (data ?? []) as Array<{ user_id: string; display_name: string | null }>) {
+      nameByUser.set(p.user_id, p.display_name ?? "");
+    }
+  }
+
+  const rows: ExperienceRosterRow[] = [];
+  for (const m of roster.members) {
+    if (restIds.has(m.userId)) continue; // 시즌 전체 휴식자 = 라인 개설 후보 아님.
+    const part = m.rawPart?.trim() ?? "";
+    if (!part || EXCLUDED_PART_NAMES.has(part)) continue; // 미배정/placeholder '일반'.
+    const status = rosterStatus(m.positionCode);
+    if (!status) continue;
     rows.push({
-      userId: p.user_id,
-      displayName: p.display_name ?? "",
-      partName: effPart,
-      role: p.role,
-      membershipLevel: m.membership_level,
-      membershipState: m.membership_state,
-      overridePositionCode: ovr?.positionCode ?? null,
+      userId: m.userId,
+      displayName: nameByUser.get(m.userId) ?? "",
+      partName: part,
+      positionCode: m.positionCode,
+      statusLabel: status.label,
+      isPartLeader: status.isPartLeader,
     });
   }
-  return rows;
+  rows.sort((a, b) => a.displayName.localeCompare(b.displayName));
+  return { weekId: roster.week.weekId, weekStartDate: roster.week.weekStartDate, rows };
+}
+
+// 평가 대상(도출/분석/견문 그리드) = 로스터에서 파트장만 제외. 파트 목록/크루 목록 공용 술어.
+export function experienceEvaluableRows(
+  rows: ReadonlyArray<ExperienceRosterRow>,
+): ExperienceRosterRow[] {
+  return rows.filter((r) => !r.isPartLeader);
+}
+
+// 평가 대상 크루가 1명 이상인 파트 = 이 화면의 <운용> 파트. 드롭다운 옵션 SoT.
+//   ⚠ "드롭다운엔 있는데 평가 대상 크루 0명" 이 구조적으로 불가능해진다 — 같은 배열에서 파생하기 때문.
+export function experienceEvaluablePartNames(
+  rows: ReadonlyArray<ExperienceRosterRow>,
+): string[] {
+  return Array.from(new Set(experienceEvaluableRows(rows).map((r) => r.partName))).sort((a, b) =>
+    a.localeCompare(b),
+  );
+}
+
+function toPartInputCrew(r: ExperienceRosterRow): PartInputCrew {
+  return {
+    userId: r.userId,
+    displayName: r.displayName,
+    partName: r.partName,
+    statusLabel: r.statusLabel,
+  };
 }
 
 // ── Actor context (기본 팀탭/파트 결정) ──
@@ -189,78 +201,48 @@ export async function resolveActorContext(
 
 // ── Parts / Crews ──
 
-// 팀의 <운용> 파트명 목록 — **권위 원천은 listOperatedTeamParts(팀 상세와 동일 SoT)** 다.
+// 실무 경험 라인 개설 화면의 파트 드롭다운 — **평가 대상 크루가 1명 이상인 파트**만.
 //
-// ⚠ 2026-07-27 정정. 종전 구현은 "평가 대상 크루 로스터(loadTeamCrewRows)에서 파트명을 역산"하는
-//   방식이라, 같은 파트를 두 화면이 서로 다른 규칙으로 판정했다:
-//     · /admin/team-parts/info/*   — 선택 주차 effective 배정(override→UPH→멤버십), 휴식 무관
-//     · 실무 경험 라인 개설(여기)  — **현재 주차 고정** + **멤버십 팀명** + 시즌 휴식자 제외
-//   그래서 "새 파트에 크루 1명 배정 → 팀 상세는 <운용>인데 라인 개설 드롭다운에는 없음"이 발생했다
-//   (실측: encre 비주얼랩(T) '테스트' — 유일 배정 크루가 시즌 휴식자라 로스터에서 탈락 → 파트도 소멸).
-//   파트 카탈로그(어떤 파트가 운용 중인가)와 크루 후보 풀(누가 평가 대상인가)은 **다른 질문**이다.
-//   전자는 아래 SoT 로 통일하고, 후자(listPartCrews/listTeamCrews)만 후보 규칙(휴식 제외 등)을 적용한다.
-//
-// @deprecated 새 호출부는 listOperatedTeamParts 를 직접 쓸 것. 이 함수는 기존 호출부/검증 스크립트
-//   호환을 위한 얇은 위임이며, weekId 미지정 시 현재 주차로 폴백한다(요약과 동일).
+// ⚠ 팀 상세의 <운용> 파트(listOperatedTeamParts = 그 주차 배정 크루 ≥1, 파트장·휴식자 포함)와는
+//   모수가 한 겹 다르다. 이 화면이 물어보는 건 "어떤 파트가 존재하는가"가 아니라 "어떤 파트를
+//   지금 신청할 수 있는가"이고, 답은 평가 대상 크루 목록과 **같은 배열**에서 나와야 한다.
+//   두 값 모두 loadExperienceWeekRoster 하나에서 파생하므로
+//   "드롭다운엔 있는데 평가 대상 크루가 없습니다" 상태는 구조적으로 발생할 수 없다.
 export async function listTeamParts(
   organization: string,
   teamName: string,
   mode: ScopeMode = "operating",
   weekId?: string | null,
 ): Promise<string[]> {
-  return listOperatedTeamParts({
-    organization: organization as OrganizationSlug,
-    teamName,
-    weekId: weekId ?? null,
-    mode,
-  });
+  const roster = await loadExperienceWeekRoster(organization, teamName, mode, weekId);
+  return experienceEvaluablePartNames(roster.rows);
 }
 
+// 파트의 평가 대상 크루(파트장/팀장·시즌 휴식·미배정 제외).
+//   weekId 미지정 = 현재 주차(체크 보드 등 "현재 시점" 호출부의 종전 동작 유지).
 export async function listPartCrews(
   organization: string,
   teamName: string,
   part: string,
   mode: ScopeMode = "operating",
+  weekId?: string | null,
 ): Promise<PartInputCrew[]> {
-  const rows = await loadTeamCrewRows(organization, teamName, mode);
-  const out: PartInputCrew[] = [];
-  for (const r of rows) {
-    if (r.partName !== part) continue;
-    const status = crewDisplayStatus(r.role, r.membershipLevel, r.overridePositionCode);
-    if (!status) continue; // 파트장/팀장 등 제외
-    out.push({
-      userId: r.userId,
-      displayName: r.displayName,
-      partName: r.partName,
-      statusLabel: status,
-    });
-  }
-  return out;
+  const roster = await loadExperienceWeekRoster(organization, teamName, mode, weekId);
+  return experienceEvaluableRows(roster.rows)
+    .filter((r) => r.partName === part)
+    .map(toPartInputCrew);
 }
 
-// 팀 전체(모든 파트 합집합)의 평가 대상 크루 — listPartCrews 와 동일 판정(파트장/팀장·휴식·미배정 제외).
-//   팀 총괄(part_name=NULL) 스코프의 "체크 대상자 로스터" 로 쓴다. 파트 필터만 없앤 형태.
+// 팀 전체(모든 파트 합집합)의 평가 대상 크루 — listPartCrews 와 동일 판정. 파트 필터만 없앤 형태.
+//   팀 총괄(part_name=NULL) 스코프의 "체크 대상자 로스터" 로 쓴다.
 export async function listTeamCrews(
   organization: string,
   teamName: string,
   mode: ScopeMode = "operating",
+  weekId?: string | null,
 ): Promise<PartInputCrew[]> {
-  const rows = await loadTeamCrewRows(organization, teamName, mode);
-  const out: PartInputCrew[] = [];
-  const seen = new Set<string>();
-  for (const r of rows) {
-    const status = crewDisplayStatus(r.role, r.membershipLevel, r.overridePositionCode);
-    if (!status) continue; // 파트장/팀장 등 제외
-    if (seen.has(r.userId)) continue;
-    seen.add(r.userId);
-    out.push({
-      userId: r.userId,
-      displayName: r.displayName,
-      partName: r.partName,
-      statusLabel: status,
-    });
-  }
-  return out;
+  const roster = await loadExperienceWeekRoster(organization, teamName, mode, weekId);
+  return experienceEvaluableRows(roster.rows).map(toPartInputCrew);
 }
 
 // ── 신청 조회/저장/삭제 ──
@@ -345,15 +327,12 @@ export async function getTeamOverall(
     selected_line_id: string | null;
   }>;
 
-  // 크루 표시 정보(이름/상태) — 팀 단위 1회 조회 후 맵.
-  const crewRows = await loadTeamCrewRows(organization, teamName, mode);
+  // 크루 표시 정보(이름/상태) — 그 주차 로스터 1회 조회 후 맵(파트/크루 목록과 동일 원천).
+  const roster = await loadExperienceWeekRoster(organization, teamName, mode, weekId);
   const crewMap = new Map(
-    crewRows.map((r) => [
+    roster.rows.map((r) => [
       r.userId,
-      {
-        displayName: r.displayName,
-        statusLabel: crewDisplayStatus(r.role, r.membershipLevel, r.overridePositionCode) ?? "-",
-      },
+      { displayName: r.displayName, statusLabel: r.statusLabel },
     ]),
   );
 

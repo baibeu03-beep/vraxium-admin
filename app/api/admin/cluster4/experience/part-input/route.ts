@@ -16,14 +16,14 @@ import {
 } from "@/lib/experiencePartInputTypes";
 import {
   deletePartSubmission,
+  experienceEvaluablePartNames,
+  experienceEvaluableRows,
   getPartSubmission,
   getTeamOverall,
-  listPartCrews,
+  loadExperienceWeekRoster,
   resolveActorContext,
   savePartSubmission,
 } from "@/lib/adminExperiencePartInput";
-import { listOperatedTeamParts } from "@/lib/adminTeamSelectedWeekSummary";
-import type { OrganizationSlug } from "@/lib/organizations";
 import { buildLineIdCategoryMap, listExperienceLineOptions } from "@/lib/adminExperienceLineData";
 import { loadOpenedLineMasterByUserCategory } from "@/lib/adminExperienceTeamOverall";
 import {
@@ -122,21 +122,18 @@ export async function GET(request: NextRequest) {
       return Response.json({ success: true, data });
     }
 
-    // 파트 드롭다운 = 그 주차의 <운용> 파트 — /admin/team-parts/info/* 와 **동일 권위 원천**
-    //   (listOperatedTeamParts = getTeamSelectedWeekSummary.operatedParts 파생, 프로세스/액트 체크 보드 공용).
-    //   ⚠ 종전엔 평가 대상 크루 로스터에서 파트를 역산해(현재 주차 고정·시즌 휴식자 제외) 팀 상세가
-    //     <운용>으로 보는 신규 파트가 드롭다운에서 통째로 사라졌다. 파트 카탈로그와 크루 후보 풀은 분리한다.
+    // 파트 드롭다운과 평가 대상 크루는 **같은 로스터 배열**에서 파생한다 — 한 번만 조회한다.
+    //   로스터 = 선택 주차 effective 배정(/admin/team-parts/info/* 와 동일 권위 원천)
+    //          + 라인 개설 후보 규칙(시즌 휴식자·미배정 파트 제외) + 평가 대상 규칙(파트장 제외).
+    //   ⚠ 종전엔 파트는 listOperatedTeamParts(주차 SoT), 크루는 현재 멤버십 기반 별도 후보 풀이라
+    //     "드롭다운엔 있는데 평가 대상 크루가 없습니다"가 발생했다. 이제 구조적으로 불가능하다.
     //   weekId 미지정/선택 불가 주차면 현재 주차로 폴백(요약과 동일 규칙). mode 는 모집단만 바꾼다.
     // 라인명 드롭다운 옵션(유형별) — org+공통 활성 라인. 개설신청/검수/검증 공용 단일 원천.
-    const [parts, lineOptions] = await Promise.all([
-      listOperatedTeamParts({
-        organization: organization as OrganizationSlug,
-        teamName,
-        weekId: weekId || null,
-        mode,
-      }),
+    const [roster, lineOptions] = await Promise.all([
+      loadExperienceWeekRoster(organization, teamName, mode, weekId || null),
       listExperienceLineOptions(organization),
     ]);
+    const parts = experienceEvaluablePartNames(roster.rows);
 
     // 팀 총괄(집계, 읽기 전용).
     if (part === TEAM_OVERALL) {
@@ -158,7 +155,17 @@ export async function GET(request: NextRequest) {
     }
 
     // 특정 파트 — 평가 대상 크루 + 저장된 셀 + 신청 상태.
-    const crews = part ? await listPartCrews(organization, teamName, part, mode) : [];
+    //   위 parts 와 같은 배열에서 필터링한다(재조회 금지 — 두 값이 갈릴 여지 자체를 없앤다).
+    const crews = part
+      ? experienceEvaluableRows(roster.rows)
+          .filter((r) => r.partName === part)
+          .map((r) => ({
+            userId: r.userId,
+            displayName: r.displayName,
+            partName: r.partName,
+            statusLabel: r.statusLabel,
+          }))
+      : [];
     const sub =
       part && weekId && teamId
         ? await getPartSubmission(organization, weekId, teamId, part)

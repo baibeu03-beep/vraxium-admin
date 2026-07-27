@@ -3,9 +3,10 @@
 //   전제: admin dev(:3000) + process_check v2/v3 + (독립검증) v4(part_name). oranke F&B 파트 ≥2.
 //   net-zero(TAG 시드 cleanup). user_weekly_points/snapshot 무접촉.
 //
-//   파트 출처 = user_memberships(실제 팀 파트, listTeamParts) — process_line_groups 아님.
+//   파트 출처 = 그 주차의 <운용> 파트(listOperatedTeamParts → getTeamSelectedWeekSummary.operatedParts
+//     → resolvePositionAtBatch) — user_memberships 스냅샷도, process_line_groups 도 아니다.
 //   액트 파트 여부 = 라인급명("파트" 포함). 파트별 체크 상태는 part_name 으로 독립(v4).
-//   "direct" = listTeamParts(순수)+DB(process_check_statuses) / "HTTP" = GET 보드 + POST 가드.
+//   "direct" = listTeamParts(위 SoT 로 위임)+DB(process_check_statuses) / "HTTP" = GET 보드 + POST 가드.
 import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { listTeamParts } from "@/lib/adminExperiencePartInput";

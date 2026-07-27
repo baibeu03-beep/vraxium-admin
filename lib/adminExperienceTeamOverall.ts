@@ -13,7 +13,6 @@
 // (저렴) + 기존 lazy recompute 경로에 위임 — 생성/조회 로직 변경 없음.
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { loadCurrentWeekOverrideLabels } from "@/lib/positionResolver";
 import { QA_HIDE_REAL_USERS } from "@/lib/qaFixedScope";
 import {
   assertUserIdsInScope,
@@ -30,11 +29,9 @@ import {
   resolveExperienceLineOpenGate,
   EXPERIENCE_LINE_NOT_OPEN_REASON,
 } from "@/lib/experienceLineOpenGate";
-import { resolvePositionLabels } from "@/lib/adminMembersTypes";
 import { resolveOutputLinks } from "@/lib/cluster4OutputLinks";
 import { resolveOverallStatus } from "@/lib/experienceReviewResetPolicy";
 import { insertExperienceOpeningLog } from "@/lib/adminExperienceOpeningLogs";
-import { getCurrentSeasonRestUserIds } from "@/lib/currentSeasonRest";
 import {
   EXPERIENCE_OVERALL_CATEGORIES,
   OVERALL_APPLICATION_INCOMPLETE_MESSAGE,
@@ -60,35 +57,14 @@ import {
   buildLineIdCategoryMap,
   listExperienceOverallLineOptions,
 } from "@/lib/adminExperienceLineData";
-import { updateOverallPartCellLines } from "@/lib/adminExperiencePartInput";
-import { listOperatedTeamParts } from "@/lib/adminTeamSelectedWeekSummary";
-import type { OrganizationSlug } from "@/lib/organizations";
+import {
+  experienceEvaluablePartNames,
+  loadExperienceWeekRoster,
+  updateOverallPartCellLines,
+} from "@/lib/adminExperiencePartInput";
 
 // part_submissions line_type(도출/분석/견문) ↔ overall category 동일 키.
 type PartLineType = "derivation" | "analysis" | "evaluation";
-
-const EXCLUDED_PART_NAMES = new Set<string>(["일반"]);
-
-// 팀 총괄 평가 대상 = 일반/에이전트/파트장(팀장·관리자 제외). 상태 라벨 + 파트장 여부 반환.
-function overallMemberStatus(
-  role: string | null,
-  membershipLevel: string | null,
-  // 현재 주차 override 의 position_code. 있으면 멤버십 대신 이 값으로 판정한다
-  //   — 평가 대상 선별·파트장 여부가 화면 클래스와 갈리지 않게 한다(현재 상태 화면 규칙).
-  overridePositionCode?: string | null,
-): { label: string; isPartLeader: boolean } | null {
-  // ⚠ 라벨 문자열이 아니라 positionCode 로 판정한다(어휘 2종 혼선 원천 차단).
-  const code = resolvePositionLabels({
-    positionCode: overridePositionCode ?? null,
-    role,
-    membershipLevel,
-  }).positionCode;
-  if (code === "regular") return { label: "일반", isPartLeader: false };
-  if (code === "advanced_agent") return { label: "에이전트", isPartLeader: false };
-  if (code === "advanced_part_leader") return { label: "파트장", isPartLeader: true };
-  // 팀장/관리자/앰배서더/크루(등급미상) 등은 평가 대상 아님.
-  return null;
-}
 
 type OverallMemberRow = {
   userId: string;
@@ -98,82 +74,25 @@ type OverallMemberRow = {
   isPartLeader: boolean;
 };
 
-// (org, teamName) 의 활동 멤버(파트장 포함) — user_profiles(role) + user_memberships(현재행).
-// adminExperiencePartInput.loadTeamCrewRows 와 동일 소스이나 파트장을 포함한다(팀 총괄 요구).
-// 팀 코호트(라인 개설 후보) — 팀장/관리자·휴식·제외 파트를 뺀 크루 목록(statusLabel/isPartLeader 포함).
-//   실무 경험 라인칸 "개설 가능 크루" 모수 계산에 재사용(관리 라인 = 심화 크루만).
+// (org, teamName) 의 그 주차 활동 멤버(파트장 포함) — **실무 경험 공용 로스터 단일 원천**.
+//   loadExperienceWeekRoster = 주차 effective 배정(팀 상세와 동일 SoT) + 라인 개설 후보 규칙.
+//   평가 대상 그리드(listPartCrews)는 여기서 파트장만 더 뺀 부분집합이라 두 화면이 갈릴 수 없다.
+//   실무 경험 라인칸 "개설 가능 크루" 모수 계산에도 재사용(관리 라인 = 심화 크루만).
+//   weekId 미지정 = 현재 주차(종전 동작 유지).
 export async function loadTeamMembersWithLeaders(
   organization: string,
   teamName: string,
   mode: ScopeMode = "operating",
+  weekId?: string | null,
 ): Promise<OverallMemberRow[]> {
-  let profileQuery = supabaseAdmin
-    .from("user_profiles")
-    .select("user_id,display_name,role")
-    .order("display_name", { ascending: true });
-  if (organization) profileQuery = profileQuery.eq("organization_slug", organization);
-  const { data: profiles, error: profileError } = await profileQuery;
-  if (profileError) throw new Error(profileError.message);
-  const profs = (profiles ?? []) as Array<{
-    user_id: string;
-    display_name: string | null;
-    role: string | null;
-  }>;
-  if (profs.length === 0) return [];
-
-  const userIds = profs.map((p) => p.user_id);
-  const { data: memberships, error: memError } = await supabaseAdmin
-    .from("user_memberships")
-    .select("user_id,team_name,part_name,membership_level,membership_state,is_current")
-    .in("user_id", userIds);
-  if (memError) throw new Error(memError.message);
-
-  // 모집단 스코프(operating=실사용자만 / test=테스트 유저만) — userScope resolver(SoT=test_user_markers).
-  // org 필터는 위 profileQuery 가 적용하므로 scope.org=null(includes 판정은 org 무관).
-  const scope = await resolveUserScope(mode, null);
-  // 라인 개설 후보 = 현재 시즌 전체 휴식자 제외(season_key 기준·growth_status 미사용·과거 무소급).
-  const restIds = await getCurrentSeasonRestUserIds();
-
-  type MemRow = {
-    user_id: string;
-    team_name: string | null;
-    part_name: string | null;
-    membership_level: string | null;
-    membership_state: string | null;
-    is_current: boolean | null;
-  };
-  const memMap = new Map<string, MemRow>();
-  for (const m of (memberships ?? []) as MemRow[]) {
-    const existing = memMap.get(m.user_id);
-    if (!existing || (m.is_current && !existing.is_current)) memMap.set(m.user_id, m);
-  }
-
-  // 현재 주차 파트/클래스 override — 평가 대상 선별·파트장 판정에 반영(현재 상태 화면 규칙).
-  const weekOverrides = await loadCurrentWeekOverrideLabels(profs.map((p) => p.user_id), organization);
-  const rows: OverallMemberRow[] = [];
-  for (const p of profs) {
-    // 모집단 스코프: operating=실사용자만 / test=테스트 유저만.
-    if (!scope.includes(p.user_id)) continue;
-    if (restIds.has(p.user_id)) continue; // 현재 시즌 전체 휴식자 제외(라인 개설 후보 아님).
-    const m = memMap.get(p.user_id);
-    if (!m || m.team_name !== teamName) continue;
-    if (m.membership_state === "rest") continue; // 휴식 제외(active 만).
-    const ovr = weekOverrides.get(p.user_id) ?? null;
-    // ⚠ 클래스만 override 를 따르고 파트는 멤버십을 쓰면, 같은 사람이 화면마다 다른 파트로 잡힌다
-    //   (실측 2026-07-22: 회원목록 "아트" vs 팀 총괄 "무드"). 파트도 같은 SoT 를 쓴다.
-    const part = (ovr ? ovr.rawPart : m.part_name)?.trim() ?? "";
-    if (!part || EXCLUDED_PART_NAMES.has(part)) continue;
-    const status = overallMemberStatus(p.role, m.membership_level, ovr?.positionCode ?? null);
-    if (!status) continue; // 팀장/관리자 등 제외.
-    rows.push({
-      userId: p.user_id,
-      displayName: p.display_name ?? "",
-      partName: part,
-      statusLabel: status.label,
-      isPartLeader: status.isPartLeader,
-    });
-  }
-  return rows;
+  const roster = await loadExperienceWeekRoster(organization, teamName, mode, weekId);
+  return roster.rows.map((r) => ({
+    userId: r.userId,
+    displayName: r.displayName,
+    partName: r.partName,
+    statusLabel: r.statusLabel,
+    isPartLeader: r.isPartLeader,
+  }));
 }
 
 // ── 파트 신청 셀(도출/분석/견문) 라이브 조회 → crew_user_id::category 맵 ──
@@ -473,23 +392,26 @@ export async function getTeamOverallBoard(
   //   화면 조회(GET route)만 true 로 켜 "이미 개설된 실제 라인명"이 트리거에 뜨게 한다(요구 §3·§6).
   resolveAssignedLineFallback = false,
 ): Promise<ExperienceTeamOverallBoard> {
-  const [members, partCellsData, stored, weekDates, lineOptions, operatedParts] = await Promise.all([
-    loadTeamMembersWithLeaders(organization, teamName, mode),
+  const [roster, partCellsData, stored, weekDates, lineOptions] = await Promise.all([
+    // 그 주차 공용 로스터 — 파트장 입력 화면(part-input)의 파트 드롭다운/평가 대상 크루와 **같은 배열**.
+    //   두 화면이 같은 원천을 쓰지 않으면, 드롭다운에만 있는 파트가 submitted 상태를 영영 못 받아
+    //   "신청했는데 개설 신청 필요"로 보이거나, 반대로 신청 불가능한 파트가 검수를 영구 차단한다.
+    loadExperienceWeekRoster(organization, teamName, mode, weekId),
     loadPartSubmissionCells(organization, weekId, teamId),
     loadOverallStored(organization, weekId, teamId),
     loadWeekDates(weekId),
     // 라인명 드롭다운 옵션(5카테고리) — 개설 신청과 동일 원천(org+공통 활성 라인).
     listExperienceOverallLineOptions(organization),
-    // 그 주차의 <운용> 파트 — 파트 드롭다운(part-input)과 **동일 권위 원천**. 파트장 입력 화면의
-    //   드롭다운 옵션과 이 보드의 파트 집합이 갈리면, 드롭다운에만 있는 파트는 submitted 상태를
-    //   영영 못 받아 "신청했는데 개설 신청 필요" 로 보인다. 두 목록을 같은 함수로 맞춘다.
-    listOperatedTeamParts({
-      organization: organization as OrganizationSlug,
-      teamName,
-      weekId,
-      mode,
-    }),
   ]);
+  const members: OverallMemberRow[] = roster.rows.map((r) => ({
+    userId: r.userId,
+    displayName: r.displayName,
+    partName: r.partName,
+    statusLabel: r.statusLabel,
+    isPartLeader: r.isPartLeader,
+  }));
+  // 신청 가능 파트 = 평가 대상 크루 ≥1 (part-input 드롭다운과 동일 함수·동일 배열).
+  const operatedParts = experienceEvaluablePartNames(roster.rows);
 
   const extension = weekDates
     ? await resolveExtension(organization, weekDates.startDate, weekDates.endDate)
@@ -592,10 +514,12 @@ export async function getTeamOverallBoard(
     extensionKind: extension.kind,
     parts,
     // 대상 파트 신청 완료 판정 — 프론트가 그대로 소비(버튼 게이팅). 서버 가드와 동일 순수 함수 사용.
-    //   ⚠ **신청할 크루가 있는 파트만** 대상이다. 운용 파트지만 평가 대상 크루가 0명(전원 시즌 휴식 등)인
-    //     파트까지 요구하면 아무도 신청할 수 없어 [개설 검수]가 영구 차단된다. 이 필터가 있어야
-    //     loadOverallApplicationReadiness(멤버 기반 파트 집합)와 판정이 정확히 일치한다.
-    application: resolveOverallApplicationReadiness(parts.filter((p) => p.crews.length > 0)),
+    //   ⚠ **평가 대상 크루가 있는 파트만** 대상이다(= part-input 드롭다운 집합과 동일).
+    //     파트장만 배정된 파트/전원 시즌 휴식인 파트까지 요구하면 아무도 신청할 수 없어
+    //     [개설 검수]가 영구 차단된다. crews.length>0 이 아니라 "파트장 아닌 크루 ≥1"이 기준이다.
+    application: resolveOverallApplicationReadiness(
+      parts.filter((p) => operatedParts.includes(p.partName)),
+    ),
     outputs,
     lineOptions,
     reviewedAt: stored.reviewedAt,

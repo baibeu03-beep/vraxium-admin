@@ -24,7 +24,9 @@ import {
 //     · **구조 숫자(teamEntityCount·partCount)** = `loadCurrentClubStructure`(상단 요약 '전체 팀/파트 수'
 //       와 **동일 함수**). ∴ SUM(rows.partCount) === structureTotals.totalParts,
 //       SUM(rows.teamEntityCount) === structureTotals.totalTeams 가 항상 성립한다.
-//       partCount = "현재 소속 멤버 ≥1 활성 파트" 수(카탈로그 레코드 수 아님·멤버 0 파트 제외).
+//       partCount = Σ listOperatedTeamParts(org, team, 현재 주차, mode).length — 그 주차 effective
+//       배정 크루 ≥1 인 파트('일반' 제외). 카탈로그 레코드 수 아님·크루 0 파트 제외.
+//       ⚠ 여기서 파트를 다시 세지 않는다(2026-07-27 C2). 규칙 변경은 listOperatedTeamParts 에서.
 //     · **역할 기반 사람 수(운영진/팀장/앰배서더/클러빙/정규·심화/파트장/에이전트)** = 라이브 로스터
 //       (user_profiles ∩ resolveUserScope(mode) − super_admin, 등급=user_memberships). 주차 휴식 포함.
 //
@@ -217,7 +219,7 @@ export async function loadClubCurrentSummary(opts: {
         clubbingCount,
         regularCrewCount: roleCounts.regularCrewCount,
         advancedCrewCount,
-        partCount: struct.partCount, // 상단 '전체 파트 수'와 동일 SoT(멤버 ≥1 활성 파트)
+        partCount: struct.partCount, // 상단 '전체 파트 수'와 동일 SoT(그 주차 <운용> 파트)
         partLeaderCount: roleCounts.partLeaderCount,
         agentCount: roleCounts.agentCount,
       };
