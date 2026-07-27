@@ -327,18 +327,24 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
         //   → 성공 토스트에는 내부 크롤 판단 사유를 노출하지 않고 결과(완료)만 간결히 알린다.
         //   status!=='completed' 만 실제 이상 상황(운영행 보호·DB 실패 등)으로 오류 안내.
         if (!res.ok || !json?.success || json?.data?.status !== "completed") {
+          // status==='not_found' = 그 statusId 의 상태행을 찾지 못함(보드가 낡음 — 롤백/삭제된 행).
           console.warn("[process-check][즉시 검수] 완료되지 않음", {
             statusId: act.checkStatusId,
             status: json?.data?.status ?? null,
-            code: json?.data?.code ?? null,
+            crawlOutcome: json?.data?.code ?? null,
             error: json?.error ?? null,
           });
           toast("info", "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.");
         } else {
-          // 내부 크롤 판단 사유(code)는 UI 가 아니라 콘솔 로그로만 남긴다.
+          // 내부 크롤 판단 사유는 UI 가 아니라 콘솔 로그로만 남긴다.
+          //   ⚠ data.code 는 **크롤 결과**(confirmed=매칭됨 / no_match=댓글은 있으나 미매칭 /
+          //     not_found=댓글 없음·카페 못 읽음)이지 statusId 조회 결과가 아니다. statusId 조회 실패는
+          //     data.status==='not_found' 로만 나타나며 그 때는 위 실패 분기로 간다. 두 not_found 를
+          //     혼동하지 않도록 로그 키를 crawlOutcome 으로 분리하고 status 를 함께 남긴다.
           console.info("[process-check][즉시 검수] 완료", {
             statusId: act.checkStatusId,
-            code: json?.data?.code ?? null,
+            status: json?.data?.status ?? null,
+            crawlOutcome: json?.data?.code ?? null,
           });
           toast("success", "즉시 검수가 완료되었습니다.");
         }

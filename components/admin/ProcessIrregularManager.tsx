@@ -305,18 +305,22 @@ export default function ProcessIrregularManager() {
         //   → 성공 토스트에는 내부 크롤 판단 사유를 노출하지 않고 결과(완료)만 간결히 알린다.
         //   status!=='completed' 만 실제 이상 상황으로 오류 안내.
         if (!res.ok || !json?.success || json?.data?.status !== "completed") {
+          // status==='not_found' = 그 statusId 의 행을 찾지 못함(보드가 낡음 — 롤백/삭제된 행).
           console.warn("[process-irregular][즉시 검수] 완료되지 않음", {
             statusId: act.id,
             status: json?.data?.status ?? null,
-            code: json?.data?.code ?? null,
+            crawlOutcome: json?.data?.code ?? null,
             error: json?.error ?? null,
           });
           toast("info", "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.");
         } else {
-          // 내부 크롤 판단 사유(code)는 UI 가 아니라 콘솔 로그로만 남긴다.
+          // 내부 크롤 판단 사유는 UI 가 아니라 콘솔 로그로만 남긴다.
+          //   ⚠ data.code 는 크롤 결과(confirmed/no_match/not_found)이지 statusId 조회 결과가 아니다
+          //     — 조회 실패는 data.status==='not_found' 로만 나타난다(위 실패 분기). 키를 분리한다.
           console.info("[process-irregular][즉시 검수] 완료", {
             statusId: act.id,
-            code: json?.data?.code ?? null,
+            status: json?.data?.status ?? null,
+            crawlOutcome: json?.data?.code ?? null,
           });
           toast("success", "즉시 검수가 완료되었습니다.");
         }

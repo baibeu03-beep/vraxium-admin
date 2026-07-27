@@ -384,6 +384,23 @@ export type AdminBreadcrumbItem = { label: string; href?: string };
 //   에서 뽑아야 하는 경우)일 수 있다.
 type OverrideParts = AdminBreadcrumbItem[] | ((path: string) => AdminBreadcrumbItem[]);
 
+// 대분류(branch) 라벨 → 그 그룹의 대표 href. 규칙은 resolveAdminBreadcrumb 의 groupHref 와 **동일**:
+//   "첫 번째 활성(비 disabled) 자식의 href". basePath 는 실제 페이지가 아닐 수 있어(라우트 없는 순수
+//   그룹 접두: 예 /admin/line-opening · /admin/processes) 절대 링크로 쓰지 않는다.
+//   ⚠ override 에 그룹 href 를 문자열로 하드코딩하면 라우트 통합/이관 때 조용히 404 로 남는다
+//     (실측 회귀: /admin/lines/* breadcrumb 의 "허브와 라인" → /admin/line-opening 404 _rsc 프리페치).
+//     반드시 이 함수로 트리에서 유도할 것.
+function branchGroupHref(label: string): string | undefined {
+  for (const tree of [MENU_INTEGRATED, MENU_ORG]) {
+    for (const item of tree) {
+      if (item.kind !== "branch" || item.label !== label) continue;
+      const child = item.children.find((c) => !c.disabled);
+      if (child) return child.href;
+    }
+  }
+  return undefined;
+}
+
 // 동적/상세 라우트 override — 사이드바 메뉴에 없는 상세 페이지를 안정적인 한글명으로 매핑한다.
 //   구조적 매칭보다 먼저 검사한다(상세 명칭 우선). 상위 계층은 사이드바 라벨을 그대로 재사용.
 const BREADCRUMB_OVERRIDES: { test: RegExp; parts: OverrideParts }[] = [
@@ -501,7 +518,9 @@ const BREADCRUMB_OVERRIDES: { test: RegExp; parts: OverrideParts }[] = [
   {
     test: /^\/admin\/lines(\/.*)?$/,
     parts: [
-      { label: "허브와 라인", href: "/admin/line-opening" },
+      // "허브와 라인"은 라우트 없는 그룹 접두(/admin/line-opening)라 링크가 될 수 없다 —
+      //   사이드바 트리와 같은 규칙(첫 활성 자식)으로 유도한다.
+      { label: "허브와 라인", href: branchGroupHref("허브와 라인") },
       { label: "라인 관리", href: "/admin/lines/register" },
     ],
   },

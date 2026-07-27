@@ -376,6 +376,11 @@ async function summarizeProcessCheckReflection(
 //     confirmed → 매칭된 크루 발견(인증 내용을 확인했습니다).
 //     no_match  → 댓글은 있었지만 대상자 미매칭(인증 댓글은 있었지만 대상자를 찾지 못했습니다).
 //     not_found → 댓글 없음/카페 못 읽음(인증 내용을 찾지 못했습니다).
+//
+//   ⚠ 두 개의 not_found 를 혼동하지 말 것(콘솔 로그·검증 스크립트 공통):
+//     · code:'not_found'   = **크롤 결과** — 댓글을 찾지 못함(정상 완료). ok:true.
+//     · status:'not_found' = **statusId 조회 실패** — 그 id 의 상태행이 없음(보드가 낡음). ok:false.
+//     즉 code 는 statusId 의 유효성과 무관하다. 조회 실패는 언제나 status 로만 표현된다.
 export type ProcessCheckRowNowCode = "confirmed" | "no_match" | "not_found";
 export type ProcessCheckRowNowResult = {
   status?: "pending" | "completed" | "not_found";
