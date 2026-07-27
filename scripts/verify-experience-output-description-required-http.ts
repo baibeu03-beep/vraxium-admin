@@ -24,6 +24,7 @@ config({ path: ".env.local" });
 import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { getTeamOverallBoard } from "@/lib/adminExperienceTeamOverall";
+import { resolveTeamNameById } from "@/lib/experienceImpersonation";
 import { isWeekOfficialRestById } from "@/lib/cluster4OfficialRestWeek";
 import { ORGANIZATIONS } from "@/lib/organizations";
 import {
@@ -220,6 +221,7 @@ async function verifyHttpGuard(cookie: string, weekId: string) {
   for (const organization of ORGANIZATIONS) {
     for (const mode of ["operating", "test"] as Mode[]) {
       for (const action of ["review", "open"] as const) {
+        console.log(`  · ${organization}/${mode}/${action} …`);
         for (const scenario of blockedCases) {
           const { status, json } = await httpPost(cookie, {
             action,
@@ -302,39 +304,61 @@ type Target = {
   board: BoardDto;
 };
 
-async function discover(
-  mode: Mode,
-  nonRestWeeks: Array<{ id: string; label: string }>,
-): Promise<Target | null> {
-  const { data: teams } = await sb
-    .from("cluster4_teams")
-    .select("id,team_name,organization_slug")
-    .ilike("team_name", "%(T)%");
-  for (const t of (teams ?? []) as Array<{ id: string; team_name: string; organization_slug: string }>) {
-    for (const w of nonRestWeeks) {
+// 개설 가능 후보 탐색 — diag-experience-overall-open-candidates.ts 와 동일한 원천을 쓴다:
+//   cluster4_week_opening_configs(open_confirmed) → config.practicalExperience 에 켜진 (week, team).
+//   무작정 팀×주차를 훑는 대신 "실제로 개설 대상으로 설정된" 조합만 보므로 훨씬 빠르고 적중률이 높다.
+//   클린-슬레이트(overall 헤더 없음)만 대상 — 기존 검수/개설 데이터는 건드리지 않는다.
+async function discover(mode: Mode, weekLabels: Map<string, string>): Promise<Target | null> {
+  const { data: configs } = await sb
+    .from("cluster4_week_opening_configs")
+    .select("week_id,organization_slug,config,updated_at")
+    .eq("open_confirmed", true)
+    .order("updated_at", { ascending: false })
+    .limit(60);
+  for (const row of (configs ?? []) as Array<{
+    week_id: string;
+    organization_slug: string;
+    config: Record<string, unknown> | null;
+  }>) {
+    if (!(ORGANIZATIONS as readonly string[]).includes(row.organization_slug)) continue;
+    const pe = (
+      row.config as {
+        practicalExperience?: Record<string, boolean | Record<string, boolean>>;
+      } | null
+    )?.practicalExperience;
+    const teamIds = Object.entries(pe ?? {})
+      .filter(([, v]) => (typeof v === "boolean" ? v : Object.values(v ?? {}).some(Boolean)))
+      .map(([k]) => k);
+    for (const teamId of teamIds) {
       const { data: hdr } = await sb
         .from("cluster4_experience_team_overall")
         .select("id")
-        .eq("organization_slug", t.organization_slug)
-        .eq("week_id", w.id)
-        .eq("team_id", t.id)
+        .eq("organization_slug", row.organization_slug)
+        .eq("week_id", row.week_id)
+        .eq("team_id", teamId)
         .maybeSingle();
       if (hdr) continue; // 클린-슬레이트만(기존 검수/개설 데이터 훼손 금지).
-      const board = await getTeamOverallBoard(t.organization_slug, w.id, t.id, t.team_name, mode);
-      if (!board.canOpen || !board.application.allPartsApplied) continue;
+      const teamName = await resolveTeamNameById(teamId).catch(() => null);
+      if (!teamName) continue;
+      let board: BoardDto;
+      try {
+        board = await getTeamOverallBoard(row.organization_slug, row.week_id, teamId, teamName, mode);
+      } catch {
+        continue;
+      }
+      if (!board.canOpen || !board.application?.allPartsApplied) continue;
       const hasOptions = (["derivation", "analysis", "evaluation"] as PartCat[]).every(
         (c) => (board.lineOptions[c]?.length ?? 0) > 0,
       );
-      if (hasOptions) {
-        return {
-          org: t.organization_slug,
-          teamId: t.id,
-          teamName: t.team_name,
-          weekId: w.id,
-          weekLabel: w.label,
-          board,
-        };
-      }
+      if (!hasOptions) continue;
+      return {
+        org: row.organization_slug,
+        teamId,
+        teamName,
+        weekId: row.week_id,
+        weekLabel: weekLabels.get(row.week_id) ?? row.week_id,
+        board,
+      };
     }
   }
   return null;
@@ -504,11 +528,12 @@ async function main() {
 
   await verifyHttpGuard(cookie, nonRestWeeks[0].id);
 
+  const weekLabels = new Map(nonRestWeeks.map((w) => [w.id, w.label]));
   let ran = 0;
   for (const mode of ["test", "operating"] as Mode[]) {
-    const tgt = await discover(mode, nonRestWeeks);
+    const tgt = await discover(mode, weekLabels);
     if (!tgt) {
-      console.log(`\n- [D] ${mode}: 클린-슬레이트 개설가능 (T)팀 없음 → 실 저장 케이스 skip`);
+      console.log(`\n- [D] ${mode}: 클린-슬레이트 개설가능 팀 없음 → 실 저장 케이스 skip`);
       continue;
     }
     await verifyRealSave(cookie, mode, tgt);
