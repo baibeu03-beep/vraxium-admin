@@ -25,6 +25,7 @@ import { useActionToast } from "@/lib/actionToast";
 import { cn } from "@/lib/utils";
 import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import PageSection from "@/components/admin/PageSection";
 import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 import { organizationLabelKo } from "@/lib/organizations";
 import {
@@ -288,6 +289,11 @@ export default function OperationHealthCheckView() {
         />
       </div>
 
+      {/* PageSection(divider="wave-dot") = "진단 요약(집계)" ↔ "정합성 이슈 목록(개별 행)" 사이의 큰
+          섹션 경계 하나만 담당한다(/admin/periods/register 와 동일 SoT · 가시 여백 48/56 대칭).
+          parentGap="stack-lg" — 이 화면 루트는 admin-section-stack-lg(40/48)이라 상쇄값을 맞춘다
+          (루트 레이아웃은 변경하지 않는다). 제목은 추가하지 않으며 CardTitle 은 카드 안 그대로. */}
+      <PageSection divider="wave-dot" parentGap="stack-lg">
       <Card>
         <CardHeader>
           <CardTitle className="inline-flex items-center gap-1.5 text-base">
@@ -490,6 +496,7 @@ export default function OperationHealthCheckView() {
           </div>
         </CardContent>
       </Card>
+      </PageSection>
     </div>
   );
 }

@@ -16,6 +16,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import AdminHelp from "@/components/admin/AdminHelp";
+import SectionDivider from "@/components/admin/SectionDivider";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
@@ -357,6 +358,12 @@ export default function LineOpeningWindowsManager() {
           </div>
         </CardContent>
       </Card>
+
+      {/* 큰 섹션 경계 = "현재 자동 정책 상태(조회)" ↔ "예외 관리(추가 + 등록된 목록)".
+          루트가 space-y-6(margin 기반)이라 PageSection 의 음수마진 상쇄가 통하지 않는다 →
+          공용 SectionDivider 가 padding 으로 동일 여백(48/56 대칭)을 만든다. 형제로 놓는다.
+          제목·CardTitle 은 전혀 건드리지 않는다. */}
+      <SectionDivider parentSpaceY="space-y-6" />
 
       {/* ── 화면2: 예외 추가 ── */}
       <Card>

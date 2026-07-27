@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import { Separator } from "@/components/ui/separator";
+import SectionDivider from "@/components/admin/SectionDivider";
 import type { StatusToken, StatusTokenKind } from "@/lib/lineOpeningStatusEngine";
 
 // 라인 개설 상태창 공용 표현 프리미티브.
@@ -101,15 +101,10 @@ export function StatusListItem({
 //     padding 은 덮이지 않으므로 space-y 안에서도 구분선 위/아래가 대칭으로 유지된다.
 //     (같은 이유로 PageSection 의 음수 마진 상쇄 방식은 여기서 못 쓴다 — 부모가 gap 이 아니라 space-y 라
 //      상쇄할 rowGap 자체가 없다. 그래서 이 컴포넌트가 자체 padding 으로 동일 리듬을 만든다.)
-//   실효 여백(부모 space-y-4=16px 기준) = padding + 16 → 모바일 48px(py-8 32+16) · 데스크톱 56px(md:py-10 40+16).
+//   실효 여백(부모 space-y-4=16px 기준) = padding + 16 → 모바일 48px · 데스크톱 56px.
 //     이는 /admin/periods/register 의 PageSection divider 경계(48/56 대칭)와 픽셀 동일한 SoT 값이다.
-//     브레이크포인트도 기준 페이지와 같은 md(768px)로 맞춘다(기존 lg → md).
+//   여백·variant 계산은 공용 SectionDivider 에 위임한다(값 중복 정의 금지) — 이 래퍼는
+//     "line-opening 세 화면의 그 경계" 라는 의미 이름만 유지한다.
 export function LineOpeningSectionDivider() {
-  return (
-    <div aria-hidden="true" className="py-8 md:py-10">
-      {/* 공통 Separator wave-dot — 기준 페이지(/admin/periods/register)와 동일한 큰 섹션 경계 표식.
-          바깥 py- 래퍼가 상/하 대칭 여백을 유지(space-y 부모에서도 안전) → 간격 규칙 불변. */}
-      <Separator variant="wave-dot" />
-    </div>
-  );
+  return <SectionDivider parentSpaceY="space-y-4" />;
 }

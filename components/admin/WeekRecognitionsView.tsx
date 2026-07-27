@@ -39,6 +39,7 @@ import { useStickyColumns } from "@/components/ui/sticky-columns";
 import { Checkbox, checkedTextClass } from "@/components/ui/checkbox";
 import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import PageSection from "@/components/admin/PageSection";
 import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 import {
   ORGANIZATIONS,
@@ -515,6 +516,16 @@ export default function WeekRecognitionsView() {
         <SummaryCard label="공식 휴식" value={summary?.official_rest_count ?? null} tone="official" loading={loading} helpKey="admin.weekRecognitions.stat.officialRest" />
       </div>
 
+      {/* PageSection(divider="wave-dot") = "인정 요약(집계)" ↔ "인정 결과 목록(개별 행)" 사이의 큰 섹션
+          경계 하나만 담당한다(/admin/periods/register 와 동일 SoT · 가시 여백 48/56 대칭).
+          parentGap="stack-lg" — 루트가 admin-section-stack-lg(40/48)이라 상쇄값만 맞춘다(루트 불변).
+          ⚠ 이 탭의 요약/목록은 unmount 대신 hidden 으로 전환되므로 구분선도 **같은 조건으로 숨긴다**
+            (다른 탭에서 구분선만 남는 고아 상태 방지). 제목·CardTitle 은 그대로. */}
+      <PageSection
+        divider="wave-dot"
+        parentGap="stack-lg"
+        className={cn(activeTab !== "recognitions" && "hidden")}
+      >
       <Card className={cn(activeTab !== "recognitions" && "hidden")}>
         <CardHeader>
           <CardTitle className="inline-flex items-center gap-1.5 text-base">
@@ -857,6 +868,7 @@ export default function WeekRecognitionsView() {
           </div>
         </CardContent>
       </Card>
+      </PageSection>
 
       {/* 주차 인정 기준(N) 탭 — 수정 중 입력 유지를 위해 hidden 전환 */}
       <div className={cn("flex flex-col gap-6", activeTab !== "recognition_n" && "hidden")}>
