@@ -7,7 +7,11 @@ type Ctx = { params: Promise<{ user_id: string; week_id: string }> };
 
 // GET /api/admin/members/[user_id]/weeks/[week_id]/lines
 //   회원별·주차별 상세 "라인 강화 내역" 탭 — 상단 요약 DTO. 크루 카드(/cluster-4-card)의 라인 DTO·
-//   snapshot 계산 SoT 를 그대로 표현(재추정 없음). 포인트는 라인 개설 지급(source='line')만 집계. 조회 전용.
+//   snapshot 계산 SoT 를 그대로 표현(재추정 없음). 조회 전용.
+//   포인트는 라인 원장 2종을 **분리해서** 집계한다(2026-07-27):
+//     · source='line'        → 강화 시 포인트(enhancementPointA/B/C · points.pointA/B/C)
+//     · source='line_rating' → 평점 Point A(ratingPointA · summary.ratingPointA)
+//   합계(totalPointA)는 파생값이며 세부 항목이 항상 함께 실린다 — 화면이 출처를 구분해 표시한다.
 export async function GET(request: NextRequest, { params }: Ctx) {
   try {
     await requireAdmin(ADMIN_READ_ROLES);

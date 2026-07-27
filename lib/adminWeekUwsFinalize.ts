@@ -18,6 +18,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { fetchTestUserMarkerIds } from "@/lib/testUsers";
 import { QA_HIDE_REAL_USERS } from "@/lib/qaFixedScope";
+import { ACT_PERFORMANCE_SOURCES } from "@/lib/pointAwardSourcePolicy";
 import {
   fetchExperienceRequiredSlotStatusByWeek,
   fetchWeekRecognitionRequiredByOrg,
@@ -189,6 +190,11 @@ export async function assertWeekAccrualComplete(
     .eq("status", "pending")
     .eq("scope_mode", effMode);
   if (organization) irregularQuery = irregularQuery.eq("organization_slug", organization);
+  // 적립 게이트 = "이 주차에 **액트 적립**이 하나라도 이루어졌는가"(체크 대상이 있는데 적립 0 이면 차단).
+  //   ⚠ 액트 수행 집계 allowlist(strict) — 라인 지급('line'·'line_rating')은 액트 적립이 아니므로
+  //     세지 않는다. 안 거르면 라인 지급만 있고 액트 적립은 0 인 주차가 게이트를 통과해버린다.
+  //     (라인 포인트는 주차 총 Point A 에는 그대로 합산된다 — 목록이 다른 것이지 무시가 아니다.)
+  //   [실측 2026-07-27] 이 필터 적용으로 게이트 판정이 뒤집히는 주차는 **없다**(전 주차 액트 적립 > 0).
   let awardsQuery = week.iso_year != null && week.iso_week != null
     ? supabaseAdmin
         .from("process_point_awards")
@@ -196,6 +202,7 @@ export async function assertWeekAccrualComplete(
         .eq("year", week.iso_year)
         .eq("week_number", week.iso_week)
         .eq("scope_mode", effMode)
+        .in("source", ACT_PERFORMANCE_SOURCES as string[])
     : null;
   if (organization && awardsQuery) awardsQuery = awardsQuery.eq("organization_slug", organization);
   const [validStatuses, pendIrr, awardCount] = await Promise.all([

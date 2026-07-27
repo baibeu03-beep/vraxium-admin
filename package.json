@@ -29,6 +29,8 @@
     "verify:experience-rating-pointa-http": "tsx --env-file=.env.local scripts/verify-experience-rating-pointa-http.ts",
     "verify:experience-rating-pointa-render": "node scripts/browser-verify-experience-rating-criterion.mjs",
     "verify:line-rating-award": "tsx --env-file=.env.local scripts/verify-line-rating-award-reconcile.ts",
+    "verify:line-rating-display": "tsx --env-file=.env.local scripts/verify-line-rating-display-e2e.ts",
+    "verify:line-rating-display-render": "node scripts/browser-verify-line-rating-columns.mjs",
     "verify:process-check-cell-styles": "node scripts/browser-verify-process-check-cell-styles.mjs",
     "verify:process-check-cell-stability": "node scripts/browser-verify-process-check-cell-color-stability.mjs",
     "verify:process-check-experience-cells": "node scripts/browser-verify-process-check-experience-cells.mjs",
@@ -121,7 +123,12 @@
     "db:run-sql": "tsx --env-file=.env.local scripts/run-sql-direct.ts",
     "verify:club-rank-cache": "tsx --env-file=.env.local scripts/verify-club-rank-cache.ts",
     "verify:crew-week-publish-finalize": "node scripts/verify-crew-week-publish-finalize-http.mjs",
-    "verify:weeks-detail-actions-removed": "node scripts/browser-verify-weeks-detail-actions-removed.mjs"
+    "verify:weeks-detail-actions-removed": "node scripts/browser-verify-weeks-detail-actions-removed.mjs",
+    "verify:point-award-source-allowlists": "tsx --env-file=.env.local scripts/verify-point-award-source-allowlists.ts",
+    "backfill:published-act-rate": "tsx --env-file=.env.local scripts/backfill-published-act-rate.ts",
+    "backfill:line-rating-awards": "tsx --env-file=.env.local scripts/backfill-line-rating-awards.ts",
+    "verify:published-act-rate-read": "tsx --env-file=.env.local scripts/verify-published-act-rate-read-parity.ts",
+    "verify:line-award-era-gate": "tsx --env-file=.env.local scripts/verify-line-award-era-gate.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

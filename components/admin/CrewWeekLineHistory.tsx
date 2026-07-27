@@ -126,9 +126,11 @@ function toLineSortRow(row: CrewWeekLineDetailRow): LineSortRow {
     kind: row.type ?? "",
     duration: row.estimatedDurationMinutes,
     rating: row.rating,
-    pointA: row.earnedA,
-    pointB: row.earnedB,
-    pointC: row.earnedC,
+    pointA: row.enhancementPointA,
+    pointB: row.enhancementPointB,
+    pointC: row.enhancementPointC,
+    // 평점 Point A — 미지급/해당없음은 null 로 넘겨 방향 무관 최하단(공통 정렬 규칙).
+    ratingPointA: row.ratingPointStatus === "paid" ? row.ratingPointA : null,
     growthRequirement: "",
     clubOpen: row.clubOpen,
   };
@@ -423,7 +425,8 @@ export default function CrewWeekLineHistory({
     return <p className="py-8 text-sm text-muted-foreground">라인 강화 내역이 없습니다.</p>;
   }
 
-  const { lines, results, points, weeklyGrowthRate, confirmed, lineDetails } = summary;
+  const { lines, results, points, ratingPointA, totalPointA, weeklyGrowthRate, confirmed, lineDetails } =
+    summary;
 
   // 휴식 주차 — 일반 주차와 달리 라인 목록(정보 8행·경험 5행 등)을 만들지 않고 조회 전용 휴식 상태만.
   if (summary.isRestWeek) {
@@ -464,20 +467,40 @@ export default function CrewWeekLineHistory({
         </WeekTallyingNotice>
       )}
 
-      {/* 세 번째 줄 — 라인 강화 결과 획득 포인트(획득 / 획득 가능). A/B만(라인 정책상 Point C 없음). */}
+      {/* 세 번째 줄 — 라인 결과 포인트. 출처가 다른 두 항목을 **합치지 않고 나란히** 보여준다:
+            · 강화 시 포인트 = cluster4_line_point_configs 설정값 (원장 source='line') — 획득/가능 쌍
+            · 평점 Point A  = 실무 경험 실제 평점 (원장 source='line_rating') — 실지급값만(가능치 없음)
+          맨 오른쪽 합계는 두 값의 단순 합이며, 세부 항목이 항상 함께 보여 출처를 추적할 수 있다. */}
       <div className="flex flex-wrap items-center gap-x-8 gap-y-2 rounded-md border bg-muted/20 px-4 py-3">
         <PointMetric
-          label={`획득 ${poLabels.a}`}
+          label={`강화 ${poLabels.a}`}
           earned={points.pointA.earned}
           possible={points.pointA.possible}
           colorClass={pointColorClass("a")}
         />
         <PointMetric
-          label={`획득 ${poLabels.b}`}
+          label={`강화 ${poLabels.b}`}
           earned={points.pointB.earned}
           possible={points.pointB.possible}
           colorClass={pointColorClass("b")}
         />
+        <div className="flex items-center gap-2 whitespace-nowrap">
+          <span className="text-xs text-muted-foreground">{`평점 ${poLabels.a}`}</span>
+          <span
+            className={cn(
+              "text-lg font-bold tabular-nums",
+              ratingPointA > 0 ? pointColorClass("a") : "text-muted-foreground",
+            )}
+            title="실무 경험 도출·분석·견문·관리에서 강화 성공 + 실제 평가 완료 시 받은 평점만큼 적립된 Point A (강화 시 포인트와 별개 항목)"
+          >
+            {ratingPointA}
+          </span>
+        </div>
+        <div className="ml-auto flex items-center gap-2 whitespace-nowrap">
+          <span className="text-xs text-muted-foreground">{`총 ${poLabels.a}`}</span>
+          <span className="text-lg font-bold tabular-nums text-foreground">{totalPointA}</span>
+          <span className="text-xs text-muted-foreground">{`= 강화 ${points.pointA.earned} + 평점 ${ratingPointA}`}</span>
+        </div>
       </div>
 
       {/* ── 하단 라인 상세 표 + 2차 기입 제어 ── */}
@@ -722,17 +745,18 @@ function HubLineTable({
           소요 시간 컬럼 추가(2026-07-17) — 라인명이 좁아지지 않도록 min-w 를 56→60rem 으로 함께
           올려 라인명 실폭을 유지한다(32%×56rem ≈ 28%×60rem). */}
       <PaginatedNativeTable>
-      <table className="w-full min-w-[60rem] table-fixed border-collapse text-sm">
+      <table className="w-full min-w-[66rem] table-fixed border-collapse text-sm">
         <colgroup>
-          <col style={{ width: "8%" }} />
-          <col style={{ width: "28%" }} />
-          <col style={{ width: "9%" }} />
-          <col style={{ width: "9%" }} />
-          <col style={{ width: "11%" }} />
           <col style={{ width: "7%" }} />
+          <col style={{ width: "24%" }} />
+          <col style={{ width: "8%" }} />
+          <col style={{ width: "8%" }} />
+          <col style={{ width: "10%" }} />
+          <col style={{ width: "6%" }} />
           <col style={{ width: "9%" }} />
           <col style={{ width: "9%" }} />
           <col style={{ width: "10%" }} />
+          <col style={{ width: "9%" }} />
         </colgroup>
         <thead>
           <tr className="border-b bg-muted/40 text-xs text-muted-foreground">
@@ -742,8 +766,12 @@ function HubLineTable({
             <SortableTh label="클럽 오픈" dir={dirOf("clubOpen")} onSort={() => onSortKey("clubOpen")} className="px-3" />
             <SortableTh label="강화 결과" dir={dirOf("result")} onSort={() => onSortKey("result")} className="px-3" />
             <SortableTh label="평점" dir={dirOf("rating")} onSort={() => onSortKey("rating")} className="px-3" />
-            <SortableTh label={`획득 ${poLabels.a}`} dir={dirOf("pointA")} onSort={() => onSortKey("pointA")} className="px-3" />
-            <SortableTh label={`획득 ${poLabels.b}`} dir={dirOf("pointB")} onSort={() => onSortKey("pointB")} className="px-3" />
+            {/* 강화 시 포인트(원장 source='line') — 설정값 기반. 아래 "평점 별"과 **다른 항목**이라
+                라벨을 '획득'에서 '강화'로 바꿔 출처를 명시한다(합산 표기 금지). */}
+            <SortableTh label={`강화 ${poLabels.a}`} dir={dirOf("pointA")} onSort={() => onSortKey("pointA")} className="px-3" />
+            <SortableTh label={`강화 ${poLabels.b}`} dir={dirOf("pointB")} onSort={() => onSortKey("pointB")} className="px-3" />
+            {/* 평점 Point A(원장 source='line_rating') — 실제 평점 그대로. 강화 시 포인트와 별도 컬럼. */}
+            <SortableTh label={`평점 ${poLabels.a}`} dir={dirOf("ratingPointA")} onSort={() => onSortKey("ratingPointA")} className="px-3" />
             <th className="px-3 py-2 text-center font-medium">2차 기입</th>
           </tr>
         </thead>
@@ -808,21 +836,43 @@ function HubLineTable({
               <td className="px-3 py-2 text-center tabular-nums text-foreground">
                 {row.rating == null ? "-" : row.rating}
               </td>
+              {/* 강화 시 포인트 — cluster4_line_point_configs 설정값(원장 source='line'). */}
               <td
                 className={cn(
                   "px-3 py-2 text-center tabular-nums",
-                  row.earnedA > 0 ? pointColorClass("a") : "text-muted-foreground",
+                  row.enhancementPointA > 0 ? pointColorClass("a") : "text-muted-foreground",
                 )}
               >
-                {row.earnedA}
+                {row.enhancementPointA}
               </td>
               <td
                 className={cn(
                   "px-3 py-2 text-center tabular-nums",
-                  row.earnedB > 0 ? pointColorClass("b") : "text-muted-foreground",
+                  row.enhancementPointB > 0 ? pointColorClass("b") : "text-muted-foreground",
                 )}
               >
-                {row.earnedB}
+                {row.enhancementPointB}
+              </td>
+              {/* 평점 Point A — 원장 source='line_rating' 실측값. 화면에서 재계산하지 않는다.
+                  해당 없음("-") / 미지급 / 값 세 상태를 구분해 잘못된 0점 항목을 만들지 않는다. */}
+              <td
+                className={cn(
+                  "px-3 py-2 text-center tabular-nums",
+                  row.ratingPointStatus === "paid" ? pointColorClass("a") : "text-muted-foreground",
+                )}
+                title={
+                  row.ratingPointStatus === "paid"
+                    ? `실무 경험 평점 ${row.ratingPointA}점이 Point ${poLabels.a}로 적립됨 (강화 시 포인트와 별개)`
+                    : row.ratingPointStatus === "not_paid"
+                      ? "평점 Point 미지급 — 미평가·평점 3점 이하·강화 실패·회수 중 하나"
+                      : "평점 Point 지급 대상 라인이 아님(실무 경험 도출·분석·견문·관리만 해당)"
+                }
+              >
+                {row.ratingPointStatus === "paid"
+                  ? row.ratingPointA
+                  : row.ratingPointStatus === "not_paid"
+                    ? "미지급"
+                    : "-"}
               </td>
               <td className="px-3 py-2 text-center">
                 <div className="flex justify-center">

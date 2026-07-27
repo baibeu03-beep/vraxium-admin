@@ -69,7 +69,10 @@ import type {
 //     (lineName/rating/kind/estimatedDurationMinutes)를 서버 DTO 단계에서 마스킹. shape 불변·값 변경
 //     (해당 행의 세부 필드가 빈값/null). 결과 상태(강화 실패)·요약 합계·행 개수는 불변. lazy endpoint
 //     (저장 캐시 없음) 이라 백필 불필요 — 새 요청부터 즉시 적용.
-export const CREW_LINE_ENHANCEMENT_DTO_VERSION = 4;
+// v5(2026-07-27): 평점 Point A(원장 source='line_rating') 분리 노출 추가.
+//   pointA/B/C 의 의미는 **불변**(강화 시 포인트 = source='line')이고, ratingPointA/totalPointA 가
+//   순수 추가 필드다 — 구 클라이언트는 기존 필드만 읽어도 동작이 바뀌지 않는다.
+export const CREW_LINE_ENHANCEMENT_DTO_VERSION = 5;
 
 export type CrewLineEnhancementResult =
   | "success"
@@ -106,9 +109,18 @@ export type CrewWeekLineEnhancementRowDto = {
   // 평점(0~10) — experience=활동 평점 · career=등급 환산 점수 · info/competency=null("-").
   //   값 없음=null → UI "-". 0 과 null 을 혼동하지 않는다(0=명시적 0점, null=원천 없음).
   rating: number | null;
+  // ⚠ pointA/B/C = **강화 시 포인트**(원장 source='line', config 설정값). 의미 불변.
   pointA: CrewLinePointPair;
   pointB: CrewLinePointPair;
   pointC: CrewLinePointPair; // 번개 — 원장 point_penalty / config point_c(현재 원천상 0/0)
+  // ── 평점 Point A(원장 source='line_rating') — 강화 시 포인트와 **완전히 별개 항목**(v5). ──
+  //   가능치(available) 개념이 없다: 실제 평가 결과이므로 "최대 가능"이 아니라 실지급값 하나뿐이다.
+  //   ratingPointStatus 로 "해당 없음"과 "미지급"을 구분한다(잘못된 0점 항목을 만들지 않기 위함).
+  ratingPointA: number;
+  ratingPointStatus: "paid" | "not_paid" | "not_applicable";
+  // 합계(파생) — 세부값이 함께 실려 출처 추적이 가능하다.
+  totalPointA: number; // pointA.earned + ratingPointA
+  totalPointB: number; // = pointB.earned (평점은 B 로 지급하지 않음)
   growthRequirement: CrewLineGrowthRequirement;
 };
 
@@ -129,9 +141,13 @@ export type CrewWeekLineEnhancementDetailDto = {
     failureCount: number;
     notApplicableCount: number;
     pendingCount: number;
+    // 강화 시 포인트 합(의미 불변).
     pointA: CrewLinePointPair;
     pointB: CrewLinePointPair;
     pointC: CrewLinePointPair;
+    // 평점 Point A 합(v5) = Σ rows.ratingPointA. 강화 시 포인트와 분리 유지.
+    ratingPointA: number;
+    totalPointA: number; // pointA.earned + ratingPointA
   };
   rows: CrewWeekLineEnhancementRowDto[];
 };
@@ -231,9 +247,15 @@ export function projectCrewLineEnhancement(args: {
       rating: maskExperienceFail ? null : resolveCrewRowRating(row),
       // 획득/가능 — admin SoT 값 그대로. 비배정(해당 없음) 행도 클럽 오픈이면 가능치가 있어 "0 / N".
       //   (요약 합계 불변식 보존을 위해 포인트는 마스킹 대상 아님 — 강화 실패는 이미 earned=0.)
-      pointA: { earned: row.earnedA, available: row.possibleA },
-      pointB: { earned: row.earnedB, available: row.possibleB },
-      pointC: { earned: row.earnedC, available: row.possibleC },
+      pointA: { earned: row.enhancementPointA, available: row.possibleA },
+      pointB: { earned: row.enhancementPointB, available: row.possibleB },
+      pointC: { earned: row.enhancementPointC, available: row.possibleC },
+      // 평점 Point A — admin SoT 값 그대로(재계산 금지). 강화 실패 마스킹 대상 아님:
+      //   실패면 원장이 없어 ratingPointStatus="not_paid" · ratingPointA=0 이 이미 정답이다.
+      ratingPointA: row.ratingPointA,
+      ratingPointStatus: row.ratingPointStatus,
+      totalPointA: row.totalPointA,
+      totalPointB: row.totalPointB,
       growthRequirement: resolveGrowthRequirement(row.partType),
     };
   });
@@ -279,6 +301,9 @@ export function projectCrewLineEnhancement(args: {
       pointB: { earned: sum((r) => r.pointB.earned), available: sum((r) => r.pointB.available) },
       // C 도 A/B 와 **동일하게 Σ rows** — 요약이 표 합계와 항상 일치한다(값이 0 이어도 규칙 동일).
       pointC: { earned: sum((r) => r.pointC.earned), available: sum((r) => r.pointC.available) },
+      // 평점 Point A 도 동일 규칙(Σ rows) — 요약 == 표 합계 불변식을 A/B/C 와 같게 유지한다.
+      ratingPointA: sum((r) => r.ratingPointA),
+      totalPointA: sum((r) => r.totalPointA),
     },
     rows,
   };

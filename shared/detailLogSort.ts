@@ -45,9 +45,10 @@ export type LineSortKey =
   | "kind" // 유형/종류
   | "duration" // 소요 시간
   | "rating" // 평점
-  | "pointA" // 획득 A
-  | "pointB" // 획득 B
+  | "pointA" // 강화 시 포인트 A(원장 source='line')
+  | "pointB" // 강화 시 포인트 B
   | "pointC" // 획득 C(크루 전용 — 어드민 표엔 없음)
+  | "ratingPointA" // 평점 Point A(원장 source='line_rating') — 강화 시 포인트와 별개 컬럼
   | "growthRequirement" // 주차 성장 조건(크루 전용)
   | "clubOpen"; // 클럽 오픈(어드민 전용)
 
@@ -80,9 +81,11 @@ export interface LineSortRow {
   kind: string; // 유형/종류 라벨
   duration: number | null; // 소요 시간(분)
   rating: number | null; // 평점(0~10)
-  pointA: number | null; // 획득 A
-  pointB: number | null; // 획득 B
+  pointA: number | null; // 강화 시 포인트 A
+  pointB: number | null; // 강화 시 포인트 B
   pointC: number | null; // 획득 C
+  // 평점 Point A — 미지급/해당없음은 null(방향 무관 최하단). 옵셔널이라 이 컬럼을 안 그리는 앱은 무시.
+  ratingPointA?: number | null;
   growthRequirement: string; // 주차 성장 조건 라벨
   clubOpen: boolean | null; // 클럽 오픈 여부
 }
@@ -257,6 +260,10 @@ export function compareLineRows(a: LineSortRow, b: LineSortRow, key: LineSortKey
       break;
     case "pointC":
       c = cmpNum(a.pointC, b.pointC, dir);
+      break;
+    case "ratingPointA":
+      // 미지급/해당없음은 null 로 넘어와 방향 무관 최하단(cmpNum 공통 규칙).
+      c = cmpNum(a.ratingPointA ?? null, b.ratingPointA ?? null, dir);
       break;
     case "growthRequirement":
       c = cmpText(a.growthRequirement, b.growthRequirement, dir);

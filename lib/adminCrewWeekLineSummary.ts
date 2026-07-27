@@ -3,7 +3,10 @@ import {
   loadLinePointSummaryForCrewWeek,
   loadLineEarnedByRefForCrewWeek,
   loadLinePossibleByRefForCrewWeek,
+  experienceCategoryToConfigKey,
+  type LineEarnedByRef,
 } from "@/lib/processPointAccrual";
+import { isRatingAwardExperienceType } from "@/lib/experienceRatingPolicy";
 import {
   isSecondEntryEligibleLine,
   loadSecondEntryOverridesForUser,
@@ -46,6 +49,10 @@ import type {
 //       ⚠ card.weeklyGrowthRate(breakdownFromLines·허브 SoT)는 정보 허브를 활동유형으로 중복제거해
 //       이 표의 오픈 라인 수와 분모가 달라진다. 이 화면은 표와 숫자가 일치해야 하므로 쓰지 않는다.
 //   · 오픈 여부   = clubOpen(실제 개설 라인: lineId != null 또는 역량 개설 placeholder). lineTargetId 아님.
+//   · 평점 Point A = 원장 source='line_rating' 합(2026-07-27 신설). **강화 시 포인트와 완전히 별개
+//                  항목**이라 earned 에 합치지 않고 ratingPointA 로 분리 노출한다. 화면은 이 값을
+//                  다시 계산하지 않는다 — 지급 여부(ratingPointStatus)도 활성 원장 유무가 SoT 다.
+//                  대상 유형 = 실무 경험 도출·분석·견문·관리(확장/정보/역량/경력 제외).
 //   · 포인트 A/B  = earned(라인 개설 지급 원장 source='line' 합) / possible(이 주차 클럽에서 오픈된
 //                  모든 라인의 설정 point_a/point_b 합 — 상세 표의 clubOpen 행과 동일 집합).
 //                  ⚠ possible 은 대상자/강화 성공 여부와 무관한 "획득 가능 총합"이다(대상·성공 라인만
@@ -63,6 +70,43 @@ export type CrewWeekLinePointPair = {
   earned: number;
   possible: number;
 };
+
+// 행의 포인트 필드 묶음 — 강화 시 포인트(원장 source='line')와 평점 Point A(source='line_rating')를
+//   **분리한 채** 담고 합계만 파생한다. 화면은 이 값을 그대로 그리며 어떤 재계산도 하지 않는다.
+//   ratingEligible = "이 라인이 평점 지급 대상 유형인가"(표시 상태축 결정용). 지급 여부/값은 원장이 SoT.
+function pointFields(
+  earned: LineEarnedByRef | undefined,
+  ratingEligible: boolean,
+): Pick<
+  CrewWeekLineDetailRow,
+  | "earnedA" | "earnedB" | "earnedC"
+  | "enhancementPointA" | "enhancementPointB" | "enhancementPointC"
+  | "ratingPointA" | "ratingPointStatus"
+  | "totalPointA" | "totalPointB"
+> {
+  const a = earned?.enhancementA ?? 0;
+  const b = earned?.enhancementB ?? 0;
+  const c = earned?.enhancementC ?? 0;
+  const ratingA = earned?.ratingA ?? 0;
+  const ratingPaid = earned?.ratingPaid === true;
+  return {
+    earnedA: a, earnedB: b, earnedC: c,
+    enhancementPointA: a, enhancementPointB: b, enhancementPointC: c,
+    // 미지급이면 값을 0 으로 두되 상태로 "미지급"임을 알린다 — 잘못된 0점 항목을 만들지 않기 위함.
+    ratingPointA: ratingPaid ? ratingA : 0,
+    ratingPointStatus: !ratingEligible ? "not_applicable" : ratingPaid ? "paid" : "not_paid",
+    totalPointA: a + (ratingPaid ? ratingA : 0),
+    totalPointB: b,
+  };
+}
+
+// 평점 지급 대상 유형인가 — 실무 경험 도출·분석·견문·관리만(확장 제외). 카테고리 별칭 변환은
+//   processPointAccrual 의 단일 SoT(experienceCategoryToConfigKey)를 쓴다(자체 매핑 금지).
+function isRatingEligibleRow(partType: string, experienceCategory: string | null): boolean {
+  if (partType !== "experience") return false;
+  const key = experienceCategoryToConfigKey(experienceCategory);
+  return key != null && isRatingAwardExperienceType(key);
+}
 
 export type CrewWeekLineSummaryDto = {
   organizationSlug: string | null;
@@ -85,11 +129,18 @@ export type CrewWeekLineSummaryDto = {
     pending: number; // === "pending" (미확정 주차 미판정)
   };
   // 라인 강화 결과 포인트 — A/B/C 동형. C 는 원장/설정 SoT 조회값(현재 원천상 0/0, 추정 아님).
+  //   ⚠ 이 pointA/B/C 는 **강화 시 포인트**(source='line')만이다 — 의미 불변(2026-07-27).
+  //     평점 Point A 는 아래 ratingPointA 로 분리해 제공한다(possible 분모가 강화 설정값 기준이라
+  //     합치면 "획득 9 / 가능 1" 왜곡이 생긴다).
   points: {
     pointA: CrewWeekLinePointPair;
     pointB: CrewWeekLinePointPair;
     pointC: CrewWeekLinePointPair;
   };
+  // 평점 Point A(source='line_rating') 합 — 획득만 존재(가능치 개념 없음: 실제 평가 결과이므로).
+  ratingPointA: number;
+  // 합계(파생) = points.pointA.earned + ratingPointA. 세부값이 함께 나가 추적 가능.
+  totalPointA: number;
   // 하단 상세 표(전체 라인 raw). 2차 기입 override 관리 대상.
   lineDetails: CrewWeekLineDetailRow[];
   // 2차 기입 수동 override 를 관리할 수 있는 주차인가(권한 축). 확정(성공/실패/휴식) 주차만.
@@ -132,9 +183,26 @@ export type CrewWeekLineDetailRow = {
   careerGradePoints: number | null;
   // 예상 소요 시간(분) — line_registrations.estimated_duration_minutes SoT. null=미설정/브리지없음 → "-".
   estimatedDurationMinutes: LineDurationMinutes | null;
+  // ── 강화 시 포인트(source='line') — cluster4_line_point_configs 설정값. 의미 불변(2026-07-27). ──
   earnedA: number; // 라인 원장(source='line', ref_id=line_id) point_check
   earnedB: number; // 라인 원장 point_advantage
   earnedC: number; // 라인 원장 point_penalty (Point C = 번개, ≥0 표기 축)
+  // 위 earned* 의 명시적 별칭 — 화면/DTO 에서 "평점 Point A" 와 혼동하지 않도록 이름으로 구분한다.
+  enhancementPointA: number;
+  enhancementPointB: number;
+  enhancementPointC: number;
+  // ── 평점 Point A(source='line_rating') — 실무 경험 실제 평점. 강화 시 포인트와 **완전히 별개**. ──
+  //   화면에서 다시 계산하지 않는다: 값도 지급 여부도 전부 원장이 SoT 다.
+  //   Point B/C 는 정책상 항상 0이라 필드를 두지 않는다.
+  ratingPointA: number;
+  //   "-"(해당 없음) / "미지급" / 값 을 화면이 구분할 수 있게 하는 상태축.
+  //     not_applicable = 평점 지급 대상 유형이 아님(확장·정보·역량·경력, 또는 본인 비배정/미오픈)
+  //     not_paid       = 대상 유형이지만 활성 원장 없음(미평가·evaluated_by=null·평점 0~3·강화 실패·회수)
+  //     paid           = 활성 원장 존재 → ratingPointA 가 실제 지급값
+  ratingPointStatus: "paid" | "not_paid" | "not_applicable";
+  // ── 합계(파생) — 세부 항목이 항상 함께 나가므로 출처 추적이 가능하다. ──
+  totalPointA: number; // enhancementPointA + ratingPointA
+  totalPointB: number; // = enhancementPointB (평점은 B 로 지급하지 않음)
   // 획득 "가능"(최대) 포인트 — loadLinePossibleByRefForCrewWeek(요약 possible 과 동일 SoT: 라인
   //   config point_a/point_b, null=미지급→0). 대상자/성공 여부와 무관한 라인 자체의 최대치이므로
   //   비대상(해당 없음) 행도 클럽 오픈이면 값이 존재한다 → 표시 "0 / N". 미오픈 행 = 0.
@@ -189,6 +257,8 @@ export async function getCrewWeekLineSummary(
           pointB: { earned: 0, possible: 0 },
           pointC: { earned: 0, possible: 0 },
         },
+        ratingPointA: 0,
+        totalPointA: 0,
         lineDetails: [],
         canManageSecondEntry: false,
       },
@@ -271,9 +341,8 @@ export async function getCrewWeekLineSummary(
       rating: line.experienceRating,
       careerGradePoints: line.careerGradePoints,
       estimatedDurationMinutes: durationOf(line),
-      earnedA: earned?.earnedA ?? 0,
-      earnedB: earned?.earnedB ?? 0,
-      earnedC: earned?.earnedC ?? 0,
+      // 경험 슬롯은 buildExperienceRow 가 담당하므로 이 경로(정보/역량/경력)는 평점 대상이 아니다.
+      ...pointFields(earned, isRatingEligibleRow(line.partType, line.experienceCategory)),
       possibleA: possible?.possibleA ?? 0,
       possibleB: possible?.possibleB ?? 0,
       possibleC: possible?.possibleC ?? 0,
@@ -329,9 +398,8 @@ export async function getCrewWeekLineSummary(
         activityTypeId: entry.activityTypeId,
         activityTypeKey: entry.activityTypeId,
       }),
-      earnedA: 0,
-      earnedB: 0,
-      earnedC: 0,
+      // 미오픈 정보 라인 — 지급 원장 자체가 없다. 평점도 대상 유형이 아니라 "해당 없음".
+      ...pointFields(undefined, false),
       // 미오픈(이 주차 미개설) 라인 = 지급 원천 자체가 없다 → 가능치 0(추정 금지).
       possibleA: 0,
       possibleB: 0,
@@ -408,9 +476,9 @@ export async function getCrewWeekLineSummary(
       // ⚠ 소요 시간은 라인 마스터 속성이라 **본인 배정 여부와 무관**하다(earned 와 다름).
       //   비대상 슬롯도 클럽이 오픈한 라인의 소요 시간은 표시한다(라인명만 "-"로 가림).
       estimatedDurationMinutes: durationOf(rep),
-      earnedA: earned?.earnedA ?? 0,
-      earnedB: earned?.earnedB ?? 0,
-      earnedC: earned?.earnedC ?? 0,
+      // 평점 Point A — earned 와 동일하게 **본인 배정 라인일 때만** 조회된다(비대상 슬롯은 earned=undefined
+      //   → 미지급). 대상 유형(도출·분석·견문·관리) 판정도 본인 배정일 때만 의미가 있다.
+      ...pointFields(earned, isOwn && isRatingEligibleRow("experience", rep.experienceCategory)),
       possibleA: possible?.possibleA ?? 0,
       possibleB: possible?.possibleB ?? 0,
       possibleC: possible?.possibleC ?? 0,
@@ -510,6 +578,10 @@ export async function getCrewWeekLineSummary(
         // C = 원장 point_penalty / config point_c. 현재 원천상 0/0 이지만 조회 결과이지 하드코딩이 아니다.
         pointC: { earned: linePoints.earnedC, possible: linePoints.possibleC },
       },
+      // 평점 Point A 합 — 요약(loadLinePointSummaryForCrewWeek)과 행 합(Σ lineDetails.ratingPointA)이
+      //   같은 원장·같은 필터를 쓰므로 구조적으로 일치한다(각자 다른 질의로 세지 말 것).
+      ratingPointA: linePoints.earnedRatingA,
+      totalPointA: linePoints.earnedTotalA,
       lineDetails,
       canManageSecondEntry: confirmed,
     },

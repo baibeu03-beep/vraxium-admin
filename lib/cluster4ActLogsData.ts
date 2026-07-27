@@ -19,6 +19,7 @@
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { processPointAwardsHasCancelColumns } from "@/lib/processPointAwardsCancelState";
+import { ACT_PERFORMANCE_SOURCES } from "@/lib/pointAwardSourcePolicy";
 import type {
   Cluster4ActLogDto,
   Cluster4ActLogSource,
@@ -51,9 +52,14 @@ type AwardRow = {
 //     아래 분기에서 irregular 로 취급돼 ref_id(=line_id)로 process_irregular_acts 를 조회 →
 //     매칭 실패 → actName/kind="" · occurredAt=null 인 빈 행이 되어 화면에 "-" 로 노출됐다
 //     (실측: 한 사용자 24행 중 8행). DTO 의 source 타입에 "line" 이 없는데도 캐스팅이 이를 가렸다.
+//   · line_rating = **실무 경험 평점 Point A**(2026-07-27 신설) → 제외 ❌ (라인 강화 내역 담당)
+//
 //   ⚠ 미래 방어: source 에 새 값이 추가되면 **액트로 자동 편입되지 않는다**(allowlist 방식).
 //     새 지급 경로는 여기 명시적으로 넣어야 액트 내역에 나타난다.
-const ACT_CHECK_SOURCES: readonly Cluster4ActLogSource[] = ["regular", "irregular"];
+//   ⚠ 목록 SoT = lib/pointAwardSourcePolicy.ACT_PERFORMANCE_SOURCES (액트율·검수 게이트와 공유).
+//     여기서 별도 배열을 유지하지 않는다 — 화면마다 액트 정의가 갈리는 것을 막는다.
+const ACT_CHECK_SOURCES: readonly Cluster4ActLogSource[] =
+  ACT_PERFORMANCE_SOURCES as readonly Cluster4ActLogSource[];
 
 export function isActualActCheckLog(row: { source: string }): boolean {
   return (ACT_CHECK_SOURCES as readonly string[]).includes(row.source);

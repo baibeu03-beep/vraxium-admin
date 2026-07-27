@@ -27,6 +27,7 @@ import {
   buildCrewActSummary,
   type CrewActSummaryRow,
 } from "@/shared/crewActSummary";
+import { isActPerformanceSource } from "@/lib/pointAwardSourcePolicy";
 import { readWeeklyCardsSnapshotBatch } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { getClubRankGradeBatch } from "@/lib/cluster3ClubRankData";
 
@@ -239,6 +240,16 @@ async function loadActRates(
       const uid = r.user_id as string;
       const list = rowsByUser.get(uid);
       if (!list) continue;
+      // ⚠ 액트 수행 집계 allowlist(strict) — lib/pointAwardSourcePolicy.ACT_PERFORMANCE_SOURCES.
+      //   라인 지급('line' 강화 시 포인트 · 'line_rating' 평점 Point A)은 **액트 수행이 아니다** →
+      //   체크 수·체크율에서 제외한다. 두 원장은 주차 총 Point A(user_weekly_points.points)에는
+      //   그대로 합산되며(주차 성공 판정 입력), 상세 표시는 "라인 강화 내역" 탭이 담당한다.
+      //   [2026-07-27 정정] 종전에는 source 필터가 없어 'line' 까지 액트로 셌다(2026-07-13 도입 이래).
+      //     그 결과 액트 체크 건수·체크율이 부풀어 있었다 — 이번 정책으로 걷어낸다.
+      //     실측 영향: 2026-summer W1 41/67명 · W2 31/61명 · W3 21/67명의 체크율/건수 변동
+      //     (예: 건수 9→3 · 체크율 89%→67%). 값이 내려가는 것이 정정된 값이다.
+      //   (Detail Log 액트 목록 cluster4ActLogsData 는 이미 같은 allowlist 를 쓰고 있었다.)
+      if (!isActPerformanceSource(r.source as string)) continue;
       list.push({
         result: "checked",
         source: (r.source as string) === "irregular" ? "irregular" : "regular",

@@ -52,6 +52,7 @@ import {
   EXPERIENCE_RATING_AWARD_MIN_RATING,
   isRatingAwardExperienceType,
 } from "@/lib/experienceRatingPolicy";
+import { isWeekPointASource } from "@/lib/pointAwardSourcePolicy";
 import { syncGradeStats } from "@/lib/cluster3ClubRankData";
 import { invalidateClubRankComputationCache } from "@/lib/clubRankComputationCache";
 import type { RejudgeResult } from "@/lib/crewWeekGrowthRejudge";
@@ -174,16 +175,24 @@ async function recomputeWeeklyPoints(pairs: Array<{ userId: string; year: number
 
   for (const p of pairs) {
     // 1) 활성 award 기여층
+    //    ⚠ 주차 총 Point A allowlist = lib/pointAwardSourcePolicy.WEEK_POINT_A_SOURCES.
+    //      'regular'·'irregular'(액트) + 'line'(라인 강화 시 포인트) + 'line_rating'(실무 경험 평점)
+    //      **전부 합산한다** — 라인 포인트는 크루의 주차 총점이자 주차 성공 판정
+    //      (user_weekly_points.points >= recognition_count_n)의 입력이다.
+    //      액트 수행 집계(체크율/이행 개수)와는 목록이 다르다(그쪽은 라인 2종 제외·strict).
+    //      fail-open: 미등록 source 도 합산하되 error 로 알린다(포인트 소실 방지 우선).
     let query = supabaseAdmin
       .from("process_point_awards")
-      .select("point_check,point_advantage,point_penalty")
+      .select("source,point_check,point_advantage,point_penalty")
       .eq("user_id", p.userId)
       .eq("year", p.year)
       .eq("week_number", p.week);
     if (hasCancel) query = query.is("cancelled_at", null); // 취소 행 제외(공통 레이어)
     const { data, error } = await query;
     if (error) throw error;
-    const awards = sumAwardTriple((data ?? []) as Array<{ point_check: number; point_advantage: number; point_penalty: number }>);
+    const awardRows = ((data ?? []) as Array<{ source: string; point_check: number; point_advantage: number; point_penalty: number }>)
+      .filter((r) => isWeekPointASource(r.source));
+    const awards = sumAwardTriple(awardRows);
 
     // 2) 기존 행(기준층 + 보존해야 할 메타)
     const { data: existing, error: exErr } = await supabaseAdmin
@@ -295,20 +304,32 @@ async function computeDesiredAwards(input: AwardInput): Promise<AccrualPlan> {
   const isRegular = input.source === "regular";
   const teamScoped = isRegular && !!input.hub && isTeamBasedProcessHub(input.hub);
   const needsCRoster = isRegular && (input.pointPenalty ?? 0) > 0 && !!input.hub;
+  // 시즌 휴식자는 그 시즌의 평가 대상이 아니다(2026-07-27 정책) → 비팀 허브도 로스터 교집합이 필요해졌다.
+  //   종전엔 비팀 허브 로스터가 매칭 모집단과 동일해 교집합이 no-op 이었지만, 이제 로스터에서 시즌
+  //   휴식자만 빠지므로 교집합 = "휴식자 제외" 와 정확히 같다. org 불명이면 로스터가 fail-closed([])라
+  //   교집합이 이행자를 전멸시킬 수 있어, org 가 있을 때만 산출·적용한다(기존 동작 보호).
+  const rosterScoped = isRegular && !!input.hub && !!input.org;
   const roster =
-    teamScoped || needsCRoster
+    rosterScoped || teamScoped || needsCRoster
       ? await resolveCheckScopeRoster({
           hub: input.hub as ProcessHub,
           organization: input.org,
           mode: input.mode,
           teamId: input.teamId,
           partName: input.partName,
+          // 기준 시즌 = 이 체크의 주차. 현재 시즌을 과거 주차에 소급하지 않는다.
+          weekId: input.week.id,
         })
       : null;
   const rosterSet = roster ? new Set(roster) : null;
 
-  // 이행자(performers) = 카페 매칭 ∩ 체크 대상자 로스터(팀 구분 허브만 실질 교집합; 비팀/변동은 매칭 그대로).
-  const performers = teamScoped && rosterSet ? rawPerformers.filter((id) => rosterSet.has(id)) : rawPerformers;
+  // 이행자(performers) = 카페 매칭 ∩ 체크 대상자 로스터.
+  //   · 팀 구분 허브: 타 팀/타 파트/미소속 매칭자 제외(종전과 동일).
+  //   · 비팀 허브: 시즌 휴식자 제외(그 외 원소는 매칭 모집단과 동일하므로 결과 불변).
+  const performers =
+    (teamScoped || rosterScoped) && rosterSet
+      ? rawPerformers.filter((id) => rosterSet.has(id))
+      : rawPerformers;
   const perfSet = new Set(performers);
 
   // 이행자: 보상 A/B + 패널티 정책(resolveEffectivePenalty — 이행자/보상 동시 C 금지 → 통상 0).
@@ -1379,6 +1400,30 @@ export async function reconcileLineResultAwardForUser(
   const wk = week.iso_week;
   const hasCancel = await processPointAwardsHasCancelColumns();
 
+  // ── era 게이트(2026-07-27) ────────────────────────────────────────────────
+  //   적립 허용 era(operating: weeks.start_date >= CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM) 이전의
+  //   레거시/PMS 주차에는 'line'·'line_rating' 원장을 **새로 만들지 않는다**.
+  //   판정은 액트 적립과 **동일한 함수**(isAccrualAllowedWeek) — 화면 모드(일반/mode=test/
+  //   actAsTestUserId/demoUserId)는 이 판정에 관여하지 않는다. 스코프 축(mode)은 라인의
+  //   is_qa_test 하나이며 reconcileAwards(액트/개설 경로)가 쓰는 규칙과 같다.
+  //
+  //   ⚠ **전체 no-op** 이다 — 생성뿐 아니라 회수(soft-cancel/delete)도 하지 않는다.
+  //     이미 존재하는 레거시 원장을 이 수정 때문에 자동으로 회수·삭제하지 않기 위함이다
+  //     (기존 레거시 원장 정리는 별도 승인 사항). 그래서 여기서 조기 return 한다.
+  //
+  //   ⚠ 종전에는 이 게이트가 없어, 관리자 라인 저장·공표·48h 스윕·고아 재정합 어느 경로로든
+  //     레거시 주차에 원장이 생길 수 있었다(실측: 2024-12-30 line 등). 호출부마다 막지 않고
+  //     이 공통 함수 한 곳에서 막는다 — 새 호출 경로가 생겨도 자동으로 동일 정책을 따른다.
+  const eraMode: ScopeMode = row.is_qa_test ? "test" : "operating";
+  if (!isAccrualAllowedWeek(eraMode, week)) {
+    console.info("[lineAward] era 밖 주차 — 라인/평점 원장 정합 skip(기존 원장 무접촉)", {
+      lineId, userId, weekId,
+      week: `${week.season_key} W${week.week_number} (${week.start_date})`,
+      mode: eraMode,
+    });
+    return;
+  }
+
   // 지급액은 "크루 소속 org" 의 config 로 결정한다 — 공통(common) 라인 템플릿이라도 org 별 지급액이
   //   다르므로(예: derive encre a=1/b=2·phalanx a=0/b=1) resolveLineScope(=common)로는 못 찾는다.
   const { data: prof } = await supabaseAdmin
@@ -1411,7 +1456,7 @@ export async function reconcileLineResultAwardForUser(
   const nowIso = new Date().toISOString();
   const scopeOrg: OrganizationSlug | null =
     crewOrg && isOrganizationSlug(crewOrg) ? crewOrg : null;
-  const mode: ScopeMode = row.is_qa_test ? "test" : "operating";
+  const mode: ScopeMode = eraMode; // 위 era 게이트와 동일 판정축(라인 is_qa_test) 재사용
 
   if (payable) {
     const awardRow: Record<string, unknown> = {
