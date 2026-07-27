@@ -5,10 +5,11 @@ import {
   toAdminErrorResponse,
 } from "@/lib/adminAuth";
 import { getCluster1Resume } from "@/lib/cluster1ResumeData";
+import { parseScopeMode } from "@/lib/userScopeShared";
 
 type Ctx = { params: Promise<{ legacy_user_id: string }> };
 
-export async function GET(_request: NextRequest, { params }: Ctx) {
+export async function GET(request: NextRequest, { params }: Ctx) {
   try {
     await requireAdmin(ADMIN_READ_ROLES);
   } catch (error) {
@@ -19,7 +20,9 @@ export async function GET(_request: NextRequest, { params }: Ctx) {
 
   const { legacy_user_id } = await params;
   try {
-    const dto = await getCluster1Resume(legacy_user_id);
+    const dto = await getCluster1Resume(legacy_user_id, {
+      mode: parseScopeMode(request.nextUrl.searchParams.get("mode")),
+    });
     if (!dto) {
       return Response.json(
         { success: false, error: "Crew not found" },

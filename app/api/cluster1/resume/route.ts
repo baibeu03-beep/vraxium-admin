@@ -13,6 +13,7 @@
 
 import type { NextRequest } from "next/server";
 import { getCluster1Resume } from "@/lib/cluster1ResumeData";
+import { parseScopeMode } from "@/lib/userScopeShared";
 import {
   assertPageAccessBySlug,
   readPageSlug,
@@ -63,7 +64,9 @@ export async function GET(request: NextRequest) {
     });
 
     // getCluster1Resume 의 식별자(legacyUserId)는 user_profiles.user_id(UUID)다 (lib/adminCrewData 참고).
-    const dto = await getCluster1Resume(userId);
+    const dto = await getCluster1Resume(userId, {
+      mode: parseScopeMode(request.nextUrl.searchParams.get("mode")),
+    });
     if (!dto) {
       return Response.json(
         { success: false, error: "User not found." },
