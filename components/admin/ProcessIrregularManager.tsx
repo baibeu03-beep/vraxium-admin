@@ -38,6 +38,21 @@ import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import ExecutionTimeCell from "@/components/admin/ExecutionTimeCell";
 import { useStickyColumns, type StickyColProps } from "@/components/ui/sticky-columns";
 import { statusTone } from "@/lib/statusBadge";
+// 카드/배지/배너 색 — /admin/integrated/line-opening/* 과 동일한 공용 SoT 재사용(신규 스타일 정의 없음).
+import {
+  LineOpeningCardDot,
+  completionCardTone,
+  lineOpeningCardClass,
+  lineOpeningCardHeaderClass,
+} from "@/components/admin/lineOpeningCardStyles";
+import { lineManagementBoxClass } from "@/components/admin/lineManagementTone";
+import {
+  CHECK_METHOD_GRANT_BUTTON_CLASS,
+  CHECK_METHOD_LINK_BUTTON_CLASS,
+  IRREGULAR_TARGET_BADGE_CLASS,
+  IRREGULAR_TARGET_BUTTON_CLASS,
+  IRREGULAR_TARGET_TEXT_CLASS,
+} from "@/components/admin/processCheckChoiceStyles";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import ProcessIrregularDialog from "@/components/admin/ProcessIrregularDialog";
@@ -392,13 +407,14 @@ export default function ProcessIrregularManager() {
 
   const summaryCells = useMemo(
     () => [
+      // 색 의미 유지 + 다크 대비 보정(라이트 700 / 다크 300). 전원·부분은 대상 범위 SoT 와 동일 색.
       { label: "전체 갯수", value: summary.total, helpKey: PROCESS_IRREGULAR_HELP_KEYS.statTotal },
-      { label: "링크 신청", value: summary.reviewRequest, accent: "text-purple-700", helpKey: PROCESS_IRREGULAR_HELP_KEYS.statReviewRequest },
-      { label: "수동 부여", value: summary.manualGrant, accent: "text-green-700", helpKey: PROCESS_IRREGULAR_HELP_KEYS.statManualGrant },
-      { label: "체크 완료", value: summary.completed, accent: "text-green-700", helpKey: PROCESS_IRREGULAR_HELP_KEYS.statCompleted },
-      { label: "체크 대기", value: summary.pending, accent: "text-amber-700", helpKey: PROCESS_IRREGULAR_HELP_KEYS.statPending },
-      { label: "전원", value: summary.all, accent: "text-blue-700", helpKey: PROCESS_IRREGULAR_HELP_KEYS.statAll },
-      { label: "부분", value: summary.partial, accent: "text-orange-700", helpKey: PROCESS_IRREGULAR_HELP_KEYS.statPartial },
+      { label: "링크 신청", value: summary.reviewRequest, accent: "text-purple-700 dark:text-purple-300", helpKey: PROCESS_IRREGULAR_HELP_KEYS.statReviewRequest },
+      { label: "수동 부여", value: summary.manualGrant, accent: "text-green-700 dark:text-green-300", helpKey: PROCESS_IRREGULAR_HELP_KEYS.statManualGrant },
+      { label: "체크 완료", value: summary.completed, accent: "text-emerald-700 dark:text-emerald-300", helpKey: PROCESS_IRREGULAR_HELP_KEYS.statCompleted },
+      { label: "체크 대기", value: summary.pending, accent: "text-amber-700 dark:text-amber-300", helpKey: PROCESS_IRREGULAR_HELP_KEYS.statPending },
+      { label: "전원", value: summary.all, accent: IRREGULAR_TARGET_TEXT_CLASS.all, helpKey: PROCESS_IRREGULAR_HELP_KEYS.statAll },
+      { label: "부분", value: summary.partial, accent: IRREGULAR_TARGET_TEXT_CLASS.partial, helpKey: PROCESS_IRREGULAR_HELP_KEYS.statPartial },
     ],
     [summary],
   );
@@ -409,11 +425,13 @@ export default function ProcessIrregularManager() {
     <div className="flex w-full min-w-0 flex-col gap-4">
       {/* 상단 안내 섹션 — 제목 + 설명 + [전원][부분] 신청 버튼(설명 아래 배치).
           기능(onClick·disabled·색상)·Help Key(pageTitle/buttonReviewAll/buttonPartial)는 그대로 유지. org/mode 무관. */}
-      <Card>
-        <CardHeader className="pb-2">
+      {/* 신청(실행/입력) 성격 → 라인 개설 폼과 동일 tone("action", 인디고). */}
+      <Card className={lineOpeningCardClass("action")}>
+        <CardHeader className={lineOpeningCardHeaderClass("action", "pb-2")}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <CardTitle className="text-base">
               <span className="inline-flex items-center gap-1">
+                <LineOpeningCardDot tone="action" />
                 변동 액트 가동 · 신청
                 <AdminHelpIconButton
                   helpKey={PROCESS_IRREGULAR_HELP_KEYS.pageTitle}
@@ -433,11 +451,11 @@ export default function ProcessIrregularManager() {
             </p>
             <ul className="space-y-1 pl-1">
               <li>
-                - [<span className="font-medium text-blue-700">전원</span>] 을 대상으로 할 경우,{" "}
+                - [<span className={cn("font-medium", IRREGULAR_TARGET_TEXT_CLASS.all)}>전원</span>] 을 대상으로 할 경우,{" "}
                 <span className="font-medium text-foreground">&lt;링크 신청&gt;</span> 으로만 신청이 가능합니다.
               </li>
               <li>
-                - [<span className="font-medium text-orange-700">부분</span>] 을 대상으로 할 경우,{" "}
+                - [<span className={cn("font-medium", IRREGULAR_TARGET_TEXT_CLASS.partial)}>부분</span>] 을 대상으로 할 경우,{" "}
                 <span className="font-medium text-foreground">&lt;링크 신청&gt;</span> 또는{" "}
                 <span className="font-medium text-foreground">&lt;수동 부여&gt;</span> 로 모두 신청이 가능합니다.
               </li>
@@ -450,7 +468,10 @@ export default function ProcessIrregularManager() {
                 type="button"
                 disabled={!canAct}
                 onClick={() => setDialog("review-all")}
-                className="rounded-md border border-blue-300 bg-blue-50 px-5 py-2 text-sm font-medium text-blue-800 transition-colors hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+                className={cn(
+                  "rounded-md border px-5 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+                  IRREGULAR_TARGET_BUTTON_CLASS.all,
+                )}
               >
                 전원
               </button>
@@ -461,7 +482,10 @@ export default function ProcessIrregularManager() {
                 type="button"
                 disabled={!canAct}
                 onClick={() => setDialog("partial-choice")}
-                className="rounded-md border border-orange-300 bg-orange-50 px-5 py-2 text-sm font-medium text-orange-800 transition-colors hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-60"
+                className={cn(
+                  "rounded-md border px-5 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+                  IRREGULAR_TARGET_BUTTON_CLASS.partial,
+                )}
               >
                 부분
               </button>
@@ -472,13 +496,19 @@ export default function ProcessIrregularManager() {
       </Card>
 
       {!org && (
-        <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        // 안내(조치 필요)=warning · 오류=danger — 공용 tone SoT(라이트/다크 동시 대응).
+        <div className={lineManagementBoxClass("warning", "rounded-md border px-4 py-3 text-sm")}>
           클럽(?org)이 지정되어야 합니다. 예: <code>/admin/processes/check/irregular?org=oranke</code>
         </div>
       )}
 
       {error && (
-        <div className="flex items-center justify-between rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+        <div
+          className={lineManagementBoxClass(
+            "danger",
+            "flex items-center justify-between rounded-md border px-3 py-2 text-sm",
+          )}
+        >
           <span className="whitespace-pre-line">{error}</span>
           <button type="button" onClick={() => setError(null)} className="hover:opacity-70">
             <X className="h-4 w-4" />
@@ -500,15 +530,30 @@ export default function ProcessIrregularManager() {
         helpKey={PROCESS_IRREGULAR_HELP_KEYS.filterWeek}
       />
 
-      {/* 통계 7칸 — 1행 7열 칸막이 */}
-      <div className="flex divide-x rounded-md border bg-card">
+      {/* 통계 7칸 — 1행 7열 칸막이. 모니터링 성격이라 상태창과 같은 좌측 accent(스카이)를 얹는다
+          (Card 가 아니어서 공용 카드 클래스만 합성 — 칸 수·폭·정렬은 불변). */}
+      {/* ⚠ 클래스 순서 주의 — tailwind-merge 에서 뒤에 오는 `border`(전방향 폭)가 앞의 `border-l-4` 를
+          지운다. 골격(border 포함)을 먼저, 공용 accent 클래스를 나중에 합성해야 좌측 4px 가 살아남는다. */}
+      {/* 반응형 — 7칸이 들어갈 수 없는 좁은 폭(모바일)에서는 칸을 짜부라뜨리지 않고 스트립 안에서만
+          가로 스크롤한다(공용 .admin-thin-scroll 계약). 칸이 다 들어가는 폭에서는 flex-1 이 그대로
+          채우므로 태블릿·데스크톱 렌더는 픽셀 동일하다. */}
+      <div
+        className={cn(
+          "flex divide-x overflow-x-auto rounded-md border bg-card admin-thin-scroll",
+          lineOpeningCardClass("status"),
+        )}
+      >
         {summaryCells.map((c) => (
           <SummaryCell key={c.label} label={c.label} value={c.value} accent={c.accent} helpKey={c.helpKey} />
         ))}
       </div>
 
-      {/* 액트 목록 */}
-      <Card>
+      {/* 액트 목록 — 대기 잔량 기준 tone(전부 완료=에메랄드 / 대기 있음=앰버 / 0건=중립). */}
+      <Card
+        className={lineOpeningCardClass(
+          completionCardTone({ total: summary.total, allCompleted: summary.pending === 0 }),
+        )}
+      >
         <CardContent className="p-0">
           {loading ? (
             <LoadingState active />
@@ -639,7 +684,8 @@ function PartialChoiceDialog({
       <div className="modal-w-sm rounded-xl bg-card p-5 shadow-xl ring-1 ring-foreground/10">
         <div className="mb-1 flex items-center justify-between">
           <h2 className="text-base font-semibold">
-            부분 액트 · <span className="text-orange-700">방식 선택</span>
+            부분 액트 ·{" "}
+            <span className={IRREGULAR_TARGET_TEXT_CLASS.partial}>방식 선택</span>
           </h2>
           <button type="button" onClick={onClose} className="hover:opacity-70">
             <X className="h-4 w-4" />
@@ -650,14 +696,20 @@ function PartialChoiceDialog({
           <button
             type="button"
             onClick={onReview}
-            className="rounded-md border border-purple-300 bg-purple-50 px-4 py-3 text-sm font-medium text-purple-800 transition-colors hover:bg-purple-100"
+            className={cn(
+              "rounded-md border px-4 py-3 text-sm font-medium transition-colors",
+              CHECK_METHOD_LINK_BUTTON_CLASS,
+            )}
           >
             링크 신청
           </button>
           <button
             type="button"
             onClick={onManual}
-            className="rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm font-medium text-green-800 transition-colors hover:bg-green-100"
+            className={cn(
+              "rounded-md border px-4 py-3 text-sm font-medium transition-colors",
+              CHECK_METHOD_GRANT_BUTTON_CLASS,
+            )}
           >
             수동 부여
           </button>
@@ -710,10 +762,8 @@ function IrregularRow({
     act.kind === "manual_grant"
       ? "이 수동 부여를 실행 전(부여 없음) 상태로 되돌립니다.\n\n항목이 삭제되고 적립된 포인트가 회수됩니다(관련 카드 재계산).\n\n계속하시겠습니까?"
       : "이 검수를 취소하고 ‘체크 대기(검수 전)’ 상태로 되돌립니다.\n\n적립된 포인트가 회수되고, 다시 검수할 수 있습니다(행은 유지).\n\n계속하시겠습니까?";
-  const crewTone: Record<IrregularCrewReaction, string> = {
-    all: "border-blue-300 bg-blue-50 text-blue-700",
-    partial: "border-orange-300 bg-orange-50 text-orange-700",
-  };
+  // 대상 배지 색 = 공용 SoT(전원=파랑 / 부분=주황, 라이트·다크 대응).
+  const crewTone: Record<IrregularCrewReaction, string> = IRREGULAR_TARGET_BADGE_CLASS;
   return (
     <TableRow>
       <TableCell

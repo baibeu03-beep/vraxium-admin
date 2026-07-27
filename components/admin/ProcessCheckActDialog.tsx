@@ -13,6 +13,8 @@ import { Input } from "@/components/ui/input";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { apiErrorFrom } from "@/lib/apiError";
 import { cn } from "@/lib/utils";
+// 안내/오류 박스 색 — /admin/integrated/line-opening/* 과 동일한 공용 tone SoT 재사용(다크 대응).
+import { lineManagementBoxClass } from "@/components/admin/lineManagementTone";
 import { DAY_NAMES } from "@/lib/practicalInfoSection0Format";
 import { type ProcessHub } from "@/lib/adminProcessesTypes";
 import { type ScopeMode } from "@/lib/userScopeShared";
@@ -417,7 +419,7 @@ export default function ProcessCheckActDialog({
         )}
 
         {banner && (
-          <p className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+          <p className={cn("mt-3 rounded-md border px-3 py-2 text-xs", lineManagementBoxClass("danger"))}>
             {banner.message}
           </p>
         )}

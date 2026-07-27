@@ -89,11 +89,9 @@ export function effectiveIrregularStatus(
   const t = Date.parse(scheduledCheckAt);
   return !Number.isNaN(t) && nowMs >= t ? "completed" : status;
 }
-export function irregularStatusClass(s: IrregularStatus): string {
-  return s === "completed"
-    ? "border-green-300 bg-green-100 text-green-800"
-    : "border-amber-300 bg-amber-100 text-amber-800";
-}
+// (제거됨) irregularStatusClass — 라이트 전용 색 조합이라 다크에서 대비가 깨졌다.
+//   상태 배지 색은 공용 tone SoT 하나만 쓴다: components/admin/lineManagementTone
+//     완료 = lineManagementBadgeClass("success") · 대기 = lineManagementBadgeClass("warning").
 
 // ── 액트 종류 (전원 / 부분) ───────────────────────────────────────────────────
 //   전원(all)     = 해당 액트를 전체 대상에게 적용.

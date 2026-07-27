@@ -1,9 +1,10 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, CircleDashed } from "lucide-react";
 import { cn } from "@/lib/utils";
 import SectionDivider from "@/components/admin/SectionDivider";
+import { lineManagementBoxClass } from "@/components/admin/lineManagementTone";
 import type { StatusToken, StatusTokenKind } from "@/lib/lineOpeningStatusEngine";
 
 // 라인 개설 상태창 공용 표현 프리미티브.
@@ -116,6 +117,42 @@ export function LineOpeningSectionDivider() {
 //   ⚠ 표시 전용 — 개설 여부 판정(서버 SoT)이나 disabled 조건 계산은 각 화면이 소유한다.
 export const LINE_OPENING_OPENED_NOTICE_DESCRIPTION =
   "아래는 이 주차에 저장된 개설 정보입니다(읽기 전용). 수정하려면 [개설 취소] 후 다시 개설하세요.";
+
+// 미오픈(아직 오픈되지 않음) 안내 — 위 [개설 완료] 배너의 짝. 라인 개설·프로세스 체크 공용 SoT.
+//   빈 데이터/오류로 오해하지 않도록 "왜 비어 있는지"를 한 문장으로 못 박는다.
+//   ⚠ 미오픈은 실패가 아니다 — 빨강(danger)이 아니라 앰버(warning) tone 을 쓴다(라이트/다크 동시 대응).
+//   ⚠ 표시 전용 — 오픈 여부 판정은 서버 SoT(lib/weekOpenGate → DTO)가 소유한다.
+//     프로세스 체크에서는 `resolveProcessCheckOpenState(hub, acts)` 결과가 "not_open" 일 때만 띄운다.
+export const LINE_OPENING_NOT_OPEN_TITLE = "아직 오픈되지 않았습니다.";
+
+export function LineOpeningNotOpenNotice({
+  title = LINE_OPENING_NOT_OPEN_TITLE,
+  description,
+  className,
+}: {
+  /** 기본 문구를 화면 성격에 맞게 구체화할 때만 전달. */
+  title?: string;
+  description?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      // role="status" — 주차/스코프 전환으로 미오픈이 된 사실을 보조기기에도 알린다.
+      role="status"
+      className={cn(
+        "flex items-start gap-2 rounded-md border px-3 py-2.5",
+        lineManagementBoxClass("warning"),
+        className,
+      )}
+    >
+      <CircleDashed className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+      <div className="min-w-0">
+        <p className="text-sm font-semibold">{title}</p>
+        {description && <p className="text-xs opacity-90">{description}</p>}
+      </div>
+    </div>
+  );
+}
 
 export function LineOpeningOpenedNotice({
   description = LINE_OPENING_OPENED_NOTICE_DESCRIPTION,

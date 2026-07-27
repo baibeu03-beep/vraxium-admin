@@ -40,6 +40,7 @@ import {
   lineOpeningCardTopBandClass,
 } from "@/components/admin/lineOpeningCardStyles";
 import { lineManagementBadgeClass } from "@/components/admin/lineManagementTone";
+import { LineOpeningNotOpenNotice } from "@/components/admin/lineOpeningStatusUi";
 import CommentCollectionStatusView from "@/components/admin/CommentCollectionStatusView";
 import ExecutionTimeCell from "@/components/admin/ExecutionTimeCell";
 import { ActionControl, INSTANT_REVIEW_BUTTON_CLASS } from "@/components/admin/ActionControl";
@@ -138,6 +139,7 @@ function ActSortIcon({ dir }: { dir: ActSortDir | null }) {
 export default function ProcessCheckActTable({
   acts,
   loading,
+  notOpen = false,
   weekDisabled,
   readOnly = false,
   showScopeColumn = false,
@@ -152,6 +154,9 @@ export default function ProcessCheckActTable({
 }: {
   acts: ProcessCheckActRowDto[];
   loading: boolean;
+  // 이 주차·스코프가 아직 오픈되지 않았는가 — 판정은 호출부(공용 resolveProcessCheckOpenState)가 소유하고,
+  //   여기서는 목록 상단 안내와 빈 상태 문구만 바꾼다. 행·집계·개수는 전혀 바뀌지 않는다.
+  notOpen?: boolean;
   weekDisabled: boolean;
   // po.A/B/C 표시명을 조직별로 치환하기 위한 현재 조직 slug(?org). 없으면 중립 표기.
   orgSlug?: string | null;
@@ -306,6 +311,14 @@ export default function ProcessCheckActTable({
                 <span className="font-semibold tabular-nums">{acts.length}</span>
               </span>
             </div>
+            {/* 미오픈 안내 — 표 위 독립 영역. 아래 표의 행/개수/집계는 그대로다(미가동 배지 기존 동작 유지).
+                "체크 필요 0 / 항목 수 N" 만 보고 데이터 오류로 오해하는 것을 막는다. */}
+            {notOpen && (
+              <LineOpeningNotOpenNotice
+                className="mb-3"
+                description="이 주차는 아직 오픈되지 않아 아래 액트가 모두 ‘미가동’ 입니다. 오픈 확인 후 체크할 수 있습니다."
+              />
+            )}
             <Table containerRef={sticky.ref} regionClassName={sticky.regionClassName} stickyLeft>
               <TableHeader>
                 <TableRow>

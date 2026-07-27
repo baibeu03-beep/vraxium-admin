@@ -17,9 +17,13 @@ import {
   IRREGULAR_CREW_REACTION_LABEL,
   IRREGULAR_STATUS_LABEL,
   formatCheckDateTimeKo,
-  irregularStatusClass,
   type ProcessIrregularActRowDto,
 } from "@/lib/adminProcessIrregularTypes";
+// 배지·안내 박스 색 — /admin/integrated/line-opening/* 과 동일한 공용 tone SoT 재사용.
+import {
+  lineManagementBadgeClass,
+  lineManagementBoxClass,
+} from "@/components/admin/lineManagementTone";
 import { commentCollectionAllowsRecollect } from "@/lib/adminProcessCheckTypes";
 import CommentCollectionStatusView from "@/components/admin/CommentCollectionStatusView";
 import { getProcessPointLabels } from "@/lib/pointLabels";
@@ -126,7 +130,8 @@ export default function ProcessIrregularReviewDetail({
             <span
               className={cn(
                 "rounded border px-1.5 py-0.5 text-xs",
-                irregularStatusClass(act.status),
+                // 완료=success(에메랄드) / 대기=warning(앰버) — 공용 배지 tone SoT(라이트·다크 대응).
+                lineManagementBadgeClass(act.status === "completed" ? "success" : "warning"),
               )}
             >
               {IRREGULAR_STATUS_LABEL[act.status]}
@@ -209,7 +214,8 @@ export default function ProcessIrregularReviewDetail({
 
         {/* 자동 검수 결과 — 완료 후 식별 크루 */}
         {act.status === "completed" && (
-          <div className="mt-3 rounded-md border px-3 py-2.5">
+          // 결과 요약 영역 — 위 입력값 박스와 같은 내부 요약 박스 규격(bg-muted/30)으로 구분감 통일.
+          <div className="mt-3 rounded-md border bg-muted/30 px-3 py-2.5">
             <p className="mb-1.5 text-xs font-medium text-muted-foreground">
               {isReview ? `자동 검수 결과 · 식별 크루 ${act.matchedCount}명` : `대상 크루 ${act.matchedCount}명`}
             </p>
@@ -221,10 +227,9 @@ export default function ProcessIrregularReviewDetail({
                   <li key={`${r.nickname}-${i}`} className="flex items-center gap-2">
                     <span
                       className={cn(
-                        "rounded px-1.5 py-0.5 text-[11px]",
-                        r.matchType === "matched"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-amber-100 text-amber-800",
+                        "rounded border px-1.5 py-0.5 text-[11px]",
+                        // 매칭=success / 수동확인=warning — 공용 배지 tone SoT(라이트·다크 대응).
+                        lineManagementBadgeClass(r.matchType === "matched" ? "success" : "warning"),
                       )}
                     >
                       {r.matchType === "matched" ? "매칭" : "수동확인"}
@@ -238,7 +243,7 @@ export default function ProcessIrregularReviewDetail({
         )}
 
         {act.lastError && cancelable && (
-          <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          <p className={cn("mt-3 rounded-md border px-3 py-2 text-xs", lineManagementBoxClass("warning"))}>
             자동 검수 시도 {act.attemptCount}회 실패: {act.lastError}
           </p>
         )}

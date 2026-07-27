@@ -24,15 +24,16 @@ const TONE_CLASSES: Record<
     dot: "bg-muted-foreground/50",
     card: "border-border bg-muted/30 text-muted-foreground",
   },
+  // 라이트 700 / 다크 300 — 목록 셀 보조 텍스트도 다크에서 대비를 잃지 않도록 짝을 맞춘다.
   warning: {
-    text: "text-amber-700",
-    dot: "bg-amber-500",
-    card: "border-amber-300 bg-amber-50 text-amber-800 dark:bg-amber-950/30 dark:text-amber-200",
+    text: "text-amber-700 dark:text-amber-300",
+    dot: "bg-amber-500 dark:bg-amber-400",
+    card: "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200",
   },
   danger: {
-    text: "text-rose-700",
-    dot: "bg-rose-500",
-    card: "border-rose-300 bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-200",
+    text: "text-rose-700 dark:text-rose-300",
+    dot: "bg-rose-500 dark:bg-rose-400",
+    card: "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-200",
   },
 };
 

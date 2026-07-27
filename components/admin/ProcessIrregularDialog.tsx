@@ -12,6 +12,13 @@ import { Button } from "@/components/ui/button";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+// 안내/오류 박스 + 대상 배지 색 — /admin/integrated/line-opening/* 과 동일한 공용 tone SoT 재사용.
+import { lineManagementBoxClass } from "@/components/admin/lineManagementTone";
+import {
+  CHECK_METHOD_LINK_NOTICE_CLASS,
+  CHECK_METHOD_LINK_TITLE_CLASS,
+  IRREGULAR_TARGET_BADGE_CLASS,
+} from "@/components/admin/processCheckChoiceStyles";
 import { DAY_NAMES } from "@/lib/practicalInfoSection0Format";
 import { type ScopeMode } from "@/lib/userScopeShared";
 import { useActionToast } from "@/lib/actionToast";
@@ -175,11 +182,11 @@ export default function ProcessIrregularDialog({
       <div className="max-h-[90vh] modal-w-lg overflow-y-auto rounded-xl bg-card p-5 shadow-xl ring-1 ring-foreground/10">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-semibold">
-            변동 액트 · <span className="text-purple-700">링크 신청</span>
+            변동 액트 · <span className={CHECK_METHOD_LINK_TITLE_CLASS}>링크 신청</span>
             <span
               className={cn(
                 "ml-2 rounded border px-1.5 py-0.5 text-xs font-medium",
-                isAll ? "border-blue-300 bg-blue-50 text-blue-700" : "border-orange-300 bg-orange-50 text-orange-700",
+                IRREGULAR_TARGET_BADGE_CLASS[isAll ? "all" : "partial"],
               )}
             >
               {IRREGULAR_CREW_REACTION_LABEL[crewReaction]}
@@ -316,13 +323,13 @@ export default function ProcessIrregularDialog({
             )}
           </div>
 
-          <p className="rounded-md border border-purple-200 bg-purple-50 px-3 py-2 text-xs text-purple-700">
+          <p className={cn("rounded-md border px-3 py-2 text-xs", CHECK_METHOD_LINK_NOTICE_CLASS)}>
             링크 신청 후 ‘체크 대기’ 상태가 되며, 검수 시점이 지나면 자동으로 ‘체크 완료’ 됩니다.
           </p>
         </div>
 
         {banner && (
-          <p className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+          <p className={cn("mt-3 rounded-md border px-3 py-2 text-xs", lineManagementBoxClass("danger"))}>
             {banner}
           </p>
         )}

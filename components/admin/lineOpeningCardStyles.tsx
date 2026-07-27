@@ -1,6 +1,9 @@
 import { cn } from "@/lib/utils";
 
-// 라인 개설 화면(/admin/integrated/line-opening/*) 전용 카드 표현 SoT — **스타일 전용**.
+// 어드민 "업무 카드" 표현 SoT — **스타일 전용**. 최초 도입 화면이 라인 개설이라 파일명이 lineOpening* 이지만,
+// 적용 범위는 라인 개설에 국한되지 않는다(같은 디자인 언어를 쓰는 화면은 이 파일 하나만 재사용한다).
+//   ① /admin/integrated/line-opening/*      — 상태창·로그창 + '라인 개설' 카드(실무 정보/경험/역량 3화면)
+//   ② /admin/integrated/processes/check/*   — 상태창1·로그창·상태창2·파트 구분·액트 목록·변동 액트(2026-07-27 추가)
 //   대상: 상단 상태창·로그창 + 하단 '라인 개설' 카드 전체(실무 정보/경험/역량 3화면 공통).
 //   기존 문제: 카드가 ring-1 외곽선만 가져서 카드 간 경계가 약하고, 헤더와 본문이 한 덩어리로 읽혔다.
 //   변경: [라인 관리] 탭의 팀 카드(ExperienceLineManageBoard.TeamCard)와 동일한 디자인 언어를 공용화한다.
@@ -110,6 +113,23 @@ export function lineOpeningCardHeaderBandClass(
   return cn(CARD_HEADER_BAND_BASE, TONE_STYLES[tone].header, className);
 }
 
+// CardHeader 도 없고 CardContent 가 **자체 top padding 도 없는** 카드용(예: 프로세스 체크 액트 목록).
+//   상쇄해야 하는 값은 Card 의 py-6 / md:py-7(24/28px) 뿐이다 — CardContent 의 pt-6 을 함께 상쇄하는
+//   lineOpeningCardHeaderBandClass(-mt-12/-mt-13)를 쓰면 밴드가 카드 위로 삐져나온다.
+//   좌우도 CardContent 의 px-4 를 상쇄해 카드 폭 전체를 채운다(레이아웃 좌표 불변).
+const CARD_TOP_BAND_BASE = "-mx-4 -mt-6 px-4 pt-6 md:-mt-7 md:pt-7";
+
+/**
+ * CardContent 가 pt 를 갖지 않는 카드의 상단 밴드 className.
+ *   `<CardContent>` 의 **첫 자식**(요약 칩 줄 등)에 붙인다. 하단 경계선은 호출부가 border-b 로 지정.
+ */
+export function lineOpeningCardTopBandClass(
+  tone: LineOpeningCardTone,
+  className?: string,
+): string {
+  return cn(CARD_TOP_BAND_BASE, TONE_STYLES[tone].header, className);
+}
+
 /** 제목 앞 accent 도트 — 팀 카드와 동일 규격(size-2.5). 표시 전용(aria-hidden). */
 export function LineOpeningCardDot({ tone }: { tone: LineOpeningCardTone }) {
   return (
@@ -118,6 +138,22 @@ export function LineOpeningCardDot({ tone }: { tone: LineOpeningCardTone }) {
       className={cn("size-2.5 shrink-0 rounded-full", TONE_STYLES[tone].dot)}
     />
   );
+}
+
+/**
+ * "N개 중 M개 완료" 형태의 진행형 업무 카드 → 카드 tone.
+ *   대상 0건=중립(빈 상태) / 전부 완료=에메랄드 / 남아 있음=앰버.
+ *   ⚠ 완료 여부 판정은 호출부(도메인)가 소유한다 — 여기서는 그 결과를 색으로만 바꾼다.
+ */
+export function completionCardTone({
+  total,
+  allCompleted,
+}: {
+  total: number;
+  allCompleted: boolean;
+}): LineOpeningCardTone {
+  if (total <= 0) return "muted";
+  return allCompleted ? "done" : "need";
 }
 
 /** 개설 상태 → 카드 tone. 개설 완료=에메랄드 / 개설 가능(미개설)=앰버 / 미오픈·불가=중립. */

@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
 //   대상: 실무 정보(주차별 개설 결과) · 실무 역량(집계 카드 + 결과 배지). 실무 경험의 카드형
 //     보드(ExperienceLineManageBoard)가 이미 쓰던 "파스텔 배경 + 같은 계열 테두리 + 진한 텍스트"
 //     조합을 tone 체계로 뽑아, 세 화면이 같은 시각 언어를 공유하게 한다.
+//   2026-07-27: /admin/integrated/processes/check/* 의 배지·안내/오류 배너·요약 칩도 이 tone 표를
+//     재사용한다(라인 개설과 동일한 디자인 언어 · 다크 대응 단일 출처). 파일명은 도입 화면 유래.
 //
 //   ⚠ 이 파일은 **색/타이포만** 담당한다. 상태 판정·상태 문구·데이터 로딩·버튼/액션·DTO 는
 //     각 도메인 컴포넌트가 그대로 소유한다(공용 resolver 가 도메인 상태를 판단하지 않는다).
@@ -96,6 +98,19 @@ const TONE_STYLES: Record<LineManagementTone, ToneStyle> = {
       "border-red-300 bg-red-100 text-red-800 dark:border-red-700 dark:bg-red-900/60 dark:text-red-200",
   },
 };
+
+/**
+ * 안내/오류/요약 박스의 배경·테두리·텍스트 className — 기존 박스 골격(rounded-md border px-* py-*)에
+ * 색만 얹을 때 사용한다. 라이트/다크 모두 대비가 확보된 유일한 출처.
+ *   기존에 화면마다 흩어져 있던 `border-amber-300 bg-amber-50 text-amber-800`(다크 미대응) 같은
+ *   1회용 조합을 이 함수로 대체한다 — /admin/integrated/processes/check/* 안내·오류 배너 포함.
+ */
+export function lineManagementBoxClass(
+  tone: LineManagementTone,
+  className?: string,
+): string {
+  return cn(TONE_STYLES[tone].box, className);
+}
 
 /** 라인 관리 카드의 배경·테두리 className — 컴포넌트를 못 쓰는 자리(조건부 합성)용. */
 export function lineManagementCardClass(

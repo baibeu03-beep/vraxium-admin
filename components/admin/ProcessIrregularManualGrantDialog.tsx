@@ -11,6 +11,9 @@ import { Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+// 안내/오류 박스 색 — /admin/integrated/line-opening/* 과 동일한 공용 tone SoT 재사용(다크 대응).
+import { lineManagementBoxClass } from "@/components/admin/lineManagementTone";
 import {
   Table,
   TableBody,
@@ -382,13 +385,13 @@ export default function ProcessIrregularManualGrantDialog({
             </div>
           </div>
 
-          <p className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-700">
+          <p className={cn("rounded-md border px-3 py-2 text-xs", lineManagementBoxClass("success"))}>
             수동 부여는 이미 검수가 끝난 상태입니다. [체크 완료] 시 즉시 ‘체크 완료’로 생성됩니다(체크 대기 없음).
           </p>
         </div>
 
         {banner && (
-          <p className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{banner}</p>
+          <p className={cn("mt-3 rounded-md border px-3 py-2 text-xs", lineManagementBoxClass("danger"))}>{banner}</p>
         )}
 
         {/* 상단 버튼 — 초기화 / 체크 완료 (체크 신청·체크 취소 없음) */}

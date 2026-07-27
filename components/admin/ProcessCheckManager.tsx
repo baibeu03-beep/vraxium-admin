@@ -31,19 +31,36 @@ import ProcessCheckManualGrantDialog from "@/components/admin/ProcessCheckManual
 import ProcessCheckProgress from "@/components/admin/ProcessCheckProgress";
 import { WeekSelectRow } from "@/components/admin/WeekSelectRow";
 import {
+  LineOpeningNotOpenNotice,
   StatusList,
   StatusListItem,
   statusTokenClass,
 } from "@/components/admin/lineOpeningStatusUi";
+// 카드 표현(좌측 accent·헤더 틴트·외곽선·제목 도트) + 배지/배너 색 — /admin/integrated/line-opening/*
+//   과 **동일한 공용 SoT** 를 그대로 재사용한다(프로세스 체크 전용 스타일을 새로 만들지 않는다).
+import {
+  LineOpeningCardDot,
+  lineOpeningCardClass,
+  lineOpeningCardHeaderClass,
+} from "@/components/admin/lineOpeningCardStyles";
+import { lineManagementBoxClass } from "@/components/admin/lineManagementTone";
+import {
+  CHECK_METHOD_GRANT_BUTTON_CLASS,
+  CHECK_METHOD_GRANT_SUB_CLASS,
+  CHECK_METHOD_LINK_BUTTON_CLASS,
+  CHECK_METHOD_LINK_SUB_CLASS,
+} from "@/components/admin/processCheckChoiceStyles";
 import type { StatusTokenKind } from "@/lib/lineOpeningStatusEngine";
 import {
   PROCESS_CHECK_HELP_KEYS,
   PROCESS_CHECK_LOG_ACTION_LABEL,
   emptyProcessCheckBoard,
   formatCheckTodayCompact,
+  isProcessCheckNotOpen,
   isSelectionActType,
   isTeamBasedProcessHub,
   processCheckLogTone,
+  resolveProcessCheckOpenState,
   type ProcessCheckActRowDto,
   type ProcessCheckBoardDto,
   type ProcessCheckScopeKind,
@@ -252,6 +269,22 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
     scopeKind === "team_all" ? "팀 종합" : scopeKind === "team_overall" ? "팀 총괄" : effectiveScopeValue;
   const scopeReadOnly = scopeKind === "team_all";
 
+  // ── 미오픈(아직 오픈되지 않음) 판정 — 공용 SoT(resolveProcessCheckOpenState) ──────────────
+  //   권위 원천 = 서버가 준 액트별 isOpenThisWeek(weekOpenGate: open_confirmed + actCheck 설정).
+  //   날짜·행 개수·snapshot 유무로 재계산하지 않는다. mode/org 분기 없음(같은 DTO 필드만 읽는다).
+  //   ⚠ 스코프 선택: experience 는 팀을 지정해야 가동 판정이 성립하므로(팀 미지정이면 서버가 전부 false)
+  //     팀 허브는 **팀 보드**의 acts 를, 비팀 허브는 섹션.0 보드의 acts 를 넘긴다.
+  const openStateActs = teamMode ? teamBoard.acts : acts;
+  const openState = useMemo(
+    () => resolveProcessCheckOpenState(hub, openStateActs),
+    [hub, openStateActs],
+  );
+  // 로딩/오류 중에는 판정 결과를 노출하지 않는다 — 로딩·오류·미오픈을 서로 혼동시키지 않기 위함.
+  //   팀 허브는 팀이 선택돼 팀 보드가 로드된 뒤에만 판정한다.
+  const openStateSettled =
+    !loading && !error && (teamMode ? Boolean(effectiveTeamId) && !teamLoading : true);
+  const showNotOpenNotice = openStateSettled && isProcessCheckNotOpen(openState);
+
   // 선택 팀/스코프/파트 변경 시 섹션.1 팀 보드 재조회(서버가 스코프 필터·파트별 독립 상태 반환).
   useEffect(() => {
     if (!teamMode || !effectiveTeamId) return;
@@ -364,13 +397,19 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
       />
 
       {!org && (
-        <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        // 안내(조치 필요)=warning · 오류=danger — 공용 tone SoT(라이트/다크 동시 대응).
+        <div className={lineManagementBoxClass("warning", "rounded-md border px-4 py-3 text-sm")}>
           클럽이 지정되어야 합니다. 주소 끝에 클럽 코드를 붙여 다시 열어주세요. (예: ?org=oranke)
         </div>
       )}
 
       {error && (
-        <div className="flex items-center justify-between rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+        <div
+          className={lineManagementBoxClass(
+            "danger",
+            "flex items-center justify-between rounded-md border px-3 py-2 text-sm",
+          )}
+        >
           <span className="whitespace-pre-line">{error}</span>
           <button type="button" onClick={() => setError(null)} className="hover:opacity-70">
             <X className="h-4 w-4" />
@@ -396,14 +435,25 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
         helpKey={PROCESS_CHECK_HELP_KEYS.filterWeek}
       />
 
+      {/* 미오픈 안내 — 검수 콘텐츠 상단(주차 선택 바로 아래)에 독립 배너로. 표 안의 빈 행에 묻히지 않는다.
+          라인 개설 화면과 동일한 공용 컴포넌트(LineOpeningNotOpenNotice · 앰버 tone). 데이터/개수는 불변 —
+          아래 목록에는 기존과 똑같이 액트가 (미가동으로) 표시된다. */}
+      {showNotOpenNotice && (
+        <LineOpeningNotOpenNotice
+          description={`[${periodLabel}] ${hubLabel} 급 프로세스가 아직 오픈되지 않아 체크(검수)를 진행할 수 없습니다. 활동 관리에서 이 주차를 [오픈 확인]하면 체크할 수 있습니다.`}
+        />
+      )}
+
       {/* 상태창1 (좌) + 로그창 (우) — 독립 카드 묶음.
           세로(모바일 스택) 카드 간격만 2배(16→32px)로 넓히고, 데스크톱 2열 가로 거터(16px)는
           유지한다(가로 밀도 불변). lg 단일 행에선 gap-y 가 작동하지 않아 데스크톱 레이아웃 무변경. */}
       <div className="grid items-start gap-x-4 gap-y-8 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-2">
+        {/* 상태창(모니터링) = 라인 개설 상태창과 동일 tone("status", 스카이). */}
+        <Card className={lineOpeningCardClass("status")}>
+          <CardHeader className={lineOpeningCardHeaderClass("status", "pb-2")}>
             <CardTitle className="text-base">
               <span className="inline-flex items-center gap-1">
+                <LineOpeningCardDot tone="status" />
                 상태창 1
                 <AdminHelpIconButton
                   helpKey={PROCESS_CHECK_HELP_KEYS.sectionStatusBoard}
@@ -468,10 +518,12 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
           </CardContent>
         </Card>
 
-        <Card className="flex h-full flex-col">
-          <CardHeader className="pb-2">
+        {/* 로그창(기록) = 라인 개설 로그창과 동일 tone("log", 중립 슬레이트). */}
+        <Card className={lineOpeningCardClass("log", "flex h-full flex-col")}>
+          <CardHeader className={lineOpeningCardHeaderClass("log", "pb-2")}>
             <CardTitle className="text-base">
               <span className="inline-flex items-center gap-1">
+                <LineOpeningCardDot tone="log" />
                 로그창
                 <AdminHelpIconButton
                   helpKey={PROCESS_CHECK_HELP_KEYS.sectionLogBoard}
@@ -534,6 +586,8 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
           summary={summary}
           lineGroups={board.lineGroups}
           helpKey={PROCESS_CHECK_HELP_KEYS.progressSummary}
+          // 미오픈이면 "체크 대상 라인급이 없습니다"(일반 빈 상태) 대신 미오픈 사유를 밝힌다.
+          notOpen={showNotOpenNotice}
         />
       )}
 
@@ -588,13 +642,16 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                     summary={teamBoard.summary}
                     lineGroups={teamBoard.lineGroups}
                     helpKey={PROCESS_CHECK_HELP_KEYS.progressSummary}
+                    notOpen={showNotOpenNotice}
                   />
                 </div>
                 <div className="lg:w-72 lg:shrink-0">
-                  <Card className="h-full">
-                    <CardHeader className="pb-2">
+                  {/* 파트 구분(선택·입력) = 라인 개설 폼과 동일 tone("action", 인디고). */}
+                  <Card className={lineOpeningCardClass("action", "h-full")}>
+                    <CardHeader className={lineOpeningCardHeaderClass("action", "pb-2")}>
                       <CardTitle className="text-base">
                         <span className="inline-flex items-center gap-1">
+                          <LineOpeningCardDot tone="action" />
                           파트 구분
                           <AdminHelpIconButton
                             helpKey={PROCESS_CHECK_HELP_KEYS.teamPartScope}
@@ -621,7 +678,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                         ))}
                       </select>
                       {teamParts.length === 0 && (
-                        <p className="text-xs text-amber-600">
+                        <p className="text-xs text-amber-700 dark:text-amber-300">
                           이 팀(현재 모드)에 등록된 파트가 없습니다. (팀 총괄만 사용)
                         </p>
                       )}
@@ -633,6 +690,8 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
               <ProcessCheckActTable
                 acts={teamBoard.acts}
                 loading={teamLoading}
+                // 미오픈이면 목록 상단에 사유를 밝힌다(행·개수는 기존과 동일하게 그대로 표시).
+                notOpen={showNotOpenNotice}
                 weekDisabled={teamWeekDisabled}
                 readOnly={scopeReadOnly}
                 showScopeColumn
@@ -652,6 +711,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
         <ProcessCheckActTable
           acts={acts}
           loading={loading}
+          notOpen={showNotOpenNotice}
           weekDisabled={weekDisabled}
           orgSlug={org}
           onOpenAct={openAct}
@@ -704,10 +764,15 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                   setDialogAct(choiceAct);
                   setChoiceAct(null);
                 }}
-                className="rounded-md border border-purple-300 bg-purple-50 px-4 py-3 text-sm font-medium text-purple-800 transition-colors hover:bg-purple-100"
+                className={cn(
+                  "rounded-md border px-4 py-3 text-sm font-medium transition-colors",
+                  CHECK_METHOD_LINK_BUTTON_CLASS,
+                )}
               >
                 링크 신청
-                <span className="mt-0.5 block text-xs font-normal text-purple-600">카페 글 기반 · worker 검수</span>
+                <span className={cn("mt-0.5 block text-xs font-normal", CHECK_METHOD_LINK_SUB_CLASS)}>
+                  카페 글 기반 · worker 검수
+                </span>
               </button>
               <button
                 type="button"
@@ -715,10 +780,15 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                   setManualGrantAct(choiceAct);
                   setChoiceAct(null);
                 }}
-                className="rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm font-medium text-green-800 transition-colors hover:bg-green-100"
+                className={cn(
+                  "rounded-md border px-4 py-3 text-sm font-medium transition-colors",
+                  CHECK_METHOD_GRANT_BUTTON_CLASS,
+                )}
               >
                 수동 부여
-                <span className="mt-0.5 block text-xs font-normal text-green-600">대상 크루 · 포인트 직접 입력</span>
+                <span className={cn("mt-0.5 block text-xs font-normal", CHECK_METHOD_GRANT_SUB_CLASS)}>
+                  대상 크루 · 포인트 직접 입력
+                </span>
               </button>
             </div>
           </div>

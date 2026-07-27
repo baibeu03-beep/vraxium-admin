@@ -13,6 +13,9 @@ import { Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+// 안내/오류 박스 색 — /admin/integrated/line-opening/* 과 동일한 공용 tone SoT 재사용(다크 대응).
+import { lineManagementBoxClass } from "@/components/admin/lineManagementTone";
 import {
   Table,
   TableBody,
@@ -453,14 +456,14 @@ export default function ProcessCheckManualGrantDialog({
             </div>
           </div>
 
-          <p className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-700">
+          <p className={cn("rounded-md border px-3 py-2 text-xs", lineManagementBoxClass("success"))}>
             수동 부여는 즉시 ‘체크 완료’로 처리됩니다(체크 대기 없음). 같은 액트·주차에 이미 부여된 크루는 중복 저장되지 않습니다.
           </p>
         </div>
         )}
 
         {banner && (
-          <p className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{banner}</p>
+          <p className={cn("mt-3 rounded-md border px-3 py-2 text-xs", lineManagementBoxClass("danger"))}>{banner}</p>
         )}
 
         {/* 버튼 정책(수동 입력) —

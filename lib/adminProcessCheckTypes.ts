@@ -16,6 +16,8 @@ import {
 import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
 import { formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
 import type { ScopeMode } from "@/lib/userScopeShared";
+// 오픈 게이트 대상 허브 판정 — 서버/화면이 공유하는 순수 SoT(lib/weekOpenGate).
+import { isOpenGatedActHub } from "@/lib/weekOpenGate";
 import type { AdminLogTone } from "@/lib/adminLogPresentation";
 
 // ── 체크 상태 ────────────────────────────────────────────────────────────────
@@ -580,4 +582,41 @@ export function processCheckLogPeriodLabel(week: {
 }): string {
   const yy = String(((week.year % 100) + 100) % 100).padStart(2, "0");
   return `${yy}년 ${week.seasonName} ${week.weekNumber}주차`;
+}
+
+// ── 오픈(가동) 상태 판정 — 표시 계층 단일 SoT ──────────────────────────────────
+//   "아직 오픈되지 않았습니다" 안내와 "오픈되었지만 대상이 없습니다" 를 화면마다 다르게 판정하지 않도록
+//   보드 DTO 에서 상태를 뽑는 함수를 한 곳에 둔다.
+//
+//   ⚠ 권위 원천 = **서버가 준 액트별 `isOpenThisWeek`** 이다. 이 값은 서버에서
+//     `lib/weekOpenGate.isActOpenAtTime`(= cluster4_week_opening_configs 의 open_confirmed + actCheck 설정)
+//     으로 계산된다. 여기서 날짜·데이터 존재 여부·snapshot 유무로 오픈을 **재계산하지 않는다**.
+//   ⚠ `acts.length === 0` 은 미오픈이 아니다 — 정규 기준표(process_acts)에 등록된 액트가 없는 별개 상태다.
+//   ⚠ mode(operating/test)·org 로 분기하지 않는다 — 서버가 스코프를 확정한 뒤의 동일 DTO 필드만 읽는다.
+//   ⚠ experience 는 팀 스코프에서만 가동 판정이 성립한다(팀 미지정이면 서버가 전부 false 로 준다) →
+//     호출부는 **팀 보드(teamBoard)의 acts** 를 넘겨야 한다. 비팀 허브는 섹션.0 보드를 그대로 넘긴다.
+export type ProcessCheckOpenState =
+  // 오픈 설정(게이트) 대상이 아닌 허브 — 미오픈 개념이 없다(안내 없음).
+  | { kind: "not_gated" }
+  // 정규 기준표에 등록된 액트 자체가 없음 — 기존 "등록된 액트가 없습니다" 문구 유지.
+  | { kind: "no_master" }
+  // 이 주차·클럽·스코프가 아직 오픈되지 않음(오픈 확인 전 또는 해당 라인급 미체크).
+  | { kind: "not_open"; totalActCount: number }
+  // 정상 오픈 — 체크 대상이 0건이어도 이 상태다(빈 상태 문구는 기존 그대로).
+  | { kind: "open"; openActCount: number; totalActCount: number };
+
+export function resolveProcessCheckOpenState(
+  hub: ProcessHub,
+  acts: readonly ProcessCheckActRowDto[],
+): ProcessCheckOpenState {
+  if (!isOpenGatedActHub(hub)) return { kind: "not_gated" };
+  if (acts.length === 0) return { kind: "no_master" };
+  const openActCount = acts.reduce((n, a) => (a.isOpenThisWeek ? n + 1 : n), 0);
+  if (openActCount === 0) return { kind: "not_open", totalActCount: acts.length };
+  return { kind: "open", openActCount, totalActCount: acts.length };
+}
+
+/** 미오픈 안내를 띄워야 하는가. 로딩/오류 중에는 호출부가 먼저 걸러낸다(상태 혼동 방지). */
+export function isProcessCheckNotOpen(state: ProcessCheckOpenState): boolean {
+  return state.kind === "not_open";
 }
