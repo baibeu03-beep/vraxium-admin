@@ -505,18 +505,29 @@ export default function RestManagementManager() {
   //     탭은 DOM 에 렌더하지 않는다 → 다른 조직으로 전환 불가.
   //   · 통합 경로(urlOrg 없음): [통합]+엥크레/오랑캐/팔랑크스 4개. onSelect 로 내부 상태(selectedOrg)만
   //     전환한다(AdminPageHeader 가 button 으로 렌더·URL/사이드바 배지 불변).
+  //   orgKey = 어드민 공통 캡슐 탭(orgTabClassName SoT) 규격으로 렌더하라는 표시. 스타일만 담당하며
+  //     노출 규칙·active 판정·onSelect 동작은 위 그대로다(/admin/team-parts/info/weeks 클럽 탭과 동일 디자인).
   const tabs = urlOrg
-    ? [{ label: CLUB_LABEL_KO[urlOrg], active: true, onSelect: () => {} }]
+    ? [
+        {
+          label: CLUB_LABEL_KO[urlOrg],
+          active: true,
+          onSelect: () => {},
+          orgKey: urlOrg,
+        },
+      ]
     : [
         {
           label: "통합",
           active: selectedOrg === null,
           onSelect: () => selectOrg(null),
+          orgKey: "integrated" as const,
         },
         ...ORGANIZATIONS.map((o) => ({
           label: CLUB_LABEL_KO[o],
           active: selectedOrg === o,
           onSelect: () => selectOrg(o),
+          orgKey: o,
         })),
       ];
 
