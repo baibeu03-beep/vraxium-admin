@@ -170,11 +170,12 @@ try {
     ck("[활동 관리] 후 ?org=encre 보존(통합 전환 아님)", /[?&]org=encre\b/.test(page.url()), page.url());
     const asideDetailI = await page.locator("aside").innerText().catch(() => "");
     ck("상세 사이드바: MENU_ORG('클럽 진행') 유지(개별 유지)", asideDetailI.includes("클럽 진행"));
-    await page.waitForSelector("[data-review-button]", { timeout: 90000 }).catch(() => {});
+    // 2026-07-27: [주차 검수] 버튼 제거 — 로딩 대기 기준을 관리 주차 섹션으로 바꾸고,
+    //   개별 어드민 조회전용 판정은 남은 신호(조회전용 안내 · 체크박스 disabled)로 확인한다.
+    await page.waitForSelector("[data-managed-week]", { timeout: 90000 }).catch(() => {});
     await page.waitForTimeout(600);
-    const rb = page.locator("[data-review-button]");
-    ck("상세: 검수 버튼 disabled", await rb.first().isDisabled().catch(() => false));
-    ck("상세: 검수 버튼 툴팁(통합 전용)", (await rb.first().getAttribute("title").catch(() => "")) === "주차 검수는 통합 관리자만 실행할 수 있습니다.");
+    ck("상세: 검수 버튼 없음", (await page.locator("[data-review-button]").count()) === 0);
+    ck("상세: 실행 취소 없음", (await page.locator("[data-ac-week-review]").count()) === 0);
     ck("상세: 허브·라인 조회전용 안내", (await page.locator("[data-hub-line-readonly-notice]").count()) >= 1);
     const cbs = page.locator('input[type="checkbox"]');
     const cbn = await cbs.count();
@@ -200,12 +201,12 @@ try {
     const asideText = await page.locator("aside").innerText().catch(() => "");
     ck("사이드바: MENU_INTEGRATED(‘클럽 진행’ 미노출)", !asideText.includes("클럽 진행"));
     await page.goto(`${BASE}/admin/team-parts/info/weeks/${WEEK_ID}?club=encre`, { waitUntil: "domcontentloaded" });
-    await page.waitForSelector("[data-review-button]", { timeout: 90000 }).catch(() => {});
+    await page.waitForSelector("[data-managed-week]", { timeout: 90000 }).catch(() => {});
     await page.waitForTimeout(600);
-    const rb = page.locator("[data-review-button]");
     ck("상세: 조회전용 안내 부재(편집 가능)", (await page.locator("[data-hub-line-readonly-notice]").count()) === 0);
-    ck("상세: 검수 버튼 툴팁 없음", !(await rb.first().getAttribute("title").catch(() => null)));
-    ck("상세: 검수 버튼 활성(disabled 아님)", !(await rb.first().isDisabled().catch(() => true)));
+    // 통합 어드민에서도 검수 액션은 없다(확정은 crew-week-results 예비→공표 단일 흐름).
+    ck("상세: 검수 버튼 없음(통합도 동일)", (await page.locator("[data-review-button]").count()) === 0);
+    ck("상세: 편집 가능(체크박스 활성 존재)", (await page.locator('input[type="checkbox"]:not([disabled])').count()) > 0);
     await ctx.close();
   }
 

@@ -44,6 +44,15 @@ import {
   type CrewWeekTeamResultDto,
   type TeamVerdict,
 } from "@/lib/crewWeekTeamProjection";
+// 확정(공표+검수) 본체 = 공통 서비스 단일 SoT. 종전 `/weeks/*` [주차 검수] 와 **같은 함수**를 호출한다
+//   — 두 경로가 로직을 복제하지 않는다(lib/weekResultFinalizeCore.ts).
+import {
+  finalizeWeekResultCore,
+  revertWeekResultCore,
+  WeekResultFinalizeError,
+  type WeekResultFinalizeResult,
+  type WeekResultRevertResult,
+} from "@/lib/weekResultFinalizeCore";
 
 // ── scope 어휘 변환 ─────────────────────────────────────────────────────────
 // DB(cluster4_week_finalize_runs.scope)는 StateScope 어휘 'operating' | 'qa' 를 쓰고,
@@ -581,6 +590,40 @@ const RUN_SELECT =
   "growth_success_count,growth_failure_count,growth_success_rate_percent," +
   "growth_challenge_rate_percent,calculated_at,calculation_version,source_activity_date";
 
+// ── uws 롤백 provenance ─────────────────────────────────────────────────────
+// finalizeWeekUws 가 run 행에 남기는 "무엇을 만들고 무엇을 어떤 값에서 바꿨는가". 공표 취소가
+//   이 값으로 uws 를 정확히 되돌린다. 재공표는 활성 run 을 교체하므로 **이어붙여야** 한다.
+type RunProvenance = {
+  created_uws_ids: string[];
+  updated_uws: Array<{ id: string; prev_status: string }>;
+};
+const EMPTY_PROVENANCE: RunProvenance = { created_uws_ids: [], updated_uws: [] };
+
+async function loadRunProvenance(runId: string): Promise<RunProvenance> {
+  const { data, error } = await supabaseAdmin
+    .from("cluster4_week_finalize_runs")
+    .select("created_uws_ids,updated_uws")
+    .eq("id", runId)
+    .maybeSingle();
+  if (error || !data) return EMPTY_PROVENANCE;
+  const row = data as Partial<RunProvenance>;
+  return {
+    created_uws_ids: row.created_uws_ids ?? [],
+    updated_uws: row.updated_uws ?? [],
+  };
+}
+
+// 병합 규칙: created 는 합집합(이미 지워진 id 는 롤백 시 no-op).
+//   updated 는 **이전 실행의 prev_status 가 우선**이다 — 되돌릴 목표는 "최초 확정 직전 값"이므로
+//   같은 uws 를 두 번 바꿨다면 더 오래된 prev_status 를 남겨야 원상복구가 된다.
+function mergeProvenance(older: RunProvenance, newer: RunProvenance): RunProvenance {
+  const created = [...new Set([...older.created_uws_ids, ...newer.created_uws_ids])];
+  const byId = new Map<string, { id: string; prev_status: string }>();
+  for (const u of newer.updated_uws) byId.set(u.id, u);
+  for (const u of older.updated_uws) byId.set(u.id, u); // older wins
+  return { created_uws_ids: created, updated_uws: [...byId.values()] };
+}
+
 export async function loadActiveRun(
   weekId: string,
   organization: OrganizationSlug,
@@ -828,10 +871,25 @@ export async function loadCrewWeekPublicationState(opts: {
   };
 }
 
-// ── [4] 공표 ────────────────────────────────────────────────────────────────
-// 순서(중요): 새 run + crew rows 를 **먼저 완성**하고, 마지막에 이전 활성 run 을 닫는다.
-//   partial unique index(week_id, org, scope) WHERE reverted_at IS NULL 때문에 동시에 두 활성 run 이
-//   존재할 수 없으므로, 이전 run 을 먼저 닫고 새 run 을 만든다. 중간 실패 시 이전 run 을 되살린다.
+// ── [4] 공표 = 정식 확정 트랜잭션 흐름 ──────────────────────────────────────
+//
+// 2026-07-27 통합: 공표가 종전 `/weeks/*` [주차 검수] 의 확정 작업까지 **함께** 수행한다.
+//   실행 순서는 데이터 의존성으로 정해진다(바꾸면 결과가 틀어진다):
+//
+//   [A] 사전 게이트(저장 0)  — 품계 계산 실패 확인. 확정 전에 막아야 되돌릴 일이 안 생긴다.
+//   [B] 이전 활성 run 닫기   — partial unique index(week_id, org, scope) WHERE reverted_at IS NULL.
+//                              ⚠ [C] 보다 먼저 — finalizeWeekUws 도 같은 테이블에 run 을 만들기 때문에
+//                                이전 run 이 열려 있으면 uws provenance 기록이 인덱스 충돌로 유실된다.
+//   [C] finalizeWeekResultCore — uws 코호트 확정 → weeks.result_published_at → 라인 A/B 원장 정합
+//                              → 고객 앱 weekly-card snapshot 재계산 → user_growth_stats → result_reviewed_at.
+//   [D] 확정 후 재계산       — computeCrewWeekPreview 를 **[C] 다음에** 돌린다. 이때 buildCrewResults 가
+//                              확정된 user_week_statuses 를 읽으므로 활동 0건 크루가 uws_missing 으로
+//                              굳지 않고, 고객 앱 snapshot 과 어드민 snapshot 이 같은 확정 결과를 본다.
+//   [E] 불변식 검증 → [F] run 에 snapshot 기록 → [G] crew/team rows.
+//
+//   ⚠ run 행은 **1건**이다. [C] 의 finalizeWeekUws 가 만든 run(uws provenance 보유)에 snapshot 을
+//     UPDATE 로 얹는다 — 새 행을 또 넣으면 활성 run 이 둘이 되어 인덱스가 막고, uws 롤백 근거도 갈린다.
+//     uws 변경이 0건이라 run 이 없으면(runId=null) 종전처럼 INSERT 한다.
 export async function publishCrewWeekResult(opts: {
   organization: OrganizationSlug;
   weekId: string;
@@ -844,7 +902,7 @@ export async function publishCrewWeekResult(opts: {
   const week = await loadWeekMeta(weekId);
   if (!week) throw new CrewWeekPublishError(404, "주차를 찾을 수 없습니다.");
 
-  // 진행 중 주차 공표 금지 — 기존 markTeamPartsWeekReviewed 의 current_or_future_week 가드와 동일 정책.
+  // 진행 중 주차 공표 금지 — finalizeWeekResultCore 의 current_or_future_week 가드와 동일 정책.
   const activityDate = opts.today ?? getCurrentActivityDateIso();
   if (activityDate <= week.end_date) {
     throw new CrewWeekPublishError(
@@ -853,6 +911,76 @@ export async function publishCrewWeekResult(opts: {
     );
   }
 
+  // ── [A] 사전 게이트 — 저장 0. 품계 계산 실패는 **확정을 시작하기 전에** 차단한다.
+  //   실패한 null 이 snapshot 에 굳으면 되돌릴 방법이 없다(공표 후 조회는 snapshot 직독).
+  //   ⚠ 정상 제외(not-eligible: 시즌 휴식·산정 주차 없음)는 차단 대상이 아니다 — collectGrade-
+  //     ResolutionFailures 가 status='failed' 만 모은다.
+  {
+    const pre = await computeCrewWeekPreview({
+      organization,
+      weekId,
+      scope,
+      today: opts.today,
+    });
+    if (pre.gradeResolutionFailures.length > 0) {
+      const f = pre.gradeResolutionFailures;
+      const names = f
+        .slice(0, 5)
+        .map((x) => x.displayName ?? x.userId)
+        .join(", ");
+      throw new CrewWeekPublishError(
+        409,
+        `품계 계산에 실패한 크루가 ${f.length}명 있어 공표를 중단했습니다(저장 없음). ` +
+          `${names}${f.length > 5 ? ` 외 ${f.length - 5}명` : ""}. 잠시 후 다시 시도해주세요.`,
+        {
+          code: "GRADE_RESOLUTION_FAILED",
+          snapshotCreated: false,
+          failedCount: f.length,
+          failures: f,
+        },
+      );
+    }
+  }
+
+  // ── [B] 이전 활성 run 을 닫는다(unique index 회피 + uws provenance 기록 자리 확보).
+  //   ⚠ 닫기 전에 uws provenance 를 읽어 둔다. 재공표 시 이번 실행의 uws 변경분이 0건이어도
+  //     **이전 실행이 만든 uws 는 그대로 남아 있으므로**, 되돌릴 근거를 새 run 으로 이어붙여야 한다
+  //     (안 그러면 공표 취소가 그 uws 를 못 지운다 — 실측 2026-07-27: 재공표 후 34행이 안 지워짐).
+  const prev = await loadActiveRun(weekId, organization, scope);
+  const prevProvenance = prev ? await loadRunProvenance(prev.id) : EMPTY_PROVENANCE;
+  const nowIso = new Date().toISOString();
+  if (prev) {
+    const { error } = await supabaseAdmin
+      .from("cluster4_week_finalize_runs")
+      .update({ reverted_at: nowIso })
+      .eq("id", prev.id)
+      .is("reverted_at", null);
+    if (error) throw new CrewWeekPublishError(500, `이전 공표 종료 실패: ${error.message}`);
+  }
+
+  // ── [C] 확정 — 종전 [주차 검수] 의 전 단계를 공통 서비스로 수행한다.
+  //   차단(422: 오픈 확인 미완료·적립 미완료·평가 미입력·진행 중 주차)이면 여기서 끝난다.
+  //   그 경우 [B] 에서 닫은 이전 run 을 되살려 화면이 종전 공표본을 계속 보게 한다(무손실).
+  let core: WeekResultFinalizeResult;
+  try {
+    core = await finalizeWeekResultCore(weekId, actorId, {
+      // OrgResultScope('operating'|'test') → StateScope('operating'|'qa') 어휘 변환.
+      //   ⚠ 문자열 직접 비교 금지 — toFinalizeRunScope 단일 경로.
+      scope: toFinalizeRunScope(scope),
+      organization,
+    });
+  } catch (e) {
+    if (prev) {
+      await supabaseAdmin
+        .from("cluster4_week_finalize_runs")
+        .update({ reverted_at: null })
+        .eq("id", prev.id);
+    }
+    if (e instanceof WeekResultFinalizeError) throw new CrewWeekPublishError(e.status, e.message);
+    throw e;
+  }
+
+  // ── [D] 확정된 원천으로 다시 계산한다.
   // ⚠ 클라이언트가 보낸 숫자를 신뢰하지 않는다 — 서버가 최신 원천으로 다시 계산한다.
   //   품계는 forceRefreshGrades 로 TTL 캐시를 건너뛴다 — 30초 전 계산값을 snapshot 에 확정하지 않는다.
   const preview = await computeCrewWeekPreview({
@@ -863,31 +991,9 @@ export async function publishCrewWeekResult(opts: {
     forceRefreshGrades: true,
   });
 
-  // 품계 계산 실패는 **저장 시작 전에** 차단한다. 실패한 null 이 snapshot 에 굳으면 되돌릴 방법이
-  //   없다(공표 후 조회는 snapshot 직독이라 live 로 복구되지 않는다).
-  //   ⚠ 정상 제외(not-eligible: 시즌 휴식·산정 주차 없음)는 차단 대상이 아니다 — collectGrade-
-  //     ResolutionFailures 가 status='failed' 만 모은다.
-  if (preview.gradeResolutionFailures.length > 0) {
-    const f = preview.gradeResolutionFailures;
-    const names = f
-      .slice(0, 5)
-      .map((x) => x.displayName ?? x.userId)
-      .join(", ");
-    throw new CrewWeekPublishError(
-      409,
-      `품계 계산에 실패한 크루가 ${f.length}명 있어 공표를 중단했습니다(저장 없음). ` +
-        `${names}${f.length > 5 ? ` 외 ${f.length - 5}명` : ""}. 잠시 후 다시 시도해주세요.`,
-      {
-        code: "GRADE_RESOLUTION_FAILED",
-        snapshotCreated: false,
-        failedCount: f.length,
-        failures: f,
-      },
-    );
-  }
-
-  // 불변식 위반은 **저장을 시작하기 전에** 차단한다(부분 저장 금지 · DB CHECK 와 같은 규칙).
-  // 완료율 ↔ count 관계 검증(DB CHECK 로 표현 불가) — 위반 시 부분 저장 없이 전체 차단.
+  // ── [E] 불변식 위반은 snapshot 을 쓰기 전에 차단한다(부분 저장 금지 · DB CHECK 와 같은 규칙).
+  //   ⚠ 이 시점엔 [C] 확정이 이미 끝나 있다 — 주차는 정상 확정 상태이고 어드민 snapshot 만 미생성이다
+  //     (= 기존에도 존재하던 legacyCompletedWithoutSnapshot 상태). 재실행하면 그대로 수렴한다.
   const actViolation = assertActRateInvariants(preview.crewResults);
   if (actViolation) {
     throw new CrewWeekPublishError(
@@ -903,66 +1009,89 @@ export async function publishCrewWeekResult(opts: {
     );
   }
 
-  const prev = await loadActiveRun(weekId, organization, scope);
-  const nowIso = new Date().toISOString();
+  // ── [F] run 에 결과 snapshot 기록.
+  //   [C] 가 uws provenance run 을 만들었으면 **그 행에 UPDATE**(활성 run 1건 유지 · 롤백 근거 보존),
+  //   uws 변경이 0건이라 run 이 없으면 INSERT.
+  const snapshotFields = {
+    snapshot_captured: true,
+    criterion_point_a: preview.criterionPointA,
+    member_count: preview.memberCount,
+    season_rest_count: preview.seasonRestCount,
+    personal_rest_count: preview.personalRestCount,
+    growth_challenge_count: preview.growthChallengeCount,
+    growth_success_count: preview.growthSuccessCount,
+    growth_failure_count: preview.growthFailureCount,
+    growth_success_rate_percent: preview.growthSuccessRatePercent,
+    growth_challenge_rate_percent: preview.growthChallengeRatePercent,
+    calculated_at: preview.calculatedAt,
+    calculation_version: preview.calculationVersion,
+    source_activity_date: preview.sourceActivityDate,
+    // 기존 카운트 컬럼도 함께 채운다(레거시 소비자 호환).
+    cohort_count: preview.memberCount ?? 0,
+    success_count: preview.growthSuccessCount ?? 0,
+    fail_count: preview.growthFailureCount ?? 0,
+    rest_count: (preview.seasonRestCount ?? 0) + (preview.personalRestCount ?? 0),
+  };
 
-  // 1) 이전 활성 run 을 닫는다(unique index 회피). 실패 시 아무것도 바뀌지 않는다.
-  if (prev) {
+  let runId: string;
+  const coreRunId = core.uwsFinalize?.runId ?? null;
+  if (coreRunId) {
+    // [C] 가 만든 run 에 snapshot 을 얹는다. provenance = 이전 실행분 ∪ 이번 실행분.
+    const merged = mergeProvenance(prevProvenance, await loadRunProvenance(coreRunId));
+    const { data: updated, error: updErr } = await supabaseAdmin
+      .from("cluster4_week_finalize_runs")
+      .update({ ...snapshotFields, ...merged, actor_id: actorId })
+      .eq("id", coreRunId)
+      .is("reverted_at", null)
+      .select("id")
+      .single();
+    if (updErr || !updated) {
+      throw new CrewWeekPublishError(
+        500,
+        `공표 저장 실패: ${updErr?.message ?? "확정 run 을 찾을 수 없습니다."}`,
+      );
+    }
+    runId = (updated as { id: string }).id;
+  } else {
+    // uws 변경 0건(재공표 등) — 새 run 을 만들고 이전 provenance 를 그대로 이어받는다.
+    const { data: inserted, error: insErr } = await supabaseAdmin
+      .from("cluster4_week_finalize_runs")
+      .insert({
+        week_id: weekId,
+        organization_slug: organization,
+        scope: toFinalizeRunScope(scope),
+        actor_id: actorId,
+        ...snapshotFields,
+        skipped_count: 0,
+        ...prevProvenance,
+      })
+      .select("id,created_at")
+      .single();
+    if (insErr || !inserted) {
+      throw new CrewWeekPublishError(500, `공표 저장 실패: ${insErr?.message ?? "unknown"}`);
+    }
+    runId = (inserted as { id: string }).id;
+  }
+
+  // 재시도로 같은 run 에 다시 쓰는 경우를 대비해 이전 결과 행을 비운다(UNIQUE(run_id,user_id) 충돌 방지).
+  //   신규 run 이면 0행 삭제(no-op).
+  await supabaseAdmin.from("cluster4_week_finalize_run_crew_results").delete().eq("run_id", runId);
+  await supabaseAdmin.from("cluster4_week_finalize_run_team_results").delete().eq("run_id", runId);
+
+  // 결과 행 저장 중 실패 시 — snapshot 만 무효화한다(run 은 uws provenance 보유라 보존).
+  //   결과: 활성 run 은 있으나 snapshot_captured=false = 기존 legacyCompletedWithoutSnapshot 상태.
+  //   화면이 이미 다루는 상태이며, 공표를 재실행하면 그대로 수렴한다.
+  const abortSnapshot = async () => {
+    await supabaseAdmin.from("cluster4_week_finalize_run_crew_results").delete().eq("run_id", runId);
+    await supabaseAdmin.from("cluster4_week_finalize_run_team_results").delete().eq("run_id", runId);
     const { error } = await supabaseAdmin
       .from("cluster4_week_finalize_runs")
-      .update({ reverted_at: nowIso })
-      .eq("id", prev.id)
-      .is("reverted_at", null);
-    if (error) throw new CrewWeekPublishError(500, `이전 공표 종료 실패: ${error.message}`);
-  }
+      .update({ snapshot_captured: false })
+      .eq("id", runId);
+    if (error) console.warn("[crew-week-publish] snapshot 무효화 실패", error.message);
+  };
 
-  // 2) 새 run 삽입.
-  const { data: inserted, error: insErr } = await supabaseAdmin
-    .from("cluster4_week_finalize_runs")
-    .insert({
-      week_id: weekId,
-      organization_slug: organization,
-      scope: toFinalizeRunScope(scope),
-      actor_id: actorId,
-      snapshot_captured: true,
-      criterion_point_a: preview.criterionPointA,
-      member_count: preview.memberCount,
-      season_rest_count: preview.seasonRestCount,
-      personal_rest_count: preview.personalRestCount,
-      growth_challenge_count: preview.growthChallengeCount,
-      growth_success_count: preview.growthSuccessCount,
-      growth_failure_count: preview.growthFailureCount,
-      growth_success_rate_percent: preview.growthSuccessRatePercent,
-      growth_challenge_rate_percent: preview.growthChallengeRatePercent,
-      calculated_at: preview.calculatedAt,
-      calculation_version: preview.calculationVersion,
-      source_activity_date: preview.sourceActivityDate,
-      // 기존 카운트 컬럼도 함께 채운다(레거시 소비자 호환).
-      cohort_count: preview.memberCount ?? 0,
-      success_count: preview.growthSuccessCount ?? 0,
-      fail_count: preview.growthFailureCount ?? 0,
-      rest_count: (preview.seasonRestCount ?? 0) + (preview.personalRestCount ?? 0),
-      skipped_count: 0,
-      created_uws_ids: [],
-      updated_uws: [],
-    })
-    .select("id,created_at")
-    .single();
-
-  if (insErr || !inserted) {
-    // 롤백 — 이전 run 을 되살린다(중간 실패로 공표본이 사라지면 안 된다).
-    if (prev) {
-      await supabaseAdmin
-        .from("cluster4_week_finalize_runs")
-        .update({ reverted_at: null })
-        .eq("id", prev.id);
-    }
-    throw new CrewWeekPublishError(500, `공표 저장 실패: ${insErr?.message ?? "unknown"}`);
-  }
-
-  const runId = (inserted as { id: string }).id;
-
-  // 3) 크루별 결과 저장.
+  // ── [G] 크루별 결과 저장.
   if (preview.crewResults.length > 0) {
     const rows = preview.crewResults.map((c) => ({
       run_id: runId,
@@ -999,14 +1128,11 @@ export async function publishCrewWeekResult(opts: {
         .from("cluster4_week_finalize_run_crew_results")
         .insert(rows.slice(i, i + 500));
       if (error) {
-        // 부분 반영 금지 — 새 run 을 통째로 되돌리고 이전 run 을 되살린다.
-        await supabaseAdmin.from("cluster4_week_finalize_runs").delete().eq("id", runId);
-        if (prev) {
-          await supabaseAdmin
-            .from("cluster4_week_finalize_runs")
-            .update({ reverted_at: null })
-            .eq("id", prev.id);
-        }
+        // 부분 반영 금지 — snapshot 을 무효화한다. ⚠ run 을 DELETE 하지 않는다:
+        //   이 run 은 [C] 확정의 uws provenance(created_uws_ids/updated_uws)를 들고 있어
+        //   지우면 공표 취소가 uws 를 되돌릴 근거를 잃는다. 이전 run 도 되살리지 않는다
+        //   (주차는 이미 확정됐으므로 옛 snapshot 을 되살리면 사실과 어긋난다).
+        await abortSnapshot();
         throw new CrewWeekPublishError(500, `크루 결과 저장 실패: ${error.message}`);
       }
     }
@@ -1044,14 +1170,8 @@ export async function publishCrewWeekResult(opts: {
       .from("cluster4_week_finalize_run_team_results")
       .insert(teamRows);
     if (error) {
-      // 부분 반영 금지 — 새 run 을 통째로 되돌린다(crew rows 는 FK CASCADE 로 함께 삭제).
-      await supabaseAdmin.from("cluster4_week_finalize_runs").delete().eq("id", runId);
-      if (prev) {
-        await supabaseAdmin
-          .from("cluster4_week_finalize_runs")
-          .update({ reverted_at: null })
-          .eq("id", prev.id);
-      }
+      // 부분 반영 금지 — snapshot 무효화(위와 동일 이유로 run DELETE·prev 복구 금지).
+      await abortSnapshot();
       throw new CrewWeekPublishError(500, `팀 결과 저장 실패: ${error.message}`);
     }
   }
@@ -1064,32 +1184,66 @@ export async function publishCrewWeekResult(opts: {
   return result;
 }
 
-// ── [4] 공표 취소 ───────────────────────────────────────────────────────────
+// ── [4] 공표 취소 = 정식 확정 취소 흐름 ─────────────────────────────────────
+//
+// 2026-07-27 통합: 종전 `/weeks/*` [실행 취소](DELETE /review)가 되돌리던 범위를 그대로 되돌린다.
+//   되돌리는 것: user_week_statuses(생성분 DELETE·갱신분 prev_status 복원) · weeks.result_published_at
+//   · weeks.result_reviewed_at · 고객 앱 weekly-card snapshot(집계 중 복귀) · user_growth_stats
+//   · 어드민 공표 run/crew/team(reverted_at — 물리 DELETE 금지) · cluster4_week_org_result_states.
+//
+// ⚠ 실행 순서: revertWeekResultCore 를 **먼저** 부른다. 내부 revertWeekUws 가 "reverted_at IS NULL 인
+//   최신 run" 을 provenance 로 삼기 때문에, run 을 먼저 닫으면 uws 를 되돌릴 근거를 잃는다.
+//   (revertWeekUws 가 롤백 후 그 run 의 reverted_at 을 직접 찍는다 — 아래 3) 은 그러지 못한 경우의 보정.)
+//
+// ⚠ 포인트 원장: 새 정책을 만들지 않는다. 기존 rollback 로직 그대로이며, 라인 A/B 는 다음 확정 시
+//   reconcileLineAwardsForWeek 가 성공/비성공 기준으로 재정합(회수 포함)한다.
 export async function unpublishCrewWeekResult(opts: {
   organization: OrganizationSlug;
   weekId: string;
   scope: OrgResultScope;
   actorId: string | null;
-}): Promise<{ reverted: boolean; runId: string | null }> {
+}): Promise<{
+  reverted: boolean;
+  runId: string | null;
+  weekRevert: WeekResultRevertResult | null;
+}> {
   const { organization, weekId, scope, actorId } = opts;
   const run = await loadActiveRun(weekId, organization, scope);
-  if (!run) {
-    // 멱등 — 이미 취소됐거나 공표된 적 없음. 상태만 되돌린다.
-    await setWeekOrgResultStatus(weekId, organization, scope, "aggregating", actorId);
-    return { reverted: false, runId: null };
+
+  // 1) 확정 취소 — uws 역연산 + weeks 공표/검수 해제 + 고객 앱 snapshot·성장 통계 원복.
+  //   공표된 적 없는(run 없음) 주차에도 실행한다 — 자동 sweep 등 다른 경로가 확정해 둔 상태를
+  //   같은 화면에서 되돌릴 수 있어야 하고, 내부 단계가 전부 멱등(no-op)이라 안전하다.
+  let weekRevert: WeekResultRevertResult | null = null;
+  try {
+    weekRevert = await revertWeekResultCore(
+      weekId,
+      toFinalizeRunScope(scope),
+      actorId,
+      organization,
+    );
+  } catch (e) {
+    if (e instanceof WeekResultFinalizeError) throw new CrewWeekPublishError(e.status, e.message);
+    throw e;
   }
 
-  // 물리 DELETE 금지 — reverted_at 으로 비활성화(감사 이력 보존).
-  const { error } = await supabaseAdmin
-    .from("cluster4_week_finalize_runs")
-    .update({ reverted_at: new Date().toISOString() })
-    .eq("id", run.id)
-    .is("reverted_at", null);
-  if (error) throw new CrewWeekPublishError(500, `공표 취소 실패: ${error.message}`);
+  // 2) 어드민 공표 run 비활성화 — 물리 DELETE 금지(reverted_at 으로 감사 이력 보존).
+  //   revertWeekUws 가 이미 찍었으면 .is(reverted_at, null) 가드로 0행(멱등).
+  if (run) {
+    const { error } = await supabaseAdmin
+      .from("cluster4_week_finalize_runs")
+      .update({ reverted_at: new Date().toISOString() })
+      .eq("id", run.id)
+      .is("reverted_at", null);
+    if (error) throw new CrewWeekPublishError(500, `공표 취소 실패: ${error.message}`);
+  }
 
-  // 검수 완료 → 집계 중.
+  // 3) 검수 완료 → 집계 중 (core 도 시작 시 세팅하지만, 최종 상태를 여기서 확정한다).
   await setWeekOrgResultStatus(weekId, organization, scope, "aggregating", actorId);
-  return { reverted: true, runId: run.id };
+  return {
+    reverted: run != null || weekRevert?.reverted === true,
+    runId: run?.id ?? null,
+    weekRevert,
+  };
 }
 
 /** 조직×주차 목록용 — 활성 snapshot run 을 벌크 조회한다(목록 N+1 방지). */

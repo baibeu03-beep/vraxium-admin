@@ -1,3 +1,9 @@
+// ⚠ 폐기(2026-07-27) — 이 스크립트가 검사하던 [주차 검수](`[data-review-button]`)·↩ 실행 취소
+//   (`[data-ac-week-review]`)는 `/admin/team-parts/info/weeks/*` 에서 제거됐다. 주차 확정/확정 취소는
+//   `/admin/team-parts/info/crew-week-results/*` 의 공표 / 공표 취소가 담당한다.
+//   대체 검증: node scripts/verify-crew-week-publish-finalize-http.mjs <org> <weekNumber>
+//
+// ── 아래는 폐기 전 원본 설명 ──────────────────────────────────────────────
 // 브라우저 검증 — 주차 검수(team-parts) ↩ additive. 실제 확정/취소 없이(모달 취소+가로채기) 배선·문구만.
 //   /admin/team-parts/info/weeks/[weekId]?club=encre 의 기존 [주차 검수] 버튼 옆 ↩ 실행 취소만(⚡ 제거).
 // 사용법: SMOKE_BASE_URL=http://localhost:3000 node scripts/browser-verify-action-control-week-review.mjs

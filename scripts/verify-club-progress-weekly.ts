@@ -158,8 +158,9 @@ async function main() {
     await page.goto(`${BASE}/admin/club-progress/weekly/${wk}?org=${org0}&mode=test`, { waitUntil: "domcontentloaded", timeout: 90000 });
     await page.waitForTimeout(3000);
 
-    const reviewDisabled = await page.$eval("[data-review-button]", (e: any) => e.disabled).catch(() => null);
-    check(`[상세 조회전용] 검수 완료 버튼 disabled`, reviewDisabled === true, { reviewDisabled });
+    // 2026-07-27: [주차 검수] 버튼 자체가 제거됨 — "조회 전용이라 disabled" 대신 "아예 없음"을 확인한다.
+    const reviewBtn = await page.$("[data-review-button]");
+    check(`[상세 조회전용] 검수 완료 버튼 없음`, reviewBtn === null);
     const openDisabled = await page.$eval("[data-open-confirm-button]", (e: any) => e.disabled).catch(() => null);
     check(`[상세 조회전용] 오픈 확인 버튼 disabled`, openDisabled === true, { openDisabled });
 
@@ -191,8 +192,9 @@ async function main() {
     await page.waitForTimeout(3000);
     const compDisabled = await page.$eval("[data-competency-checkbox]", (e: any) => e.disabled).catch(() => null);
     check(`[통합 어드민 회귀] 체크박스 편집 가능(disabled=false)`, compDisabled === false, { compDisabled });
+    // 2026-07-27: 검수 버튼 제거 — 통합 어드민에서도 없어야 한다(확정은 crew-week-results 예비→공표).
     const reviewedNow = await page.$("[data-review-button]");
-    check(`[통합 어드민 회귀] 검수 버튼 존재`, !!reviewedNow);
+    check(`[통합 어드민 회귀] 검수 버튼 없음`, reviewedNow === null);
   }
 
   await ctx.browser()?.close?.();

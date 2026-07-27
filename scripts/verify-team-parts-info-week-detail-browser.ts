@@ -81,7 +81,9 @@ async function main() {
   }
 
   ck("오픈 확인 버튼", !!(await page.$("[data-open-confirm-button]")));
-  ck("주차 검수 버튼", !!(await page.$("[data-review-button]")));
+  // 2026-07-27: [주차 검수]·[실행 취소] 제거 — 주차 확정은 crew-week-results 의 예비→공표만 사용한다.
+  ck("주차 검수 버튼 없음", !(await page.$("[data-review-button]")));
+  ck("실행 취소(ActionControl) 없음", !(await page.$("[data-ac-week-review]")));
 
   // 탭 토글.
   await page.click('[data-tab="line"]');

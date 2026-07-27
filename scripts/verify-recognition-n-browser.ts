@@ -88,7 +88,8 @@ async function main() {
       const rc = await readN(page);
       ck(`${label} 화면 N=${dtoN}(DTO 일치·30 아님)`, rc.num === String(dtoN) && rc.num !== "30", { shown: rc.num, dto: dtoN });
       ck(`${label} N 강조(fw≥700)·문구`, Number(rc.fw) >= 700 && !!rc.text?.includes("활동 인정 개수") && !!rc.text?.includes("개"), { fw: rc.fw, text: rc.text });
-      ck(`${label} 버튼 회귀 없음`, !!(await page.$("[data-open-confirm-button]")) && !!(await page.$("[data-hub-reset-button]")) && !!(await page.$("[data-review-button]")));
+      // 2026-07-27: [주차 검수] 제거 — 남은 액션(오픈 확인·초기화)만 회귀 확인한다.
+      ck(`${label} 버튼 회귀 없음`, !!(await page.$("[data-open-confirm-button]")) && !!(await page.$("[data-hub-reset-button]")));
       for (const width of WIDTHS) {
         await page.setViewportSize({ width, height: 1600 });
         await page.waitForTimeout(200);

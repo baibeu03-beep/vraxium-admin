@@ -31,6 +31,13 @@ import {
 // ⚠ scope 는 검수 상태와 동일한 resolveOrgResultScope(mode) 단일 출처. 일반/test/actAs/demo 가
 //   같은 command·같은 projection 을 타고, 사용자 컨텍스트 해석만 다르다.
 
+// 2026-07-27: 공표/공표 취소가 주차 확정(uws 코호트 확정 + 코호트 전원 weekly-card snapshot 재계산)
+//   까지 수행하므로 최대 수십초가 걸린다(실측 2026-07-09: 85명 concurrency 8 ≈ 75s).
+//   종전 `/weeks/[weekId]/review` 라우트와 동일하게 플랫폼 함수 타임아웃을 명시 상향해 중도 절단을
+//   막는다. dynamic: 인증/상태 변경이라 캐시 금지.
+export const maxDuration = 300;
+export const dynamic = "force-dynamic";
+
 type Params = { params: Promise<{ organizationSlug: string; weekId: string }> };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

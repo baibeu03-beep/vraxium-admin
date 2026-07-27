@@ -111,7 +111,9 @@
     "verify:weekly-points-layering": "tsx --env-file=.env.local scripts/verify-weekly-points-layering-db.ts",
     "freeze:uwp-baseline": "tsx --env-file=.env.local scripts/recover-uwp-freeze-baseline.ts",
     "db:run-sql": "tsx --env-file=.env.local scripts/run-sql-direct.ts",
-    "verify:club-rank-cache": "tsx --env-file=.env.local scripts/verify-club-rank-cache.ts"
+    "verify:club-rank-cache": "tsx --env-file=.env.local scripts/verify-club-rank-cache.ts",
+    "verify:crew-week-publish-finalize": "node scripts/verify-crew-week-publish-finalize-http.mjs",
+    "verify:weeks-detail-actions-removed": "node scripts/browser-verify-weeks-detail-actions-removed.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

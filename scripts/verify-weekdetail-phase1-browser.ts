@@ -87,8 +87,8 @@ async function main() {
       ck(`${label} 인정 개수 숫자=30 강조`, rc.num === "30" && Number(rc.fw) >= 700, rc);
       ck(`${label} "활동 인정 개수" 문구·"갯수" 아님`, !!rc.text && rc.text.includes("활동 인정 개수") && rc.text.includes("개") && !rc.text.includes("갯수"), { text: rc.text });
 
-      // 기존 버튼 유지.
-      ck(`${label} 오픈확인/초기화/주차검수 버튼`, !!(await page.$("[data-open-confirm-button]")) && !!(await page.$("[data-hub-reset-button]")) && !!(await page.$("[data-review-button]")));
+      // 기존 버튼 유지. 2026-07-27: [주차 검수] 는 제거되어 대상에서 뺀다(확정은 crew-week-results 공표).
+      ck(`${label} 오픈확인/초기화 버튼`, !!(await page.$("[data-open-confirm-button]")) && !!(await page.$("[data-hub-reset-button]")));
 
       // 인정 개수 행이 헤더(활동 허브·라인 섹션) 안, 허브 그리드 위에 위치.
       const placed = await page.evaluate(() => {

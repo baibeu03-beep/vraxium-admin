@@ -1,4 +1,12 @@
 /**
+ * ⚠ 폐기(2026-07-27) — 이 스크립트가 클릭하던 `/admin/team-parts/info/weeks/*` 의 [주차 검수]
+ *   버튼(`[data-review-button]`)은 제거됐다. 주차 확정은 이제
+ *   `/admin/team-parts/info/crew-week-results/*` 의 **예비 → 공표** 한 흐름만 사용한다.
+ *   대체 검증: `node scripts/verify-crew-week-publish-finalize-http.mjs <org> <weekNumber>`
+ *     (통합 공표가 uws 확정·공표/검수 시각·원장 정합·고객 카드 snapshot·성장 통계까지 수행하는지 실 HTTP 확인)
+ *   확정 API(POST/DELETE .../weeks/[weekId]/review)는 호환 유지라 삭제하지 않고 이 파일만 남겨 둔다.
+ *
+ * ── 아래는 폐기 전 원본 설명 ──────────────────────────────────────────────
  * [검수 완료] 버튼 → V 표시 브라우저 검증 (dev server 필요).
  *
  *  안전: 이미 공표된 성공/실패 주차의 result_reviewed_at 만 임시 null → 브라우저에서 검수 완료 클릭
