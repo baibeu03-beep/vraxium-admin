@@ -446,7 +446,20 @@ async function writeRosterCardStats(
 //   ⚠ **bump 필수** — 기존 v48 snapshot 에 소급된 값이 baking 되어 있어 boundary-stale 로는 부족.
 //     v48 전량 stale(version_mismatch) → cron/lazy 재계산으로 교정된다.
 //   [[cluster4-week-position-override-sot]]
-export const WEEKLY_CARDS_DTO_VERSION = 49;
+// v50 (2026-07-27): 강화 상태(enhancementStatus) 판정 정책 3건 정정 — 3허브 공통 원칙 통일.
+//   ① 실무 경험 평점: **실패만 조기 확정**한다. 종전엔 평점 ≥4(pass)면 마감 전에도 즉시 success,
+//      미평가(unevaluated)면 마감 후에도 pending 이었다. 이제 둘 다 마감 분기로 흘러
+//      마감 전 pending / 마감 후 success. 평점 ≤3 만 마감 무관 즉시 fail(종전 유지).
+//   ② 실무 역량 비대상자: 공표·확정 여부를 보지 않는다. 종전엔 미확정 주차=pending("강화 대기"),
+//      확정 주차=fail 로 갈렸다. 이제 그 주차에 역량 개설이 있으면 **항상 fail**.
+//   ③ 실무 경험 슬롯 placeholder: 판정 완료 주차(slotFailWeekIds) 게이트 제거. 내 팀이 그 슬롯을
+//      개설한 비휴식 주차면 진행 중이라도 fail. (정보 허브는 이미 이 원칙 — 3허브 동일해짐.)
+//   · 영향 필드: lines[].enhancementStatus / enhancementReason 및 그로부터 파생되는 강화율
+//     (weeklyGrowthRate · growthNumerator/Denominator · experienceRate). shape 불변, **값**이 바뀜.
+//   ⚠ **bump 필수** — enhancementStatus 는 snapshot 에 baking 되므로 코드만 고치면 재계산 전까지
+//     구값이 계속 보인다(shape 이 아니라 내용이 바뀌는 경우라 boundary-stale 로는 부족).
+//     v49 전량 stale(version_mismatch) → cron/lazy 재계산으로 수렴.
+export const WEEKLY_CARDS_DTO_VERSION = 50;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 

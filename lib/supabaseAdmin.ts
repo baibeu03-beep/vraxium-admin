@@ -33,6 +33,23 @@ export const supabaseAdmin: typeof rawSupabaseAdmin = new Proxy(
         ) => unknown;
         return (...args: unknown[]) => {
           tickQuery();
+          if (process.env.MEASURE_QUERIES) {
+            const table = String(args[0] ?? "?");
+            const stack = (new Error().stack ?? "").split("\n");
+            // lib/*.ts 프레임만 추려 호출 체인 근사(파일:함수 근처).
+            const chain = stack
+              .map((l) => {
+                const m = l.match(/(?:lib|app)[\\/][^\s()]+\.ts:\d+/);
+                return m ? m[0].replace(/\\/g, "/") : null;
+              })
+              .filter((x): x is string => x !== null && !x.includes("supabaseAdmin.ts"))
+              .slice(0, 5);
+            const g = globalThis as unknown as {
+              __q?: { table: string; chain: string[] }[];
+            };
+            g.__q = g.__q ?? [];
+            g.__q.push({ table, chain });
+          }
           return fn.apply(target, args);
         };
       }

@@ -377,11 +377,11 @@ function emptyLine(
 }
 
 // 실무 경험 슬롯 placeholder (2026-06-04 슬롯 정책 + 적용 시점 분리).
-//   - 필수 슬롯(1·2·3·5): "신정책 적용 주차"(buildSlotFailWeekIds — 판정 완료 + 테스트 사용자
-//     전 주차 / 실사용자 EFFECTIVE_FROM 이후)에서는 라인 행이 없어도 항상 오픈/마감 간주 →
-//     강화 실패 placeholder(status="fail", 내용 없음, 해당 없음 불가).
-//   - fail 선반영 금지: 진행 중(running)·집계 중(tallying) 주차는 아직 N+1 판정 시점 전이므로
-//     not_opened(해당 없음/보이드)로 내린다. 휴식/전환 주차·실사용자 과거 주차도 not_opened.
+//   - 필수 슬롯(1·2·3·5): **내 팀이 그 슬롯 라인을 개설했는데 내 칸이 없으면** 강화 실패
+//     placeholder(status="fail", 내용 없음). (2026-07-27) 공표·판정 완료 게이트는 제거됐다 —
+//     진행 중(running)·집계 중(tallying) 주차라도 개설됐으면 fail 이다.
+//   - 내 팀이 그 슬롯을 개설하지 않았으면 not_opened(해당 없음/보이드). 휴식/전환 주차도 not_opened
+//     (그 주차는 라인 수행 의무 자체가 없다). 레거시 주차는 experienceAsSummer 게이트가 별도 처리.
 //   - 확장 슬롯(4): 정해진 주차에만 열린다 → 미개설 주차는 항상 해당 없음
 //     (status="void", enhancementStatus=not_applicable).
 function experienceSlotPlaceholderLine(
@@ -400,26 +400,14 @@ function experienceSlotPlaceholderLine(
   };
 }
 
-// 실무 역량 "강화 대기" placeholder (비대상자 공통 분모 셀 — 2026-07-13 v2 주차-게이트 정책).
-//   역량 분모(1)는 "그 주차에 org-visible 역량 라인이 하나라도 개설됐는가"(hasCompetencyOpeningForWeek)로
-//   결정한다. 개설이 있는 주차의 비대상자(본인 라인 0개)는 이 보이드 셀(status="void", 내용 없음)에
-//   enhancementStatus="pending"("강화 대기")을 실어 분모 A=1·분자 0(= 0/1)을 공통 활성화한다.
-//   ⚠ 미확정(running/tallying) 주차 전용 — 확정(공표) 주차는 competencyFailPlaceholderLine 사용.
-//   (개설 0건 주차·휴식/전환 주차는 이 placeholder 를 만들지 않는다 → Step 3 not_applicable=0/0.)
-function competencyPendingPlaceholderLine(
-  weekId: string | null,
-): Cluster4LineDetailDto {
-  return {
-    ...emptyLine("competency", weekId, false),
-    enhancementStatus: "pending",
-    submissionStatus: "not_submitted",
-    enhancementReason: "competency_optional_pending",
-  };
-}
+// (2026-07-27) competencyPendingPlaceholderLine(미확정 주차 비대상자 = "강화 대기")은 폐기했다.
+//   비대상자의 강화 상태에 공표·확정 여부를 쓰지 않는다 — 개설이 있는 주차의 비대상자는
+//   공표 전후 무관하게 항상 "강화 실패"다(3허브 공통 원칙: 개설됨 + 비대상 = fail).
 
-// 실무 역량 확정(공표) 주차 placeholder (비대상자 공통 분모 셀).
-//   개설이 있는 주차가 확정(result_published_at)되면 비대상자(미수행)는 "강화 실패"다.
+// 실무 역량 비대상자 placeholder (공통 분모 셀 — 2026-07-27 공표 게이트 제거).
+//   개설이 있는 주차의 비대상자(본인 라인 0개)는 **공표 여부와 무관하게** "강화 실패"다.
 //   status="void" 유지(보이드 표시축) + enhancementStatus="fail"(판정축) → 분모 A=1·분자 0(= 0/1).
+//   (개설 0건 주차·휴식/전환 주차는 이 placeholder 를 만들지 않는다 → Step 3 not_applicable=0/0.)
 function competencyFailPlaceholderLine(
   weekId: string | null,
 ): Cluster4LineDetailDto {
@@ -1018,27 +1006,11 @@ function isRestWeek(status: WeekResultStatus): boolean {
   return status === "personal_rest" || status === "official_rest";
 }
 
-// v11 "필수 슬롯 fail" 적용 주차 집합 (CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM 주석 참고).
-//   포함 조건: weekId 존재 && 판정 완료(resultStatus success|fail) && 비전환 주차 &&
-//             start_date >= EFFECTIVE_FROM (= 허브/라인 체계 적용 주차. 레거시 주차는
-//             통합 라인 정책으로 별도 처리 — 사용자 유형 구분 없음).
-//   running/tallying(아직 N+1 판정 시점 전 — fail 선반영 금지)·휴식·전환·레거시 주차는
-//   제외 → 필수 슬롯 placeholder 가 해당 없음(not_opened)으로 내려간다.
-//   weekly-growth 경로의 slotPolicyWeekIds(공표·현재주 기준)와 동일 의미 — resolver 의
-//   resultStatus 가 공표/현재주 판정을 이미 반영하므로 여기선 상태값으로 가른다.
-function buildSlotFailWeekIds(
-  cards: WeeklyCardDto[],
-  effectiveFrom: string = CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM,
-): Set<string> {
-  const out = new Set<string>();
-  for (const c of cards) {
-    if (!c.weekId || c.isTransition) continue;
-    if (c.resultStatus !== "success" && c.resultStatus !== "fail") continue;
-    if (c.startDate < effectiveFrom) continue;
-    out.add(c.weekId);
-  }
-  return out;
-}
+// (2026-07-27) buildSlotFailWeekIds(= v11 "필수 슬롯 fail" 적용 주차 = 판정 완료 주차)는 폐기했다.
+//   강화 상태 판정이 공표·확정 여부를 보지 않는 정책으로 통일되면서 유일한 소비처(2.5 경험 슬롯
+//   placeholder)가 사라졌다. 이제 그 자리는 "내 팀이 그 슬롯을 개설했는가 + 휴식 주차 아님"으로만
+//   가른다. 되살리지 말 것 — 되살리면 "공표 전엔 해당 없음, 공표 후엔 실패" 구정책이 부활한다.
+//   레거시 주차 보호는 legacyWeekIds/experienceAsSummer 게이트가 계속 담당한다.
 
 // 레거시(허브 도입 전) 주차 집합 — 통합 라인 단일 렌더 게이트용 (2026-06-05 정책).
 //   start_date < CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM (= 2026 여름 W1) 인 모든 카드 주차.
@@ -1825,16 +1797,12 @@ async function fetchLineDetailsByWeek(
   profileUserId: string,
   weekIds: string[],
   restWeekIds: Set<string>,
-  // v11 "필수 슬롯 fail" 적용 주차 (buildSlotFailWeekIds). 미포함 주차의 필수 슬롯 placeholder 는
-  // fail 이 아니라 해당 없음(not_opened) — 진행/집계 중 fail 선반영 금지 + 실사용자 과거 보존.
-  slotFailWeekIds: Set<string>,
   // 관리(5) 슬롯 개방 여부(membership_level 심화/운영진) — 잠금 사용자는 관리 슬롯 라인을
   // 분모 A/fail 칸에서 제외(해당 없음)해 고객앱 슬롯 잠금(카드 미노출)과 "총 N개"를 일치시킨다.
   managementSlotOpen: boolean,
-  // 확정(공표) 주차 — resultStatus가 success/fail 로 판정 완료된 주차(result_published_at 반영).
-  // v14.1: 확정 주차의 competency 0라인 placeholder 는 "강화 대기"가 아니라 "강화 실패"
-  // (대기는 미확정 running/tallying 주차에서만 가능). 미전달(기본 빈 셋)이면 기존 v14 동작.
-  confirmedWeekIds: Set<string> = new Set(),
+  // (2026-07-27) slotFailWeekIds(판정 완료 주차)·confirmedWeekIds(공표 주차) 파라미터는 제거했다.
+  //   비대상 판정에 공표/확정 여부를 쓰지 않는 정책으로 통일되어 두 집합의 소비처가 모두 사라졌다.
+  //   부활 금지 — 되살리면 "공표 전엔 대기, 공표 후엔 실패" 구정책이 다시 살아난다.
   // 레거시(허브 도입 전, start_date < 2026 여름 W1) 주차 — 통합 라인 단일 렌더 게이트.
   //   실무 경험: [통합] 주차 활동 내역 라인(마스터 매칭)만 렌더. 그 외 본인 배정/개설 라인 제외.
   //   실무 정보/역량/경력: 라인 없음 — slot placeholder(2.5)/career 패딩(2.6)/competency fold(2.7)
@@ -2359,11 +2327,10 @@ async function fetchLineDetailsByWeek(
       }
     }
 
-    // 2.5 실무 경험 슬롯 placeholder (2026-06-04 슬롯 정책 + 적용 시점 분리).
+    // 2.5 실무 경험 슬롯 placeholder (2026-07-27 공표 게이트 제거).
     //   지금까지 모인 experience 칸(본인 배정 + 개설 미배정)의 슬롯 집합을 보고:
-    //     - 필수 슬롯(1·2·3·5)이 비어 있으면 → 신정책 적용 주차(slotFailWeekIds: 판정 완료 +
-    //       테스트 전 주차/실사용자 EFFECTIVE_FROM 이후)는 강화 실패 placeholder, 그 외
-    //       (진행/집계 중 fail 선반영 금지·휴식/전환·실사용자 과거 보존)는 해당 없음.
+    //     - 필수 슬롯(1·2·3·5)이 비어 있으면 → **내 팀이 그 슬롯을 개설한 비휴식 주차**면 강화 실패
+    //       placeholder, 그 외(팀 미개설·휴식/전환)는 해당 없음. 판정 완료 여부는 보지 않는다.
     //     - 확장 슬롯(4)이 비어 있으면 → 해당 없음 placeholder (정해진 주차에만 열림).
     //   org 필터로 숨겨진 라인 칸도 "이 사용자에게 없는 칸"이므로 placeholder 가 자리를 채운다.
     // 레거시(허브 도입 전) 주차: 기본은 5슬롯(2.5)/career 패딩(2.6)/competency fold(2.7) 미적용 —
@@ -2405,10 +2372,11 @@ async function fetchLineDetailsByWeek(
           experienceSlotPlaceholderLine(
             weekId,
             slot,
-            // 내 팀이 그 슬롯을 개설한 확정 주차에서만 강화 실패. 팀 미개설 → 해당 없음(케이스 3·4).
-            !managementLocked &&
-              teamOpenedExpSlots.has(slot) &&
-              slotFailWeekIds.has(weekId)
+            // (2026-07-27) 판정 완료(slotFailWeekIds) 게이트 제거 — 3허브 공통 원칙상 비대상 판정에
+            //   공표/확정 여부를 쓰지 않는다. 내 팀이 그 슬롯 라인을 개설했는데 내 칸이 없으면
+            //   진행 중 주차라도 강화 실패다. 팀 미개설 슬롯은 그대로 해당 없음(케이스 3·4).
+            //   휴식/전환 주차만 예외로 남긴다 — 그 주차는 라인 수행 의무 자체가 없다.
+            !managementLocked && teamOpenedExpSlots.has(slot) && !restWeek
               ? "required_fail"
               : "not_opened",
           ),
@@ -2465,7 +2433,8 @@ async function fetchLineDetailsByWeek(
       //   결정한다. 대상 여부는 분자(성공)의 기준일 뿐 분모 생성 기준이 아니다.
       //     · 개설 없음(0건)          → 합성 없음 → Step 3 not_applicable(0/0). 전원 동일.
       //     · 개설 있음 + 대상자        → 본인 라인 1칸으로 fold(success>pending>fail): 0/1 또는 1/1.
-      //     · 개설 있음 + 비대상자      → placeholder 1칸(미확정=대기/확정=실패): 0/1. 분모 공통 활성화.
+      //     · 개설 있음 + 비대상자      → 강화 실패 placeholder 1칸(0/1). 분모 공통 활성화.
+      //       ⚠ (2026-07-27) 공표·확정 여부를 보지 않는다 — 공표 전에도 fail 이다.
       //   개설 판정 원천 = openedByWeek(그 주차 active·QA필터된 타깃 보유 라인) 중 org-visible 역량.
       //   (레거시 주차도 동일 — 실제 개설이 있어야만 셀 생성, 무조건 합성 금지: Phase 3 정책과 정합.)
       const weekOpenedComp = openedByWeek.get(weekId);
@@ -2491,12 +2460,8 @@ async function fetchLineDetailsByWeek(
         }
         partsPresent.add("competency");
       } else if (hasCompetencyOpeningForWeek) {
-        // 비대상자 + 주차 개설 있음: 공통 분모 셀(0/1). 미확정=대기, 확정=실패.
-        lines.push(
-          confirmedWeekIds.has(weekId)
-            ? competencyFailPlaceholderLine(weekId)
-            : competencyPendingPlaceholderLine(weekId),
-        );
+        // 비대상자 + 주차 개설 있음: 공통 분모 셀(0/1) = 강화 실패. 공표 여부 무관(2026-07-27).
+        lines.push(competencyFailPlaceholderLine(weekId));
         partsPresent.add("competency");
       }
       // else: 개설 0건 → 합성 없음 → Step 3 not_applicable(0/0).
@@ -2525,43 +2490,32 @@ async function fetchLineDetailsByWeek(
 
 // 주차 분류(라인 렌더 입력) — 단일 출처.
 //   카드 경로(getCluster4WeeklyCardsFor*)와 성장 통일 경로(getUnifiedWeeklyGrowth)가 동일한
-//   weekIds·restWeekIds·slotFailWeekIds·legacyWeekIds·confirmedWeekIds 를 공유하도록 파생 로직을
+//   weekIds·restWeekIds·legacyWeekIds 를 공유하도록 파생 로직을
 //   한 곳으로 모은다 → 두 경로가 fetchLineDetailsByWeek 에 완전히 동일한 입력을 넘겨 breakdown 이
 //   구조적으로 일치한다(강화율 SoT 통일의 전제).
+//   ⚠ (2026-07-27) slotFailWeekIds/confirmedWeekIds 는 제거했다 — 강화 상태 판정이 공표·확정
+//     여부를 더 이상 보지 않는다(3허브 공통 원칙). 되살리지 말 것.
 function deriveWeekClassification(
   weeklyCards: WeeklyCardDto[],
   effectiveFrom: string,
 ): {
   weekIds: string[];
   restWeekIds: Set<string>;
-  slotFailWeekIds: Set<string>;
   legacyWeekIds: Set<string>;
-  confirmedWeekIds: Set<string>;
 } {
   const weekIds = weeklyCards
     .map((card) => card.weekId)
     .filter((weekId): weekId is string => Boolean(weekId));
-  // 휴식 주차(personal_rest/official_rest)/전환 — competency placeholder 를 fail 로 강제하지 않기 위한 신호.
+  // 휴식 주차(personal_rest/official_rest)/전환 — competency/experience placeholder 를 fail 로
+  //   강제하지 않기 위한 신호(그 주차는 라인 수행 의무 자체가 없다).
   const restWeekIds = new Set(
     weeklyCards
       .filter((card) => card.weekId && (card.isTransition || isRestWeek(card.resultStatus)))
       .map((card) => card.weekId as string),
   );
-  // 허브/라인 체계 적용 주차: 필수 슬롯 fail 적용(판정 완료 + EFFECTIVE_FROM 이후 — 사용자 유형 무관).
-  const slotFailWeekIds = buildSlotFailWeekIds(weeklyCards, effectiveFrom);
   // 레거시(허브 도입 전) 주차 — 통합 라인 단일 렌더 게이트. override 시 빈 집합(여름 렌더).
   const legacyWeekIds = buildLegacyWeekIds(weeklyCards, effectiveFrom);
-  // 확정(공표) 주차 — resultStatus 가 success/fail (resolver 가 result_published_at 반영).
-  const confirmedWeekIds = new Set(
-    weeklyCards
-      .filter(
-        (card) =>
-          card.weekId &&
-          (card.resultStatus === "success" || card.resultStatus === "fail"),
-      )
-      .map((card) => card.weekId as string),
-  );
-  return { weekIds, restWeekIds, slotFailWeekIds, legacyWeekIds, confirmedWeekIds };
+  return { weekIds, restWeekIds, legacyWeekIds };
 }
 
 export async function getCluster4WeeklyCardsForAuthUser(
@@ -2577,13 +2531,13 @@ export async function getCluster4WeeklyCardsForAuthUser(
     throw new Cluster4WeeklyCardsError(404, "User profile not found.");
   }
 
-  const { weekIds, restWeekIds, slotFailWeekIds, legacyWeekIds, confirmedWeekIds } =
+  const { weekIds, restWeekIds, legacyWeekIds } =
     deriveWeekClassification(weeklyGrowth.weeklyCards, CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM);
   // 관리(5) 슬롯 게이트: membership_level 심화/운영진만 개방 — 잠금 사용자는 분모 제외(해당 없음).
   const managementSlotOpen = await fetchManagementSlotOpen(profileUserId);
   const tLinesStart = Date.now();
   const [lineMap, peopleMap, actLogsByWeek] = await Promise.all([
-    fetchLineDetailsByWeek(profileUserId, weekIds, restWeekIds, slotFailWeekIds, managementSlotOpen, confirmedWeekIds, legacyWeekIds),
+    fetchLineDetailsByWeek(profileUserId, weekIds, restWeekIds, managementSlotOpen, legacyWeekIds),
     // 위클리 평판/연계동료 + 인적사항 (주차별). 실패해도 빈 맵 폴백 → 카드 보호.
     fetchWeeklyPeopleByWeek(profileUserId, weekIds),
     // Detail Log 액트 내역(적립 원장 → startDate 버킷). 실패 시 빈 맵(카드 보호). (append-only, v30)
@@ -2635,16 +2589,14 @@ async function applyUnifiedBreakdownToGrowth(
   growth: WeeklyGrowthDto,
   effectiveFrom: string,
 ): Promise<WeeklyGrowthDto> {
-  const { weekIds, restWeekIds, slotFailWeekIds, legacyWeekIds, confirmedWeekIds } =
+  const { weekIds, restWeekIds, legacyWeekIds } =
     deriveWeekClassification(growth.weeklyCards, effectiveFrom);
   const managementSlotOpen = await fetchManagementSlotOpen(profileUserId);
   const lineMap = await fetchLineDetailsByWeek(
     profileUserId,
     weekIds,
     restWeekIds,
-    slotFailWeekIds,
     managementSlotOpen,
-    confirmedWeekIds,
     legacyWeekIds,
   );
 
@@ -2757,7 +2709,7 @@ async function getCluster4WeeklyCardsForProfileUserImpl(
     throw new Cluster4WeeklyCardsError(404, "User profile not found.");
   }
 
-  const { weekIds, restWeekIds, slotFailWeekIds, legacyWeekIds, confirmedWeekIds } =
+  const { weekIds, restWeekIds, legacyWeekIds } =
     deriveWeekClassification(weeklyGrowth.weeklyCards, effectiveFrom);
   // 관리(5) 슬롯 게이트: membership_level 심화/운영진만 개방 — 잠금 사용자는 분모 제외(해당 없음).
   const managementSlotOpen = await traceSpan("fetchManagementSlotOpen", () =>
@@ -2766,7 +2718,7 @@ async function getCluster4WeeklyCardsForProfileUserImpl(
   const tLinesStart = Date.now();
   const [lineMap, peopleMap, actLogsByWeek] = await Promise.all([
     traceSpan("fetchLineDetailsByWeek", () =>
-      fetchLineDetailsByWeek(profileUserId, weekIds, restWeekIds, slotFailWeekIds, managementSlotOpen, confirmedWeekIds, legacyWeekIds),
+      fetchLineDetailsByWeek(profileUserId, weekIds, restWeekIds, managementSlotOpen, legacyWeekIds),
     ),
     // 위클리 평판/연계동료 + 인적사항 (주차별). 실패해도 빈 맵 폴백 → 카드 보호.
     traceSpan("fetchWeeklyPeopleByWeek", () =>

@@ -22,21 +22,31 @@
 //   기존 동작(마감 후 = success) 그대로이므로 info/experience/competency 는 영향받지 않는다.
 //   마감 전(deadlinePassed=false)에는 grade·제출과 무관하게 항상 pending.
 //
-// experience 평점 반영 (2026-06-02):
-//   experience 라인은 마감 후 평점(cluster4_experience_line_evaluations.rating)을 본다.
-//     - rating <= 3 (EXPERIENCE_RATING_FAIL_THRESHOLD) → fail (experience_rating_fail)
-//     - rating 미입력 / rating >= 4                    → 기존 동작(마감 후 success)
+// experience 평점 반영 (2026-07-27 개정 — 실패만 조기 확정):
+//   experience 라인은 평점(cluster4_experience_line_evaluations.rating)을 본다.
+//     - rating <= 3 (EXPERIENCE_RATING_FAIL_THRESHOLD) → fail  ※ **마감 여부 무관 즉시 확정**
+//     - rating >= 4                                    → 마감 전 pending / 마감 후 success
+//     - rating 미평가(placeholder 0 + evaluated_by 없음)→ 마감 전 pending / 마감 후 success
+//     - 평가행 자체 없음                                → 마감 전 pending / 마감 후 success
+//   즉 **성공은 조기 확정하지 않고 실패만 조기 확정한다**. 평점 ≥4 라도 마감 전이면 pending 이다.
+//   (구정책: pass → 마감 무관 success / unevaluated → 마감 무관 pending. 둘 다 폐기.)
 //   experienceRatingVerdict 는 experience 호출부(weekly-cards)만 전달한다. career 와
 //   상호배타(한 라인은 career 또는 experience 중 하나)이며, 미전달(undefined)이면 영향 없음.
 //
 // 허브별 칸 정책 (2026-06-04 확정 — 본 함수는 불변, 호출부에서 입력으로 표현):
-//   - info: 라인별 오픈/마감 여부. 미개설=not_applicable, 개설+미배정=fail(expectedWhenMissing),
+//   ⚠ 3허브 공통 원칙(2026-07-27 확정) — 비대상 판정은 **"그 주차에 그 허브 라인이 개설됐는가"**
+//     하나로만 가른다. 공표/확정/판정 완료 여부는 강화 상태 판정에 **쓰지 않는다**.
+//       · 대상자 + 마감 전                     → pending
+//       · 대상자 + 마감 후                     → success
+//       · 라인은 개설됐으나 본인 비대상        → fail
+//       · 그 주차에 그 허브 라인이 전혀 없음   → not_applicable
+//   - info: 미개설=not_applicable, 개설+미배정=fail(expectedWhenMissing),
 //     배정+마감 전=pending(강화 대기), 배정+마감 후=success. 제출 여부는 판정 기준이 아니다.
-//   - experience: 필수 슬롯(1·2·3·5)은 라인 행이 없어도 항상 오픈/마감 간주 → 해당 없음 불가
-//     (칸 없으면 expectedWhenMissing=true placeholder → fail). 확장 슬롯(4)만 미개설=not_applicable.
-//     rating<=3 은 마감 후 fail (experienceRatingVerdict).
-//   - competency: 배정 칸은 pending→(수 22:00 마감)→success. 미배정+개설=fail 이되 표시축은
-//     보이드(status="void") — enhancementStatus=fail 은 유지(분모 포함).
+//   - experience: 내 팀이 그 슬롯 라인을 개설했는데 내 칸이 없으면 fail(expectedWhenMissing).
+//     내 팀 미개설 슬롯·확장 슬롯(4) 미개설 = not_applicable. rating<=3 은 마감 전에도 fail.
+//   - competency: 배정 칸은 pending→(마감)→success. 개설 있음 + 미배정 = fail(공표 여부 무관),
+//     표시축은 보이드(status="void") — enhancementStatus=fail 은 유지(분모 포함).
+//     그 주차 역량 개설 0건일 때만 not_applicable.
 //   - career: 항상 6칸(부족분 보이드 패딩, not_applicable·분모 제외). 선발=pending/success/fail
 //     (grade 반영), 미지원/미선발=not_applicable(개설 content 노출).
 //   - 강화율: A = enhancementStatus ∈ {pending,success,fail} 칸 수, B = success 칸 수
@@ -132,27 +142,16 @@ export function computeCluster4Enhancement(
     ? "submitted"
     : "not_submitted";
 
-  // Experience ratings are fixed during line opening. The rating is the SoT
-  // for submission and reinforcement in every read mode/path.
+  // 실무 경험 평점 — **실패만 조기 확정한다**(2026-07-27 정책 확정).
+  //   평점 ≤3 은 마감을 기다릴 이유가 없다(평가가 끝났고 결과가 실패). 반면 평점 ≥4(pass)·
+  //   미평가(unevaluated)는 여기서 반환하지 않고 **아래 마감 분기로 흘려보낸다** →
+  //   마감 전 pending / 마감 후 success. 즉 성공은 조기 확정하지 않는다.
+  //   ⚠ 이 분기는 반드시 deadlinePassed 검사보다 앞에 있어야 한다(마감 전에도 fail 확정).
   if (input.experienceRatingVerdict === "fail") {
     return {
       enhancementStatus: "fail",
       submissionStatus,
       enhancementReason: "experience_rating_fail",
-    };
-  }
-  if (input.experienceRatingVerdict === "pass") {
-    return {
-      enhancementStatus: "success",
-      submissionStatus,
-      enhancementReason: "target_exists_after_deadline",
-    };
-  }
-  if (input.experienceRatingVerdict === "unevaluated") {
-    return {
-      enhancementStatus: "pending",
-      submissionStatus,
-      enhancementReason: "experience_unevaluated_after_deadline",
     };
   }
 
