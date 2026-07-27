@@ -12,6 +12,9 @@ import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { AdminDetailTitle } from "@/components/admin/AdminRouteTitleProvider";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import CrewWeekResultsDetailTable from "@/components/admin/CrewWeekResultsDetailTable";
+import { SortableTh } from "@/components/admin/SortableTh";
+import { useTableColumnSort } from "@/components/admin/useTableColumnSort";
+import type { TableSortColumns } from "@/lib/adminTableSort";
 import {
   useAdminOrgAccess,
   AdminNoOrgAccess,
@@ -29,8 +32,10 @@ import {
 //   전자를 import 하면 supabaseAdmin(node:async_hooks) 그래프가 클라이언트 번들로 끌려온다.
 import {
   crewWeeklyCellKey,
+  CREW_WEEKLY_DISPLAY_STATUS_RANK,
   type CrewWeeklyResultsBundleDto,
   type CrewWeeklyResultCellDto,
+  type CrewWeeklyResultWeekDto,
 } from "@/lib/crewWeeklyResultTypes";
 
 // 클럽 정보 > 주차 결과(크루) — 통합 목록과 클럽 상세가 **공유하는 단일 화면 컴포넌트**.
@@ -144,8 +149,9 @@ export default function CrewWeekResultsBoard({
     void load(page);
   }, [page, load, noAccess, detailForbidden]);
 
-  const organizations = data?.organizations ?? [];
-  const weeks = data?.weeks ?? [];
+  // 배열 정체성 고정 — 매 렌더 새 `[]` 를 만들면 정렬 memo 가 매번 다시 계산된다.
+  const organizations = useMemo(() => data?.organizations ?? [], [data]);
+  const weeks = useMemo(() => data?.weeks ?? [], [data]);
   const pagination = data?.pagination ?? null;
   const totalPages = pagination?.totalPages ?? 1;
 
@@ -157,6 +163,39 @@ export default function CrewWeekResultsBoard({
     }
     return map;
   }, [data]);
+
+  // 클럽 상세 표(1개 조직)용 셀 맵 — 렌더마다 새 Map 을 만들면 상세 표의 정렬 memo 가 매번 깨진다.
+  const detailCellsByWeek = useMemo(() => {
+    const map = new Map<string, CrewWeeklyResultCellDto>();
+    if (!organizationSlug) return map;
+    for (const c of data?.cells ?? []) {
+      if (c.organizationSlug === organizationSlug) map.set(c.weekId, c);
+    }
+    return map;
+  }, [data, organizationSlug]);
+
+  // 통합 매트릭스 표 컬럼 정렬 — 행=주차. 컬럼 계약은 공통 SoT(lib/adminTableSort)를 쓴다.
+  //   · 주차 열  = 주차 시작일(원본 ISO) 기준 시간순. 화면 표기 문자열을 재파싱하지 않는다.
+  //   · 조직 열  = 그 조직 셀의 진행 단계 순위(진행 중 → 집계 중 → 검수 완료). 라벨 가나다순 아님.
+  //   · 셀이 없는 주차는 값 없음 → 방향 무관 최하단(공통 규칙).
+  //   정렬은 표시 순서만 바꾼다 — DTO/셀 값은 그대로다.
+  const sortColumns = useMemo<TableSortColumns<CrewWeeklyResultWeekDto, string>>(() => {
+    const cols: TableSortColumns<CrewWeeklyResultWeekDto, string> = {
+      week: { type: "date", value: (w) => w.startDate },
+    };
+    for (const org of organizations) {
+      cols[org.organizationSlug] = {
+        type: "number",
+        value: (w) => {
+          const c = cellByKey.get(crewWeeklyCellKey(w.weekId, org.organizationSlug));
+          return c ? CREW_WEEKLY_DISPLAY_STATUS_RANK[c.displayStatus] : null;
+        },
+      };
+    }
+    return cols;
+  }, [cellByKey, organizations]);
+
+  const { dirOf, onSort, sortedRows: sortedWeeks } = useTableColumnSort(weeks, sortColumns);
 
   // [상세] — 조직 slug(불변 식별자)로 이동. 표시명을 URL 에 쓰지 않는다.
   //   현재 화면의 어드민 컨텍스트(mode/org/actAsTestUserId/demoUserId)는 공통 헬퍼로 전달한다.
@@ -240,13 +279,7 @@ export default function CrewWeekResultsBoard({
                 <CrewWeekResultsDetailTable
                   organizationSlug={organizationSlug}
                   weeks={weeks}
-                  cells={
-                    new Map(
-                      (data?.cells ?? [])
-                        .filter((c) => c.organizationSlug === organizationSlug)
-                        .map((c) => [c.weekId, c]),
-                    )
-                  }
+                  cells={detailCellsByWeek}
                   loading={loading}
                 />
               ) : (
@@ -261,7 +294,10 @@ export default function CrewWeekResultsBoard({
                     + 좌우 패딩 px-3(12+12) = 24px  →  315px  →  316px(19.75rem) 채택.
                     ⚠ 180~210px 로는 클럽 날짜 표기 SoT(formatClubDate: "26 - 03 - 30 (월)")를
                       줄바꿈·말줄임 없이 담을 수 없다. 폭을 더 줄이려면 날짜 표기 SoT 를 바꿔야 한다. */}
-                <table className="w-full min-w-[46rem] table-fixed border-separate border-spacing-0 text-sm">
+                <table
+                  data-crew-week-results-matrix
+                  className="w-full min-w-[46rem] table-fixed border-separate border-spacing-0 text-sm"
+                >
                   <colgroup>
                     <col className="w-[19.75rem]" />
                     {organizations.map((org) => (
@@ -270,58 +306,58 @@ export default function CrewWeekResultsBoard({
                   </colgroup>
                   <thead>
                     <tr>
-                      {/* 좌측 고정 영역 — 주차명 · 주차 기간 */}
-                      <th
-                        scope="col"
-                        className="border-b bg-muted/60 px-3 py-2 text-left font-semibold"
-                      >
-                        <span className="inline-flex items-center gap-1">
-                          주차
+                      {/* 좌측 고정 영역 — 주차명 · 주차 기간. 헤더 클릭 = 시간순 정렬(3단계 순환). */}
+                      <SortableTh
+                        label="주차"
+                        align="left"
+                        dir={dirOf("week")}
+                        onSort={() => onSort("week")}
+                        className="border-b bg-muted/60 px-3 py-2 font-semibold"
+                        help={
                           <AdminHelpIconButton
                             helpKey="admin.teamParts.crewWeekResults.column.week"
                             title="주차"
                           />
-                        </span>
-                      </th>
+                        }
+                      />
                       {organizations.map((org) => (
-                        <th
+                        <SortableTh
                           key={org.organizationSlug}
-                          scope="col"
                           data-club-header={org.organizationSlug}
+                          label={org.organizationName}
+                          labelClassName={`text-base font-bold ${ORGANIZATION_TEXT_CLASS[org.organizationSlug]}`}
+                          dir={dirOf(org.organizationSlug)}
+                          onSort={() => onSort(org.organizationSlug)}
                           // 조직색 = 열 구분 전용(lib/organizations ORGANIZATION_COLUMN SoT).
                           //   헤더는 본문보다 한 단계 진하게 + 좌우에 조직색 포인트 테두리.
-                          className={`border-b border-l border-r px-3 py-2 text-center font-semibold ${ORGANIZATION_COLUMN[org.organizationSlug].header} ${ORGANIZATION_COLUMN[org.organizationSlug].edge}`}
-                        >
-                          <div className="flex flex-nowrap items-center justify-center gap-1.5 whitespace-nowrap">
-                            <span
-                              className={`text-base font-bold ${ORGANIZATION_TEXT_CLASS[org.organizationSlug]}`}
-                            >
-                              {org.organizationName}
-                            </span>
-                            <AdminHelpIconButton
-                              helpKey="admin.teamParts.crewWeekResults.column.organizationResult"
-                              title="조직별 주차 결과"
-                            />
-                            {/* 통합에서만 [상세] 진입 버튼. 상세 화면에는 자기 자신 링크를 두지 않는다. */}
-                            {isDetail ? null : (
-                              <>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                data-club-detail={org.organizationSlug}
-                                onClick={() => onOpenDetail(org.organizationSlug)}
-                              >
-                                상세
-                              </Button>
+                          className={`whitespace-nowrap border-b border-l border-r px-3 py-2 font-semibold ${ORGANIZATION_COLUMN[org.organizationSlug].header} ${ORGANIZATION_COLUMN[org.organizationSlug].edge}`}
+                          help={
+                            <>
                               <AdminHelpIconButton
-                                helpKey="admin.teamParts.crewWeekResults.action.openOrganization"
-                                title="조직 상세"
+                                helpKey="admin.teamParts.crewWeekResults.column.organizationResult"
+                                title="조직별 주차 결과"
                               />
-                              </>
-                            )}
-                          </div>
-                        </th>
+                              {/* 통합에서만 [상세] 진입 버튼. 상세 화면에는 자기 자신 링크를 두지 않는다. */}
+                              {isDetail ? null : (
+                                <>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    data-club-detail={org.organizationSlug}
+                                    onClick={() => onOpenDetail(org.organizationSlug)}
+                                  >
+                                    상세
+                                  </Button>
+                                  <AdminHelpIconButton
+                                    helpKey="admin.teamParts.crewWeekResults.action.openOrganization"
+                                    title="조직 상세"
+                                  />
+                                </>
+                              )}
+                            </>
+                          }
+                        />
                       ))}
                     </tr>
                   </thead>
@@ -336,7 +372,7 @@ export default function CrewWeekResultsBoard({
                         </td>
                       </tr>
                     ) : (
-                      weeks.map((week, rowIndex) => (
+                      sortedWeeks.map((week, rowIndex) => (
                         <tr
                           key={week.weekId}
                           data-week-row={week.weekId}

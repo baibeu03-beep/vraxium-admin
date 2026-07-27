@@ -37,6 +37,7 @@
     "audit:experience-rating-pointa": "tsx --env-file=.env.local scripts/audit-experience-rating-pointa-impact.ts",
     "verify:experience-required-line-guide": "node scripts/browser-verify-experience-overall-required-line-guide.mjs",
     "verify:crew-week-results-render": "node scripts/browser-verify-crew-week-results-render.mjs",
+    "verify:crew-week-results-sort": "node scripts/browser-verify-crew-week-results-sort.mjs",
     "audit:crew-week-snapshot-migration": "tsx --env-file=.env.local scripts/audit-crew-week-publish-snapshot-migration.ts",
     "backfill:crew-week-snapshots": "tsx --env-file=.env.local scripts/backfill-crew-week-publish-snapshots.ts",
     "verify:crew-week-team-position-sot": "tsx --env-file=.env.local scripts/verify-crew-week-team-position-sot.ts",

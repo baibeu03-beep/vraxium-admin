@@ -43,6 +43,20 @@ export const CREW_WEEKLY_DISPLAY_STATUS_LABEL: Record<
   completed: "검수 완료",
 };
 
+/**
+ * 표시 상태 정렬 순위 — 업무 진행 순서(진행 중 → 집계 중 → 검수 완료).
+ *   화면의 "상태" 컬럼 정렬이 라벨 문자열(가나다)이 아니라 **단계 순서**로 정렬되도록 하는 SoT.
+ *   통합 목록(조직 열)과 클럽 상세(상태 열)가 같은 순위를 쓴다.
+ */
+export const CREW_WEEKLY_DISPLAY_STATUS_RANK: Record<
+  CrewWeeklyResultDisplayStatus,
+  number
+> = {
+  in_progress: 0,
+  aggregating: 1,
+  completed: 2,
+};
+
 export function toCrewWeeklyDisplayStatus(
   status: CrewWeeklyResultLifecycleStatus,
 ): CrewWeeklyResultDisplayStatus {

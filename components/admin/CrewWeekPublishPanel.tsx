@@ -7,6 +7,9 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import { SortableTh } from "@/components/admin/SortableTh";
+import { useTableColumnSort } from "@/components/admin/useTableColumnSort";
+import type { TableSortColumns } from "@/lib/adminTableSort";
 import { buildAdminContextHref } from "@/lib/adminOrgContext";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useStickyColumns } from "@/components/ui/sticky-columns";
@@ -369,8 +372,27 @@ const BATTLE_LABEL: Record<BattleResult, string> = { win: "승", lose: "패", dr
 const BATTLE_TONE: Record<BattleResult, "success" | "danger" | "neutral"> = {
   win: "success", lose: "danger", draw: "neutral",
 };
+// 팀 결과 정렬 순위 — 승 → 무 → 패(라벨 가나다순 아님). 결과 미도출/무기록은 null(최하단).
+const BATTLE_RANK: Record<BattleResult, number> = { win: 0, draw: 1, lose: 2 };
 
-// 팀 활동 결과 표 — 행 순서는 **팀명 ko-KR 가나다순**(고객 앱 display_order 와 별개, 값은 동일).
+// 팀 표 컬럼(렌더 순서 = 헤더 순서 SoT). key 는 도움말 키·정렬 키와 공유한다.
+const TEAM_COLS: { key: string; label: string; align: "left" | "center" }[] = [
+  { key: "name", label: "팀명", align: "left" },
+  { key: "result", label: "팀 결과", align: "center" },
+  { key: "leader", label: "팀장", align: "left" },
+  { key: "partCount", label: "파트 수", align: "center" },
+  { key: "crewCount", label: "소속 크루", align: "center" },
+  { key: "advancedCrew", label: "심화 크루", align: "center" },
+  { key: "regularCrew", label: "정규 크루", align: "center" },
+  { key: "growthChallenge", label: "성장 도전", align: "center" },
+  { key: "growthRest", label: "성장 휴식", align: "center" },
+  { key: "growthSuccess", label: "성장 성공", align: "center" },
+  { key: "growthFailure", label: "성장 실패", align: "center" },
+  { key: "winRate", label: "승률", align: "center" },
+];
+
+// 팀 활동 결과 표 — 기본 행 순서는 **팀명 ko-KR 가나다순**(고객 앱 display_order 와 별개, 값은 동일).
+//   헤더 클릭 시 공통 정렬 SoT 로 재배열되고, 3단계 순환의 마지막에 이 기본 순서로 복원된다.
 function TeamTable({
   rows,
   hasResult = true,
@@ -380,10 +402,33 @@ function TeamTable({
   hasResult?: boolean;
   teamHref?: (teamId: string) => string;
 }) {
-  const sorted = useMemo(
+  const base = useMemo(
     () => [...rows].sort((a, b) => a.teamName.localeCompare(b.teamName, "ko-KR")),
     [rows],
   );
+  // 컬럼 정렬(전 컬럼) — 숫자 열은 전부 수치 비교, 승률은 퍼센트 수치, 팀명/팀장은 문자열.
+  //   결과 미도출(hasResult=false) 이면 결과 파생 열은 값 없음 → 방향 무관 최하단(화면 "-"와 일치).
+  const teamSortColumns = useMemo<TableSortColumns<TeamRow, string>>(
+    () => ({
+      name: { type: "text", value: (t) => t.teamName },
+      result: {
+        type: "number",
+        value: (t) => (hasResult && t.battleResult ? BATTLE_RANK[t.battleResult] : null),
+      },
+      leader: { type: "text", value: (t) => t.leader.displayName },
+      partCount: { type: "number", value: (t) => t.partCount },
+      crewCount: { type: "number", value: (t) => t.totalCrew },
+      advancedCrew: { type: "number", value: (t) => t.advancedCrew },
+      regularCrew: { type: "number", value: (t) => t.regularCrew },
+      growthChallenge: { type: "number", value: (t) => t.challengeCrew },
+      growthRest: { type: "number", value: (t) => t.restCrew },
+      growthSuccess: { type: "number", value: (t) => t.successCrew },
+      growthFailure: { type: "number", value: (t) => t.failCrew },
+      winRate: { type: "number", value: (t) => (hasResult ? t.winRatePercent : null) },
+    }),
+    [hasResult],
+  );
+  const { dirOf, onSort, sortedRows: sorted } = useTableColumnSort(base, teamSortColumns);
   // 좌측 식별 열 고정 — 팀명(col1) + 팀 결과(col2).
   const sticky = useStickyColumns({ headerSticky: true });
   if (sorted.length === 0) {
@@ -393,8 +438,6 @@ function TeamTable({
       </p>
     );
   }
-  const COLS = ["팀명","팀 결과","팀장","파트 수","소속 크루","심화 크루","정규 크루","성장 도전","성장 휴식","성장 성공","성장 실패","승률"];
-  const COL_KEYS = ["name","result","leader","partCount","crewCount","advancedCrew","regularCrew","growthChallenge","growthRest","growthSuccess","growthFailure","winRate"];
   return (
     <div
       ref={sticky.ref}
@@ -404,14 +447,25 @@ function TeamTable({
       <table className="w-full min-w-[1200px] border-separate border-spacing-0 text-sm" data-team-table>
         <thead>
           <tr>
-            {COLS.map((h, index) => {
-              const stickyProps = index === 0 ? sticky.col(1) : index === 1 ? sticky.col(2) : null;
+            {TEAM_COLS.map((col, index) => {
+              const stickyProps =
+                index === 0 ? sticky.col(1) : index === 1 ? sticky.col(2) : undefined;
               return (
-                <th key={h} data-sticky-col={stickyProps?.["data-sticky-col"]} className={`whitespace-nowrap border-b bg-muted/60 px-3 py-2 font-semibold ${h==="팀명"||h==="팀장"?"text-left":"text-center"}${stickyProps ? " " + stickyProps.className : ""}`}>
-                  <HelpLabel helpKey={`admin.teamParts.crewWeekResults.teamColumn.${COL_KEYS[index]}`}>
-                    {h}
-                  </HelpLabel>
-                </th>
+                <SortableTh
+                  key={col.key}
+                  label={col.label}
+                  align={col.align}
+                  dir={dirOf(col.key)}
+                  onSort={() => onSort(col.key)}
+                  sticky={stickyProps}
+                  className="whitespace-nowrap border-b bg-muted/60 px-3 py-2 font-semibold"
+                  help={
+                    <AdminHelpIconButton
+                      helpKey={`admin.teamParts.crewWeekResults.teamColumn.${col.key}`}
+                      title={col.label}
+                    />
+                  }
+                />
               );
             })}
           </tr>
@@ -494,14 +548,26 @@ const RESULT_LABEL: Record<CrewRow["result"], string> = {
 const cell = (v: number | null, suffix = "") =>
   v === null ? <span className="text-muted-foreground">-</span> : `${v}${suffix}`;
 
-const CREW_COLS = [
-  "등수", "크루명", "학적", "성장 결과", "클래스", "소속 팀", "소속 파트", "품계",
-  "액트 체크율", "주차 성장률", "포인트 A", "포인트 B", "포인트 C", "성장성공(주차)",
+// 크루 표 컬럼(렌더 순서 = 헤더 순서 SoT). key 는 도움말 키·정렬 키와 공유한다.
+const CREW_COLS: { key: string; label: string; align: "left" | "center" }[] = [
+  { key: "rank", label: "등수", align: "center" },
+  { key: "name", label: "크루명", align: "left" },
+  { key: "education", label: "학적", align: "left" },
+  { key: "growthResult", label: "성장 결과", align: "center" },
+  { key: "class", label: "클래스", align: "center" },
+  { key: "team", label: "소속 팀", align: "center" },
+  { key: "part", label: "소속 파트", align: "center" },
+  { key: "grade", label: "품계", align: "center" },
+  { key: "actCompletionRate", label: "액트 체크율", align: "center" },
+  { key: "weeklyGrowthRate", label: "주차 성장률", align: "center" },
+  { key: "pointA", label: "포인트 A", align: "center" },
+  { key: "pointB", label: "포인트 B", align: "center" },
+  { key: "pointC", label: "포인트 C", align: "center" },
+  { key: "successWeeks", label: "성장성공(주차)", align: "center" },
 ];
-const CREW_COL_KEYS = [
-  "rank", "name", "education", "growthResult", "class", "team", "part", "grade",
-  "actCompletionRate", "weeklyGrowthRate", "pointA", "pointB", "pointC", "successWeeks",
-];
+
+// 크루명 표시값 — 정렬(문자열)과 렌더가 같은 규칙을 쓰도록 한 곳에서 만든다.
+const crewDisplayLabel = (c: CrewRow) => c.crewDisplayName ?? c.crewCode ?? c.userId.slice(0, 8);
 
 function CrewTable({
   rows,
@@ -513,8 +579,9 @@ function CrewTable({
   /** 크루명 → 회원 상세 href. 표에 이미 있는 userId 만 쓴다(추가 조회 없음). */
   memberHref: (userId: string) => string;
 }) {
-  // 정렬: 결과 있으면 등수→품계→성장률desc→이름→userId, 없으면 크루명 ko-KR(고객 앱 흉내 금지).
-  const sorted = useMemo(() => {
+  // 기본 정렬: 결과 있으면 등수→품계→성장률desc→이름→userId, 없으면 크루명 ko-KR(고객 앱 흉내 금지).
+  //   헤더 클릭 정렬을 해제(3단계 순환의 마지막)하면 이 순서로 복원된다.
+  const base = useMemo(() => {
     const arr = [...rows];
     if (!hasResult) {
       return arr.sort((a, b) =>
@@ -532,6 +599,32 @@ function CrewTable({
     );
   }, [rows, hasResult]);
 
+  // 컬럼 정렬(전 컬럼) — 공통 SoT 규칙. 값은 **원본**으로 비교한다:
+  //   · 등수·포인트·체크율·성장률·성장성공(주차) = 숫자(퍼센트도 0~100 수치, "-"(null)은 최하단)
+  //   · 품계 = 표시 라벨이 아니라 **등급 숫자(grade)** 로 정렬(라벨 가나다순은 등급 순서가 아니다)
+  //   · 크루명/학적/클래스/팀/파트/성장 결과 = 문자열
+  //   · 결과 미도출(hasResult=false) 이면 결과 파생 열은 값 없음 → 최하단(화면 "-"와 일치)
+  const crewSortColumns = useMemo<TableSortColumns<CrewRow, string>>(
+    () => ({
+      rank: { type: "number", value: (c) => c.rank },
+      name: { type: "text", value: (c) => crewDisplayLabel(c) },
+      education: { type: "text", value: (c) => c.schoolName },
+      growthResult: { type: "text", value: (c) => (hasResult ? RESULT_LABEL[c.result] : null) },
+      class: { type: "text", value: (c) => c.classLabel },
+      team: { type: "text", value: (c) => c.teamName },
+      part: { type: "text", value: (c) => c.partName },
+      grade: { type: "number", value: (c) => c.grade },
+      actCompletionRate: { type: "number", value: (c) => c.actCompletionRatePercent },
+      weeklyGrowthRate: { type: "number", value: (c) => c.weeklyGrowthRatePercent },
+      pointA: { type: "number", value: (c) => c.earnedPointA },
+      pointB: { type: "number", value: (c) => c.pointB },
+      pointC: { type: "number", value: (c) => c.pointC },
+      successWeeks: { type: "number", value: (c) => c.cumulativeSuccessWeeks },
+    }),
+    [hasResult],
+  );
+  const { dirOf, onSort, sortedRows: sorted } = useTableColumnSort(base, crewSortColumns);
+
   // 좌측 식별 열 고정 — 등수(col1) + 크루명(col2). 물리적 인접 2열(기존 ad-hoc `sticky left-0 z-10` 대체).
   const sticky = useStickyColumns({ headerSticky: true });
   if (sorted.length === 0) {
@@ -547,25 +640,28 @@ function CrewTable({
       className={"overflow-x-auto" + (sticky.regionClassName ? " " + sticky.regionClassName : "")}
     >
       <PaginatedNativeTable>
-      <table className="w-full min-w-[1400px] border-separate border-spacing-0 text-sm" data-crew-table>
+      <table className="w-full min-w-[1400px] border-separate border-spacing-0 text-sm" data-crew-table data-crew-has-result={hasResult ? "true" : "false"}>
         <thead>
           <tr>
-            {CREW_COLS.map((h, index) => {
-              const stickyProps = h === "등수" ? sticky.col(1) : h === "크루명" ? sticky.col(2) : null;
+            {CREW_COLS.map((col, index) => {
+              const stickyProps =
+                index === 0 ? sticky.col(1) : index === 1 ? sticky.col(2) : undefined;
               return (
-                <th
-                  key={h}
-                  data-sticky-col={stickyProps?.["data-sticky-col"]}
-                  className={
-                    "whitespace-nowrap border-b bg-muted/60 px-3 py-2 font-semibold " +
-                    (h === "크루명" || h === "학적" ? "text-left" : "text-center") +
-                    (stickyProps ? " " + stickyProps.className : "")
+                <SortableTh
+                  key={col.key}
+                  label={col.label}
+                  align={col.align}
+                  dir={dirOf(col.key)}
+                  onSort={() => onSort(col.key)}
+                  sticky={stickyProps}
+                  className="whitespace-nowrap border-b bg-muted/60 px-3 py-2 font-semibold"
+                  help={
+                    <AdminHelpIconButton
+                      helpKey={`admin.teamParts.crewWeekResults.crewColumn.${col.key}`}
+                      title={col.label}
+                    />
                   }
-                >
-                  <HelpLabel helpKey={`admin.teamParts.crewWeekResults.crewColumn.${CREW_COL_KEYS[index]}`}>
-                    {h}
-                  </HelpLabel>
-                </th>
+                />
               );
             })}
           </tr>
@@ -593,7 +689,7 @@ function CrewTable({
                     data-crew-name-link={c.userId}
                     className="underline-offset-2 hover:underline focus-visible:underline focus-visible:outline-none"
                   >
-                    {c.crewDisplayName ?? c.crewCode ?? c.userId.slice(0, 8)}
+                    {crewDisplayLabel(c)}
                   </Link>
                 </td>
                 {/* 학적 = 학교·전공만(연락처·학번 미표시) */}

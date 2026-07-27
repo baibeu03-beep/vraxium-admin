@@ -1,12 +1,12 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { ReactNode, ThHTMLAttributes } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ariaSortValue, type SortDirection } from "@/shared/detailLogSort";
 import type { StickyColProps } from "@/components/ui/sticky-columns";
 
-// 정렬 가능한 <th> — 주차 상세 "액트 체크 내역"·"라인 강화 내역" 표 공용(어드민).
+// 정렬 가능한 <th> — 어드민 표 공용(주차 상세 액트/라인 내역 · 주차 결과(크루) 등).
 //   · 3단계 순환(없음 → 오름차순 → 내림차순 → 기본)은 상위(cycleSort)가 관리하고, 여기선 표시만.
 //   · 접근성: th[aria-sort] + 실제 <button>(키보드 Enter/Space) + 상태를 담은 aria-label
 //     (아이콘만으로 의미를 전달하지 않는다). 크루 /cluster-4-card Detail Log 와 동일 UX 규칙.
@@ -16,9 +16,12 @@ export function SortableTh({
   onSort,
   align = "center",
   className,
+  labelClassName,
   sticky,
   help,
-}: {
+  scope = "col",
+  ...thProps
+}: Omit<ThHTMLAttributes<HTMLTableCellElement>, "dir" | "onClick" | "children"> & {
   label: string;
   /** 이 컬럼의 현재 정렬 방향(활성 아니면 null). */
   dir: SortDirection | null;
@@ -26,9 +29,11 @@ export function SortableTh({
   align?: "left" | "center";
   /** <th> 추가 클래스(폭·색 등). */
   className?: string;
+  /** 라벨 텍스트 추가 클래스(조직색·굵기 등 기존 헤더 표기를 그대로 유지할 때). */
+  labelClassName?: string;
   /** 좌측 열 고정 계약(useStickyColumns().col(n)) — 지정 시 이 <th> 를 고정 열로. 기본 undefined. */
   sticky?: StickyColProps;
-  /** 라벨 옆 도움말(돋보기) 등 부가 요소 — 정렬 버튼의 형제로 렌더(클릭이 정렬을 트리거하지 않음). */
+  /** 라벨 옆 도움말(돋보기)·버튼 등 부가 요소 — 정렬 버튼의 형제로 렌더(클릭이 정렬을 트리거하지 않음). */
   help?: ReactNode;
 }) {
   const next =
@@ -50,7 +55,7 @@ export function SortableTh({
         dir && "text-foreground",
       )}
     >
-      <span>{label}</span>
+      <span className={labelClassName}>{label}</span>
       {dir === "asc" ? (
         <ArrowUp className="h-3 w-3" aria-hidden />
       ) : dir === "desc" ? (
@@ -62,6 +67,8 @@ export function SortableTh({
   );
   return (
     <th
+      {...thProps}
+      scope={scope}
       aria-sort={ariaSortValue(dir)}
       data-sticky-col={sticky?.["data-sticky-col"]}
       className={cn("px-2 py-2 font-medium", align === "left" ? "text-left" : "text-center", className, sticky?.className)}

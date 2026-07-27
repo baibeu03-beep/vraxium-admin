@@ -1,17 +1,22 @@
 "use client";
 
+import { useMemo } from "react";
 import { PaginatedNativeTable } from "@/components/ui/table-pagination";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import { SortableTh } from "@/components/admin/SortableTh";
+import { useTableColumnSort } from "@/components/admin/useTableColumnSort";
+import type { TableSortColumns } from "@/lib/adminTableSort";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useStickyColumns } from "@/components/ui/sticky-columns";
 import { buildAdminContextHref } from "@/lib/adminOrgContext";
 import type { OrganizationSlug } from "@/lib/organizations";
 import { getProcessPointLabels } from "@/lib/pointLabels";
-import type {
-  CrewWeeklyResultCellDto,
-  CrewWeeklyResultWeekDto,
+import {
+  CREW_WEEKLY_DISPLAY_STATUS_RANK,
+  type CrewWeeklyResultCellDto,
+  type CrewWeeklyResultWeekDto,
 } from "@/lib/crewWeeklyResultTypes";
 
 // [주차별] 크루 활동 결과 - 목록표 (클럽 상세 전용 표).
@@ -89,6 +94,50 @@ export default function CrewWeekResultsDetailTable({
     ["성장 도전율", "growthChallengeRate"],
   ];
 
+  // 컬럼 정렬(전 컬럼) — 공통 SoT(lib/adminTableSort) 규칙. 값은 **DTO 원본**으로 비교한다:
+  //   · 상태      = 진행 단계 순위(진행 중 → 집계 중 → 검수 완료). 라벨 가나다순 아님.
+  //   · 주차명/기간 = 주차 시작일(원본 ISO) 시간순. 화면 표기("26 - 07 - 20 (월)") 재파싱 금지.
+  //   · 클럽 활동  = 표시 라벨 문자열.
+  //   · 기준 포인트 A·인원·비율 = 전부 **숫자**(퍼센트도 0~100 수치). "N"/"-"(null)은 방향 무관 최하단.
+  const sortColumns = useMemo<TableSortColumns<CrewWeeklyResultWeekDto, string>>(() => {
+    const cellOf = (w: CrewWeeklyResultWeekDto) => cells.get(w.weekId) ?? null;
+    const num = (
+      pick: (c: CrewWeeklyResultCellDto) => number | null,
+    ): TableSortColumns<CrewWeeklyResultWeekDto, string>[string] => ({
+      type: "number",
+      value: (w) => {
+        const c = cellOf(w);
+        return c ? pick(c) : null;
+      },
+    });
+    return {
+      status: {
+        type: "number",
+        value: (w) => {
+          const c = cellOf(w);
+          return c ? CREW_WEEKLY_DISPLAY_STATUS_RANK[c.displayStatus] : null;
+        },
+      },
+      week: { type: "date", value: (w) => w.startDate },
+      period: { type: "date", value: (w) => w.startDate },
+      activity: {
+        type: "text",
+        value: (w) => cellOf(w)?.activityKindLabel ?? w.activityKindLabel,
+      },
+      criterionPoint: num((c) => c.criterionPointA),
+      crewCount: num((c) => c.memberCount),
+      seasonRest: num((c) => c.seasonRestCount),
+      personalRest: num((c) => c.personalRestCount),
+      growthChallenge: num((c) => c.growthChallengeCount),
+      growthSuccess: num((c) => c.growthSuccessCount),
+      growthFailure: num((c) => c.growthFailureCount),
+      growthSuccessRate: num((c) => c.growthSuccessRatePercent),
+      growthChallengeRate: num((c) => c.growthChallengeRatePercent),
+    };
+  }, [cells]);
+
+  const { dirOf, onSort, sortedRows: sortedWeeks } = useTableColumnSort(weeks, sortColumns);
+
   return (
     <div
       ref={sticky.ref}
@@ -103,26 +152,23 @@ export default function CrewWeekResultsDetailTable({
           <tr>
             {COLS.map(([label, key], colIndex) => {
               const stickyProps =
-                colIndex === 0 ? sticky.col(1) : colIndex === 1 ? sticky.col(2) : null;
+                colIndex === 0 ? sticky.col(1) : colIndex === 1 ? sticky.col(2) : undefined;
               return (
-                <th
+                <SortableTh
                   key={key}
-                  scope="col"
-                  data-sticky-col={stickyProps?.["data-sticky-col"]}
-                  className={
-                    `whitespace-nowrap border-b bg-muted/60 px-3 py-2 font-semibold ${
-                      label === "주차명" || label === "기간" ? "text-left" : "text-center"
-                    }` + (stickyProps ? " " + stickyProps.className : "")
-                  }
-                >
-                  <span className="inline-flex items-center gap-1">
-                    {label}
+                  label={label}
+                  align={label === "주차명" || label === "기간" ? "left" : "center"}
+                  dir={dirOf(key)}
+                  onSort={() => onSort(key)}
+                  sticky={stickyProps}
+                  className="whitespace-nowrap border-b bg-muted/60 px-3 py-2 font-semibold"
+                  help={
                     <AdminHelpIconButton
                       helpKey={`admin.teamParts.crewWeekResults.column.${key}`}
                       title={label}
                     />
-                  </span>
-                </th>
+                  }
+                />
               );
             })}
           </tr>
@@ -138,7 +184,7 @@ export default function CrewWeekResultsDetailTable({
               </td>
             </tr>
           ) : (
-            weeks.map((week, rowIndex) => {
+            sortedWeeks.map((week, rowIndex) => {
               const cell = cells.get(week.weekId);
               const zebra = rowIndex % 2 === 1 ? "bg-muted/30" : "";
               if (!cell) {

@@ -170,11 +170,14 @@ async function main() {
     "[data-crew-week-results-detail] thead th",
     (n) => n.map((e) => e.textContent.trim()),
   );
+  // 5번째 컬럼(기준 포인트 A)의 라벨은 **조직별 포인트 표시명** SoT(getProcessPointLabels)를 따른다
+  //   — 예: encre = "기준 별". 조직 중립 문자열로 고정하지 않는다.
   const EXPECTED_COLS = [
-    "상태", "주차명", "기간", "클럽 활동", "기준 포인트 A", "소속 크루", "시즌 휴식",
+    "상태", "주차명", "기간", "클럽 활동", detailCols[4], "소속 크루", "시즌 휴식",
     "개인 휴식", "성장 도전", "성장 성공", "성장 실패", "성장 성공률", "성장 도전율",
   ];
   ck("13컬럼 순서 일치", JSON.stringify(detailCols) === JSON.stringify(EXPECTED_COLS), detailCols.join("·"));
+  ck("5번째 = 기준 포인트 A(조직별 표시명)", /^기준 /.test(detailCols[4] ?? ""), detailCols[4]);
   ck("표기 '성장 성공률'(성공율 아님)", detailCols.includes("성장 성공률"));
 
   const detailRows = await page.$$eval("[data-crew-week-results-detail] tbody tr", (rows) =>
