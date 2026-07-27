@@ -48,6 +48,10 @@ import {
   userWeeklyPointsHasLegacyBaselineColumns,
 } from "@/lib/userWeeklyPointsBaseline";
 import { isCluster4TestExceptionWeek } from "@/lib/cluster4TestWeekPolicy";
+import {
+  EXPERIENCE_RATING_AWARD_MIN_RATING,
+  isRatingAwardExperienceType,
+} from "@/lib/experienceRatingPolicy";
 import { syncGradeStats } from "@/lib/cluster3ClubRankData";
 import { invalidateClubRankComputationCache } from "@/lib/clubRankComputationCache";
 import type { RejudgeResult } from "@/lib/crewWeekGrowthRejudge";
@@ -57,7 +61,11 @@ import { resolveCheckScopeRoster } from "@/lib/processCheckScopeRoster";
 import { isTeamBasedProcessHub } from "@/lib/adminProcessCheckTypes";
 import type { ProcessHub } from "@/lib/adminProcessesTypes";
 
-export type AccrualSource = "regular" | "irregular" | "line";
+// 'line'        = 라인 강화 성공 시 지급되는 **강화 시 포인트**(cluster4_line_point_configs 설정값).
+// 'line_rating' = 실무 경험 라인의 **실제 평점**(cluster4_experience_line_evaluations.rating)을
+//                 Point A 로 추가 적립하는 별도 원장(2026-07-27). 둘은 서로 다른 개념이며
+//                 (source, ref_id=line_id, user_id) 키 네임스페이스가 분리돼 함께 존재한다.
+export type AccrualSource = "regular" | "irregular" | "line" | "line_rating";
 
 // 적립 기능 kill-switch(운영 비활성 — 코드 무수정 롤백). 기본 활성.
 const ACCRUAL_ENABLED = process.env.PROCESS_ACCRUAL_ENABLED !== "0";
@@ -1010,6 +1018,14 @@ const CONFIG_KEY_TO_EXP_CATEGORY: Record<string, string> = Object.fromEntries(
   Object.entries(EXP_CATEGORY_TO_CONFIG_KEY).map(([k, v]) => [v, k]),
 );
 
+// 마스터 카테고리 축(derivation/evaluation/extension…) → 포인트 config_key 축(derive/research/expansion…).
+//   별칭 변환 SoT 는 위 EXP_CATEGORY_TO_CONFIG_KEY 하나뿐이다. 표시 계층(라인 강화 내역)이 "이 라인이
+//   평점 지급 대상 유형인가"를 판단할 때 자체 매핑을 만들지 않도록 함수로 노출한다. 미상이면 null.
+export function experienceCategoryToConfigKey(category: string | null | undefined): string | null {
+  if (!category) return null;
+  return EXP_CATEGORY_TO_CONFIG_KEY[category] ?? null;
+}
+
 // cluster4_lines 1행 → 포인트 config_key(허브별). info=activity_type_id · career=line_code ·
 //   competency=master.line_code · experience=master.experience_category→enum. 없으면 null.
 export async function resolveLineConfigKey(row: LineRowForPayout): Promise<string | null> {
@@ -1101,6 +1117,9 @@ export async function loadLinePointForConfig(
 // 라인 강화(개설) 포인트 요약 — 회원 1명·주차 1개 기준 (조회 전용; 관리 회원 상세 "라인 강화 내역" 탭 SoT).
 //   earned  = process_point_awards(source='line') 원장 합(취소분 제외) — 실제 지급 실측값.
 //             Point A=point_check · Point B=point_advantage. year+week_number(iso) 키.
+//   earnedRatingA = process_point_awards(source='line_rating') 합 — 실무 경험 **실제 평점** Point A.
+//             강화 시 포인트와 별개 항목이라 earnedA 에 합치지 않는다(possible 분모가 강화 설정값
+//             기준이므로 섞으면 "획득 9 / 가능 1" 같은 왜곡이 생긴다). 합계는 earnedTotalA 로 별도 제공.
 //   possible = 이 주차에 "클럽에서 오픈된 모든 라인"(openLineIds)의 지급 설정 합 — 획득 "가능" 최대치.
 //             호출부가 넘기는 openLineIds = 크루 카드(card.lines)의 clubOpen(lineId != null) 라인 =
 //             상세 표의 "오픈" 행과 동일 집합. ⚠ 대상자 여부·강화 성공 여부와 무관하게 포함한다
@@ -1114,12 +1133,18 @@ export async function loadLinePointForConfig(
 //   지급 트리거(earned) = 강화 성공 시 지급(결과 종속). possible 은 그와 독립적으로 오픈 라인 설정 총합.
 // ────────────────────────────────────────────────────────────────────────────
 export type LinePointSummary = {
+  // 강화 시 포인트(source='line') 합 — 기존 의미 불변. possible* 과 짝을 이루는 값이다.
   earnedA: number;
   earnedB: number;
   earnedC: number;
   possibleA: number;
   possibleB: number;
   possibleC: number;
+  // 평점 Point A(source='line_rating') 합 — 2026-07-27 신설. 위 earned*/possible* 과 **별개 항목**이라
+  //   earnedA 에 섞지 않는다(possible 분모가 강화 설정값 기준이라 합치면 "9 / 1" 같은 왜곡이 생긴다).
+  earnedRatingA: number;
+  // 편의 합계 = earnedA + earnedRatingA. 세부값이 항상 함께 나가므로 추적 가능.
+  earnedTotalA: number;
 };
 
 export async function loadLinePointSummaryForCrewWeek(
@@ -1134,32 +1159,41 @@ export async function loadLinePointSummaryForCrewWeek(
     possibleA: 0,
     possibleB: 0,
     possibleC: 0,
+    earnedRatingA: 0,
+    earnedTotalA: 0,
   };
 
   const week = await loadWeek(weekId);
   if (!week || week.iso_year == null || week.iso_week == null) return empty;
 
-  // earned: 원장(source='line') — 카드/Detail Log 포인트 합산과 동일하게 취소분(cancelled_at) 제외.
+  // earned: 라인 원장 2종 — 카드/Detail Log 포인트 합산과 동일하게 취소분(cancelled_at) 제외.
+  //   source='line'(강화 시 포인트)과 'line_rating'(평점 Point A)을 **분리 집계**한다.
   const hasCancel = await processPointAwardsHasCancelColumns();
   let earnedQ = supabaseAdmin
     .from("process_point_awards")
-    .select("point_check,point_advantage,point_penalty")
+    .select("source,point_check,point_advantage,point_penalty")
     .eq("user_id", realUserId)
-    .eq("source", "line")
+    .in("source", ["line", "line_rating"])
     .eq("year", week.iso_year)
     .eq("week_number", week.iso_week);
   if (hasCancel) earnedQ = earnedQ.is("cancelled_at", null);
   const { data: awardRows, error: awardErr } = await earnedQ;
   if (awardErr) throw awardErr;
   const awards = (awardRows ?? []) as Array<{
+    source: string;
     point_check: number | null;
     point_advantage: number | null;
     point_penalty: number | null;
   }>;
-  const earnedA = awards.reduce((s, r) => s + (r.point_check || 0), 0);
-  const earnedB = awards.reduce((s, r) => s + (r.point_advantage || 0), 0);
+  const enh = awards.filter((r) => r.source === "line");
+  const earnedA = enh.reduce((s, r) => s + (r.point_check || 0), 0);
+  const earnedB = enh.reduce((s, r) => s + (r.point_advantage || 0), 0);
   // C = penalty magnitude(≥0 표기 정책, Cluster4WeeklyPointsDto.pointC 와 동일 축).
-  const earnedC = awards.reduce((s, r) => s + (r.point_penalty || 0), 0);
+  const earnedC = enh.reduce((s, r) => s + (r.point_penalty || 0), 0);
+  // 평점 Point A — B/C 는 원장상 항상 0이라 별도 합계를 두지 않는다.
+  const earnedRatingA = awards
+    .filter((r) => r.source === "line_rating")
+    .reduce((s, r) => s + (r.point_check || 0), 0);
 
   // possible: 이 주차에 클럽에서 오픈된 모든 라인의 설정값 합(획득 가능 최대치).
   //   openLineIds = 호출부(card.lines clubOpen) 가 넘긴 실제 개설 라인 집합. 대상자/성공 여부와 무관.
@@ -1190,27 +1224,61 @@ export async function loadLinePointSummaryForCrewWeek(
     }
   }
 
-  return { earnedA, earnedB, earnedC, possibleA, possibleB, possibleC };
+  return {
+    earnedA, earnedB, earnedC,
+    possibleA, possibleB, possibleC,
+    earnedRatingA,
+    earnedTotalA: earnedA + earnedRatingA,
+  };
 }
 
-// 라인별 획득 포인트(A/B/C) — (user, week) 의 source='line' 원장을 ref_id(=line_id) 로 그룹핑.
-//   관리 라인 상세 표의 "획득 별/방패/번개" 컬럼 SoT. 취소분 제외. 배열 순서/라인명이 아니라 ref_id 로 매핑.
+// 라인별 획득 포인트 — (user, week) 의 라인 원장 2종을 ref_id(=line_id) 로 그룹핑.
+//   ⚠ 두 원장은 **완전히 별개 항목**이며 하나로 합쳐 돌려주지 않는다(2026-07-27):
+//     · source='line'        → 강화 시 포인트(cluster4_line_point_configs 설정값) = enhancement*
+//     · source='line_rating' → 평점 Point A(실제 평점 그대로) = ratingA. B/C 는 원장상 항상 0.
+//   합계(total*)는 소비처 편의를 위한 파생값일 뿐이고, 세부 항목이 항상 함께 나간다.
+//   ratingPaid = 활성 평점 원장 행의 존재 여부. "평점 0점"과 "미지급"을 구분하기 위해 필요하다
+//     (미평가/평점0~3/강화실패/회수는 행 자체가 없거나 cancelled → false).
+//   취소분(cancelled_at) 제외. 배열 순서/라인명이 아니라 ref_id 로 매핑한다.
 //   ⚠ 요약(loadLinePointSummaryForCrewWeek)과 **동일 행·동일 필터**를 쓴다 → Σ 행 = 요약 불변식이
 //     구조적으로 성립한다(각자 다른 질의로 세지 말 것).
+export type LineEarnedByRef = {
+  enhancementA: number;
+  enhancementB: number;
+  enhancementC: number;
+  ratingA: number;
+  ratingPaid: boolean;
+  totalA: number;
+  totalB: number;
+  totalC: number;
+  /** @deprecated 하위호환 별칭 — 의미 불변(= enhancement*, source='line'). 신규 코드는 enhancement* 사용. */
+  earnedA: number;
+  earnedB: number;
+  earnedC: number;
+};
+
+const ZERO_EARNED: Omit<LineEarnedByRef, never> = {
+  enhancementA: 0, enhancementB: 0, enhancementC: 0,
+  ratingA: 0, ratingPaid: false,
+  totalA: 0, totalB: 0, totalC: 0,
+  earnedA: 0, earnedB: 0, earnedC: 0,
+};
+
 export async function loadLineEarnedByRefForCrewWeek(
   realUserId: string,
   weekId: string,
-): Promise<Map<string, { earnedA: number; earnedB: number; earnedC: number }>> {
-  const byLine = new Map<string, { earnedA: number; earnedB: number; earnedC: number }>();
+): Promise<Map<string, LineEarnedByRef>> {
+  const byLine = new Map<string, LineEarnedByRef>();
   const week = await loadWeek(weekId);
   if (!week || week.iso_year == null || week.iso_week == null) return byLine;
 
   const hasCancel = await processPointAwardsHasCancelColumns();
+  // 두 source 를 **한 번의 질의**로 읽는다 — 같은 (user, year, week) 필터라 행이 갈릴 여지가 없다.
   let q = supabaseAdmin
     .from("process_point_awards")
-    .select("ref_id,point_check,point_advantage,point_penalty")
+    .select("ref_id,source,point_check,point_advantage,point_penalty")
     .eq("user_id", realUserId)
-    .eq("source", "line")
+    .in("source", ["line", "line_rating"])
     .eq("year", week.iso_year)
     .eq("week_number", week.iso_week);
   if (hasCancel) q = q.is("cancelled_at", null);
@@ -1218,15 +1286,28 @@ export async function loadLineEarnedByRefForCrewWeek(
   if (error) throw error;
   for (const r of (data ?? []) as Array<{
     ref_id: string | null;
+    source: string;
     point_check: number | null;
     point_advantage: number | null;
     point_penalty: number | null;
   }>) {
     if (!r.ref_id) continue;
-    const cur = byLine.get(r.ref_id) ?? { earnedA: 0, earnedB: 0, earnedC: 0 };
-    cur.earnedA += r.point_check || 0;
-    cur.earnedB += r.point_advantage || 0;
-    cur.earnedC += r.point_penalty || 0;
+    const cur = byLine.get(r.ref_id) ?? { ...ZERO_EARNED };
+    if (r.source === "line_rating") {
+      // 평점 원장 — Point A 만. 행이 존재하면(활성) rating 0 이어도 지급 상태로 본다.
+      cur.ratingA += r.point_check || 0;
+      cur.ratingPaid = true;
+    } else {
+      cur.enhancementA += r.point_check || 0;
+      cur.enhancementB += r.point_advantage || 0;
+      cur.enhancementC += r.point_penalty || 0;
+    }
+    cur.earnedA = cur.enhancementA;
+    cur.earnedB = cur.enhancementB;
+    cur.earnedC = cur.enhancementC;
+    cur.totalA = cur.enhancementA + cur.ratingA;
+    cur.totalB = cur.enhancementB; // 평점은 Point B 로 지급하지 않는다
+    cur.totalC = cur.enhancementC; // 평점은 Point C 로 지급하지 않는다
     byLine.set(r.ref_id, cur);
   }
   return byLine;
@@ -1313,28 +1394,26 @@ export async function reconcileLineResultAwardForUser(
     .select("id")
     .eq("line_id", lineId)
     .eq("target_user_id", userId)
-    .eq("target_mode", "user")
-    .limit(1);
-  const isTarget = ((tgt ?? []) as Array<{ id: string }>).length > 0;
+    .eq("target_mode", "user");
+  const targetRows = (tgt ?? []) as Array<{ id: string }>;
+  const isTarget = targetRows.length > 0;
   const effectiveSuccess = isSuccess && isTarget;
 
+  const configKey = effectiveSuccess ? await resolveLineConfigKey(row) : null;
   let pointA: number | null = null;
   let pointB: number | null = null;
-  if (effectiveSuccess) {
-    const configKey = await resolveLineConfigKey(row);
-    if (configKey) {
-      const cfg = await loadLinePointForConfig(crewOrg, row.part_type, configKey);
-      pointA = cfg.pointA;
-      pointB = cfg.pointB;
-    }
+  if (configKey) {
+    const cfg = await loadLinePointForConfig(crewOrg, row.part_type, configKey);
+    pointA = cfg.pointA;
+    pointB = cfg.pointB;
   }
   const payable = effectiveSuccess && (pointA !== null || pointB !== null);
   const nowIso = new Date().toISOString();
+  const scopeOrg: OrganizationSlug | null =
+    crewOrg && isOrganizationSlug(crewOrg) ? crewOrg : null;
+  const mode: ScopeMode = row.is_qa_test ? "test" : "operating";
 
   if (payable) {
-    const scopeOrg: OrganizationSlug | null =
-      crewOrg && isOrganizationSlug(crewOrg) ? crewOrg : null;
-    const mode: ScopeMode = row.is_qa_test ? "test" : "operating";
     const awardRow: Record<string, unknown> = {
       source: "line",
       ref_id: lineId,
@@ -1380,6 +1459,147 @@ export async function reconcileLineResultAwardForUser(
       .eq("ref_id", lineId)
       .eq("user_id", userId);
     if (error) throw error;
+  }
+
+  // ── 실무 경험 평점 Point A(별도 원장 source='line_rating') ────────────────────
+  //   위 강화 시 포인트와 **독립**이다 — 대체·환산하지 않고 같은 라인에 추가로 얹힌다.
+  //   같은 정합 호출 안에서 처리하므로 지급/회수/재정합 경로가 갈리지 않는다.
+  await reconcileLineRatingAwardForUser({
+    userId,
+    lineId,
+    partType: row.part_type,
+    configKey,
+    lineTargetIds: targetRows.map((t) => t.id),
+    effectiveSuccess,
+    year,
+    week: wk,
+    scopeOrg,
+    mode,
+    hasCancel,
+    actorAdminId,
+    nowIso,
+  });
+}
+
+// 실무 경험 "실제 평점" → Point A 추가 적립 정합(2026-07-27).  [source='line_rating']
+//   지급 조건(전부 충족해야 지급):
+//     ① 강화 성공 && 대상자(effectiveSuccess — 호출부 판정 그대로 재사용)
+//     ② part_type='experience' && config_key ∈ 도출·분석·견문·관리 (확장 제외)
+//     ③ 해당 (line_target, user) 평가행 존재 && evaluated_by IS NOT NULL (미평가 placeholder 배제)
+//     ④ rating >= 4 (강화 실패 경계와 동일 — rating 0~3 은 강화 시 포인트도 평점도 미지급)
+//   지급값 = point_check(Point A) = rating 그대로. Point B/C 로는 절대 지급하지 않는다(항상 0).
+//   그 외 전부 회수 — soft-cancel 우선(감사 보존), 컬럼 미적용이면 hard delete. source='line' 과 대칭.
+//   재정합: 평점이 8→5 로 수정되면 같은 키를 upsert 해 5 로 덮는다(차액 자동 정합·중복 적립 불가).
+//   ⚠ 마이그레이션(2026-07-27_process_point_awards_line_rating_source.sql) 미적용 환경에서는
+//     CHECK 위반(23514)이 난다 → 경고만 남기고 삼킨다. 기존 강화 지급은 이미 위에서 커밋됐으므로
+//     평점만 누락될 뿐 회귀는 없다(graceful degradation).
+async function reconcileLineRatingAwardForUser(p: {
+  userId: string;
+  lineId: string;
+  partType: string;
+  configKey: string | null;
+  lineTargetIds: string[];
+  effectiveSuccess: boolean;
+  year: number;
+  week: number;
+  scopeOrg: OrganizationSlug | null;
+  mode: ScopeMode;
+  hasCancel: boolean;
+  actorAdminId: string | null;
+  nowIso: string;
+}): Promise<void> {
+  let rating = 0;
+  const eligibleLine =
+    p.effectiveSuccess &&
+    p.partType === "experience" &&
+    p.configKey != null &&
+    isRatingAwardExperienceType(p.configKey);
+
+  if (eligibleLine && p.lineTargetIds.length > 0) {
+    const { data, error } = await supabaseAdmin
+      .from("cluster4_experience_line_evaluations")
+      .select("rating,evaluated_by")
+      .eq("user_id", p.userId)
+      .in("line_target_id", p.lineTargetIds);
+    if (error) {
+      console.warn("[lineRatingAward] 평가 조회 실패 → 평점 미지급", {
+        lineId: p.lineId,
+        userId: p.userId,
+        message: error.message,
+      });
+    } else {
+      // 정상 경로에선 (line, user) 대상 1건. 다중 target 이력이 있으면 실제 평가된 최대값을 쓴다
+      //   (미평가 placeholder 는 evaluated_by=null 로 걸러진다).
+      for (const r of (data ?? []) as Array<{ rating: number | null; evaluated_by: string | null }>) {
+        if (r.evaluated_by == null) continue; // 미평가 placeholder
+        const v = r.rating ?? 0;
+        if (v >= EXPERIENCE_RATING_AWARD_MIN_RATING && v > rating) rating = v;
+      }
+    }
+  }
+
+  try {
+    if (rating > 0) {
+      const awardRow: Record<string, unknown> = {
+        source: "line_rating",
+        ref_id: p.lineId,
+        user_id: p.userId,
+        year: p.year,
+        week_number: p.week,
+        point_check: rating, // 평점 = Point A. 그대로 사용(환산 없음).
+        point_advantage: 0, // 평점을 Point B 로 지급하지 않는다.
+        point_penalty: 0, // 평점을 Point C 로 지급하지 않는다.
+        organization_slug: p.scopeOrg,
+        scope_mode: p.mode,
+        updated_at: p.nowIso,
+      };
+      if (p.hasCancel) {
+        awardRow.cancelled_at = null; // 재활성(이전 회수분 복구)
+        awardRow.cancelled_by = null;
+        awardRow.cancel_reason = null;
+      }
+      const { error } = await supabaseAdmin
+        .from("process_point_awards")
+        .upsert(awardRow, { onConflict: "source,ref_id,user_id" });
+      if (error) throw error;
+    } else if (p.hasCancel) {
+      const { error } = await supabaseAdmin
+        .from("process_point_awards")
+        .update({
+          cancelled_at: p.nowIso,
+          cancelled_by: p.actorAdminId,
+          cancel_reason: "강화 성공 아님/평점 미충족 → 평점 Point A 회수",
+          updated_at: p.nowIso,
+        })
+        .eq("source", "line_rating")
+        .eq("ref_id", p.lineId)
+        .eq("user_id", p.userId)
+        .is("cancelled_at", null);
+      if (error) throw error;
+    } else {
+      const { error } = await supabaseAdmin
+        .from("process_point_awards")
+        .delete()
+        .eq("source", "line_rating")
+        .eq("ref_id", p.lineId)
+        .eq("user_id", p.userId);
+      if (error) throw error;
+    }
+  } catch (e) {
+    // 마이그레이션 미적용(23514 = source CHECK 위반) 등 — 강화 지급을 되돌리지 않고 평점만 건너뛴다.
+    //   supabase-js 오류는 Error 인스턴스가 아니라 {message,code,details} 객체다 → 필드로 직접 읽는다.
+    const err = e as { message?: string; code?: string; details?: string } | null;
+    const code = err?.code ?? "";
+    console.warn("[lineRatingAward] 평점 Point A 정합 실패(격리)", {
+      lineId: p.lineId,
+      userId: p.userId,
+      rating,
+      code,
+      message: err?.message ?? (e instanceof Error ? e.message : String(e)),
+      ...(code === "23514"
+        ? { hint: "db/migrations/2026-07-27_process_point_awards_line_rating_source.sql 미적용" }
+        : {}),
+    });
   }
 }
 
@@ -1449,8 +1669,14 @@ export async function reconcileLineOpenAward(lineId: string): Promise<AccrualRes
 }
 
 // 라인 개설 포인트 회수 — 라인 취소/삭제 시 해당 line award 전량 제거 + 재합산.
+//   ⚠ 평점 원장(source='line_rating')도 같은 ref_id 를 쓰므로 함께 회수해야 한다. 빼먹으면
+//     라인이 사라진 뒤에도 평점 Point A 만 uwp 에 남는 고아 적립이 된다.
 export async function revokeLineOpenAward(lineId: string): Promise<{ revokedUserIds: string[] }> {
-  return revokeForAct("line", lineId);
+  const enhancement = await revokeForAct("line", lineId);
+  const rating = await revokeForAct("line_rating", lineId);
+  return {
+    revokedUserIds: Array.from(new Set([...enhancement.revokedUserIds, ...rating.revokedUserIds])),
+  };
 }
 
 // ────────────────────────────────────────────────────────────────────────────

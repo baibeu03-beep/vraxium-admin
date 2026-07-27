@@ -1,8 +1,10 @@
 // 오픈확인 확정 설정 → 주차별 인정 개수 N 입력 해석 + 계산/미설정 검증.  [Phase 3]
 //
-//   확정 정책(2026-07-11 · experience 중복 합산은 2026-07-19 폐기):
-//    - 라인 SoT: info=activity_types.id · experience=(org,category) 팀공유(config_key=category 별
-//      조직·주차당 최대 1회 — 팀 instance 수 무관) · competency=해당 주차 target 걸린 master 만 · career/club 없음.
+//   확정 정책(2026-07-11 · 2026-07-27 평점 기준 도입으로 개정):
+//    - 라인 SoT: info=activity_types.id · experience=**(팀 × category) 체크 셀 1칸 = 입력 1건**
+//      (config_key=category 로 포인트를 읽되 합산 횟수는 표의 체크 셀 수 — 2026-07-19 의 "조직·주차당
+//      1회" 규칙은 폐기) · competency=해당 주차 target 걸린 master 만 · career/club 없음.
+//    - experience 도출·분석·견문 = 강화 시 포인트 + 기준 평점(최소자 4 / 성실자 7). 관리·확장은 제외.
 //    - 액트: process_acts(가동=openConfirmed && 라인급 체크 && check_target='check'). A=required·B=basic외.
 //      experience 액트는 동일 act_id 를 조직·주차당 최대 1회만 합산("팀 시작"/"파트 시작"은 별개 act_id 라
 //      각각 1회). team_id/instance 수는 오픈 여부 판단 근거로만 쓰고 합산 횟수를 늘리지 않는다.
@@ -22,12 +24,15 @@ import {
   type SavedConfig,
 } from "@/lib/adminTeamPartsInfoWeekDetailData";
 import { loadLinePointConfigs } from "@/lib/weekRecognitionConfig";
+import { isWeekCriterionExperienceType } from "@/lib/experienceRatingPolicy";
 import { resolveConfigAtTime, type ActOpenTimeline } from "@/lib/weekOpenGate";
 import { resolveRegularActOccurredAtMs } from "@/lib/regularActRequiredAt";
 import { loadWeekOpeningTimeline } from "@/lib/weekOpeningTimeline";
 import {
   computeWeekRecognitionCount,
   RECOGNITION_CALC_VERSION,
+  RECOGNITION_MINIMAL_RATING,
+  RECOGNITION_DILIGENT_RATING,
   type RecognitionActInput,
   type RecognitionLineInput,
   type RecognitionCountResult,
@@ -108,15 +113,31 @@ export async function resolveRecognitionInputs(opts: {
   }
 
   // experience: config_key = category enum(type). 라인 config 는 팀 공통(team/part scope 구분 없음·
-  //   포인트는 pointCfg.get("experience", type) 로 team_id 무관) → 조직·주차당 config_key 별 최대 1회만
-  //   합산한다. team_id/instance 수는 "해당 type 이 열렸는지" 판단 근거로만 쓰고 합산 횟수를 늘리지 않는다.
-  //   isOpen = 어느 한 팀이라도 그 type 을 오픈. (2026-07-19 정책: 팀 instance 중복 합산 폐기.)
-  for (const type of EXPERIENCE_LINE_TYPES) {
-    const isOpen =
-      openConfirmed && lineTeamIds.some((teamId) => config.practicalExperience?.[teamId]?.[type] === true);
-    const p = pointCfg.get("experience", type);
-    lines.push({ id: `exp:${type}`, hub: "experience", isOpen, pointA: p.pointA, pointB: p.pointB });
-    if (isOpen) flagMissing("experience", type, EXP_LABEL[type] ?? type);
+  //   포인트는 pointCfg.get("experience", type) 로 team_id 무관).
+  //   ⚠ 2026-07-27 정책: 합산 단위 = **`[실무 경험] 라인(오픈)` 표의 체크 셀 1칸 = (팀 × 카테고리)**.
+  //     화면에 팀이 3개 있고 세 팀 모두 도출·분석·견문이 체크돼 있으면 9칸이 각각 합산된다.
+  //     (2026-07-19 의 "조직·주차당 카테고리별 1회" 규칙은 이 정책으로 폐기.)
+  //   ⚠ 관리·확장은 role="excluded" — A·B·N 어디에도 들어가지 않는다. 관리 라인 수행자의 **개인**
+  //     적립(강화 시 포인트 + 실제 평점)은 별개 경로(processPointAccrual)라 여기서 뺀다고 사라지지 않는다.
+  //   미설정(fail-closed) 검사는 오픈된 카테고리 전체에 종전대로 적용한다 — 관리·확장도 개인 지급에
+  //     쓰이므로 config 누락은 여전히 오픈확인을 막아야 한다. configKey 로 dedupe 되어 팀 수와 무관.
+  for (const teamId of lineTeamIds) {
+    for (const type of EXPERIENCE_LINE_TYPES) {
+      const isOpen = openConfirmed && config.practicalExperience?.[teamId]?.[type] === true;
+      const p = pointCfg.get("experience", type);
+      const counted = isWeekCriterionExperienceType(type); // 도출·분석·견문만(관리·확장 제외)
+      lines.push({
+        id: `exp:${teamId}:${type}`,
+        hub: "experience",
+        isOpen,
+        pointA: p.pointA,
+        pointB: p.pointB,
+        role: counted ? "minimal_and_diligent" : "excluded",
+        ratingMinimal: counted ? RECOGNITION_MINIMAL_RATING : 0,
+        ratingDiligent: counted ? RECOGNITION_DILIGENT_RATING : 0,
+      });
+      if (isOpen) flagMissing("experience", type, EXP_LABEL[type] ?? type);
+    }
   }
 
   // competency: checked && 해당 주차 실제 target 걸린 master 만. config_key = master line_code.

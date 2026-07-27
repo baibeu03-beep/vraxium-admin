@@ -35,7 +35,69 @@ ck("B(성실자)=47", r.diligentB === 47, { diligentB: r.diligentB });
 ck("N=round(30.8)=31", r.recognitionCountN === 31, { N: r.recognitionCountN });
 ck("basic 은 A·B 모두 제외", r.minimalA === 20 && r.diligentB === 47);
 ck("미가동/미오픈 항목 제외", r.diligentB === 47);
-ck("calcVersion=1", r.calcVersion === 1);
+ck("calcVersion=2", r.calcVersion === 2);
+
+// ── 2026-07-27 평점 기준 정책 ───────────────────────────────────────────────
+//   사용자 확정 워크드 예시(§2): 팀 1개당 도출 A1+B2=3 · 분석 A0+B2=2 · 견문 A0+B2=2
+//     최소자 = (3+4)+(2+4)+(2+4) = 19 · 성실자 = (3+7)+(2+7)+(2+7) = 28
+//     팀 3개 전부 오픈 → 최소자 57 · 성실자 84 (팀별 오픈 셀마다 합산).
+const EXP_CFG: Array<{ type: string; a: number; b: number }> = [
+  { type: "derive", a: 1, b: 2 },
+  { type: "analysis", a: 0, b: 2 },
+  { type: "research", a: 0, b: 2 },
+];
+const expCells = (teams: number, opts?: { withManagement?: boolean; withExpansion?: boolean }) => {
+  const out: RecognitionLineInput[] = [];
+  for (let t = 0; t < teams; t++) {
+    for (const c of EXP_CFG) {
+      out.push({
+        id: `exp:t${t}:${c.type}`, hub: "experience", isOpen: true, pointA: c.a, pointB: c.b,
+        role: "minimal_and_diligent", ratingMinimal: 4, ratingDiligent: 7,
+      });
+    }
+    // 관리·확장 = 오픈돼 있어도 A·B·N 어디에도 기여하지 않는다(role="excluded").
+    if (opts?.withManagement)
+      out.push({ id: `exp:t${t}:management`, hub: "experience", isOpen: true, pointA: 2, pointB: 2, role: "excluded", ratingMinimal: 0, ratingDiligent: 0 });
+    if (opts?.withExpansion)
+      out.push({ id: `exp:t${t}:expansion`, hub: "experience", isOpen: true, pointA: 2, pointB: 1, role: "excluded", ratingMinimal: 0, ratingDiligent: 0 });
+  }
+  return out;
+};
+
+const one = computeWeekRecognitionCount({ acts: [], lines: expCells(1) });
+ck("팀1: 최소자 19 = (3+4)+(2+4)+(2+4)", one.minimalA === 19, { minimalA: one.minimalA });
+ck("팀1: 성실자 28 = (3+7)+(2+7)+(2+7)", one.diligentB === 28, { diligentB: one.diligentB });
+
+const three = computeWeekRecognitionCount({ acts: [], lines: expCells(3) });
+ck("팀3: 최소자 57 = 19×3 (팀별 오픈 셀 합산)", three.minimalA === 57, { minimalA: three.minimalA });
+ck("팀3: 성실자 84 = 28×3", three.diligentB === 84, { diligentB: three.diligentB });
+ck("팀3: N=round(57+0.4×27)=68", three.recognitionCountN === 68, { N: three.recognitionCountN });
+
+const withMgmt = computeWeekRecognitionCount({ acts: [], lines: expCells(3, { withManagement: true, withExpansion: true }) });
+ck("관리·확장 오픈은 A/B/N 무영향",
+  withMgmt.minimalA === three.minimalA && withMgmt.diligentB === three.diligentB && withMgmt.recognitionCountN === three.recognitionCountN,
+  { A: withMgmt.minimalA, B: withMgmt.diligentB, N: withMgmt.recognitionCountN });
+
+// 체크되지 않은 셀은 계산하지 않는다(isOpen=false).
+const closed = computeWeekRecognitionCount({
+  acts: [],
+  lines: expCells(3).map((l, i) => (i % 3 === 0 ? { ...l, isOpen: false } : l)),
+});
+ck("미체크 셀 제외 → 도출 3칸 빠짐 (57−7×3=36)", closed.minimalA === 36, { minimalA: closed.minimalA });
+
+// 실무 정보/역량은 성실자에만 기여하고 기준 평점 가산 없음(기존 정책 불변).
+const infoOnly = computeWeekRecognitionCount({
+  acts: [],
+  lines: [{ id: "info:x", hub: "info", isOpen: true, pointA: 3, pointB: 2, role: "diligent_only" }],
+});
+ck("info 라인 = B 만 +5, A 기여 0", infoOnly.minimalA === 0 && infoOnly.diligentB === 5, infoOnly);
+
+// 평점 가산은 강화 시 포인트를 대체하지 않는다(A+B 가 보존된 채 더해진다).
+const zeroCfg = computeWeekRecognitionCount({
+  acts: [],
+  lines: [{ id: "exp:z", hub: "experience", isOpen: true, pointA: 0, pointB: 0, role: "minimal_and_diligent", ratingMinimal: 4, ratingDiligent: 7 }],
+});
+ck("강화 포인트 0 이어도 기준 평점은 가산(4/7)", zeroCfg.minimalA === 4 && zeroCfg.diligentB === 7, zeroCfg);
 
 // 빈 입력.
 const empty = computeWeekRecognitionCount({ acts: [], lines: [] });
