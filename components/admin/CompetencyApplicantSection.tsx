@@ -31,6 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { LoadingState } from "@/components/ui/loading-state";
+import { AnchoredPortalMenu } from "@/components/ui/anchored-portal-menu";
 import { useStickyColumns, type StickyColProps } from "@/components/ui/sticky-columns";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { Checkbox, checkedTextClass, checkedRowClass } from "@/components/ui/checkbox";
@@ -321,7 +322,10 @@ export default function CompetencyApplicantSection({
   const [searching, setSearching] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectedCrew, setSelectedCrew] = useState<CrewSearchItem | null>(null);
+  // 검색 결과 드롭다운의 위치 앵커. 메뉴 자체는 body 로 portal 된다(AnchoredPortalMenu 주석 참고 —
+  //   Card 의 overflow-hidden clipping + 표 sticky 셀 z(30/40)와의 stacking 충돌을 구조적으로 회피).
   const searchRef = useRef<HTMLDivElement>(null);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
 
   // 검색 결과에서 이미 승인 명단(apps)에 있는 크루는 완전 제외(공통 SoT). 결과는 userId,
   // apps 는 targetUserId 로 대상자를 보관 → 두 키를 각각 뽑아 비교. apps 변화 시 재계산:
@@ -532,15 +536,7 @@ export default function CompetencyApplicantSection({
     };
   }, [q, selectedCrew, org]);
 
-  // 검색 드롭다운 바깥 클릭 닫기.
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onDown = (e: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setMenuOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [menuOpen]);
+  // 바깥 클릭 / Esc 닫기는 AnchoredPortalMenu 가 담당한다(앵커·portal 메뉴 둘 다 검사).
 
   const pickCrew = useCallback((c: CrewSearchItem) => {
     setSelectedCrew(c);
@@ -742,34 +738,39 @@ export default function CompetencyApplicantSection({
                 onFocus={() => visibleResults.length > 0 && setMenuOpen(true)}
                 aria-label="수동 추가 크루 검색"
               />
-              {menuOpen && (
-                <div className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-md border bg-background py-1 shadow-md">
-                  {searching ? (
-                    <p className="flex items-center gap-1.5 px-3 py-2 text-sm text-muted-foreground">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> 검색 중…
-                    </p>
-                  ) : visibleResults.length === 0 ? (
-                    <p className="px-3 py-2 text-sm text-muted-foreground">검색 결과가 없습니다</p>
-                  ) : (
-                    visibleResults.map((c) => (
-                      <button
-                        key={c.userId}
-                        type="button"
-                        onClick={() => pickCrew(c)}
-                        className="block w-full px-3 py-1.5 text-left text-sm hover:bg-muted"
-                      >
-                        <span className="font-mono text-xs text-muted-foreground">
-                          {c.crewCode ?? "-"}
-                        </span>{" "}
-                        <span className="font-medium">{c.name}</span>{" "}
-                        <span className="text-xs text-muted-foreground">
-                          {[c.teamName, c.schoolName].filter(Boolean).join(" · ")}
-                        </span>
-                      </button>
-                    ))
-                  )}
-                </div>
-              )}
+              {/* 검색 결과 — body 로 portal(위치는 검색 입력 rect 기준 fixed). 표시 규격(테두리/그림자/
+                  최대 높이/항목 스타일)은 기존과 동일하게 유지한다. */}
+              <AnchoredPortalMenu
+                open={menuOpen}
+                anchorRef={searchRef}
+                onClose={closeMenu}
+                className="max-h-60 overflow-y-auto py-1"
+              >
+                {searching ? (
+                  <p className="flex items-center gap-1.5 px-3 py-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> 검색 중…
+                  </p>
+                ) : visibleResults.length === 0 ? (
+                  <p className="px-3 py-2 text-sm text-muted-foreground">검색 결과가 없습니다</p>
+                ) : (
+                  visibleResults.map((c) => (
+                    <button
+                      key={c.userId}
+                      type="button"
+                      onClick={() => pickCrew(c)}
+                      className="block w-full px-3 py-1.5 text-left text-sm hover:bg-muted"
+                    >
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {c.crewCode ?? "-"}
+                      </span>{" "}
+                      <span className="font-medium">{c.name}</span>{" "}
+                      <span className="text-xs text-muted-foreground">
+                        {[c.teamName, c.schoolName].filter(Boolean).join(" · ")}
+                      </span>
+                    </button>
+                  ))
+                )}
+              </AnchoredPortalMenu>
             </div>
           </div>
           <Button type="button" onClick={openAddPopup} disabled={!selectedCrew || !org}>
