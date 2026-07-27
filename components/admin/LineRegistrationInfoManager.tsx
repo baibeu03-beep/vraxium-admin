@@ -10,6 +10,8 @@
 //
 // 구성: 상단 통계(전체 허브 갯수 / 전체 라인 갯수) → 필터(클럽 단일·허브 다중[확인]·결과 갯수·초기화)
 //       → 표(적용 클럽 · 라인 코드 · 라인명 · 소속 허브 · 라인 종류 · 메인 타이틀 내용 · 유닛 버튼).
+//   · '개설 연결'은 조건부 컬럼이다 — 표시 중인 행에 미연결이 있을 때만 헤더/셀이 렌더된다.
+//     (판정 = isUnlinkedRow · showBridgeColumn · visibleColumns)
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -34,7 +36,6 @@ import {
   rowOrgAllowed,
   useAdminOrgAccess,
 } from "@/components/admin/AdminOrgAccessProvider";
-import { formatAdminDateTime } from "@/lib/adminDateTime";
 import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 import { useActionToast } from "@/lib/actionToast";
 import {
@@ -126,6 +127,19 @@ function dedupeCommonLines(
     out.push(r);
   }
   return out;
+}
+
+// ── 개설 연결 미완 판정 — 컬럼 노출 조건과 셀 액션 노출 조건의 **단일 SoT** ──────────
+//   허브별 "연결"의 의미가 다르다(마스터 브리지 vs 고정 9종 활동유형 지정):
+//     · info      = point_activity_type_id 미지정 (고정 9종 중 하나를 수정에서 골라야 함)
+//     · exp/comp  = bridged_master_id 미지정 (개설 마스터 브리지 필요)
+//     · career    = 대상 아님(이 화면은 애초에 career 를 제외한다)
+//   비활성/권한 없음 행도 "미연결"에 포함한다 — 셀 문구가 그 사유를 밝히는 것이 복구의 첫 단계다.
+//   판정은 DTO 필드만 본다 → mode/test/org 어느 경로에서도 같은 값을 쓴다(분기 없음).
+function isUnlinkedRow(row: LineRegistrationDto): boolean {
+  if (row.hub === "career") return false;
+  if (row.hub === "info") return !row.pointActivityTypeId;
+  return !row.bridgedMasterId;
 }
 
 // 유닛 외부 링크 정규화 — '-'/빈값은 링크 없음(null). http(s) 가 아니면 https:// 보정(베스트 에포트).
@@ -289,6 +303,9 @@ const INFO_COLUMNS: InfoColumnDef[] = [
   },
   // 개설 연결(브리지) — 경험/역량 라인을 허브 마스터에 연결해 개설 드롭다운에 노출시킨다.
   //   (2026-06-27 탭 통합 때 컬럼이 누락돼 신규 등록 라인을 개설할 경로가 끊겼던 것을 복원.)
+  //   ⚠ **조건부 컬럼** — 표시 중인 행에 미연결(isUnlinkedRow)이 하나도 없으면 헤더·셀 모두
+  //     렌더하지 않는다. 평시엔 전건 연결 완료라 배지만 반복돼 노이즈였다.
+  //     노출 판정은 showBridgeColumn / 실제 렌더 컬럼 목록은 visibleColumns 를 쓴다.
   {
     key: "bridge",
     label: "개설 연결",
@@ -662,6 +679,22 @@ export default function LineRegistrationInfoManager({
     });
   }, [filtered, columnSort]);
 
+  // ── 개설 연결 컬럼 노출 판정 ────────────────────────────────────────────
+  //   기준 집합 = 표에 실제로 렌더되는 행(filtered = 필터·공통중복제거 적용 후).
+  //     · 필터로 미연결 행이 모두 빠지면 컬럼도 사라진다 — 액션 대상이 화면에 없는데
+  //       빈 컬럼만 남는 것이 원래 없애려던 노이즈다.
+  //     · sorted 는 filtered 와 행 집합이 동일(정렬만 다름)하므로 filtered 로 판정해도 같다.
+  //   rows 파생값이므로 handleBridge 의 setRows 행 패치 → 즉시 재계산된다(새로고침 불필요).
+  const showBridgeColumn = useMemo(() => filtered.some(isUnlinkedRow), [filtered]);
+  // 헤더/스켈레톤/colSpan/셀 렌더가 모두 이 목록 하나를 기준으로 움직인다(개수 불일치 방지).
+  const visibleColumns = useMemo(
+    () =>
+      showBridgeColumn
+        ? INFO_COLUMNS
+        : INFO_COLUMNS.filter((c) => c.key !== "bridge"),
+    [showBridgeColumn],
+  );
+
   const togglePendingHub = useCallback((hub: LineRegistrationHub) => {
     setPendingHubs((prev) => {
       const next = new Set(prev);
@@ -862,7 +895,7 @@ export default function LineRegistrationInfoManager({
           <Table containerRef={sticky.ref} regionClassName={sticky.regionClassName} stickyLeft>
             <TableHeader>
               <TableRow>
-                {INFO_COLUMNS.map((col, idx) => (
+                {visibleColumns.map((col, idx) => (
                   <InfoSortableHeader
                     key={col.key}
                     label={col.label}
@@ -883,11 +916,11 @@ export default function LineRegistrationInfoManager({
             </TableHeader>
             <TableBody>
               {loading && !rows ? (
-                <TableSkeletonRows columns={INFO_COLUMNS.length} rows={6} />
+                <TableSkeletonRows columns={visibleColumns.length} rows={6} />
               ) : sorted.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={INFO_COLUMNS.length}
+                    colSpan={visibleColumns.length}
                     className="py-8 text-center text-muted-foreground"
                   >
                     조회 결과가 없습니다.
@@ -985,23 +1018,21 @@ export default function LineRegistrationInfoManager({
                           </Button>
                         )}
                       </TableCell>
-                      {/* 개설 연결 — 연결 전이면 버튼, 연결 후면 "연결 완료" 배지.
-                          허브별 연결 대상:
-                            · 경험/역량 = 개설 마스터(bridged_master_id) — 자동 브리지 + 수동 재시도
-                            · 실무 정보 = 고정 9종 활동유형(point_activity_type_id) — 신규 활동유형을
-                              만들지 않으므로 브리지 버튼이 아니라 **수정(활동유형 선택)** 이 복구 경로다
-                            · 실무 경력 = 대상 아님 */}
-                      <TableCell className="text-center">
-                        {row.hub === "info" ? (
-                          row.pointActivityTypeId ? (
-                            <span
-                              className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700"
-                              title={`활동유형 연결됨: ${row.pointActivityTypeId}`}
-                            >
-                              <Link2 className="h-3 w-3" />
-                              연결 완료
-                            </span>
-                          ) : (
+                      {/* 개설 연결 — **조건부 컬럼**(showBridgeColumn). 미연결 행이 하나도
+                          없으면 헤더와 함께 셀도 통째로 렌더하지 않는다.
+                          컬럼이 보일 때의 셀 정책:
+                            · 연결 완료 행 = '—'(배지 반복 노출 폐지 — 액션이 필요한 행만 눈에 띄게)
+                            · 실무 정보 미연결 = 고정 9종 활동유형(point_activity_type_id) 선택이
+                              복구 경로 → 브리지가 아니라 **수정 모달** 진입 버튼
+                            · 경험/역량 미연결 = 개설 마스터 브리지(자동 실패분의 수동 재시도)
+                            · 비활성/권한 없음 = 버튼 대신 사유 문구(복구의 첫 단계) */}
+                      {showBridgeColumn ? (
+                        <TableCell className="text-center">
+                          {!isUnlinkedRow(row) ? (
+                            // 연결 완료(또는 대상 아님) — 연결 시각/마스터 id 는 원래도 노출하지
+                            //   않았고, 여기서는 액션 없는 행임만 밝힌다. DTO 필드는 그대로 유지.
+                            <span className="text-xs text-muted-foreground">—</span>
+                          ) : row.hub === "info" ? (
                             // 과거에 활동유형 없이 저장된 등록행(현재는 서버가 422 로 차단).
                             //   임의 활동유형으로 자동 연결하지 않는다 — 관리자가 9종 중 하나를 고르게 한다.
                             <div className="flex flex-col items-center gap-1">
@@ -1019,68 +1050,48 @@ export default function LineRegistrationInfoManager({
                                 활동유형 연결
                               </Button>
                             </div>
-                          )
-                        ) : row.bridgedMasterId ? (
-                          <span
-                            className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700"
-                            // master UUID 는 노출하지 않는다 — 연결 시각만 보조 정보로.
-                            title={
-                              row.bridgedAt
-                                ? `연결 시각: ${formatAdminDateTime(row.bridgedAt)}`
-                                : "개설 마스터에 연결됨"
-                            }
-                          >
-                            <Link2 className="h-3 w-3" />
-                            연결 완료
-                          </span>
-                        ) : row.hub === "career" ? (
-                          <span
-                            className="text-xs text-muted-foreground"
-                            title="실무 경력은 개설 연결 대상이 아닙니다."
-                          >
-                            —
-                          </span>
-                        ) : !row.isActive ? (
-                          <span
-                            className="text-xs text-muted-foreground"
-                            title="비활성 라인은 개설 연결을 할 수 없습니다 — 수정에서 활성으로 전환하세요."
-                          >
-                            비활성
-                          </span>
-                        ) : !rowOrgAllowed(orgAccess, row.organizationSlug) ? (
-                          <span
-                            className="text-xs text-muted-foreground"
-                            title="이 클럽의 라인을 연결할 권한이 없습니다."
-                          >
-                            권한 없음
-                          </span>
-                        ) : (
-                          <div className="flex flex-col items-center gap-1">
-                            {/* 등록은 됐으나 개설 목록에 연결되지 않은 상태 — 자동 연결 실패분의
-                                복구 경로. 상태를 문구로 먼저 밝히고 재시도 버튼을 준다. */}
-                            <span className="text-[11px] leading-tight text-amber-700">
-                              등록 완료 · 개설 미연결
-                            </span>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              loading={bridgingId === row.id}
-                              disabled={bridgingId !== null && bridgingId !== row.id}
-                              onClick={() => void handleBridge(row)}
-                              title="개설 마스터에 연결해 개설 화면 드롭다운에 노출시킵니다"
+                          ) : !row.isActive ? (
+                            <span
+                              className="text-xs text-muted-foreground"
+                              title="비활성 라인은 개설 연결을 할 수 없습니다 — 수정에서 활성으로 전환하세요."
                             >
-                              <Link2 className="mr-1 h-3.5 w-3.5" />
-                              개설 연결
-                            </Button>
-                            {bridgeErrors[row.id] && (
-                              <span className="max-w-48 text-left text-[11px] leading-tight text-rose-600">
-                                {bridgeErrors[row.id]}
+                              비활성
+                            </span>
+                          ) : !rowOrgAllowed(orgAccess, row.organizationSlug) ? (
+                            <span
+                              className="text-xs text-muted-foreground"
+                              title="이 클럽의 라인을 연결할 권한이 없습니다."
+                            >
+                              권한 없음
+                            </span>
+                          ) : (
+                            <div className="flex flex-col items-center gap-1">
+                              {/* 등록은 됐으나 개설 목록에 연결되지 않은 상태 — 자동 연결 실패분의
+                                  복구 경로. 상태를 문구로 먼저 밝히고 재시도 버튼을 준다. */}
+                              <span className="text-[11px] leading-tight text-amber-700">
+                                등록 완료 · 개설 미연결
                               </span>
-                            )}
-                          </div>
-                        )}
-                      </TableCell>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                loading={bridgingId === row.id}
+                                disabled={bridgingId !== null && bridgingId !== row.id}
+                                onClick={() => void handleBridge(row)}
+                                title="개설 마스터에 연결해 개설 화면 드롭다운에 노출시킵니다"
+                              >
+                                <Link2 className="mr-1 h-3.5 w-3.5" />
+                                개설 연결
+                              </Button>
+                              {bridgeErrors[row.id] && (
+                                <span className="max-w-48 text-left text-[11px] leading-tight text-rose-600">
+                                  {bridgeErrors[row.id]}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </TableCell>
+                      ) : null}
                       {/* 수정 — 기존 편집 흐름(모달) 진입. 공용 outline/sm 버튼 스타일 재사용. */}
                       <TableCell className="text-center">
                         <Button
