@@ -163,14 +163,19 @@ export type OverallOutput = {
   imageDescription: string;
 };
 
-// 필수 아웃풋 필드 = 링크 · 설명 · 이미지. 안내/강조 대상은 항상 이 중 첫 누락 1곳.
-//   ⚠ imageDescription(이미지 설명)은 필수 대상이 아니다 — 필수는 "산출물 링크 1세트"(링크+설명)와 이미지 1건.
-export type OverallOutputRequiredField = "link" | "description" | "image";
+// 필수 아웃풋 필드 = 링크 · 설명 · 이미지 · 이미지 설명(활성 류 4칸 전부).
+//   안내/강조 대상은 항상 이 중 첫 누락 1곳.
+export type OverallOutputRequiredField =
+  | "link"
+  | "description"
+  | "image"
+  | "imageDescription";
 
 export type OverallOutputRequirementIssue = {
   missingLink: boolean;
   missingDescription: boolean;
   missingImage: boolean;
+  missingImageDescription: boolean;
   firstMissingCategory: ExperienceOverallCategory;
   firstMissingField: OverallOutputRequiredField;
   message: string;
@@ -181,6 +186,7 @@ export const OVERALL_OUTPUT_REQUIRED_MESSAGES = {
   link: "아웃풋 링크를 1개 이상 입력해주세요.",
   description: "아웃풋 설명을 1개 이상 입력해주세요.",
   image: "아웃풋 이미지를 1개 이상 등록해주세요.",
+  imageDescription: "아웃풋 이미지 설명을 1개 이상 입력해주세요.",
 } as const;
 
 // 공백만 입력한 값은 미입력으로 판정한다(trim). 필드 누락/undefined 도 미입력.
@@ -188,38 +194,42 @@ function isBlankOutputValue(value: string | null | undefined): boolean {
   return (value ?? "").trim().length === 0;
 }
 
-/** 프론트와 서버가 함께 쓰는 카테고리별 아웃풋 필수값 판정 — 링크·설명·이미지 3종 모두 필수. */
+/** 프론트와 서버가 함께 쓰는 카테고리별 아웃풋 필수값 판정 — 링크·설명·이미지·이미지 설명 4종 모두 필수. */
 export function validateOverallOutputRequirements(
   outputs: ReadonlyArray<OverallOutput>,
   extensionActive: boolean,
 ): OverallOutputRequirementIssue | null {
   const byCategory = new Map(outputs.map((output) => [output.category, output]));
-  let firstMissingLinkCategory: ExperienceOverallCategory | null = null;
-  let firstMissingDescriptionCategory: ExperienceOverallCategory | null = null;
-  let firstMissingImageCategory: ExperienceOverallCategory | null = null;
+  // 필드별 "첫 누락 카테고리". 배열 순서 = 화면 한 행의 좌→우 = 안내 우선순위.
+  const fields: ReadonlyArray<{
+    key: OverallOutputRequiredField;
+    read: (output: OverallOutput | undefined) => string | null | undefined;
+  }> = [
+    { key: "link", read: (o) => o?.link },
+    { key: "description", read: (o) => o?.description },
+    { key: "image", read: (o) => o?.imageUrl },
+    { key: "imageDescription", read: (o) => o?.imageDescription },
+  ];
+  const firstMissing = new Map<OverallOutputRequiredField, ExperienceOverallCategory>();
   for (const category of EXPERIENCE_OVERALL_CATEGORIES) {
     if (category.key === "extension" && !extensionActive) continue;
     const output = byCategory.get(category.key);
-    if (isBlankOutputValue(output?.link) && !firstMissingLinkCategory) firstMissingLinkCategory = category.key;
-    if (isBlankOutputValue(output?.description) && !firstMissingDescriptionCategory) firstMissingDescriptionCategory = category.key;
-    if (isBlankOutputValue(output?.imageUrl) && !firstMissingImageCategory) firstMissingImageCategory = category.key;
+    for (const field of fields) {
+      if (isBlankOutputValue(field.read(output)) && !firstMissing.has(field.key)) {
+        firstMissing.set(field.key, category.key);
+      }
+    }
   }
-  if (!firstMissingLinkCategory && !firstMissingDescriptionCategory && !firstMissingImageCategory) {
-    return null;
-  }
-  // 입력 흐름 우선순위(필드 우선 = 화면 한 행의 좌→우 순서): 모든 활성 류의 링크를 먼저 채우고,
-  //   그다음 설명, 마지막에 이미지를 안내한다. 여러 칸이 비어도 강조/스크롤 대상은 첫 1곳뿐.
-  const firstMissingField: OverallOutputRequiredField = firstMissingLinkCategory
-    ? "link"
-    : firstMissingDescriptionCategory
-      ? "description"
-      : "image";
+  // 입력 흐름 우선순위(필드 우선): 모든 활성 류의 링크를 먼저 채우고, 그다음 설명 → 이미지 →
+  //   이미지 설명 순으로 안내한다. 여러 칸이 비어도 강조/스크롤 대상은 첫 1곳뿐.
+  const firstMissingField = fields.find((f) => firstMissing.has(f.key))?.key;
+  if (!firstMissingField) return null;
   return {
-    missingLink: Boolean(firstMissingLinkCategory),
-    missingDescription: Boolean(firstMissingDescriptionCategory),
-    missingImage: Boolean(firstMissingImageCategory),
-    firstMissingCategory:
-      firstMissingLinkCategory ?? firstMissingDescriptionCategory ?? firstMissingImageCategory!,
+    missingLink: firstMissing.has("link"),
+    missingDescription: firstMissing.has("description"),
+    missingImage: firstMissing.has("image"),
+    missingImageDescription: firstMissing.has("imageDescription"),
+    firstMissingCategory: firstMissing.get(firstMissingField)!,
     firstMissingField,
     message: OVERALL_OUTPUT_REQUIRED_MESSAGES[firstMissingField],
   };

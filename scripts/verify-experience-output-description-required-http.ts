@@ -1,21 +1,22 @@
 /**
  * verify-experience-output-description-required-http.ts
- * 실무 경험 [팀 총괄] 개설 검수/완료 — 아웃풋 **설명**(설명1) 필수 입력 검증.
- *   요구(2026-07-27): /admin/integrated/line-opening/practical-experience 의 산출물 링크 설명이
- *   선택 → **필수**. 공백만 입력한 값도 누락으로 판정(trim). mode/org 무관 동일 정책이며,
+ * 실무 경험 [팀 총괄] 개설 검수/완료 — 아웃풋 **설명 2종** 필수 입력 검증.
+ *   요구(2026-07-27): /admin/integrated/line-opening/practical-experience 의 산출물 링크 설명(설명1)이
+ *   선택 → **필수**. 이어서(2026-07-28) **이미지 설명**(아웃풋 이미지 1 설명)도 필수로 확대.
+ *   공백만 입력한 값도 누락으로 판정(trim). mode/org 무관 동일 정책이며,
  *   프론트 `required` 뿐 아니라 **서버 API 도 같은 함수로** 차단한다.
  *
- * 검증:
+ * 검증(설명 2종 = description · imageDescription 각각 동일 케이스로):
  *   [A] 순수 판정 SoT(validateOverallOutputRequirements) — 프론트/서버 공용 단일 함수.
- *       빈 문자열·공백만·필드 누락 모두 차단 / 여러 설명 중 1곳만 누락 시 그 카테고리를 정확히 지목 /
- *       우선순위 링크 → 설명 → 이미지 / 확장류는 확장 주간에만 검사.
+ *       빈 문자열·공백만·필드 누락 모두 차단 / 여러 칸 중 1곳만 누락 시 그 카테고리를 정확히 지목 /
+ *       우선순위 링크 → 설명 → 이미지 → 이미지 설명 / 확장류는 확장 주간에만 검사.
  *   [B] 실제 HTTP 가드 — 전 org(encre·oranke·phalanx) × 일반(operating)·테스트(test) ×
- *       review·open 에서 설명 누락 = 422 + 동일 문구, 설명 충족 = 아웃풋 게이트 통과.
+ *       review·open 에서 설명 누락 = 422 + 각 필드 전용 문구, 설명 충족 = 아웃풋 게이트 통과.
  *   [C] 임퍼소네이션(actAsTestUserId) 경로 = 일반 사용자 경로와 동일 status/문구(별도 검증 로직 없음).
  *       ※ 이 라우트에 demoUserId 개념은 없다(고객 앱 전용) — 임퍼소네이션이 그 대응 경로.
- *   [D] 실제 저장 성공 라운드트립 — 클린-슬레이트 (T)팀에 설명 정상 입력 → review/open 201,
- *       DB output_description 저장, 보드 재조회 아웃풋 DTO 키 불변, weekly_card_snapshots count 불변.
- *       같은 대상에서 설명만 비우면 422(실 대상에서도 차단). 실행 후 완전 원복.
+ *   [D] 실제 저장 성공 라운드트립 — 클린-슬레이트 팀에 설명 2종 정상 입력 → review/open 201,
+ *       DB output_description·output_image_description 저장, 보드 재조회 아웃풋 DTO 키 불변,
+ *       weekly_card_snapshots count 불변. 각 설명만 비우면 422(실 대상에서도 차단). 실행 후 완전 원복.
  *
  * 실행: npx tsx --env-file=.env.local scripts/verify-experience-output-description-required-http.ts
  */
@@ -55,24 +56,40 @@ const check = (label: string, ok: boolean, detail = "") => {
   else fail++;
 };
 
-// 링크/이미지는 항상 채우고 설명만 케이스별로 바꾼다 — 설명 필수 여부를 단독 변수로 관찰하기 위함.
+// 검증 대상 설명 2종 — 링크 설명(description)과 이미지 설명(imageDescription).
+//   둘 다 같은 정책(필수 · trim · 첫 누락 1곳 안내)이라 동일 케이스를 두 필드에 모두 돌린다.
+const DESC_FIELDS = [
+  { field: "description" as const, label: "링크 설명", message: OVERALL_OUTPUT_REQUIRED_MESSAGES.description },
+  { field: "imageDescription" as const, label: "이미지 설명", message: OVERALL_OUTPUT_REQUIRED_MESSAGES.imageDescription },
+];
+type DescField = (typeof DESC_FIELDS)[number]["field"];
+
+// 나머지 필수 3칸은 항상 채우고 대상 설명 필드만 케이스별로 바꾼다 —
+//   해당 설명의 필수 여부를 단독 변수로 관찰하기 위함.
 function outs(opts?: {
-  description?: string;
-  descriptionByCategory?: Partial<Record<ExperienceOverallCategory, string>>;
-  omitDescriptionField?: boolean;
+  field?: DescField;
+  value?: string;
+  valueByCategory?: Partial<Record<ExperienceOverallCategory, string>>;
+  omitField?: boolean;
 }): OverallOutput[] {
+  const target = opts?.field ?? "description";
   return ALL_CATS.map((key) => {
-    const base = {
+    const row: OverallOutput = {
       category: key,
       link: `https://example.com/${key}`,
+      description: "산출물 설명",
       imageUrl: `https://example.com/${key}.png`,
-      imageDescription: "이미지 설명(선택 항목)",
+      imageDescription: "산출물 이미지 설명",
     };
-    if (opts?.omitDescriptionField) return base as unknown as OverallOutput;
-    return {
-      ...base,
-      description: opts?.descriptionByCategory?.[key] ?? opts?.description ?? "산출물 설명",
-    };
+    if (!opts) return row;
+    if (opts.omitField) {
+      const partial = { ...row } as Partial<OverallOutput>;
+      delete partial[target];
+      return partial as OverallOutput;
+    }
+    const override = opts.valueByCategory?.[key] ?? opts.value;
+    if (override !== undefined) row[target] = override;
+    return row;
   });
 }
 
@@ -102,118 +119,145 @@ async function adminCookieHeader(): Promise<string> {
   return captured.map(({ name, value }) => `${name}=${value}`).join("; ");
 }
 
-async function httpPost(cookie: string, body: unknown) {
+// 현재 admin 세션 쿠키. 장시간 실행 중 간헐적으로 401 이 나는 경우가 있어(토큰 갱신 레이스)
+//   401 이면 쿠키를 재발급해 한 번 재시도한다 — 검증 대상(422/201 판정)과 무관한 인프라 잡음을
+//   결과에서 걷어내기 위함. 재발급 값이 이후 호출에도 이어지도록 모듈 레벨 단일 값으로 들고 있는다.
+let authCookie = "";
+
+async function postOnce(body: unknown) {
   const res = await fetch(`${BASE}/api/admin/cluster4/experience/team-overall`, {
     method: "POST",
-    headers: { cookie, "content-type": "application/json" },
+    headers: { cookie: authCookie, "content-type": "application/json" },
     body: JSON.stringify(body),
   });
   return { status: res.status, json: (await res.json().catch(() => ({}))) as Record<string, unknown> };
 }
 
-async function httpGetBoard(
-  cookie: string,
-  org: string,
-  weekId: string,
-  teamId: string,
-  teamName: string,
-  mode: Mode,
-) {
+async function httpPost(body: unknown) {
+  const first = await postOnce(body);
+  if (first.status !== 401) return first;
+  authCookie = await adminCookieHeader();
+  return postOnce(body);
+}
+
+async function getBoardOnce(org: string, weekId: string, teamId: string, teamName: string, mode: Mode) {
   const url =
     `${BASE}/api/admin/cluster4/experience/team-overall?organization=${org}` +
     `&week_id=${weekId}&team_id=${teamId}&team_name=${encodeURIComponent(teamName)}&mode=${mode}`;
-  const res = await fetch(url, { headers: { cookie } });
-  return { status: res.status, json: (await res.json()) as { data?: BoardDto } };
+  const res = await fetch(url, { headers: { cookie: authCookie } });
+  return { status: res.status, json: (await res.json().catch(() => ({}))) as { data?: BoardDto } };
+}
+
+async function httpGetBoard(org: string, weekId: string, teamId: string, teamName: string, mode: Mode) {
+  const first = await getBoardOnce(org, weekId, teamId, teamName, mode);
+  if (first.status !== 401) return first;
+  authCookie = await adminCookieHeader();
+  return getBoardOnce(org, weekId, teamId, teamName, mode);
 }
 
 // ───────────────────────── [A] 순수 판정 SoT ─────────────────────────
 function verifyPureValidator() {
   console.log("\n=== [A] 순수 판정 SoT — 프론트/서버 공용 validateOverallOutputRequirements ===");
-  const DESC = OVERALL_OUTPUT_REQUIRED_MESSAGES.description;
 
-  check("설명 정상 입력 → 통과(null)", validateOverallOutputRequirements(outs(), false) === null);
+  check("설명 2종 정상 입력 → 통과(null)", validateOverallOutputRequirements(outs(), false) === null);
 
-  const empty = validateOverallOutputRequirements(outs({ description: "" }), false);
-  check(
-    "설명 빈 문자열 → 차단 + 설명 문구",
-    empty?.firstMissingField === "description" && empty?.message === DESC && empty?.missingDescription === true,
-    `field=${empty?.firstMissingField} msg=${empty?.message}`,
-  );
-
-  for (const blank of [" ", "   ", "\t", "\n", " \t\n "]) {
-    const ws = validateOverallOutputRequirements(outs({ description: blank }), false);
+  for (const { field, label, message } of DESC_FIELDS) {
+    console.log(`  — ${label}(${field})`);
+    const empty = validateOverallOutputRequirements(outs({ field, value: "" }), false);
     check(
-      `설명 공백만(${JSON.stringify(blank)}) → 차단(trim 판정)`,
-      ws?.firstMissingField === "description" && ws?.message === DESC,
-      `field=${ws?.firstMissingField}`,
+      `${label} 빈 문자열 → 차단 + 전용 문구`,
+      empty?.firstMissingField === field && empty?.message === message,
+      `field=${empty?.firstMissingField} msg=${empty?.message}`,
+    );
+
+    for (const blank of [" ", "   ", "\t", "\n", " \t\n "]) {
+      const ws = validateOverallOutputRequirements(outs({ field, value: blank }), false);
+      check(
+        `${label} 공백만(${JSON.stringify(blank)}) → 차단(trim 판정)`,
+        ws?.firstMissingField === field && ws?.message === message,
+        `field=${ws?.firstMissingField}`,
+      );
+    }
+
+    const omitted = validateOverallOutputRequirements(outs({ field, omitField: true }), false);
+    check(
+      `${label} 필드 자체 누락(구버전 클라) → 차단`,
+      omitted?.firstMissingField === field && omitted?.message === message,
+      `field=${omitted?.firstMissingField}`,
+    );
+
+    // 여러 칸 중 하나만 누락 → 그 카테고리를 정확히 지목(화면 강조/스크롤 대상 = 이 값).
+    for (const target of ALL_CATS.filter((c) => c !== "extension")) {
+      const one = validateOverallOutputRequirements(
+        outs({ field, valueByCategory: { [target]: "   " } }),
+        false,
+      );
+      check(
+        `${label} 중 [${target}] 1곳만 공백 → 그 카테고리 정확 지목`,
+        one?.firstMissingField === field && one?.firstMissingCategory === target,
+        `cat=${one?.firstMissingCategory} field=${one?.firstMissingField}`,
+      );
+    }
+
+    // 확장류: 확장 주간이 아니면 검사 대상 아님(기존 링크/이미지 정책과 동일).
+    const extOnlyBlank = outs({ field, valueByCategory: { extension: "" } });
+    check(
+      `확장 주간 아님 → 확장류 ${label} 미검사`,
+      validateOverallOutputRequirements(extOnlyBlank, false) === null,
+    );
+    const extActive = validateOverallOutputRequirements(extOnlyBlank, true);
+    check(
+      `확장 주간 → 확장류 ${label}도 필수`,
+      extActive?.firstMissingField === field && extActive?.firstMissingCategory === "extension",
+      `cat=${extActive?.firstMissingCategory}`,
     );
   }
 
-  const omitted = validateOverallOutputRequirements(outs({ omitDescriptionField: true }), false);
-  check(
-    "설명 필드 자체 누락(구버전 클라) → 차단",
-    omitted?.firstMissingField === "description" && omitted?.message === DESC,
-    `field=${omitted?.firstMissingField}`,
-  );
-
-  // 여러 설명 중 하나만 누락 → 그 카테고리를 정확히 지목(화면 강조/스크롤 대상 = 이 값).
-  for (const target of ALL_CATS.filter((c) => c !== "extension")) {
-    const one = validateOverallOutputRequirements(
-      outs({ descriptionByCategory: { [target]: "   " } }),
-      false,
-    );
+  // 우선순위(화면 한 행 좌→우): 링크 → 설명 → 이미지 → 이미지 설명.
+  //   4칸을 전부 비우고 하나씩 채워가며 안내 순서가 그대로인지 본다.
+  console.log("  — 안내 우선순위(링크 → 설명 → 이미지 → 이미지 설명)");
+  const blankAll: OverallOutput[] = ALL_CATS.map((key) => ({
+    category: key,
+    link: "",
+    description: "",
+    imageUrl: "",
+    imageDescription: "",
+  }));
+  const order: OverallOutputRequiredField[] = ["link", "description", "image", "imageDescription"];
+  const fill: Record<OverallOutputRequiredField, (o: OverallOutput) => OverallOutput> = {
+    link: (o) => ({ ...o, link: "https://example.com" }),
+    description: (o) => ({ ...o, description: "설명" }),
+    image: (o) => ({ ...o, imageUrl: "https://example.com/a.png" }),
+    imageDescription: (o) => ({ ...o, imageDescription: "이미지 설명" }),
+  };
+  let rows = blankAll;
+  for (const expected of order) {
+    const issue = validateOverallOutputRequirements(rows, false);
     check(
-      `여러 설명 중 [${target}] 1곳만 공백 → 그 카테고리 정확 지목`,
-      one?.firstMissingField === "description" && one?.firstMissingCategory === target,
-      `cat=${one?.firstMissingCategory} field=${one?.firstMissingField}`,
+      `남은 누락 중 [${expected}] 우선 안내`,
+      issue?.firstMissingField === expected &&
+        issue?.message === OVERALL_OUTPUT_REQUIRED_MESSAGES[expected],
+      `field=${issue?.firstMissingField}`,
     );
+    rows = rows.map(fill[expected]);
   }
-
-  // 우선순위: 링크 → 설명 → 이미지.
-  const linkFirst = validateOverallOutputRequirements(
-    outs({ description: "" }).map((o) => ({ ...o, link: "" })),
-    false,
-  );
-  check(
-    "링크·설명 동시 누락 → 링크 우선 안내",
-    linkFirst?.firstMissingField === "link" && linkFirst?.missingDescription === true,
-    `field=${linkFirst?.firstMissingField}`,
-  );
-  const descBeforeImage = validateOverallOutputRequirements(
-    outs({ description: "" }).map((o) => ({ ...o, imageUrl: "" })),
-    false,
-  );
-  check(
-    "설명·이미지 동시 누락 → 설명 우선 안내",
-    descBeforeImage?.firstMissingField === "description" && descBeforeImage?.missingImage === true,
-    `field=${descBeforeImage?.firstMissingField}`,
-  );
-
-  // 확장류: 확장 주간이 아니면 설명도 검사 대상 아님(기존 링크/이미지 정책과 동일).
-  const extOnlyBlank = outs({ descriptionByCategory: { extension: "" } });
-  check(
-    "확장 주간 아님 → 확장류 설명 미검사",
-    validateOverallOutputRequirements(extOnlyBlank, false) === null,
-  );
-  const extActive = validateOverallOutputRequirements(extOnlyBlank, true);
-  check(
-    "확장 주간 → 확장류 설명도 필수",
-    extActive?.firstMissingField === "description" && extActive?.firstMissingCategory === "extension",
-    `cat=${extActive?.firstMissingCategory}`,
-  );
+  check("4칸 모두 채우면 통과(null)", validateOverallOutputRequirements(rows, false) === null);
 }
 
 // ────────────── [B][C] HTTP 가드 — 전 org × 모드 × action (+임퍼 경로 파리티) ──────────────
-async function verifyHttpGuard(cookie: string, weekId: string) {
+async function verifyHttpGuard(weekId: string) {
   console.log("\n=== [B] HTTP 가드 — 전 org × 일반/테스트 모드 × review/open ===");
-  const DESC = OVERALL_OUTPUT_REQUIRED_MESSAGES.description;
-  const blockedCases = [
-    { label: "설명 빈 문자열", values: outs({ description: "" }) },
-    { label: "설명 공백만", values: outs({ description: "   " }) },
-    { label: "설명 필드 누락", values: outs({ omitDescriptionField: true }) },
-    // 여러 설명 중 하나(분석)만 누락 — 나머지는 정상.
-    { label: "설명 1곳(분석)만 누락", values: outs({ descriptionByCategory: { analysis: " " } }) },
-  ];
+  const blockedCases = DESC_FIELDS.flatMap(({ field, label, message }) => [
+    { label: `${label} 빈 문자열`, values: outs({ field, value: "" }), message },
+    { label: `${label} 공백만`, values: outs({ field, value: "   " }), message },
+    { label: `${label} 필드 누락`, values: outs({ field, omitField: true }), message },
+    // 여러 칸 중 하나(분석)만 누락 — 나머지는 정상.
+    {
+      label: `${label} 1곳(분석)만 누락`,
+      values: outs({ field, valueByCategory: { analysis: " " } }),
+      message,
+    },
+  ]);
   // 아웃풋 게이트만 관찰하기 위한 더미 팀 — 게이트가 DB write 보다 앞에 있으므로 데이터 변경 없음.
   const teamKey = "output-description-required-http-guard";
   const impersonationStatuses = new Map<string, string>();
@@ -223,7 +267,7 @@ async function verifyHttpGuard(cookie: string, weekId: string) {
       for (const action of ["review", "open"] as const) {
         console.log(`  · ${organization}/${mode}/${action} …`);
         for (const scenario of blockedCases) {
-          const { status, json } = await httpPost(cookie, {
+          const { status, json } = await httpPost({
             action,
             organization,
             week_id: weekId,
@@ -235,14 +279,14 @@ async function verifyHttpGuard(cookie: string, weekId: string) {
             lineSelections: [],
           });
           check(
-            `[${organization}/${mode}/${action}] ${scenario.label} → 422 차단 + 설명 문구`,
-            status === 422 && json.error === DESC,
+            `[${organization}/${mode}/${action}] ${scenario.label} → 422 차단 + 전용 문구`,
+            status === 422 && json.error === scenario.message,
             `status=${status} error=${String(json.error)}`,
           );
         }
 
         // 설명 충족 → 아웃풋 필수 게이트는 통과(더미 팀이므로 이후 다른 업무 사유로 막힐 수 있음).
-        const okRes = await httpPost(cookie, {
+        const okRes = await httpPost({
           action,
           organization,
           week_id: weekId,
@@ -257,41 +301,50 @@ async function verifyHttpGuard(cookie: string, weekId: string) {
           OVERALL_OUTPUT_REQUIRED_MESSAGES.link,
           OVERALL_OUTPUT_REQUIRED_MESSAGES.description,
           OVERALL_OUTPUT_REQUIRED_MESSAGES.image,
+          OVERALL_OUTPUT_REQUIRED_MESSAGES.imageDescription,
         ];
         check(
-          `[${organization}/${mode}/${action}] 설명 정상 → 아웃풋 게이트 통과`,
+          `[${organization}/${mode}/${action}] 설명 2종 정상 → 아웃풋 게이트 통과`,
           !outputGateMessages.includes(String(okRes.json.error)),
           `status=${okRes.status} error=${String(okRes.json.error ?? "(없음)")}`,
         );
 
-        // [C] 임퍼소네이션(actAsTestUserId) 경로 파리티 — 같은 body + actAsTestUserId.
-        const impRes = await httpPost(cookie, {
-          action,
-          organization,
-          week_id: weekId,
-          team_id: teamKey,
-          team_name: teamKey,
-          mode,
-          leaderCells: [],
-          outputs: outs({ description: "   " }),
-          lineSelections: [],
-          actAsTestUserId: "00000000-0000-0000-0000-000000000000",
-        });
-        impersonationStatuses.set(
-          `${organization}/${mode}/${action}`,
-          `${impRes.status}:${String(impRes.json.error)}`,
-        );
+        // [C] 임퍼소네이션(actAsTestUserId) 경로 파리티 — 같은 body + actAsTestUserId. 설명 2종 각각.
+        for (const { field } of DESC_FIELDS) {
+          const impRes = await httpPost({
+            action,
+            organization,
+            week_id: weekId,
+            team_id: teamKey,
+            team_name: teamKey,
+            mode,
+            leaderCells: [],
+            outputs: outs({ field, value: "   " }),
+            lineSelections: [],
+            actAsTestUserId: "00000000-0000-0000-0000-000000000000",
+          });
+          impersonationStatuses.set(
+            `${organization}/${mode}/${action}/${field}`,
+            `${impRes.status}:${String(impRes.json.error)}`,
+          );
+        }
       }
     }
   }
 
   console.log("\n=== [C] 임퍼소네이션(actAsTestUserId) 경로 = 일반 경로 동일 판정 ===");
-  const distinct = new Set(impersonationStatuses.values());
-  check(
-    "actAsTestUserId 경로도 설명 공백 → 동일 422 + 동일 문구(별도 검증 로직 없음)",
-    distinct.size === 1 && [...distinct][0] === `422:${DESC}`,
-    [...distinct].join(" / "),
-  );
+  for (const { field, label, message } of DESC_FIELDS) {
+    const seen = new Set(
+      [...impersonationStatuses.entries()]
+        .filter(([k]) => k.endsWith(`/${field}`))
+        .map(([, v]) => v),
+    );
+    check(
+      `actAsTestUserId 경로도 ${label} 공백 → 동일 422 + 동일 문구(별도 검증 로직 없음)`,
+      seen.size === 1 && [...seen][0] === `422:${message}`,
+      [...seen].join(" / "),
+    );
+  }
 }
 
 // ────────────── [D] 실제 저장 성공 + DTO/snapshot 불변 (클린 (T)팀, 실행 후 원복) ──────────────
@@ -366,10 +419,9 @@ async function discover(mode: Mode, weekLabels: Map<string, string>): Promise<Ta
 
 const outputDtoShapes = new Set<string>();
 
-async function verifyRealSave(cookie: string, mode: Mode, tgt: Target) {
+async function verifyRealSave(mode: Mode, tgt: Target) {
   const { org, teamId, teamName, weekId, weekLabel, board } = tgt;
   console.log(`\n=== [D] 실제 저장 — [${mode}] ${org} / ${teamName} / ${weekLabel} ===`);
-  const DESC = OVERALL_OUTPUT_REQUIRED_MESSAGES.description;
 
   const crews = board.parts.flatMap((p) => p.crews);
   const mgmtOptId = board.lineOptions.management?.[0]?.id ?? null;
@@ -408,23 +460,37 @@ async function verifyRealSave(cookie: string, mode: Mode, tgt: Target) {
     .from("cluster4_weekly_card_snapshots")
     .select("*", { count: "exact", head: true });
 
-  // 실 대상에서도 설명 누락은 차단(더미 팀 결과가 우연이 아님을 확인).
-  const blocked = await httpPost(cookie, { ...bodyBase, action: "review", outputs: outs({ description: "  " }) });
-  check("실 대상 설명 공백 → 422 차단", blocked.status === 422 && blocked.json.error === DESC, `status=${blocked.status}`);
-  const { data: hdrAfterBlocked } = await sb
-    .from("cluster4_experience_team_overall")
-    .select("id")
-    .eq("organization_slug", org)
-    .eq("week_id", weekId)
-    .eq("team_id", teamId);
-  check("차단 시 DB write 없음(헤더 미생성)", (hdrAfterBlocked ?? []).length === 0);
+  // 실 대상에서도 설명 2종 누락은 각각 차단(더미 팀 결과가 우연이 아님을 확인).
+  for (const { field, label, message } of DESC_FIELDS) {
+    const blocked = await httpPost({
+      ...bodyBase,
+      action: "review",
+      outputs: outs({ field, value: "  " }),
+    });
+    check(
+      `실 대상 ${label} 공백 → 422 차단`,
+      blocked.status === 422 && blocked.json.error === message,
+      `status=${blocked.status} error=${String(blocked.json.error)}`,
+    );
+    const { data: hdrAfterBlocked } = await sb
+      .from("cluster4_experience_team_overall")
+      .select("id")
+      .eq("organization_slug", org)
+      .eq("week_id", weekId)
+      .eq("team_id", teamId);
+    check(`${label} 차단 시 DB write 없음(헤더 미생성)`, (hdrAfterBlocked ?? []).length === 0);
+  }
 
-  // 설명 정상 → 검수 성공.
-  const descByCat: Partial<Record<ExperienceOverallCategory, string>> = {};
-  for (const key of ALL_CATS) descByCat[key] = `설명-${key}`;
-  const goodOutputs = outs({ descriptionByCategory: descByCat });
-  const rev = await httpPost(cookie, { ...bodyBase, action: "review", outputs: goodOutputs });
-  check("설명 정상 → 검수 201 성공", rev.status === 201 && rev.json.success === true, `status=${rev.status} ${String(rev.json.error ?? "")}`);
+  // 설명 2종 정상 → 검수 성공. 카테고리별로 서로 다른 값을 넣어 저장/재조회를 대조한다.
+  const goodOutputs: OverallOutput[] = ALL_CATS.map((key) => ({
+    category: key,
+    link: `https://example.com/${key}`,
+    description: `설명-${key}`,
+    imageUrl: `https://example.com/${key}.png`,
+    imageDescription: `이미지설명-${key}`,
+  }));
+  const rev = await httpPost({ ...bodyBase, action: "review", outputs: goodOutputs });
+  check("설명 2종 정상 → 검수 201 성공", rev.status === 201 && rev.json.success === true, `status=${rev.status} ${String(rev.json.error ?? "")}`);
 
   const { data: hdrRow } = await sb
     .from("cluster4_experience_team_overall")
@@ -438,33 +504,47 @@ async function verifyRealSave(cookie: string, mode: Mode, tgt: Target) {
     .from("cluster4_experience_team_overall_outputs")
     .select("category,output_link,output_description,output_image_url,output_image_description")
     .eq("overall_id", overallId ?? "x");
-  const savedDesc = new Map(
-    ((outRows ?? []) as Array<{ category: string; output_description: string | null }>).map((r) => [
-      r.category,
-      r.output_description,
-    ]),
+  const savedRows = new Map(
+    (
+      (outRows ?? []) as Array<{
+        category: string;
+        output_description: string | null;
+        output_image_description: string | null;
+      }>
+    ).map((r) => [r.category, r]),
   );
   const activeCats = ALL_CATS.filter((c) => c !== "extension" || board.extensionActive);
   check(
-    "설명이 output_description 컬럼에 저장(활성 류 전부)",
-    activeCats.every((c) => savedDesc.get(c) === `설명-${c}`),
-    activeCats.map((c) => `${c}=${savedDesc.get(c)}`).join(", "),
+    "링크 설명이 output_description 컬럼에 저장(활성 류 전부)",
+    activeCats.every((c) => savedRows.get(c)?.output_description === `설명-${c}`),
+    activeCats.map((c) => `${c}=${savedRows.get(c)?.output_description}`).join(", "),
+  );
+  check(
+    "이미지 설명이 output_image_description 컬럼에 저장(활성 류 전부)",
+    activeCats.every((c) => savedRows.get(c)?.output_image_description === `이미지설명-${c}`),
+    activeCats.map((c) => `${c}=${savedRows.get(c)?.output_image_description}`).join(", "),
   );
 
   // 보드 재조회 — 아웃풋 DTO 키 불변(기존 저장/조회 DTO 변경 없음).
-  const got = await httpGetBoard(cookie, org, weekId, teamId, teamName, mode);
+  const got = await httpGetBoard(org, weekId, teamId, teamName, mode);
   const gotOutputs = got.json.data?.outputs ?? [];
   for (const o of gotOutputs) outputDtoShapes.add(Object.keys(o).sort().join(","));
-  const roundTripped = new Map(gotOutputs.map((o) => [o.category, o.description]));
+  const roundTripped = new Map(gotOutputs.map((o) => [o.category, o]));
   check(
-    "재조회 DTO 설명 라운드트립 일치",
-    activeCats.every((c) => roundTripped.get(c) === `설명-${c}`),
-    activeCats.map((c) => `${c}=${roundTripped.get(c)}`).join(", "),
+    "재조회 DTO 설명 2종 라운드트립 일치",
+    activeCats.every(
+      (c) =>
+        roundTripped.get(c)?.description === `설명-${c}` &&
+        roundTripped.get(c)?.imageDescription === `이미지설명-${c}`,
+    ),
+    activeCats
+      .map((c) => `${c}=${roundTripped.get(c)?.description}/${roundTripped.get(c)?.imageDescription}`)
+      .join(", "),
   );
 
   // 설명 정상 → 개설 완료 성공.
-  const openRes = await httpPost(cookie, { ...bodyBase, action: "open", outputs: goodOutputs });
-  check("설명 정상 → 개설 완료 201 성공", openRes.status === 201 && openRes.json.success === true, `status=${openRes.status} ${String(openRes.json.error ?? "")}`);
+  const openRes = await httpPost({ ...bodyBase, action: "open", outputs: goodOutputs });
+  check("설명 2종 정상 → 개설 완료 201 성공", openRes.status === 201 && openRes.json.success === true, `status=${openRes.status} ${String(openRes.json.error ?? "")}`);
 
   const { data: openedLines } = await sb
     .from("cluster4_experience_team_overall_opened_lines")
@@ -482,7 +562,7 @@ async function verifyRealSave(cookie: string, mode: Mode, tgt: Target) {
   );
 
   // ── 원복 ──
-  const cancelRes = await httpPost(cookie, { ...bodyBase, action: "cancel", leaderCells: [], lineSelections: [] });
+  const cancelRes = await httpPost({ ...bodyBase, action: "cancel", leaderCells: [], lineSelections: [] });
   check("[원복] cancel 성공", cancelRes.status === 200 && cancelRes.json.success === true, `status=${cancelRes.status}`);
   await sb
     .from("cluster4_experience_team_overall")
@@ -507,7 +587,7 @@ async function verifyRealSave(cookie: string, mode: Mode, tgt: Target) {
 async function main() {
   verifyPureValidator();
 
-  const cookie = await adminCookieHeader();
+  authCookie = await adminCookieHeader();
   const { data: recentWeeks } = await sb
     .from("weeks")
     .select("id,week_number,start_date,season_key")
@@ -526,7 +606,7 @@ async function main() {
   }
   if (nonRestWeeks.length === 0) throw new Error("검증용 비휴식 주차 없음");
 
-  await verifyHttpGuard(cookie, nonRestWeeks[0].id);
+  await verifyHttpGuard(nonRestWeeks[0].id);
 
   const weekLabels = new Map(nonRestWeeks.map((w) => [w.id, w.label]));
   let ran = 0;
@@ -536,7 +616,7 @@ async function main() {
       console.log(`\n- [D] ${mode}: 클린-슬레이트 개설가능 팀 없음 → 실 저장 케이스 skip`);
       continue;
     }
-    await verifyRealSave(cookie, mode, tgt);
+    await verifyRealSave(mode, tgt);
     ran++;
   }
 

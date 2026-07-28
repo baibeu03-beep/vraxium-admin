@@ -153,8 +153,8 @@ export default function ExperienceTeamOverallBoard({
   const { toast, loading: showLoadingToast, dismiss: dismissToast } = useToast();
   const t = useActionToast();
   const outputSectionRef = useRef<HTMLDivElement>(null);
-  // 포커스 대상(링크/설명 Input · 이미지 업로드 버튼) —
-  //   key=`${category}:link` | `${category}:description` | `${category}:image`.
+  // 포커스 대상(링크/설명 Input · 이미지 업로드 버튼 · 이미지 설명 textarea) — key=`${category}:link` |
+  //   `${category}:description` | `${category}:image` | `${category}:imageDescription`.
   const outputFieldRefs = useRef(new Map<string, HTMLElement>());
   // 스크롤/강조 대상 wrapper(필드 묶음 div) — 같은 key. 붉은 ring+깜빡임을 이 wrapper 에 입힌다.
   const outputWrapRefs = useRef(new Map<string, HTMLElement>());
@@ -178,7 +178,7 @@ export default function ExperienceTeamOverallBoard({
     new Map(),
   );
   // 필수 입력 누락 강조(일시) — validateOutputsAndGuide 가 스크롤/포커스하는 첫 누락 필드 키
-  //   (`${category}:link` | `${category}:description` | `${category}:image`). 해당 필드에 aria-invalid +
+  //   (`${category}:link` | `:description` | `:image` | `:imageDescription`). 해당 필드에 aria-invalid +
   //   붉은 테두리를 표시하고, 사용자가 아웃풋을 편집하거나 다음 검증을 통과하면 해제한다.
   const [invalidOutputKey, setInvalidOutputKey] = useState<string | null>(null);
   // 필수 입력 누락 강조(일시) — 파트장 라인명 미선택 셀 키(`${crewUserId}:${category}`).
@@ -494,7 +494,8 @@ export default function ExperienceTeamOverallBoard({
   );
 
   // 첫 누락 필드로 스크롤/포커스 — practical-info 와 동일한 공용 helper 재사용.
-  //   wrap = 강조/스크롤 대상(필드 wrapper), target = 포커스 대상(링크/설명 Input · 이미지 업로드 버튼).
+  //   wrap = 강조/스크롤 대상(필드 wrapper), target = 포커스 대상(링크/설명 Input · 이미지 업로드
+  //   버튼 · 이미지 설명 textarea).
   const scrollFocusInvalidOutputKey = useCallback((key: string) => {
     scrollFocusInvalidTarget(
       outputWrapRefs.current.get(key) ?? null,
@@ -1146,7 +1147,7 @@ export default function ExperienceTeamOverallBoard({
           />
         </p>
         <p className="text-xs text-muted-foreground">
-          <span className="text-destructive">*</span> 활성 류별 링크 1개, 그 설명, 이미지 1개는 필수 입력입니다.
+          <span className="text-destructive">*</span> 활성 류별 링크 1개, 그 설명, 이미지 1개, 이미지 설명은 모두 필수 입력입니다.
         </p>
         {EXPERIENCE_OVERALL_CATEGORIES.map((c) => {
           const o = getOutput(c.key);
@@ -1260,14 +1261,36 @@ export default function ExperienceTeamOverallBoard({
                   }}
                   required={!(c.key === "extension" && !extensionActive)}
                 />
-                {/* 이미지 설명 */}
-                <div className="space-y-1.5">
-                  <Label>아웃풋 이미지 1 설명</Label>
+                {/* 이미지 설명 — 링크/설명/이미지와 동일하게 필수(누락 강조/스크롤/포커스 경로도 동일). */}
+                <div
+                  ref={(element) => {
+                    const key = `${c.key}:imageDescription`;
+                    if (element) outputWrapRefs.current.set(key, element);
+                    else outputWrapRefs.current.delete(key);
+                  }}
+                  className={cn(
+                    "space-y-1.5",
+                    invalidOutputKey === `${c.key}:imageDescription` && OPENING_INVALID_HIGHLIGHT,
+                  )}
+                >
+                  <Label className="inline-flex items-center gap-1">
+                    아웃풋 이미지 1 설명
+                    {!(c.key === "extension" && !extensionActive) && (
+                      <span className="text-destructive" aria-hidden="true">*</span>
+                    )}
+                  </Label>
                   <textarea
-                    className="flex min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                    ref={(element) => {
+                      const key = `${c.key}:imageDescription`;
+                      if (element) outputFieldRefs.current.set(key, element);
+                      else outputFieldRefs.current.delete(key);
+                    }}
+                    // 누락 강조 — raw textarea 라 ui/input.tsx 의 aria-invalid 변형을 직접 붙인다.
+                    className="flex min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40"
                     rows={3}
                     value={o.imageDescription}
                     disabled={disabled}
+                    aria-invalid={invalidOutputKey === `${c.key}:imageDescription` || undefined}
                     onChange={(e) => setOutput(c.key, { imageDescription: e.target.value })}
                   />
                 </div>
