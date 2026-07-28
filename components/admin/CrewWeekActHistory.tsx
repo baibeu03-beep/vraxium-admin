@@ -342,7 +342,7 @@ export default function CrewWeekActHistory({
 
       {confirmOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          data-admin-overlay="" className="fixed inset-0 z-modal flex items-center justify-center admin-backdrop p-4"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget && !cancelling) setConfirmOpen(false);
           }}
@@ -381,7 +381,7 @@ export default function CrewWeekActHistory({
 
       {/* 성장 결과 변경 확인(취소로 성공→실패) — 저장 전(취소 미반영). "그래도 취소" 시에만 실제 반영. */}
       {cancelFlip && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+        <div data-admin-overlay="" className="fixed inset-0 z-modal-nested flex items-center justify-center admin-backdrop p-4">
           <div className="modal-w-md rounded-xl bg-card p-5 shadow-xl ring-1 ring-foreground/10">
             <h2 className="text-base font-semibold">성장 결과 변경 확인</h2>
             <p className="mt-3 text-sm text-foreground">

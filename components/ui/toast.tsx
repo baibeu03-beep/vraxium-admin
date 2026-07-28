@@ -388,7 +388,7 @@ export function ToastViewport() {
       style={{
         ["--toast-left"]: `calc(${sidebarWidthVar} + var(--admin-content-padding))`,
       } as CSSProperties}
-      className="pointer-events-none fixed bottom-6 left-4 right-4 z-[100] flex flex-col gap-3 transition-[left,right] duration-200 sm:left-[var(--toast-left)] sm:right-[var(--admin-content-padding)]"
+      className="pointer-events-none fixed bottom-6 left-4 right-4 z-toast flex flex-col gap-3 transition-[left,right] duration-200 sm:left-[var(--toast-left)] sm:right-[var(--admin-content-padding)]"
       aria-live="polite"
     >
       {list.map((item) => (

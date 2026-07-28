@@ -3,6 +3,7 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
+import { popoverZIndex } from "@/lib/overlayLayer";
 
 // 공용 hover/focus 툴팁 — 전역 단일 SoT(디자인 출처는 이 파일 하나).
 //   · 화면 툴팁 내용을 React state(content)로 렌더 → 열려 있는 동안 content 가 바뀌면 "즉시" 갱신된다
@@ -55,6 +56,9 @@ export function TooltipBubble({
   className?: string;
   children: React.ReactNode;
 }) {
+  // 레이어는 "열리는 시점"에 한 번 정한다 — 모달 안에서 뜬 툴팁은 모달 위(--z-modal-popover),
+  // 페이지에서 뜬 툴팁은 표 sticky 위·모달 아래(--z-page-popover). 고정 z 로는 둘 중 하나가 깨진다.
+  const [zIndex] = React.useState(popoverZIndex);
   if (typeof document === "undefined") return null;
   return createPortal(
     <div
@@ -64,7 +68,7 @@ export function TooltipBubble({
         left,
         transform:
           placement === "top" ? "translate(-50%, -100%)" : "translate(-50%, 0)",
-        zIndex: 60,
+        zIndex,
         pointerEvents: "none",
       }}
     >

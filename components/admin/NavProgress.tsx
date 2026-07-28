@@ -174,7 +174,7 @@ export default function NavProgress() {
     <div
       aria-hidden
       data-nav-progress=""
-      className="pointer-events-none fixed inset-x-0 top-0 z-[100] h-0.5"
+      className="pointer-events-none fixed inset-x-0 top-0 z-nav-progress h-0.5"
     >
       <div
         className="h-full bg-primary shadow-[0_0_8px_var(--primary)] transition-[width] duration-200 ease-out"

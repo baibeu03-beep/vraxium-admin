@@ -4,6 +4,7 @@ import * as React from "react"
 import { createPortal } from "react-dom"
 
 import { cn } from "@/lib/utils"
+import { popoverZIndex } from "@/lib/overlayLayer"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AnchoredPortalMenu — 앵커(입력/버튼) 기준으로 **body 에 portal 되는** 드롭다운 공통 계약.
@@ -26,9 +27,6 @@ import { cn } from "@/lib/utils"
 //   앵커 contains 만으로는 메뉴 내부 클릭이 "바깥"으로 오판되고, mousedown 에서 닫히면
 //   항목의 onClick 이 발화하기 전에 언마운트된다.
 // ─────────────────────────────────────────────────────────────────────────────
-
-/** portal 팝오버 레이어. globals.css sticky 스케일(최대 corner 40)과 shadcn 팝오버(50) 위. */
-export const ANCHORED_MENU_Z = 60
 
 export type AnchoredMenuPos = { top: number; left: number; width: number }
 
@@ -60,6 +58,8 @@ export function AnchoredPortalMenu({
 }) {
   const menuRef = React.useRef<HTMLDivElement>(null)
   const [pos, setPos] = React.useState<AnchoredMenuPos | null>(null)
+  // 열릴 때마다 레이어 재판정 — 모달 안에서 연 메뉴는 모달 위, 페이지에서 연 메뉴는 모달 아래.
+  const [zIndex, setZIndex] = React.useState(popoverZIndex)
 
   const compute = React.useCallback(() => {
     const el = anchorRef.current
@@ -74,6 +74,7 @@ export function AnchoredPortalMenu({
       setPos(null)
       return
     }
+    setZIndex(popoverZIndex())
     compute()
   }, [open, compute])
 
@@ -120,7 +121,7 @@ export function AnchoredPortalMenu({
         top: pos.top,
         left: pos.left,
         width: pos.width,
-        zIndex: ANCHORED_MENU_Z,
+        zIndex,
       }}
       className={cn("rounded-md border bg-background shadow-md", className)}
       {...props}

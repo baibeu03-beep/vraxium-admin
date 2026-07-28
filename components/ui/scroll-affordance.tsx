@@ -173,12 +173,12 @@ export function ScrollAffordance({
           해당 표 컨테이너 상단 우측 고정(제목 바로 아래 · 헤더 행 높이 안) — 커서를
           따라다니지 않고, 오류가 아닌 muted 톤 · 반투명 pill.
           연속 휠 입력에서는 타이머만 연장되어 깜빡이지 않는다.
-          ⚠ z-50 필수 — sticky thead(z-30)/corner(z-40) 위에 떠야 한다. */}
+          ⚠ 레이어는 --z-page-popover — sticky thead/corner 위, 모달 backdrop 아래. */}
       {verticalRegion && (
         <div
           aria-hidden
           className={cn(
-            "pointer-events-none absolute top-1.5 right-3 z-50 rounded-full border border-border/60 bg-background/85 px-2.5 py-0.5 text-2xs font-medium text-muted-foreground shadow-sm backdrop-blur transition-opacity duration-300",
+            "pointer-events-none absolute top-1.5 right-3 z-page-popover rounded-full border border-border/60 bg-background/85 px-2.5 py-0.5 text-2xs font-medium text-muted-foreground shadow-sm backdrop-blur transition-opacity duration-300",
             showPageScrollNote ? "opacity-100" : "opacity-0",
           )}
         >

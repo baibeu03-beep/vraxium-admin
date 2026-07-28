@@ -748,7 +748,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
       {/* 선별 액트 선택 모달 — [검수 링크](검수 링크 입력 UI) / [수동 입력](직접 입력 UI). */}
       {choiceAct && org && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          data-admin-overlay="" className="fixed inset-0 z-modal flex items-center justify-center admin-backdrop p-4"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) setChoiceAct(null);
           }}

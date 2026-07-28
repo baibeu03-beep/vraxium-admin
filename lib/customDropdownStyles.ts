@@ -20,4 +20,4 @@
 // 카드/뷰포트를 침범하지 않는다. base-ui 처럼 collision 자동 좌측정렬은 없으므로,
 // 우측단 앵커에 새로 쓸 때는 공통 `<Select>` 사용을 우선 검토할 것.
 export const CUSTOM_DROPDOWN_POPUP_CLASS =
-  "absolute z-20 mt-1 max-h-(--admin-dropdown-max-height) w-max min-w-full max-w-[calc(100vw-2rem)] overflow-x-hidden overflow-y-auto overscroll-contain rounded-md border bg-background py-1 shadow-md"
+  "absolute z-page-popover mt-1 max-h-(--admin-dropdown-max-height) w-max min-w-full max-w-[calc(100vw-2rem)] overflow-x-hidden overflow-y-auto overscroll-contain rounded-md border bg-background py-1 shadow-md"

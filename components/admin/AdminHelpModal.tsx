@@ -118,7 +118,7 @@ export default function AdminHelpModal({ open, onClose, storageKey, title = "관
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      data-admin-overlay="" className="fixed inset-0 z-modal flex items-center justify-center admin-backdrop p-4"
       onMouseDown={(e) => {
         // 바깥 클릭으로 닫기(편집/저장 중에는 유지).
         if (e.target === e.currentTarget && !editing && !saving) close();

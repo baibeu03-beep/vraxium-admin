@@ -1006,10 +1006,10 @@ function CreateAccountDrawerInner({
       role="dialog"
       aria-modal="true"
       aria-label="새 운영 계정 만들기"
-      className="fixed inset-0 z-50 flex"
+      data-admin-overlay="" className="fixed inset-0 z-modal flex"
     >
       {/* 배경 클릭/드래그로는 닫히지 않는다. 닫기는 X·취소·저장 버튼 또는 Esc 로만. */}
-      <div className="absolute inset-0 bg-foreground/40" />
+      <div className="absolute inset-0 admin-backdrop" />
       <div className="relative ml-auto flex h-full modal-w-md flex-col bg-background shadow-xl">
         <header className="flex items-center justify-between border-b px-5 py-4">
           <h3 className="inline-flex items-center gap-1.5 text-base font-semibold">
@@ -1291,9 +1291,9 @@ function TempPasswordModal({
       role="dialog"
       aria-modal="true"
       aria-label="임시 비밀번호"
-      className="fixed inset-0 z-50 flex items-center justify-center px-4"
+      data-admin-overlay="" className="fixed inset-0 z-modal flex items-center justify-center px-4"
     >
-      <div className="absolute inset-0 bg-foreground/40" />
+      <div className="absolute inset-0 admin-backdrop" />
       <div className="relative modal-w-md rounded-lg border bg-background shadow-xl">
         <header className="flex items-center justify-between border-b px-5 py-4">
           <h3 className="text-base font-semibold">임시 비밀번호 발급됨</h3>

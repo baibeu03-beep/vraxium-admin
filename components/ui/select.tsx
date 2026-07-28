@@ -4,6 +4,7 @@ import * as React from "react"
 import { Select as SelectPrimitive } from "@base-ui/react/select"
 
 import { cn } from "@/lib/utils"
+import { popoverZIndex } from "@/lib/overlayLayer"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
 // 닫힌 트리거가 "가장 긴 옵션"까지 한 줄로 수용하는 min-width 를 자동 확보하기 위해,
@@ -154,6 +155,41 @@ function SelectTrigger({
   )
 }
 
+// Portal 의 자식으로만 마운트된다 = "드롭다운이 열리는 순간"에 레이어를 정한다.
+//   (SelectContent 본체에서 계산하면 Select 가 화면에 놓인 시점 = 페이지 로드 시점이라,
+//    나중에 모달이 열려도 페이지 레이어에 머문다.)
+//   페이지에서 연 Select → --z-page-popover(표 sticky corner 위 · 모달 backdrop 아래)
+//   모달 안에서 연 Select → --z-modal-popover(모달 패널 위). 고정 z-50 이던 시절엔
+//   adminDialog(70)·중첩 모달(60) 안에서 목록이 패널 뒤로 깔렸다.
+function SelectPositioner({
+  children,
+  ...props
+}: SelectPrimitive.Positioner.Props) {
+  const ref = React.useRef<HTMLDivElement | null>(null)
+  // ⚠ base-ui 는 항목 폭 측정을 위해 팝업을 **닫힌 뒤에도 마운트해 둔다**(닫히면 hidden +
+  //    data-closed). 그래서 "마운트 1회"(useState)나 렌더 시점 계산으로는 두 번째 열림에서
+  //    첫 열림 당시의 레이어가 그대로 굳는다(페이지에서 한 번 연 뒤 모달 안에서 열면 50 유지).
+  //    → 열림/닫힘 표식(data-open/data-closed/hidden) 변화를 관찰해 열릴 때마다 재판정한다.
+  //    style 은 관찰 대상에서 제외(우리가 style 을 쓰므로 관찰하면 무한 루프).
+  React.useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const apply = () => {
+      const next = String(popoverZIndex())
+      if (el.style.zIndex !== next) el.style.zIndex = next
+    }
+    apply()
+    const mo = new MutationObserver(apply)
+    mo.observe(el, { attributes: true, attributeFilter: ["data-open", "data-closed", "hidden"] })
+    return () => mo.disconnect()
+  }, [])
+  return (
+    <SelectPrimitive.Positioner ref={ref} {...props} className="isolate">
+      {children}
+    </SelectPrimitive.Positioner>
+  )
+}
+
 function SelectContent({
   className,
   children,
@@ -170,25 +206,24 @@ function SelectContent({
   >) {
   return (
     <SelectPrimitive.Portal>
-      <SelectPrimitive.Positioner
+      <SelectPositioner
         side={side}
         sideOffset={sideOffset}
         align={align}
         alignOffset={alignOffset}
         alignItemWithTrigger={alignItemWithTrigger}
-        className="isolate z-50"
       >
         <SelectPrimitive.Popup
           data-slot="select-content"
           data-align-trigger={alignItemWithTrigger}
-          className={cn("relative isolate z-50 max-h-(--admin-dropdown-max-height) w-max min-w-(--anchor-width) max-w-[calc(100vw-2rem)] origin-(--transform-origin) overflow-x-hidden overflow-y-auto overscroll-contain rounded-lg bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-[align-trigger=true]:animate-none data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95", className )}
+          className={cn("relative isolate max-h-(--admin-dropdown-max-height) w-max min-w-(--anchor-width) max-w-[calc(100vw-2rem)] origin-(--transform-origin) overflow-x-hidden overflow-y-auto overscroll-contain rounded-lg bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-[align-trigger=true]:animate-none data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95", className )}
           {...props}
         >
           <SelectScrollUpButton />
           <SelectPrimitive.List>{children}</SelectPrimitive.List>
           <SelectScrollDownButton />
         </SelectPrimitive.Popup>
-      </SelectPrimitive.Positioner>
+      </SelectPositioner>
     </SelectPrimitive.Portal>
   )
 }

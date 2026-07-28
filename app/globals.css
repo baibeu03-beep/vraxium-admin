@@ -365,6 +365,77 @@
   --badge-org-phalanx-border: oklch(0.46 0.08 163);
 }
 
+/* ── 전역 레이어(z-index) 스케일 SoT ────────────────────────────────────────
+   어드민에는 공통 Dialog 컴포넌트가 없어 모달/드로어/팝오버가 각자 z-50, z-[60],
+   z-[70] 같은 매직넘버를 들고 있었다. 값이 겹치면 "누가 위인지"가 DOM 순서로 결정돼
+   화면마다 결과가 달라진다(모달 위에 페이지 툴팁이 뜨거나, 모달 안 Select 가 패널
+   뒤로 깔리는 등). 아래 한 곳에서 순서를 정의하고, 모든 오버레이가 이 토큰만 쓴다.
+
+   순서(값이 아니라 "순서"가 계약이다):
+     일반 콘텐츠 0
+     < 표 좌측 고정 본문 셀      --z-sticky-cell    20
+     < 표 상단 고정 헤더          --z-sticky-header  30
+     < 헤더×고정열 교차(corner)   --z-sticky-corner  40
+     < 페이지 팝오버/드롭다운/툴팁 --z-page-popover   50
+     < 모달 오버레이(backdrop+패널) --z-modal        80
+     < 모달 위의 모달(중첩/라이트박스) --z-modal-nested 90
+     < 모달 안에서 연 팝오버/툴팁/Select --z-modal-popover 100
+     < 토스트                      --z-toast         120
+     < 전역 네비 진행바            --z-nav-progress  130
+
+   ⚠ 모달 오버레이 컨테이너에는 반드시 `data-admin-overlay` 를 붙인다 —
+     포털 팝오버(툴팁·드롭다운·Select)가 "지금 모달이 열려 있는가"를 이 표식으로 판정해
+     페이지 레이어(50)와 모달 레이어(100) 중 하나를 고른다(lib/overlayLayer.ts).
+   ⚠ 값 사이 간격을 넉넉히 둔 것은 의도 — 중간 레이어가 필요해도 재번호 없이 끼워 넣는다. */
+:root {
+  --z-sticky-cell: 20;
+  --z-sticky-header: 30;
+  --z-sticky-corner: 40;
+  --z-page-popover: 50;
+  --z-modal: 80;
+  --z-modal-nested: 90;
+  --z-modal-popover: 100;
+  --z-toast: 120;
+  --z-nav-progress: 130;
+}
+@utility z-page-popover {
+  z-index: var(--z-page-popover);
+}
+@utility z-modal {
+  z-index: var(--z-modal);
+}
+@utility z-modal-nested {
+  z-index: var(--z-modal-nested);
+}
+@utility z-modal-popover {
+  z-index: var(--z-modal-popover);
+}
+@utility z-toast {
+  z-index: var(--z-toast);
+}
+@utility z-nav-progress {
+  z-index: var(--z-nav-progress);
+}
+
+/* ── 모달 딤드(backdrop) SoT ────────────────────────────────────────────────
+   기존에는 오버레이마다 bg-black/40 · /50 · /70 · /80 이 섞여 있어 같은 어드민 안에서도
+   "덮는 정도"가 달랐다. 특히 표의 sticky 헤더 밴드는 불투명 배경이라 40% 딤드로는
+   글자·아이콘·경계선이 또렷하게 비쳐, 실제로는 모달 아래에 있어도 위에 있는 것처럼 읽혔다.
+   → 딤드 농도 + 살짝의 블러를 한 클래스로 통일한다(라이트/다크 공통).
+   ※ backdrop-filter 는 이 오버레이에 stacking context 를 만들지만, 오버레이 자신이
+     이미 --z-modal 레이어의 루트라 내부 패널 순서에는 영향이 없다. */
+@utility admin-backdrop {
+  background-color: color-mix(in oklch, black 62%, transparent);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+/* 이미지 라이트박스 등 "사진을 보는" 오버레이 — 주변을 더 강하게 지운다. */
+@utility admin-backdrop-strong {
+  background-color: color-mix(in oklch, black 82%, transparent);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
 /* ── 모달 패널 폭 SoT ──────────────────────────────────────────────────────
    어드민 모달은 공통 Dialog 컴포넌트 없이 각자 오버레이+패널을 직접 구현한다.
    그 "패널 폭"을 한 곳에서 관리하기 위한 단일 출처(정적 @utility → purge 안전).
@@ -654,9 +725,9 @@ select:not([multiple]) {
      가능하다(페이지 스크롤 헤더 고정은 순수 CSS 불가). 그래서 왼쪽 열 고정은 전역
      기본, 헤더 고정은 .sticky-head-region(내부 max-height) 옵트인이다.
 
-   z-index 스케일(단일 SoT):
-     일반 셀 0 < 좌측 고정 본문 20 < 상단 고정 헤더 30 < 좌상단 corner 40
-     < 포털 팝오버(shadcn 기본) 50. → 셀 내 드롭다운/툴팁은 포털 variant 사용.
+   z-index 는 이 파일 위쪽 "전역 레이어 스케일 SoT"의 --z-* 토큰만 쓴다(매직넘버 금지):
+     일반 셀 0 < --z-sticky-cell 20 < --z-sticky-header 30 < --z-sticky-corner 40
+     < --z-page-popover 50 < --z-modal 80. → 셀 내 드롭다운/툴팁은 포털 variant 사용.
 
    Unlayered — 유틸 레이어 위에서 안정 동작(!important 불필요, .admin-checkbox 와 동일 관행).
    ─────────────────────────────────────────────────────────────────────────── */
@@ -669,7 +740,7 @@ select:not([multiple]) {
 .stick-col-1,
 .stick-col-2 {
   position: sticky;
-  z-index: 20;
+  z-index: var(--z-sticky-cell);
   /* 불투명 배경 — 스크롤되는 뒤쪽 셀이 비쳐 보이지 않게. 기본 card.
      행 강조(현재 주차 등)가 있는 표는 <tr> 에 --stick-cell-bg 를 얹어 고정 셀도 같은 톤을 따르게 한다
      (data-sticky-row-accent 헬퍼 참고). CSS 변수는 상속되므로 tr→고정 td 로 자연 전달된다. */
@@ -731,7 +802,7 @@ thead > tr > .stick-col-1,
 thead > tr > .stick-col-2,
 tfoot > tr > .stick-col-1,
 tfoot > tr > .stick-col-2 {
-  z-index: 40;
+  z-index: var(--z-sticky-corner);
   background-color: color-mix(in oklch, var(--muted) 60%, var(--card));
 }
 
@@ -748,12 +819,12 @@ tfoot > tr > .stick-col-2 {
 .sticky-head-region thead > tr > th {
   position: sticky;
   top: 0;
-  z-index: 30;
+  z-index: var(--z-sticky-header);
   background-color: color-mix(in oklch, var(--muted) 60%, var(--card));
 }
 .sticky-head-region thead > tr > .stick-col-1,
 .sticky-head-region thead > tr > .stick-col-2 {
-  z-index: 40; /* corner 는 상단·좌측 고정 셀보다 위 */
+  z-index: var(--z-sticky-corner); /* corner 는 상단·좌측 고정 셀보다 위 */
 }
 
 /* ── 어드민 "내부 스크롤" 공통 스크롤바 (외부 페이지 스크롤과 구분) ──

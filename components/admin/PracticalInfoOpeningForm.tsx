@@ -1205,7 +1205,7 @@ export default function PracticalInfoOpeningForm({
       {/* 이미지 확대 모달 */}
       {imageModalOpen && image && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6"
+          data-admin-overlay="" className="fixed inset-0 z-modal flex items-center justify-center admin-backdrop-strong p-6"
           onClick={() => setImageModalOpen(false)}
         >
           <div className="relative max-h-full max-w-3xl" onClick={(e) => e.stopPropagation()}>
@@ -1232,7 +1232,7 @@ export default function PracticalInfoOpeningForm({
       {/* 개설 확인 모달 — [확인] 클릭 시에만 실제 API 저장 */}
       {confirmOpen && effectiveWeek && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          data-admin-overlay="" className="fixed inset-0 z-modal flex items-center justify-center admin-backdrop p-4"
           onClick={() => !saving && setConfirmOpen(false)}
         >
           <div
@@ -1290,7 +1290,7 @@ export default function PracticalInfoOpeningForm({
       {/* 초기화 확인 모달 — 화면 입력값만 초기화(DB 무관) */}
       {confirmReset && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          data-admin-overlay="" className="fixed inset-0 z-modal flex items-center justify-center admin-backdrop p-4"
           onClick={() => setConfirmReset(false)}
         >
           <div
@@ -1326,7 +1326,7 @@ export default function PracticalInfoOpeningForm({
       {/* 개설 취소 확인 모달 — 실제 개설 되돌리기(DB 삭제 + 전체 크루 '해당 없음' 복귀) */}
       {confirmCancel && openedLine && effectiveWeek && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          data-admin-overlay="" className="fixed inset-0 z-modal flex items-center justify-center admin-backdrop p-4"
           onClick={() => !saving && setConfirmCancel(false)}
         >
           <div

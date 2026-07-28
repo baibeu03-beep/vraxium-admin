@@ -113,7 +113,7 @@ export default function ActSupplementDialog({
   return (
     <>
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      data-admin-overlay="" className="fixed inset-0 z-modal flex items-center justify-center admin-backdrop p-4"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget && !submitting && !flip) onClose();
       }}
@@ -201,7 +201,7 @@ export default function ActSupplementDialog({
 
     {/* 성장 결과 변경 확인 — 저장 전(원장 미생성). "그래도 부여" 시에만 실제 생성. */}
     {flip && (
-      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+      <div data-admin-overlay="" className="fixed inset-0 z-modal-nested flex items-center justify-center admin-backdrop p-4">
         <div className="modal-w-md rounded-xl bg-card p-5 shadow-xl ring-1 ring-foreground/10">
           <h2 className="text-base font-semibold">성장 결과 변경 확인</h2>
           <p className="mt-3 text-sm text-foreground">

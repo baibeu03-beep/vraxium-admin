@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 import { Button, type buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { overlayMarkerProps } from "@/lib/overlayLayer";
 import type { VariantProps } from "class-variance-authority";
 
 type ButtonVariant = NonNullable<VariantProps<typeof buttonVariants>["variant"]>;
@@ -428,8 +429,12 @@ function DialogPanel({ req, isTop }: { req: DialogRequest; isTop: boolean }) {
 
   return (
     <div
+      // adminDialog 는 "페이지 모달 위에 뜨는 확인창"으로도 쓰이므로 --z-modal-nested 레이어다
+      // (페이지 모달 --z-modal 위 · 모달 안에서 연 팝오버 --z-modal-popover 아래).
+      // data-admin-overlay: 포털 팝오버(Select/툴팁/드롭다운)가 "모달이 열려 있다"를 판정하는 표식.
+      {...overlayMarkerProps}
       className={cn(
-        "fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4",
+        "fixed inset-0 z-modal-nested flex items-center justify-center admin-backdrop p-4",
         !isTop && "pointer-events-none",
       )}
       aria-hidden={!isTop || undefined}

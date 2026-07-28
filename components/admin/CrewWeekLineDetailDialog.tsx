@@ -512,7 +512,7 @@ export default function CrewWeekLineDetailDialog({
   // ── 렌더 ──
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
+      data-admin-overlay="" className="fixed inset-0 z-modal flex items-center justify-center admin-backdrop p-4"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) void requestClose();
       }}
@@ -782,7 +782,7 @@ export default function CrewWeekLineDetailDialog({
 
       {lightbox ? (
         <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-6"
+          data-admin-overlay="" className="fixed inset-0 z-modal-nested flex items-center justify-center admin-backdrop-strong p-6"
           onMouseDown={() => setLightbox(null)}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}

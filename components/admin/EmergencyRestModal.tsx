@@ -262,7 +262,7 @@ export default function EmergencyRestModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 sm:p-8"
+      data-admin-overlay="" className="fixed inset-0 z-modal flex items-center justify-center admin-backdrop p-4 sm:p-8"
       onClick={() => !submitting && onClose()}
     >
       <div

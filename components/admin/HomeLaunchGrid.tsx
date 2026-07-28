@@ -95,7 +95,7 @@ export default function HomeLaunchGrid() {
         <div
           role="status"
           aria-live="polite"
-          className="fixed bottom-8 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-border bg-foreground px-5 py-3 text-sm font-semibold text-background shadow-lg"
+          className="fixed bottom-8 left-1/2 z-page-popover -translate-x-1/2 rounded-lg border border-border bg-foreground px-5 py-3 text-sm font-semibold text-background shadow-lg"
         >
           {toast}
         </div>

@@ -982,7 +982,7 @@ export default function CompetencyApplicantSection({
       {/* 수동 추가 팝업 */}
       {addOpen && selectedCrew && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          data-admin-overlay="" className="fixed inset-0 z-modal flex items-center justify-center admin-backdrop p-4"
           onClick={() => !saving && setAddOpen(false)}
         >
           <div
@@ -1062,7 +1062,7 @@ export default function CompetencyApplicantSection({
       {/* 반려 사유 팝업 */}
       {rejectApp && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          data-admin-overlay="" className="fixed inset-0 z-modal flex items-center justify-center admin-backdrop p-4"
           onClick={() => !saving && setRejectApp(null)}
         >
           <div

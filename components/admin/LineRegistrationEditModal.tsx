@@ -297,7 +297,7 @@ export default function LineRegistrationEditModal({
   ]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 sm:p-8">
+    <div data-admin-overlay="" className="fixed inset-0 z-modal flex items-center justify-center admin-backdrop p-4 sm:p-8">
       <div className="max-h-[90vh] modal-w-xl space-y-5 overflow-y-auto rounded-xl bg-background p-6 shadow-xl ring-1 ring-foreground/10">
         <div className="flex items-start justify-between gap-4">
           <div>
