@@ -2,7 +2,10 @@
  * verify-experience-partleader-zero-score-http.ts
  * 실무 경험 [팀 총괄] 개설 검수 — 파트장 평점 "0점" 지원 검증.
  *   요구(2026-07-24): 파트장 평점 드롭다운에 0점을 선택할 수 있고, 0점이 실제 평점 값 0 으로
- *   저장·조회되며, "미선택('-', checked=false)" 과 "실제 0점(checked=true, score=0)" 이 구분된다.
+ *   저장·조회되며, "미선택(checked=false)" 과 "실제 0점(checked=true, score=0)" 이 구분된다.
+ *   ⚠ 2026-07-28 — 드롭다운의 '-'(미선택) **옵션**은 폐지됐다(0~10 만 존재). 미선택 표현은
+ *     체크박스 단독 담당이며, 이 스크립트가 검증하는 checked/score 저장 구분은 그대로 유효하다.
+ *     평점 필수·범위 검증은 scripts/verify-experience-partleader-score-required-http.ts 참조.
  *
  * 검증(실제 HTTP: route → data layer → DB):
  *   [A] 파트장 도출=0점(checked) → part_submission_cells 에 (checked=true, score=0) 저장(미체크로 붕괴 안 함).
@@ -169,7 +172,7 @@ async function runTarget(cookie: string, mode: Mode, tgt: Target) {
   const eDto = l2?.cells.evaluation;
   if (dDto) leaderCellDtoShapes.add(Object.keys(dDto).sort().join(","));
   check("[B] 재조회 도출 0점: score=0, checked=true (드롭다운 '0' 표시)", dDto?.score === 0 && dDto?.checked === true, `dto.score=${dDto?.score} checked=${dDto?.checked}`);
-  check("[B] 재조회 견문 미선택: checked=false ('-' 표시)", eDto?.checked === false, `dto.checked=${eDto?.checked}`);
+  check("[B] 재조회 견문 미선택: checked=false (체크 해제 표시)", eDto?.checked === false, `dto.checked=${eDto?.checked}`);
 
   // ── [D] 개설 완료 → 개설 게이트 독립(0점 셀 대상자 미생성, 분석 3점 대상자·평가 생성) ──
   const openRes = await httpPost(cookie, { action: "open", organization: org, week_id: weekId, team_id: teamId, team_name: teamName, mode, leaderCells, outputs, lineSelections });

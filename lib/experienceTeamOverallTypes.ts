@@ -105,6 +105,57 @@ export function isOverallCellFail(cell: OverallCell): boolean {
   return !cell.checked || cell.score <= 3;
 }
 
+// ── 평점 허용값 SoT (2026-07-28) — 프론트 드롭다운 · 서버 파서 · 검증 스크립트 공용 ──
+//   정책: 평점은 **0~10 정수 11개**뿐이다. 드롭다운의 '-'(미선택) 옵션은 폐지했다.
+//     · null · undefined · "" · "-" · 범위 밖 · 소수는 저장되지 않는다(서버 400/422 로 거부).
+//     · "미선택" 과 "0점" 의 구분은 **체크박스(checked)** 가 단독으로 담당한다 —
+//       score 컬럼에는 언제나 0~10 정수가 들어간다(미체크 셀은 score=0 으로 저장).
+//   ⚠ experienceScoreState(평점 계산 SoT)는 클램프형(fail-open)이라 "입력 허용값" 판정에 쓰지 않는다.
+//     계산·판정은 그대로 experienceScoreState, **입력 검증**만 여기 isValidOverallScore 를 쓴다.
+export const OVERALL_SCORE_MIN = 0;
+export const OVERALL_SCORE_MAX = 10;
+
+// 드롭다운 옵션 원천 — 화면/검증이 같은 배열을 본다(항목 수·값 드리프트 방지).
+export const OVERALL_SCORE_OPTIONS: ReadonlyArray<number> = Array.from(
+  { length: OVERALL_SCORE_MAX - OVERALL_SCORE_MIN + 1 },
+  (_, i) => OVERALL_SCORE_MIN + i,
+);
+
+export const OVERALL_SCORE_INVALID_MESSAGE =
+  "평점은 0~10 사이의 값이어야 합니다.";
+
+export const OVERALL_SCORE_REQUIRED_MESSAGE =
+  "파트장 평점을 0~10 중에서 선택해야 개설을 진행할 수 있습니다.";
+
+/**
+ * 저장 가능한 평점인가 — 0~10 정수(number)만 true.
+ * 문자열("7"·""·"-")·null·undefined·NaN·소수·범위 밖은 전부 false(강제 변환하지 않는다).
+ */
+export function isValidOverallScore(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= OVERALL_SCORE_MIN &&
+    value <= OVERALL_SCORE_MAX
+  );
+}
+
+/**
+ * 드롭다운 표시값 — 반드시 옵션(0~10)과 1:1 로 매칭되는 문자열을 돌려준다.
+ * '-'(빈 문자열) 상태는 존재하지 않는다. 저장값이 어쩌다 범위 밖이면 표시만 클램프하고
+ * (선택 불가능한 값을 화면에 남기지 않는다), 숫자가 아니면 기본값(7)을 쓴다.
+ */
+export function overallScoreSelectValue(score: unknown): string {
+  if (isValidOverallScore(score)) return String(score);
+  const numeric = Number(score);
+  if (Number.isFinite(numeric)) {
+    return String(
+      Math.max(OVERALL_SCORE_MIN, Math.min(OVERALL_SCORE_MAX, Math.round(numeric))),
+    );
+  }
+  return String(OVERALL_CELL_DEFAULT.score);
+}
+
 // ── DTO (API ↔ 컴포넌트 공유) ──
 
 export type OverallBoardCrew = {
@@ -268,8 +319,10 @@ export type OverallLineSelectionDto = {
   //   part_submission_cells 가 없다. 그래서 도출/분석/견문 점수를 입력할 정상 경로가 없어
   //   [개설 검수] 화면에서 직접 선택한다. 일반/에이전트는 이 필드를 보내지 않으며(undefined),
   //   서버도 파트장 여부로만 반영한다(일반 크루 점수 SoT=개설 신청 셀 불변).
-  //   미지정 시 기존 기본값(checked=true/score=7 = OVERALL_CELL_DEFAULT)으로 처리 — 파트장 전용
-  //   임의 기본값을 새로 만들지 않는다. 허용 점수·보이드 규칙은 일반 크루와 동일(experienceScoreState).
+  //   ⚠ 2026-07-28 — **파트장 행에서는 score 가 필수**다(0~10 정수). 드롭다운 '-'(미선택) 폐지에 맞춰
+  //   미지정/null/문자열/범위 밖은 서버가 거부한다(validatePartLeaderScoreRequirements) — 기본값 7 로
+  //   조용히 대체하지 않는다. 타입이 optional 인 이유는 일반/에이전트 행(점수 미전송)과 같은 DTO 를
+  //   쓰기 때문이며, 필수 여부는 파트장 여부로만 갈린다.
   checked?: boolean;
   score?: number;
 };
@@ -304,6 +357,44 @@ export function validatePartLeaderLineRequirements(
           crewUserId,
           category: category as ExperiencePartLineType,
           message: PART_LEADER_LINE_REQUIRED_MESSAGE,
+        };
+      }
+    }
+  }
+  return null;
+}
+
+export type PartLeaderScoreRequirementIssue = {
+  crewUserId: string;
+  category: ExperiencePartLineType;
+  message: string;
+};
+
+/**
+ * 파트장 도출/분석/견문 평점 필수 판정 (2026-07-28) — 프론트 게이트와 서버 가드 공용 SoT.
+ *   파트장은 [개설 신청] 그리드에서 구조적으로 제외돼 평점 입력 경로가 [개설 검수] 화면뿐이다.
+ *   드롭다운에서 '-'(미선택)를 없앴으므로 payload 에는 항상 0~10 정수가 실려야 한다 —
+ *   누락(undefined)·null·문자열·범위 밖이면 검수/개설을 진행하지 않는다(기본값 7 로 대체 금지).
+ *   ⚠ 일반/에이전트 크루는 대상이 아니다(점수 SoT = 개설 신청 셀) — partLeaderUserIds 만 검사한다.
+ */
+export function validatePartLeaderScoreRequirements(
+  selections: ReadonlyArray<OverallLineSelectionDto>,
+  partLeaderUserIds: ReadonlyArray<string>,
+): PartLeaderScoreRequirementIssue | null {
+  const byCell = new Map(
+    selections.map((selection) => [
+      `${selection.crewUserId}::${selection.lineType}`,
+      selection,
+    ]),
+  );
+  for (const crewUserId of partLeaderUserIds) {
+    for (const category of OVERALL_PART_CATEGORIES) {
+      const selection = byCell.get(`${crewUserId}::${category}`);
+      if (!selection || !isValidOverallScore(selection.score)) {
+        return {
+          crewUserId,
+          category: category as ExperiencePartLineType,
+          message: OVERALL_SCORE_REQUIRED_MESSAGE,
         };
       }
     }

@@ -37,12 +37,15 @@ import {
   OVERALL_CELL_DEFAULT,
   OVERALL_LEADER_CATEGORIES,
   OVERALL_PART_CATEGORIES,
+  OVERALL_SCORE_OPTIONS,
   EMPTY_OVERALL_LINE_OPTIONS,
   canEditOverallManagement,
   isOverallCellFail,
+  overallScoreSelectValue,
   resolveOverallApplicationReadiness,
   validateOverallOutputRequirements,
   validatePartLeaderLineRequirements,
+  validatePartLeaderScoreRequirements,
   type ExperienceOverallCategory,
   type ExperienceTeamOverallBoard as BoardDto,
   type OverallBoardCrew,
@@ -570,6 +573,25 @@ export default function ExperienceTeamOverallBoard({
     return false;
   }, [buildPayload, extensionActive, clearInvalidHighlight, guideToInvalidTarget]);
 
+  // 파트장 평점 필수 게이트(2026-07-28) — 드롭다운에서 '-'(미선택)를 없앴으므로 정상 조작으로는
+  //   걸릴 수 없다. 하지만 보드 로드 실패/구버전 캐시/외부 조작으로 payload 에 평점이 빠지면
+  //   서버가 422 로 막기 **전에** 화면에서 먼저 차단한다(서버와 동일 판정 = 공용 SoT).
+  //   강조 대상은 해당 셀의 라인명 슬롯(같은 칸)이라 사용자가 바로 그 평점 칸을 찾는다.
+  const validatePartLeaderScoresAndGuide = useCallback(async (): Promise<boolean> => {
+    const { lineSels } = buildPayload();
+    const issue = validatePartLeaderScoreRequirements(
+      lineSels,
+      allCrews.filter((crew) => crew.isPartLeader).map((crew) => crew.userId),
+    );
+    if (!issue) return true;
+    await guideToInvalidTarget(
+      "line",
+      `${issue.crewUserId}:${issue.category}`,
+      issue.message,
+    );
+    return false;
+  }, [allCrews, buildPayload, guideToInvalidTarget]);
+
   const validatePartLeaderLinesAndGuide = useCallback(async (): Promise<boolean> => {
     const { lineSels } = buildPayload();
     const issue = validatePartLeaderLineRequirements(
@@ -655,10 +677,11 @@ export default function ExperienceTeamOverallBoard({
       );
       return;
     }
+    if (!(await validatePartLeaderScoresAndGuide())) return;
     if (!(await validatePartLeaderLinesAndGuide())) return;
     if (!(await validateOutputsAndGuide())) return;
     void onReview();
-  }, [saving, canOpen, openBlockedReason, opened, reviewCompleted, application, allPartsApplied, validatePartLeaderLinesAndGuide, validateOutputsAndGuide, onReview, toast]);
+  }, [saving, canOpen, openBlockedReason, opened, reviewCompleted, application, allPartsApplied, validatePartLeaderScoresAndGuide, validatePartLeaderLinesAndGuide, validateOutputsAndGuide, onReview, toast]);
 
   const onReset = useCallback(() => {
     // DB 통신 없음 — 프론트 화면 입력값만 기본값으로 복원.
@@ -697,6 +720,7 @@ export default function ExperienceTeamOverallBoard({
       toast("warning", "모든 필수 개설 검수가 완료되어야 개설 완료할 수 있습니다.");
       return;
     }
+    if (!(await validatePartLeaderScoresAndGuide())) return;
     if (!(await validatePartLeaderLinesAndGuide())) return;
     if (!(await validateOutputsAndGuide())) return;
     if (
@@ -738,7 +762,7 @@ export default function ExperienceTeamOverallBoard({
       dismissToast(progressToastId);
       setSaving(false);
     }
-  }, [canOpen, openBlockedReason, reviewCompleted, validatePartLeaderLinesAndGuide, validateOutputsAndGuide, post, fetchBoard, onActivity, toast, showLoadingToast, dismissToast]);
+  }, [canOpen, openBlockedReason, reviewCompleted, validatePartLeaderScoresAndGuide, validatePartLeaderLinesAndGuide, validateOutputsAndGuide, post, fetchBoard, onActivity, toast, showLoadingToast, dismissToast]);
 
   const onCancel = useCallback(async () => {
     if (
@@ -941,18 +965,17 @@ export default function ExperienceTeamOverallBoard({
                                   />
                                   <select
                                     className="rounded border border-input bg-background px-1.5 py-0.5 text-sm disabled:opacity-60"
-                                    // 평점은 0~10 선택 가능(2026-07-24 — 0점 지원). 미체크(=미선택)면 '-' 표시로 실제 0점과 구분.
-                                    value={cell.checked ? String(cell.score) : ""}
+                                    // 평점은 0~10 정수 11개뿐(2026-07-28 — '-'(미선택) 옵션 폐지).
+                                    //   미체크 셀도 실제 저장값(0)을 그대로 표시하고, "미선택/0점" 구분은
+                                    //   왼쪽 체크박스가 단독으로 담당한다(OVERALL_SCORE_* SoT).
+                                    value={overallScoreSelectValue(cell.score)}
                                     disabled={disabled}
                                     onChange={(e) =>
                                       setLeaderScore(crew.userId, crew.displayName, c.key, Number(e.target.value))
                                     }
                                     aria-label={`${crew.displayName} ${c.label} 점수`}
                                   >
-                                    <option value="" disabled>
-                                      -
-                                    </option>
-                                    {Array.from({ length: 11 }, (_, i) => i).map((n) => (
+                                    {OVERALL_SCORE_OPTIONS.map((n) => (
                                       <option key={n} value={n}>
                                         {n}
                                       </option>
@@ -1094,18 +1117,16 @@ export default function ExperienceTeamOverallBoard({
                               />
                               <select
                                 className="rounded border border-input bg-background px-1.5 py-0.5 text-sm disabled:opacity-60"
-                                // 평점은 0~10 선택 가능(2026-07-24 — 0점 지원). 미체크(=미선택)면 '-' 표시로 실제 0점과 구분.
-                                value={cell.checked ? String(cell.score) : ""}
+                                // 파트장 셀과 동일 규칙 — 0~10 정수 11개뿐('-' 폐지, 2026-07-28).
+                                //   "허용 점수·보이드 규칙은 파트장 셀과 동일" 불변식을 유지한다(한쪽만 바꾸지 말 것).
+                                value={overallScoreSelectValue(cell.score)}
                                 disabled={disabled}
                                 onChange={(e) =>
                                   setLeaderScore(crew.userId, crew.displayName, c.key, Number(e.target.value))
                                 }
                                 aria-label={`${crew.displayName} ${c.label} 점수`}
                               >
-                                <option value="" disabled>
-                                  -
-                                </option>
-                                {Array.from({ length: 11 }, (_, i) => i).map((n) => (
+                                {OVERALL_SCORE_OPTIONS.map((n) => (
                                   <option key={n} value={n}>
                                     {n}
                                   </option>

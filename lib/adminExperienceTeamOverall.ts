@@ -41,9 +41,12 @@ import {
   OVERALL_LEADER_CATEGORIES,
   OVERALL_PART_CATEGORIES,
   canEditOverallManagement,
+  isValidOverallScore,
+  OVERALL_SCORE_REQUIRED_MESSAGE,
   resolveOverallApplicationReadiness,
   validateOverallOutputRequirements,
   validatePartLeaderLineRequirements,
+  validatePartLeaderScoreRequirements,
   type ExperienceOverallCategory,
   type ExperienceTeamOverallBoard,
   type OverallApplicationReadiness,
@@ -296,6 +299,30 @@ async function assertPartLeaderLinesRequired(input: {
     input.weekId,
   );
   const issue = validatePartLeaderLineRequirements(
+    input.lineSelections ?? [],
+    members.filter((member) => member.isPartLeader).map((member) => member.userId),
+  );
+  if (issue) throw Object.assign(new Error(issue.message), { status: 422 });
+}
+
+// 파트장 평점 필수 가드(2026-07-28) — 드롭다운 '-'(미선택) 폐지에 맞춘 서버 최종 방어선.
+//   파트장 도출/분석/견문 payload 에 0~10 정수 평점이 반드시 실려야 한다. 누락/null/문자열/범위 밖이면
+//   기본값 7 로 대체하지 않고 422 로 거부한다(검수·개설 어느 쪽으로 들어와도 동일 — UI 우회 포함).
+//   판정은 프론트 게이트와 같은 공용 SoT(validatePartLeaderScoreRequirements) 하나만 쓴다.
+async function assertPartLeaderScoresRequired(input: {
+  organization: string;
+  teamName: string;
+  weekId: string;
+  mode?: ScopeMode;
+  lineSelections?: OverallLineSelectionDto[];
+}): Promise<void> {
+  const members = await loadTeamMembersWithLeaders(
+    input.organization,
+    input.teamName,
+    input.mode ?? "operating",
+    input.weekId,
+  );
+  const issue = validatePartLeaderScoreRequirements(
     input.lineSelections ?? [],
     members.filter((member) => member.isPartLeader).map((member) => member.userId),
   );
@@ -707,9 +734,9 @@ async function assertNoIneligibleManagementCells(
 //   개설 완료 시 대상자(cluster4_line_targets) 미생성 → 강화 실패로 표시되던 버그.
 //   → "파트장"에 한해 그 파트의 신청 헤더를 find-or-create 하고 셀을 upsert 해
 //     일반 크루와 동일한 단일 SoT(part_submission_cells)로 수렴시킨다. 점수는 payload(sel.score/checked)
-//     로 전달된 파트장 선택값을 그대로 반영한다(하드코딩 7 폐지). payload 미지정 시에만 기본값
-//     checked=true/score=7 = 보드 파트장 행 기본값(= OVERALL_CELL_DEFAULT)으로 처리 — 파트장 전용
-//     임의 기본값을 새로 만들지 않는다. 점수·보이드 규칙은 일반 크루와 동일(experienceScoreState).
+//     로 전달된 파트장 선택값을 그대로 반영한다(하드코딩 7 폐지). 2026-07-28 부터 payload 의 평점은
+//     **필수**이며 미지정/무효값은 422 로 거부한다(기본값 7 대체 폐지 — '-' 미선택 옵션 폐지와 한 쌍).
+//     보이드 규칙은 일반 크루와 동일하다.
 //   일반/에이전트는 이미 셀을 가지므로 여기서 손대지 않는다(점수 SoT=개설 신청 셀 · 라인만
 //     updateOverallPartCellLines 담당). ⚠ 셀 upsert 로 재검수 시 파트장 점수/체크 변경이 반영된다.
 async function materializePartLeaderPartCells(input: {
@@ -781,12 +808,15 @@ async function materializePartLeaderPartCells(input: {
     //   · checked 는 payload 의 명시값을 쓴다(experienceScoreState 로 score>=1 파생하지 않는다) —
     //     "미선택(checked=false, '-')" 과 "실제 0점(checked=true, score=0)" 을 구분해 저장하기 위함.
     //     experienceScoreState(평점 계산 SoT) 자체는 변경하지 않는다.
-    //   · payload 미지정 시 기본값 checked=true/score=7(= OVERALL_CELL_DEFAULT).
-    const rawScore =
-      sel.score !== undefined && sel.score !== null ? sel.score : OVERALL_CELL_DEFAULT.score;
+    //   · 2026-07-28 — 평점은 **필수**다(0~10 정수). 여기 도달 전에 assertPartLeaderScoresRequired 가
+    //     이미 422 로 걸러내며, 아래는 그 불변식을 깨는 호출 경로가 생겼을 때의 최종 방어선이다
+    //     (기본값 7 로 조용히 대체하던 fail-open 폐지 — 클램프도 하지 않는다).
+    if (!isValidOverallScore(sel.score)) {
+      throw Object.assign(new Error(OVERALL_SCORE_REQUIRED_MESSAGE), { status: 422 });
+    }
     const checked = sel.checked ?? true;
-    // 미체크면 score 0(placeholder), 체크면 payload 점수를 0~10 로 클램프(0 도 유효한 평점).
-    const score = checked ? Math.max(0, Math.min(10, Math.round(rawScore))) : 0;
+    // 미체크면 score 0(placeholder), 체크면 선택한 평점 그대로(0 도 유효한 평점).
+    const score = checked ? sel.score : 0;
     // 라인명은 평점과 분리(2026-07-24) — 0점(강화 실패) 셀에도 선택 라인을 그대로 저장한다.
     const selectedLineId = sel.selectedLineId ?? null;
     const cellExists = existingCellKeys.has(`${sel.crewUserId}::${sel.lineType}`);
@@ -862,6 +892,7 @@ export async function saveTeamOverallReview(input: {
   actorId?: string | null;
   mode?: ScopeMode;
 }): Promise<{ status: "reviewed" }> {
+  await assertPartLeaderScoresRequired(input);
   await assertPartLeaderLinesRequired(input);
   await assertOverallOutputsRequired(input);
 
@@ -1249,6 +1280,7 @@ export async function openTeamOverall(input: {
 }): Promise<OpenOverallResult> {
   const mode: ScopeMode = input.mode ?? "operating";
 
+  await assertPartLeaderScoresRequired(input);
   await assertPartLeaderLinesRequired(input);
   await assertOverallOutputsRequired(input);
 

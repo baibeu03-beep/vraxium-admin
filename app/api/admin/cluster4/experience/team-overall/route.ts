@@ -7,6 +7,8 @@ import {
 } from "@/lib/adminAuth";
 import {
   isExperienceOverallCategory,
+  isValidOverallScore,
+  OVERALL_SCORE_INVALID_MESSAGE,
   type OverallLeaderCellDto,
   type OverallLineSelectionDto,
   type OverallOutput,
@@ -97,6 +99,11 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// 평점 입력 거부 — 400(사용자가 고칠 수 있는 검증 오류). 문구는 공용 SoT 하나만 쓴다.
+function throwInvalidScore(): never {
+  throw Object.assign(new Error(OVERALL_SCORE_INVALID_MESSAGE), { status: 400 });
+}
+
 function parseLeaderCells(raw: unknown): OverallLeaderCellDto[] {
   const out: OverallLeaderCellDto[] = [];
   if (!Array.isArray(raw)) return out;
@@ -106,10 +113,11 @@ function parseLeaderCells(raw: unknown): OverallLeaderCellDto[] {
     const category = cell.category;
     if (!crewUserId) continue;
     if (category !== "management" && category !== "extension") continue;
-    const scoreNum = Number(cell.score);
-    const score = Number.isFinite(scoreNum)
-      ? Math.max(0, Math.min(10, Math.round(scoreNum)))
-      : 0;
+    // 평점(0~10 정수)만 통과 — null · undefined · "" · "-" · 범위 밖 · 소수는 400 으로 거부한다.
+    //   ⚠ 예전처럼 클램프(fail-open)하지 않는다: 잘못된 값을 0 으로 조용히 저장하면
+    //     "미선택이 0점으로 둔갑" 하는 경로가 다시 열린다(2026-07-28 '-' 옵션 폐지 정책).
+    if (!isValidOverallScore(cell.score)) throwInvalidScore();
+    const score = cell.score;
     const selectedLineId =
       typeof cell.selectedLineId === "string" && cell.selectedLineId.trim()
         ? cell.selectedLineId.trim()
@@ -141,12 +149,14 @@ function parseLineSelections(raw: unknown): OverallLineSelectionDto[] {
         ? row.selectedLineId.trim()
         : null;
     const sel: OverallLineSelectionDto = { crewUserId, lineType, selectedLineId };
-    // 파트장 점수(선택 필드) — boolean/유한 숫자일 때만 전달. 0 은 유효(미체크/보이드)이므로
-    //   falsy 로 누락하지 않는다. 서버가 experienceScoreState 로 재정규화·클램프(0~10).
     if (typeof row.checked === "boolean") sel.checked = row.checked;
-    const scoreNum = Number(row.score);
-    if (row.score !== undefined && row.score !== null && Number.isFinite(scoreNum)) {
-      sel.score = Math.max(0, Math.min(10, Math.round(scoreNum)));
+    // 파트장 점수 — 키가 **있으면** 0~10 정수여야 한다(null · "" · "-" · 범위 밖 · 소수는 400).
+    //   키 자체가 없는 행은 일반/에이전트 크루(점수 SoT = 개설 신청 셀)라 통과시키고,
+    //   파트장인데 빠졌는지는 데이터 레이어의 필수 가드(validatePartLeaderScoreRequirements)가 422 로 잡는다.
+    //   0 은 유효한 평점이므로 falsy 로 누락하지 않는다.
+    if ("score" in row && row.score !== undefined) {
+      if (!isValidOverallScore(row.score)) throwInvalidScore();
+      sel.score = row.score;
     }
     out.push(sel);
   }
