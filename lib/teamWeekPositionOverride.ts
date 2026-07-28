@@ -50,14 +50,62 @@ function isMissingTableError(error: unknown): boolean {
 export function resolveOverrideAt<T extends { weekStartDate: string }>(
   rowsAsc: T[] | undefined,
   weekStartDate: string,
+  // 시즌 경계(선택) — 주어지면 **같은 시즌 안에서만** 이월한다. 아래 SEASON BOUNDARY 참고.
+  seasonKeyOf?: SeasonKeyOf,
 ): T | null {
   if (!rowsAsc || rowsAsc.length === 0) return null;
+  const targetSeason = seasonKeyOf ? seasonKeyOf(weekStartDate) : undefined;
   let found: T | null = null;
   for (const r of rowsAsc) {
-    if (r.weekStartDate <= weekStartDate) found = r;
-    else break; // asc 정렬 — 이후는 전부 미래.
+    if (r.weekStartDate > weekStartDate) break; // asc 정렬 — 이후는 전부 미래.
+    if (seasonKeyOf && !sameSeason(r.weekStartDate, weekStartDate, targetSeason ?? null, seasonKeyOf))
+      continue;
+    found = r;
   }
   return found;
+}
+
+// ── SEASON BOUNDARY — 시즌이 바뀌면 직전 시즌 override 를 상속하지 않는다 ────────────
+//   정책(2026-07-28 확정):
+//     · 같은 시즌 안에서는 주차별 override 의 carry-forward 를 그대로 허용한다.
+//     · 시즌이 바뀌면 직전 시즌 override 는 **끊긴다** — 새 시즌은 그 시즌에 명시 저장된 override,
+//       또는 그 주차의 실제 배정(UPH → 현재 멤버십)만 쓴다.
+//     · 시즌 휴식 해제는 "활동 가능"만 회복시킨다. 휴식 중 걸려 있던 파트 배정이 다음 시즌에
+//       자동 복원되면 안 된다(실측 2026-07-27: encre 비주얼랩(T) '테스트' 가 여름→가을에 되살아남).
+//   ⚠ 시즌을 못 찾은 행(weeks 미등록 등)은 **자기 주차에만** 적용한다 — 어느 시즌으로도 이월하지 않는다.
+export type SeasonKeyOf = (weekStartDate: string) => string | null;
+
+function sameSeason(
+  rowWeek: string,
+  targetWeek: string,
+  targetSeason: string | null,
+  seasonKeyOf: SeasonKeyOf,
+): boolean {
+  if (rowWeek === targetWeek) return true; // 그 주차에 저장된 행은 시즌 판정 없이도 유효.
+  const rowSeason = seasonKeyOf(rowWeek);
+  if (!rowSeason || !targetSeason) return false; // 미상 시즌은 이월 금지(자기 주차만).
+  return rowSeason === targetSeason;
+}
+
+// week_start_date → season_key 조회기. 시즌 경계 판정용 — 한 번 만들어 주차 루프에서 재사용한다.
+//   ⚠ 대상 주차뿐 아니라 **override 행의 주차**도 함께 넘겨야 한다(그 행의 시즌을 알아야 비교된다).
+export async function buildSeasonKeyResolver(weekStarts: string[]): Promise<SeasonKeyOf> {
+  const wanted = Array.from(
+    new Set(weekStarts.map((w) => String(w ?? "").slice(0, 10)).filter(Boolean)),
+  );
+  const byWeek = new Map<string, string | null>();
+  const CHUNK = 200;
+  for (let i = 0; i < wanted.length; i += CHUNK) {
+    const chunk = wanted.slice(i, i + CHUNK);
+    const { data, error } = await supabaseAdmin
+      .from("weeks")
+      .select("start_date,season_key")
+      .in("start_date", chunk);
+    if (error) throw new Error(error.message);
+    for (const r of (data ?? []) as Array<{ start_date: string; season_key: string | null }>)
+      byWeek.set(String(r.start_date).slice(0, 10), r.season_key ?? null);
+  }
+  return (weekStartDate: string) => byWeek.get(String(weekStartDate).slice(0, 10)) ?? null;
 }
 
 // key → 그 key 의 override 행(week_start_date 오름차순). resolveOverrideAt 와 짝.

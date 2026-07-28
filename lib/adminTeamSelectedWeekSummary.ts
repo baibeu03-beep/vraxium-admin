@@ -2,7 +2,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import { loadSeasonWeeks } from "@/lib/adminSeasonWeeksData";
 import { resolveUserScope } from "@/lib/userScope";
-import { loadTeamActivityEligibility } from "@/lib/evaluationEligibility";
+import { loadTeamActivityEligibilityBulk } from "@/lib/evaluationEligibility";
 import {
   loadWeekOrgResultStates,
   resolveWeekOrgResultState,
@@ -12,13 +12,18 @@ import { seasonKeyToHalfKey, seasonKeyToSeasonLabel } from "@/lib/teamHalf";
 import { DEFAULT_PART_NAME, getLeaderBasicsBatch } from "@/lib/adminTeamHalvesData";
 import { SUPER_ADMIN_EXCLUDE_OR } from "@/lib/superAdmins";
 import { resolvePositionLabels } from "@/lib/adminMembersTypes";
-import { loadWeekPositionOverrides } from "@/lib/teamWeekPositionOverride";
+import {
+  buildOverrideIndex,
+  buildSeasonKeyResolver,
+  loadOrgOverrideRowsUpTo,
+  resolveOverrideAt,
+} from "@/lib/teamWeekPositionOverride";
 import { loadWeeklyCrewResults, type WeeklyCrewResult } from "@/lib/teamWeekCrewResults";
 import { loadWeekGradeHistory, type WeekGradeHistoryEntry } from "@/lib/userWeekGradeHistory";
 import { type PositionCode } from "@/lib/positionHistory";
 import type { ScopeMode } from "@/lib/userScopeShared";
 import { type OrganizationSlug } from "@/lib/organizations";
-import { resolvePositionAtBatch } from "@/lib/positionResolver";
+import { resolvePositionAtWeeksBulk } from "@/lib/positionResolver";
 
 // ── 팀 상세 [A] — 선택 주차 요약 ─────────────────────────────────────────────
 //   특정 (organization, teamName, weekId) 에 대해 그 주차 기준 크루 수·성장 결과·운용 파트를 반환.
@@ -210,64 +215,201 @@ async function resolveSelectableWeeks(opts: {
   };
 }
 
-// 그 주차 · 그 팀의 effective 크루 로스터(공통 주차 resolver 단일 경로).
-//   override(≤W 최신) → UPH(W) → 현재 멤버십 순으로 팀/파트/클래스를 확정하고, 크루 3종만 남긴다.
-//   ⚠ 파트 카탈로그·크루 목록·평가 대상 판정은 전부 이 결과 하나만 판다. 화면별 후보 풀 금지.
+// ── <운용> 파트 판정의 **유일한 계산기** ────────────────────────────────────
+//   "그 주차 · 그 팀에 배정된 크루는 누구이고 파트는 무엇인가" 를 여러 팀 × 여러 주차에 대해 한 번에 답한다.
+//   화면(주차 요약 [A] · 파트×주차 존재표 · 팀 카드 파트 수/파트명 · 실무 경험 파트 스코프)은 전부
+//   이 함수 결과만 판다. **다른 곳에서 UPH/override/멤버십을 다시 조립하지 말 것** — 그렇게 갈라졌던
+//   경로들이 2026-07-27 에 "종료된 파트가 매트릭스에만 남는" 불일치를 만들었다.
+//
+//   규칙(주차마다 동일):
+//     후보  = org 프로필(슈퍼 관리자 제외) ∪ 그 주차 UPH 보유자 ∪ 그 주차 override 대상자
+//     ∩ 모집단 스코프(mode) ∩ 집합①(시즌 휴식·활동 중단 제외 — lib/evaluationEligibility)
+//     소속  = override(**같은 시즌** 안에서 ≤W 최신) → UPH(W) → 현재 멤버십 (lib/positionResolver)
+//     크루  = positionCode 3종만(운영진·관리자 미집계)
+//   ⚠ override 의 시즌 경계(SEASON BOUNDARY, lib/teamWeekPositionOverride)는 여기서 특례를 두지 않는다 —
+//     "그 주차에 실제로 활동 가능한 크루가 그 파트에 배정돼 있을 때만 운용"이 이 함수의 유일한 정의다.
+export const teamWeekRosterKey = (teamName: string, weekStartDate: string): string =>
+  `${teamName}::${String(weekStartDate).slice(0, 10)}`;
+
+export async function loadTeamWeekRostersBulk(opts: {
+  organization: OrganizationSlug;
+  teamNames: string[];
+  weeks: ReadonlyArray<{ weekStartDate: string; seasonKey: string | null }>;
+  mode: ScopeMode;
+  today?: string;
+}): Promise<Map<string, TeamWeekRosterMember[]>> {
+  const { organization, mode } = opts;
+  const teamNames = Array.from(new Set(opts.teamNames.filter(Boolean)));
+  const weeks: Array<{ weekStartDate: string; seasonKey: string | null }> = [];
+  const seenWeek = new Set<string>();
+  for (const w of opts.weeks) {
+    const ws = String(w.weekStartDate ?? "").slice(0, 10);
+    if (!ws || seenWeek.has(ws)) continue;
+    seenWeek.add(ws);
+    weeks.push({ weekStartDate: ws, seasonKey: w.seasonKey ?? null });
+  }
+
+  const out = new Map<string, TeamWeekRosterMember[]>();
+  for (const t of teamNames) for (const w of weeks) out.set(teamWeekRosterKey(t, w.weekStartDate), []);
+  if (teamNames.length === 0 || weeks.length === 0) return out;
+
+  const weekStarts = weeks.map((w) => w.weekStartDate).sort();
+  const maxWeek = weekStarts[weekStarts.length - 1];
+
+  // 모집단 스코프(operating=실사용자·test=테스트 마커). UserScope.includes 는 Set 조회(O(1)).
+  const scopeSet = await resolveUserScope(mode, null);
+
+  // 후보 원천 — org 프로필(1패스) · 전 주차 UPH 보유자(1패스) · override 행(≤max, 1패스).
+  //   (UPH/override 는 프로필 org 가 바뀐 뒤에도 그 주차 이력을 잃지 않기 위한 합집합 항이다.)
+  const [{ data: positionCandidates }, uphUsersByWeek, overrideRows] = await Promise.all([
+    supabaseAdmin
+      .from("user_profiles")
+      .select("user_id")
+      .eq("organization_slug", organization)
+      .or(SUPER_ADMIN_EXCLUDE_OR),
+    (async () => {
+      const byWeek = new Map<string, Set<string>>();
+      for (const ws of weekStarts) byWeek.set(ws, new Set());
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await supabaseAdmin
+          .from("user_position_histories")
+          .select("user_id,week_start_date")
+          .eq("organization", organization)
+          .in("week_start_date", weekStarts)
+          .order("week_start_date", { ascending: true })
+          .order("user_id", { ascending: true })
+          .range(from, from + 999);
+        if (error) throw new Error(error.message);
+        const batch = (data ?? []) as Array<{ user_id: string; week_start_date: string }>;
+        for (const r of batch)
+          byWeek.get(String(r.week_start_date).slice(0, 10))?.add(r.user_id);
+        if (batch.length < 1000) break;
+      }
+      return byWeek;
+    })(),
+    loadOrgOverrideRowsUpTo(organization, maxWeek),
+  ]);
+
+  const orgProfileIds = ((positionCandidates ?? []) as Array<{ user_id: string }>).map(
+    (row) => row.user_id,
+  );
+  // override 대상자(주차별) — (유저×팀) carry-forward 판정. **시즌 경계 적용**(SEASON BOUNDARY):
+  //   직전 시즌 override 는 새 시즌으로 상속되지 않으므로 후보 산정에서도 같은 규칙을 쓴다.
+  //   ⚠ 여기와 resolvePositionAtWeeksBulk 가 같은 규칙이어야 "후보엔 있는데 소속은 안 잡히는" 유령이 없다.
+  const overrideIndex = buildOverrideIndex(overrideRows, (r) => `${r.userId}::${r.rawTeam}`);
+  const seasonKeyOf = await buildSeasonKeyResolver([
+    ...weekStarts,
+    ...overrideRows.map((r) => r.weekStartDate),
+  ]);
+  const overrideUsersByWeek = new Map<string, Set<string>>();
+  for (const ws of weekStarts) {
+    const set = new Set<string>();
+    for (const arr of overrideIndex.values()) {
+      const hit = resolveOverrideAt(arr, ws, seasonKeyOf);
+      if (hit) set.add(hit.userId);
+    }
+    overrideUsersByWeek.set(ws, set);
+  }
+
+  const scopedByWeek = new Map<string, string[]>();
+  const allScoped = new Set<string>();
+  for (const ws of weekStarts) {
+    const ids = Array.from(
+      new Set([
+        ...orgProfileIds,
+        ...(uphUsersByWeek.get(ws) ?? new Set<string>()),
+        ...(overrideUsersByWeek.get(ws) ?? new Set<string>()),
+      ]),
+    ).filter((userId) => scopeSet.includes(userId));
+    scopedByWeek.set(ws, ids);
+    for (const id of ids) allScoped.add(id);
+  }
+
+  // 집합 ① 팀·파트 활동 가능 모집단 — 시즌 휴식 + (효력 발생 후) 활동 중단 제외.
+  //   ⚠ 엘리트/바사노스는 **여기서 빼지 않는다**(소속·평가자/운영자 역할 유지). 그 둘은 집합 ②(평가) 축이다.
+  //   ⚠ 기준 시점은 각 주차다 — 현재 상태를 과거 주차에 소급하지 않는다(lib/evaluationEligibility).
+  const allScopedIds = [...allScoped];
+  const eligibilityByWeek = await loadTeamActivityEligibilityBulk({
+    userIds: allScopedIds,
+    weeks,
+    today: opts.today,
+  });
+
+  const candidateByWeek = new Map<string, string[]>();
+  const allCandidates = new Set<string>();
+  for (const ws of weekStarts) {
+    const el = eligibilityByWeek.get(ws);
+    const ids = (scopedByWeek.get(ws) ?? []).filter((userId) => el?.isTeamActive(userId) ?? true);
+    candidateByWeek.set(ws, ids);
+    for (const id of ids) allCandidates.add(id);
+  }
+
+  const positionsByWeek = await resolvePositionAtWeeksBulk({
+    userIds: [...allCandidates],
+    weekStarts,
+    organization,
+  });
+
+  for (const ws of weekStarts) {
+    const positions = positionsByWeek.get(ws);
+    if (!positions) continue;
+    for (const uid of candidateByWeek.get(ws) ?? []) {
+      const position = positions.get(uid);
+      if (!position) continue;
+      const code = crewPositionCodeOrNull(position.positionCode);
+      if (code === null) continue; // 운영진/관리자 등 = 크루 아님(미집계)
+      const resolvedTeam = position.teamName ?? "";
+      for (const teamName of teamNames) {
+        if (resolvedTeam !== teamName && stripParen(resolvedTeam) !== stripParen(teamName)) continue;
+        out
+          .get(teamWeekRosterKey(teamName, ws))
+          ?.push({ userId: uid, positionCode: code, rawPart: position.partName });
+      }
+    }
+  }
+  return out;
+}
+
+// 그 주차 · 그 팀의 effective 크루 로스터. 구현은 벌크(팀 1 × 주차 1) 위임 — 규칙을 두 벌 두지 않는다.
 async function loadTeamWeekRosterAt(
   organization: OrganizationSlug,
   teamName: string,
   weekStart: string,
   seasonKey: string | null,
   mode: ScopeMode,
+  today?: string,
 ): Promise<TeamWeekRosterMember[]> {
-  // 모집단 스코프(operating=실사용자·test=테스트 마커).
-  const scopeSet = await resolveUserScope(mode, null);
-
-  // 후보 = org 프로필(슈퍼 관리자 제외) ∪ 그 주차 UPH 보유자 ∪ 그 주차 override 대상자.
-  //   (UPH/override 는 프로필 org 가 바뀐 뒤에도 그 주차 이력을 잃지 않기 위한 합집합 항이다.)
-  const [{ data: positionCandidates }, { data: uphData }, overrides] = await Promise.all([
-    supabaseAdmin
-      .from("user_profiles")
-      .select("user_id")
-      .eq("organization_slug", organization)
-      .or(SUPER_ADMIN_EXCLUDE_OR),
-    supabaseAdmin
-      .from("user_position_histories")
-      .select("user_id")
-      .eq("organization", organization)
-      .eq("week_start_date", weekStart),
-    loadWeekPositionOverrides(organization, weekStart),
-  ]);
-  const scopedCandidates = Array.from(new Set([
-    ...((positionCandidates ?? []) as Array<{ user_id: string }>).map((row) => row.user_id),
-    ...((uphData ?? []) as Array<{ user_id: string }>).map((row) => row.user_id),
-    ...Array.from(overrides.keys()).map((key) => key.slice(0, key.indexOf("::"))),
-  ])).filter((userId) => scopeSet.includes(userId));
-
-  // 집합 ① 팀·파트 활동 가능 모집단 — 시즌 휴식 + (효력 발생 후) 활동 중단 제외.
-  //   ⚠ 엘리트/바사노스는 **여기서 빼지 않는다**(소속·평가자/운영자 역할 유지). 그 둘은 집합 ②(평가) 축이다.
-  //   ⚠ 기준 시점은 이 주차다 — 현재 상태를 과거 주차에 소급하지 않는다(lib/evaluationEligibility).
-  const eligibility = await loadTeamActivityEligibility({
-    userIds: scopedCandidates,
-    weekStartDate: weekStart,
-    seasonKey,
-  });
-  const candidateUserIds = scopedCandidates.filter((userId) => eligibility.isTeamActive(userId));
-
-  const resolvedPositions = await resolvePositionAtBatch({
-    userIds: candidateUserIds,
-    targetWeekStart: weekStart,
+  const byKey = await loadTeamWeekRostersBulk({
     organization,
+    teamNames: [teamName],
+    weeks: [{ weekStartDate: weekStart, seasonKey }],
+    mode,
+    today,
   });
-  const members: TeamWeekRosterMember[] = [];
-  for (const [uid, position] of resolvedPositions) {
-    const resolvedTeam = position.teamName ?? "";
-    if (resolvedTeam !== teamName && stripParen(resolvedTeam) !== stripParen(teamName)) continue;
-    const code = crewPositionCodeOrNull(position.positionCode);
-    if (code === null) continue; // 운영진/관리자 등 = 크루 아님(미집계)
-    members.push({ userId: uid, positionCode: code, rawPart: position.partName });
+  return byKey.get(teamWeekRosterKey(teamName, weekStart)) ?? [];
+}
+
+// <운용> 파트 집계 — 로스터에서 파트별 distinct 크루 수. '일반' 우선, 그다음 크루 수 내림차순.
+//   [A] 주차 요약도 파트×주차 존재표도 이 함수 하나로 집계한다(정렬·필터 규칙 복제 금지).
+export function operatedPartsFromRoster(
+  members: ReadonlyArray<{ userId: string; rawPart: string | null }>,
+): Array<{ partName: string; crewCount: number }> {
+  const partUsers = new Map<string, Set<string>>();
+  for (const m of members) {
+    const p = (m.rawPart ?? "").trim();
+    if (!p) continue; // 파트 미배정(팀장 등) — 어떤 파트에도 넣지 않는다.
+    const s = partUsers.get(p) ?? new Set<string>();
+    s.add(m.userId);
+    partUsers.set(p, s);
   }
-  return members;
+  return [...partUsers.entries()]
+    .map(([partName, ids]) => ({ partName, crewCount: ids.size }))
+    .filter((p) => p.crewCount > 0)
+    .sort((a, b) => {
+      if (a.partName === DEFAULT_PART_NAME) return -1;
+      if (b.partName === DEFAULT_PART_NAME) return 1;
+      return b.crewCount - a.crewCount || a.partName.localeCompare(b.partName);
+    });
 }
 
 // 주차 effective 로스터 공개 진입점 — weekId 미지정/목록 밖이면 현재 주차 폴백(요약과 동일 규칙).
@@ -287,6 +429,7 @@ export async function loadTeamWeekEffectiveRoster(opts: {
     targetRow.week_start_date,
     targetRow.season_key ?? null,
     opts.mode ?? "operating",
+    opts.today,
   );
   return {
     week: {
@@ -354,23 +497,17 @@ export async function getTeamSelectedWeekSummary(opts: {
     weekStart,
     targetRow.season_key ?? null,
     mode,
+    opts.today,
   );
   const effectiveByUser = new Map(
     rosterMembers.map((m) => [m.userId, { positionCode: m.positionCode, rawPart: m.rawPart }] as const),
   );
 
-  // 집계 — 전체 크루(정규+심화·운영진 제외·userId 고유) + 파트별 크루 수.
+  // 집계 — 전체 크루(정규+심화·운영진 제외·userId 고유).
   const crewUserIds = new Set<string>();
   let regular = 0;
   let advanced = 0;
-  const partUsers = new Map<string, Set<string>>();
   for (const [uid, v] of effectiveByUser) {
-    const p = (v.rawPart ?? "").trim();
-    if (p) {
-      const s = partUsers.get(p) ?? new Set<string>();
-      s.add(uid);
-      partUsers.set(p, s);
-    }
     if (isCrewPosition(v.positionCode)) {
       crewUserIds.add(uid);
       if (isAdvancedPosition(v.positionCode)) advanced++;
@@ -411,15 +548,8 @@ export async function getTeamSelectedWeekSummary(opts: {
   if (isCurrentWeek) growth.running = unresolved;
   else growth.tallying = unresolved;
 
-  // 7) 운용 파트(배정 크루 ≥1) — '일반' 우선, 그다음 크루 수 내림차순.
-  const operatedParts = [...partUsers.entries()]
-    .map(([partName, ids]) => ({ partName, crewCount: ids.size }))
-    .filter((p) => p.crewCount > 0)
-    .sort((a, b) => {
-      if (a.partName === DEFAULT_PART_NAME) return -1;
-      if (b.partName === DEFAULT_PART_NAME) return 1;
-      return b.crewCount - a.crewCount || a.partName.localeCompare(b.partName);
-    });
+  // 7) 운용 파트(배정 크루 ≥1) — 공용 집계기(파트×주차 존재표와 동일 함수).
+  const operatedParts = operatedPartsFromRoster(rosterMembers);
 
   // 8) [B] 크루 행 — 전체 크루(정규+심화) 각자의 프로필 + effective 파트/클래스 + 주차결과.
   //    ⚠ 파트/클래스는 effective(override ?? UPH), 프로필/품계/결과는 기존 SoT. 결과류는 검수 완료 전 null(-).

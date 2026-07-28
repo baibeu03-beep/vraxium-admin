@@ -30,6 +30,9 @@ import { isOrganizationSlug, ORGANIZATIONS, type OrganizationSlug } from "@/lib/
 import {
   getTeamSelectedWeekSummary,
   listOperatedTeamParts,
+  loadTeamWeekRostersBulk,
+  operatedPartsFromRoster,
+  teamWeekRosterKey,
 } from "@/lib/adminTeamSelectedWeekSummary";
 import { loadSeasonWeeks } from "@/lib/adminSeasonWeeksData";
 import {
@@ -41,10 +44,7 @@ import { resolveUserScope } from "@/lib/userScope";
 import { SUPER_ADMIN_EXCLUDE_OR } from "@/lib/superAdmins";
 import { markWeeklyCardsSnapshotStaleMany } from "@/lib/cluster4WeeklyCardsSnapshot";
 import {
-  loadOrgOverrideRowsUpTo,
   loadWeekPositionOverridesByUser,
-  buildOverrideIndex,
-  resolveOverrideAt,
   type OverridePosition,
 } from "@/lib/teamWeekPositionOverride";
 import { applyMemberRolePosition, MemberPatchError } from "@/lib/adminMembersData";
@@ -428,69 +428,14 @@ export async function getLeaderBasicsBatch(
   return out;
 }
 
-// [POST 폴백 전용] 현재 주차 기준 팀별 파트 점유(user_memberships 현재·active).
-//   GET(loadTeamPartsInfo)에서는 derivePartsFromMatrix(선택 반기 마지막 활동 주차)로 덮어쓴다.
-//   register/save POST 응답에만 쓰이고 프론트는 GET 으로 재로딩하므로 표시에 영향 없음.
-async function computeTeamPartInfo(
-  organization: string,
-  teamNames: string[],
-): Promise<Map<string, { partCount: number; partNames: string[] }>> {
-  const out = new Map<string, { partCount: number; partNames: string[] }>();
-  for (const t of teamNames) out.set(t, { partCount: 1, partNames: [DEFAULT_PART_NAME] });
-  if (teamNames.length === 0) return out;
+// (제거됨 2026-07-27) computeTeamPartInfo — "현재 멤버십으로 팀별 파트 세기"(POST 폴백).
+//   <운용> 파트를 세는 4번째 경로였고, 주차 override·시즌 휴식·모집단 스코프를 전부 무시했다.
+//   partCount/partNames 는 이제 **한 경로**로만 채워진다: computePartWeekData(공용 SoT)
+//   → derivePartsFromMatrix. GET/POST 모두 fillTeamPartsFromMatrix 를 지난다.
 
-  const { data: mems, error: mErr } = await supabaseAdmin
-    .from("user_memberships")
-    .select("user_id,team_name,part_name,is_current,membership_state")
-    .in("team_name", teamNames)
-    .eq("is_current", true);
-  if (mErr) throw new Error(mErr.message);
-
-  const rows = ((mems ?? []) as Array<{
-    user_id: string;
-    team_name: string | null;
-    part_name: string | null;
-    is_current: boolean | null;
-    membership_state: string | null;
-  }>).filter((m) => m.membership_state !== "rest");
-
-  // org 매칭(user_profiles.organization_slug == organization).
-  const uids = Array.from(new Set(rows.map((r) => r.user_id)));
-  const orgByUser = new Map<string, string | null>();
-  if (uids.length > 0) {
-    const { data: profs, error: pErr } = await supabaseAdmin
-      .from("user_profiles")
-      .select("user_id,organization_slug")
-      .in("user_id", uids);
-    if (pErr) throw new Error(pErr.message);
-    for (const p of (profs ?? []) as Array<{ user_id: string; organization_slug: string | null }>) {
-      orgByUser.set(p.user_id, p.organization_slug);
-    }
-  }
-
-  // team_name → 점유 파트(크루 ≥1) 집합(노출 순서 = 첫 등장 순).
-  const occupied = new Map<string, string[]>();
-  for (const r of rows) {
-    if (orgByUser.get(r.user_id) !== organization) continue;
-    if (!r.team_name) continue;
-    const part = r.part_name?.trim();
-    if (!part) continue;
-    const list = occupied.get(r.team_name) ?? [];
-    if (!list.includes(part)) list.push(part);
-    occupied.set(r.team_name, list);
-  }
-
-  for (const t of teamNames) {
-    const parts = occupied.get(t);
-    if (parts && parts.length > 0) {
-      out.set(t, { partCount: parts.length, partNames: parts });
-    }
-    // 점유 파트 없음 → 기본값(일반·1) 유지.
-  }
-  return out;
-}
-
-// 특정 반기의 활성 팀 목록(노출 순) + 팀장 기본정보 + 파트(현재 주차).
+// 특정 반기의 활성 팀 목록(노출 순) + 팀장 기본정보.
+//   ⚠ partCount/partNames 는 여기서 계산하지 않는다(기본값 '일반'·1). <운용> 파트는 공용 SoT 를 타는
+//     fillTeamPartsFromMatrix 가 채운다 — 그 규칙을 여기에 복제하면 다시 갈린다.
 export async function listHalfTeams(
   organization: string,
   halfKey: string,
@@ -500,20 +445,13 @@ export async function listHalfTeams(
   const leaderIds = Array.from(
     new Set(rows.map((r) => r.leader_user_id).filter((id): id is string => !!id)),
   );
-  const [leaderBasics, partInfo] = await Promise.all([
-    getLeaderBasicsBatch(leaderIds),
-    computeTeamPartInfo(organization, rows.map((r) => r.team_name)),
-  ]);
+  const leaderBasics = await getLeaderBasicsBatch(leaderIds);
 
   return rows.map((r) => {
     const lbRaw = r.leader_user_id ? leaderBasics.get(r.leader_user_id) : null;
     // 조직 강제: 연결 크루의 org 가 팀 org 와 다르면 상세를 노출하지 않는다(다른 조직 동명 방지).
     //   leader_name(이름 SoT)은 유지되므로 이름만 표시되고 나머지는 "-".
     const lb = lbRaw && lbRaw.org === organization ? lbRaw : null;
-    const pi = partInfo.get(r.team_name) ?? {
-      partCount: 1,
-      partNames: [DEFAULT_PART_NAME],
-    };
     return {
       teamHalfId: r.id,
       teamName: r.team_name,
@@ -533,77 +471,79 @@ export async function listHalfTeams(
       leaderResidence: lb?.residence ?? null,
       leaderClassLabel: lb?.classLabel ?? null,
       leaderGradeLabel: lb?.gradeLabel ?? null,
-      partCount: pi.partCount,
-      partNames: pi.partNames,
-      partWeekMatrix: null, // loadTeamPartsInfo(GET)에서 채움.
+      // 기본값 — fillTeamPartsFromMatrix 가 공용 SoT 로 덮어쓴다(운용 파트 없으면 '일반'·1 유지).
+      partCount: 1,
+      partNames: [DEFAULT_PART_NAME],
+      partWeekMatrix: null,
       isQaTest: r.is_qa_test,
     };
   });
 }
 
-// ── 파트×주차 존재표 계산 ──────────────────────────────────────────────
-// 선택 반기의 두 시즌(방학→학기, ~26주) x축 + 팀별 파트(누적) y축 존재표.
-//   주차별 소속 이력 SoT = user_position_histories(PMS useractivities 이관, 주차단위).
-//   조인: organization + 정규화(괄호 strip)된 raw_team == team_name, week_start_date == weeks.start_date.
-//   y축 파트 = 카탈로그(cluster4_team_parts, "일반" 보장) ∪ UPH raw_part(있는 그대로 전부).
-//   셀 = 그 주에 그 파트 소속 크루 ≥1(존재). UPH 무접촉·read 전용 → snapshot 영향 없음.
-const stripParen = (s: string): string => s.replace(/\(.*?\)/g, "").trim();
-
-// 현재 팀·파트 배정(user_memberships) — 팀별 점유 파트 집합(org 매칭·is_current·비휴식).
-//   진행 중 반기의 미확정 주차 폴백 SoT(사용자 화면과 동일 원천). 현재 멤버가 없는 팀은 미포함
-//   (빈 팀 false-fill 방지).
-//   ⚠ part_name = null/빈문자 = "파트 미배정"(팀장 정책) — "일반"으로 변환하지 않고 제외한다.
-//     따라서 팀장은 어떤 파트 셀/인원에도 포함되지 않는다(팀 전체 인원엔 별도 경로로 포함).
-//     실제 저장값이 "일반"인 사용자만 "일반" 파트로 집계된다.
-//   ⚠ 폴백은 **유저 단위**로 잡아야 관리자 override(유저×주차×팀)를 그 위에 얹을 수 있다.
-//     그래서 원천은 (팀 → [{userId, part}]) 형태로 만들고, 팀→파트 목록은 여기서 파생시킨다.
-async function currentMembershipAssignmentsByTeam(
+// 팀 목록 + <운용> 파트(공용 SoT) — GET/POST 어느 응답이든 이 한 경로만 지난다.
+//   partWeekMatrix(존재표) · partCount/partNames(파트 칩) 를 같은 계산 1회로 함께 채운다.
+export async function fillTeamPartsFromMatrix(
   organization: string,
-  teamNames: string[],
-): Promise<Map<string, Array<{ userId: string; part: string }>>> {
-  const out = new Map<string, Array<{ userId: string; part: string }>>();
-  if (teamNames.length === 0) return out;
-  const { data: mems, error } = await supabaseAdmin
-    .from("user_memberships")
-    .select("user_id,team_name,part_name,is_current,membership_state")
-    .in("team_name", teamNames)
-    .eq("is_current", true);
-  if (error) throw new Error(error.message);
-  const rows = ((mems ?? []) as Array<{
-    user_id: string;
-    team_name: string | null;
-    part_name: string | null;
-    membership_state: string | null;
-  }>).filter((m) => m.membership_state !== "rest");
-  const uids = Array.from(new Set(rows.map((r) => r.user_id)));
-  const orgByUser = new Map<string, string | null>();
-  if (uids.length > 0) {
-    const { data: profs, error: pErr } = await supabaseAdmin
-      .from("user_profiles")
-      .select("user_id,organization_slug")
-      .in("user_id", uids);
-    if (pErr) throw new Error(pErr.message);
-    for (const p of (profs ?? []) as Array<{ user_id: string; organization_slug: string | null }>)
-      orgByUser.set(p.user_id, p.organization_slug);
+  halfKey: string,
+  teams: TeamHalfTeamDto[],
+  mode: ScopeMode,
+  todayIso: string,
+): Promise<PartWeekColumnDto[]> {
+  if (teams.length === 0) {
+    // 팀이 없어도 x축은 계산(빈 표·UI 일관).
+    const { weekColumns } = await computePartWeekData(organization, halfKey, [], mode, todayIso);
+    return weekColumns;
   }
-  for (const r of rows) {
-    if (orgByUser.get(r.user_id) !== organization) continue;
-    if (!r.team_name) continue;
-    const part = (r.part_name ?? "").trim();
-    if (!part) continue; // 파트 미배정(팀장) — 일반 변환 없이 제외.
-    const list = out.get(r.team_name) ?? [];
-    list.push({ userId: r.user_id, part });
-    out.set(r.team_name, list);
+  const { weekColumns, byTeam } = await computePartWeekData(
+    organization,
+    halfKey,
+    teams.map((t) => ({ teamHalfId: t.teamHalfId, teamName: t.teamName })),
+    mode,
+    todayIso,
+  );
+  // ① 팀정보 ② 파트 수/파트명 ③ 존재표 — 전부 같은 계산 결과에서 파생(원천 1개).
+  for (const t of teams) {
+    const m = byTeam.get(t.teamName) ?? null;
+    t.partWeekMatrix = m;
+    if (m) {
+      const derived = derivePartsFromMatrix(m, weekColumns, todayIso);
+      t.partCount = derived.partCount;
+      t.partNames = derived.partNames;
+    }
   }
-  return out;
+  return weekColumns;
 }
 
-// (제거됨 2026-07-27) currentMembershipPartsByTeam — "현재 멤버십으로 팀별 점유 파트 세기".
-//   팀 상세 상단 '운용 파트 수'와 클럽 요약 '전체 파트 수'가 이걸 썼는데, 주차 override 를 반영하지
-//   못해 같은 화면의 [A] 와 갈렸다. 두 소비처 모두 공용 SoT(listOperatedTeamParts /
-//   getTeamSelectedWeekSummary.operatedParts)로 이관했다. 다시 만들지 말 것.
-//   ⚠ currentMembershipAssignmentsByTeam(유저 단위)은 파트×주차 존재표의 **멤버십 폴백**에서 계속
-//     쓰인다 — 그건 파트 수 집계가 아니라 UPH 없는 주차를 메우는 base 이므로 이관 대상이 아니다.
+// 팀 목록(파트 포함) — 쓰기 응답 전용 진입점. GET 은 loadTeamPartsInfo 가 같은 함수를 부른다.
+async function listHalfTeamsWithParts(
+  organization: string,
+  halfKey: string,
+  mode: ScopeMode,
+  today?: string,
+): Promise<TeamHalfTeamDto[]> {
+  const teams = await listHalfTeams(organization, halfKey);
+  await fillTeamPartsFromMatrix(
+    organization,
+    halfKey,
+    teams,
+    mode,
+    today ?? getCurrentActivityDateIso(),
+  );
+  return teams;
+}
+
+// ── 파트×주차 존재표 계산 ──────────────────────────────────────────────
+// 선택 반기의 두 시즌(방학→학기, ~26주) x축 + 팀별 파트(누적) y축 존재표.
+//   y축 파트 = 카탈로그(cluster4_team_parts, "일반" 보장) ∪ 그 반기에 실제 운용된 파트.
+//   셀 = 그 주 그 파트 배정 크루 ≥1 — 판정은 **공용 SoT**(loadTeamWeekRostersBulk) 하나뿐이다.
+//   read 전용(weeks·카탈로그·로스터 조회) → snapshot 영향 없음.
+
+// (제거됨 2026-07-27) currentMembershipPartsByTeam / currentMembershipAssignmentsByTeam —
+//   "현재 멤버십으로 팀별 점유 파트 세기" · "UPH 없는 주차를 현재 멤버십으로 메우기".
+//   전자는 팀 상세 상단·클럽 요약이, 후자는 파트×주차 존재표가 썼는데, 둘 다 모집단 스코프·시즌
+//   휴식/활동 중단·크루 여부를 반영하지 못해 같은 화면의 [A] 와 갈렸다. 세 소비처 모두 공용 SoT
+//   (listOperatedTeamParts / getTeamSelectedWeekSummary.operatedParts / loadTeamWeekRostersBulk)로
+//   이관했다 — 멤버십 폴백은 공용 resolver 안에 이미 들어 있다. 다시 만들지 말 것.
 
 // 팀별 "현재 시점" 크루 수(클러빙/정규/심화) — team_name 기준. 클럽 요약(buildClubRoleCounts)과 동일
 //   원천·스코프·라벨 SoT 를 팀 단위로 좁힌 것. 개인 휴식 포함, userId 고유.
@@ -691,9 +631,7 @@ async function computePartWeekData(
   organization: string,
   halfKey: string,
   teams: Array<{ teamHalfId: string; teamName: string }>,
-  // 진행 중 반기(=현재 반기)일 때만 true. UPH 없는 "진행 대상(경과) 주차"에 한해
-  //   현재 팀·파트 배정(user_memberships)으로 셀을 폴백한다(UPH·과거 반기는 불변).
-  applyMembershipFallback = false,
+  mode: ScopeMode = "operating",
   todayIso?: string,
 ): Promise<{
   weekColumns: PartWeekColumnDto[];
@@ -728,7 +666,6 @@ async function computePartWeekData(
     label: `${seasonKeyToSeasonLabel(w.season_key)} ${w.week_number ?? ""}`.trim(),
     isRest: !!w.is_official_rest,
   }));
-  const weekIdxByStart = new Map(weekColumns.map((c, i) => [c.weekStartDate, i]));
 
   if (teams.length === 0) return { weekColumns, byTeam };
 
@@ -756,136 +693,45 @@ async function computePartWeekData(
     catalogByTeamName.set(tn, arr);
   }
 
-  // 3) UPH(주차단위 소속 이력) — org + 두 시즌. 페이지네이션.
-  //    user_id 를 함께 읽는다 — 관리자 override 는 (유저×주차×팀) 단위라, 유저 단위로 base 를 잡아야
-  //    "마지막 크루가 파트를 옮기면 그 파트 셀이 꺼진다"가 성립한다(집계만으론 제거 불가).
-  const uph: Array<{
-    user_id: string;
-    raw_team: string | null;
-    raw_part: string | null;
-    week_start_date: string;
-  }> = [];
-  for (let from = 0; ; from += 1000) {
-    const { data, error } = await supabaseAdmin
-      .from("user_position_histories")
-      .select("user_id,raw_team,raw_part,week_start_date")
-      .eq("organization", organization)
-      .in("season_key", seasons)
-      .order("week_start_date", { ascending: true })
-      .range(from, from + 999);
-    if (error) throw new Error(error.message);
-    const batch = (data ?? []) as typeof uph;
-    uph.push(...batch);
-    if (batch.length < 1000) break;
-  }
+  // 3~4) 주차별 <운용> 파트 = **공용 SoT 하나**(loadTeamWeekRostersBulk).
+  //   [A] 주차 요약(getTeamSelectedWeekSummary)·실무 경험 파트 스코프(listOperatedTeamParts)와
+  //   완전히 같은 함수·같은 규칙이다:
+  //     후보 = org 프로필 ∪ 그 주차 UPH ∪ 그 주차 override, ∩ 모집단 스코프(mode)
+  //          ∩ 집합①(시즌 휴식·활동 중단 제외)
+  //     소속 = override(≤W 최신) → UPH(W) → 현재 멤버십  ·  크루 3종만(운영진 제외)
+  //   ⚠ 여기서 UPH/override/멤버십을 다시 조립하지 말 것. 종전엔 이 함수만 자체 조립이라
+  //     ① 모집단 스코프 ② 시즌 휴식·활동 중단 ③ 크루 여부를 전부 빠뜨렸고, 그래서 시즌 휴식자
+  //     한 명만 override 로 배정돼 있던 파트가 [A] 에선 사라졌는데 존재표에는 계속 ● 로 남았다
+  //     (2026-07-27 실측: encre 비주얼랩(T) '테스트' 여름4~가을1). 규칙 변경은 공용 SoT 에서.
+  //   ⚠ 과거/미래 주차 게이트 없음 — 미래 주차도 현재 배정을 투영(carry-forward)한다. 팀 카드
+  //     요약(파트 수/파트명)만 derivePartsFromMatrix 가 todayIso 이하로 한정한다.
+  const rosterByKey = await loadTeamWeekRostersBulk({
+    organization: organization as OrganizationSlug,
+    teamNames: teams.map((t) => t.teamName),
+    weeks: weekColumns.map((c) => ({ weekStartDate: c.weekStartDate, seasonKey: c.seasonKey })),
+    mode,
+    today: todayIso,
+  });
 
-  // 4) team_name 매칭(직접 → 괄호 strip). team_name 은 org 내 유일.
-  const teamNameSet = new Set(teams.map((t) => t.teamName));
-  const resolveTeam = (rawTeam: string | null): string | null => {
-    const rt = rawTeam ?? "";
-    if (teamNameSet.has(rt)) return rt;
-    const stripped = stripParen(rt);
-    return teamNameSet.has(stripped) ? stripped : null;
-  };
-  // effective 배정 = teamName → weekIdx → userId → Set<partName>.
-  //   base(UPH) 위에 관리자 override(cluster4_team_week_position_overrides)를 유저 단위로 덮어쓴다
-  //   (override ?? UPH — [[teamWeekPositionOverride]] 공용 규칙, 팀 상세 [A]/[B] 와 동일 SoT).
-  const assign = new Map<string, Map<number, Map<string, Set<string>>>>();
-  const assignSlot = (team: string, wi: number, userId: string): Set<string> => {
-    const byWeek = assign.get(team) ?? new Map<number, Map<string, Set<string>>>();
-    assign.set(team, byWeek);
-    const byUser = byWeek.get(wi) ?? new Map<string, Set<string>>();
-    byWeek.set(wi, byUser);
-    const set = byUser.get(userId) ?? new Set<string>();
-    byUser.set(userId, set);
-    return set;
-  };
-  for (const r of uph) {
-    const team = resolveTeam(r.raw_team);
-    if (!team) continue;
-    const wi = weekIdxByStart.get(String(r.week_start_date).slice(0, 10));
-    if (wi === undefined) continue;
-    const part = (r.raw_part ?? "").trim();
-    if (!part) continue; // null/empty raw_part 는 파트 미상 — 제외.
-    assignSlot(team, wi, r.user_id).add(part);
-  }
-
-  // ⚠ 적용 순서 = UPH base → 멤버십 폴백 → override. 순서를 바꾸면 안 된다:
-  //     override 를 폴백보다 먼저 얹으면 "override 가 있는 주차"가 UPH 보유 주차로 오인되어
-  //     그 주차 전체가 폴백에서 제외되고, 한 명을 옮겼을 뿐인데 팀의 그 주 컬럼이 통째로 사라진다.
-  //   폴백 제외 판정은 **UPH 보유 주차만** 기준으로 삼는다(아래 uphWeeksByTeam).
-  const uphWeeksByTeam = new Map<string, Set<number>>();
-  for (const [team, byWeek] of assign) uphWeeksByTeam.set(team, new Set(byWeek.keys()));
-
-  // 4a) 진행 중 반기 폴백 — UPH가 없는 주차를 현재 팀·파트 배정(user_memberships)으로 채운다.
-  //     **유저 단위**로 넣어야 그 위에 override 를 유저별로 얹을 수 있다.
-  //     · UPH가 있는 주차는 항상 UPH 우선(그 주차는 폴백 제외).
-  //     · ⚠ 경과(≤오늘) 게이트 없음 — **미래 주차도 현재 배정을 투영(carry-forward)** 한다.
-  //       공통 resolver [[positionResolver]] resolvePositionAtBatch 와 **동일 규칙**
-  //       (override(≤W) → UPH(W) → 현재 멤버십, 경과 게이트 없음)의 벌크 형태다. 종전엔 여기만
-  //       경과 게이트를 남겨, override 는 미래까지 ●·멤버십만 있는 파트는 미래 빈칸이 되는
-  //       하이브리드 불일치가 있었다(2026-07-24 실측: 포토 W5~8 빈칸). 규칙을 하나로 통일한다.
-  //     · **현재 반기에서만** 폴백(applyMembershipFallback = 현재 반기) — 과거/미래 반기 불변.
-  //     · 현재 멤버 없는 팀은 폴백 없음. mode/org 분기 없음·user_week_statuses 미생성.
-  //     · 팀 카드 요약(파트 수/파트명)은 미래 투영에 휩쓸리지 않도록 derivePartsFromMatrix 가
-  //       todayIso 이하 마지막 주차 기준으로 별도 산출한다(요약은 "현재까지 실제 운용" 유지).
-  if (applyMembershipFallback) {
-    const memberAssignments = await currentMembershipAssignmentsByTeam(
-      organization,
-      teams.map((t) => t.teamName),
-    );
-    for (const t of teams) {
-      const rows = memberAssignments.get(t.teamName);
-      if (!rows || rows.length === 0) continue;
-      const uphWeeks = uphWeeksByTeam.get(t.teamName) ?? new Set<number>();
-      for (let wi = 0; wi < weekColumns.length; wi++) {
-        if (uphWeeks.has(wi)) continue; // UPH 보유 주차는 UPH 우선.
-        for (const r of rows) assignSlot(t.teamName, wi, r.userId).add(r.part);
-      }
-    }
-  }
-
-  // 4b) override 덮어쓰기 — 그 (유저×팀) 의 base 파트를 통째로 대체(null=파트 미배정 → 제거).
-  //     base 가 UPH 든 멤버십 폴백이든 무관하게 그 한 유저만 바뀐다(팀 컬럼 전체 영향 없음).
-  //     ⚠ carry-forward: override 는 저장 주차 **이후 주차 전부**에 이어진다. 그래서 "그 주차에
-  //       저장된 행"만 찍는 게 아니라, **주차 컬럼마다** ≤그 주차 최근 override 를 다시 고른다.
-  //       (4주차 저장 → 4·5·6주차 반영, 3주차는 불변.)
-  const lastWeekStart = weekColumns.length > 0 ? weekColumns[weekColumns.length - 1].weekStartDate : null;
-  if (lastWeekStart) {
-    const overrideRows = await loadOrgOverrideRowsUpTo(organization, lastWeekStart);
-    const index = buildOverrideIndex(overrideRows, (r) => `${r.userId}::${r.rawTeam}`);
-    for (const arr of index.values()) {
-      const team = resolveTeam(arr[0].rawTeam);
-      if (!team) continue;
-      for (let wi = 0; wi < weekColumns.length; wi++) {
-        const hit = resolveOverrideAt(arr, weekColumns[wi].weekStartDate);
-        if (!hit) continue; // 이 주차보다 이른 override 없음 → base 유지(과거 주차 불변).
-        const set = assignSlot(team, wi, hit.userId);
-        set.clear();
-        const part = (hit.rawPart ?? "").trim();
-        if (part) set.add(part);
-      }
-    }
-  }
-
-  // 4c) 존재표 집계 — teamName → partName → Set<weekIdx>, partName 최초 등장 weekIdx(정렬용).
+  // 존재표 집계 — teamName → partName → Set<weekIdx>, partName 최초 등장 weekIdx(정렬용).
   const presence = new Map<string, Map<string, Set<number>>>();
   const firstSeen = new Map<string, Map<string, number>>();
-  for (const [team, byWeek] of assign) {
-    const pm = presence.get(team) ?? new Map<string, Set<number>>();
-    const fm = firstSeen.get(team) ?? new Map<string, number>();
-    for (const [wi, byUser] of byWeek) {
-      for (const parts of byUser.values()) {
-        for (const part of parts) {
-          const set = pm.get(part) ?? new Set<number>();
-          set.add(wi);
-          pm.set(part, set);
-          if (!fm.has(part) || wi < (fm.get(part) ?? Infinity)) fm.set(part, wi);
-        }
+  for (const t of teams) {
+    const pm = new Map<string, Set<number>>();
+    const fm = new Map<string, number>();
+    for (let wi = 0; wi < weekColumns.length; wi++) {
+      const members = rosterByKey.get(teamWeekRosterKey(t.teamName, weekColumns[wi].weekStartDate));
+      if (!members || members.length === 0) continue;
+      // 셀 = 그 주 그 파트 배정 크루 ≥1 — [A] operatedParts 와 같은 집계기.
+      for (const p of operatedPartsFromRoster(members)) {
+        const set = pm.get(p.partName) ?? new Set<number>();
+        set.add(wi);
+        pm.set(p.partName, set);
+        if (!fm.has(p.partName) || wi < (fm.get(p.partName) ?? Infinity)) fm.set(p.partName, wi);
       }
     }
-    presence.set(team, pm);
-    firstSeen.set(team, fm);
+    presence.set(t.teamName, pm);
+    firstSeen.set(t.teamName, fm);
   }
 
   // 5) 팀별 matrix 조립. y축 = ["일반", 카탈로그 비-일반(순서), UPH-only(최초주차→이름)].
@@ -921,8 +767,13 @@ async function computePartWeekData(
 //   순서 = 존재표 y축(matrix.partNames) 순 → 같은 box 안 행 순서와 일치.
 //   활동 주차 없음(전 반기 데이터 0) → "일반"(min 1) 폴백.
 //   ⚠ **탐색 상한 = todayIso 이하 마지막 주차 열**. 매트릭스 셀(present)은 현재 배정을 미래로
-//     투영(4a 게이트 제거)하지만, 팀 카드 요약은 "현재까지 실제 운용된 파트"를 유지해야 한다
+//     투영하지만, 팀 카드 요약은 "현재까지 실제 운용된 파트"를 유지해야 한다
 //     (사용자 결정 2026-07-24). 미래 투영이 요약값을 밀어내지 않도록 여기서 열을 오늘까지로 한정한다.
+//   ⚠ 여기서 파트를 다시 세지 않는다 — 입력 matrix 가 이미 공용 SoT(loadTeamWeekRostersBulk) 산출물이라
+//     "열 하나 고르기"만 한다. 운용 판정 규칙이 바뀌면 공용 SoT 만 고치면 세 표시가 함께 움직인다.
+//   ⚠ '일반' 폴백은 **표시용**이다(운용 파트 0인 팀도 칩 1개는 보인다). 실제 운용 파트 개수가 필요한
+//     소비처(클럽 요약 '파트 수')는 listOperatedTeamParts('일반' 제외)를 쓴다 — 두 숫자가 달라 보이는 건
+//     정의 차이지 원천 차이가 아니다.
 function derivePartsFromMatrix(
   matrix: PartWeekMatrixDto,
   weekColumns: PartWeekColumnDto[],
@@ -1132,38 +983,11 @@ export async function loadTeamPartsInfo(
   const editable = selected != null && isEditableHalf(selected, currentHalfKey);
 
   // 파트×주차 존재표(선택 반기). 팀별 matrix 를 teams 에 병합 + x축 weekColumns.
-  let weekColumns: PartWeekColumnDto[] = [];
-  // 진행 중 반기(=현재 반기)에서만 미확정 주차를 현재 배정으로 폴백한다(과거 반기 불변).
-  const applyMembershipFallback = selected != null && selected === currentHalfKey;
-  if (selected && teams.length > 0) {
-    const { weekColumns: cols, byTeam } = await computePartWeekData(
-      organization,
-      selected,
-      teams.map((t) => ({ teamHalfId: t.teamHalfId, teamName: t.teamName })),
-      applyMembershipFallback,
-      todayIso,
-    );
-    weekColumns = cols;
-    // ① 팀정보 ② 파트 수/파트명 ③ 존재표 — 모두 선택 반기 마지막 활동 주차로 통일.
-    for (const t of teams) {
-      const m = byTeam.get(t.teamName) ?? null;
-      t.partWeekMatrix = m;
-      if (m) {
-        const derived = derivePartsFromMatrix(m, cols, todayIso);
-        t.partCount = derived.partCount;
-        t.partNames = derived.partNames;
-      }
-      // m 없음(이론상 미발생) → listHalfTeams 멤버십 폴백 값 유지.
-    }
-  } else if (selected) {
-    // 팀이 없어도 x축은 계산(빈 표·UI 일관).
-    const { weekColumns: cols } = await computePartWeekData(
-      organization,
-      selected,
-      [],
-    );
-    weekColumns = cols;
-  }
+  //   ⚠ 반기별 분기 없음 — 과거·현재·미래 반기 모두 공용 SoT 의 같은 규칙으로 계산한다
+  //     (종전의 "현재 반기에서만 멤버십 폴백" 게이트 제거 — [A] 와 갈리던 원인).
+  const weekColumns: PartWeekColumnDto[] = selected
+    ? await fillTeamPartsFromMatrix(organization, selected, teams, mode, todayIso)
+    : [];
 
   // 상단 요약 — 현재 접속 시점 기준(선택 반기와 무관). mode 스코프만 전파(운영/test 동일 함수).
   //   모든 org 응답이 동일 값을 담으므로 프론트는 base(첫 결과)만 읽어도 전 조직 현황을 얻는다.
@@ -1415,6 +1239,7 @@ export async function saveCurrentHalfTeams(
   halfKey: string,
   teamNames: string[],
   today?: string,
+  mode: ScopeMode = "operating",
 ): Promise<TeamHalfTeamDto[]> {
   if (!isHalfKey(halfKey)) {
     throw new TeamHalfWriteError(400, "유효하지 않은 반기 키입니다.");
@@ -1506,7 +1331,7 @@ export async function saveCurrentHalfTeams(
     }
   }
 
-  return listHalfTeams(organization, halfKey);
+  return listHalfTeamsWithParts(organization, halfKey, mode, today);
 }
 
 // ── 팀장 크루코드 호출 ────────────────────────────────────────────────
@@ -1864,7 +1689,7 @@ export async function registerTeamHalf(
     if (note) notes.push(note);
   }
 
-  return { teams: await listHalfTeams(organization, halfKey), ...(notes.length ? { notes } : {}) };
+  return { teams: await listHalfTeamsWithParts(organization, halfKey, mode, today), ...(notes.length ? { notes } : {}) };
 }
 
 // ── 팀 수정(현재·다음 반기만) ─────────────────────────────────────────
@@ -2023,7 +1848,7 @@ export async function updateTeamHalf(
     if (note) notes.push(note);
   }
 
-  return { teams: await listHalfTeams(organization, halfKey), ...(notes.length ? { notes } : {}) };
+  return { teams: await listHalfTeamsWithParts(organization, halfKey, mode, today), ...(notes.length ? { notes } : {}) };
 }
 
 // ── 팀 삭제 대기 처리(현재·다음 반기만) ───────────────────────────────
@@ -2092,7 +1917,7 @@ export async function markTeamHalfDeletionPending(
     if (note) notes.push(note);
   }
 
-  return { teams: await listHalfTeams(org, half), ...(notes.length ? { notes } : {}) };
+  return { teams: await listHalfTeamsWithParts(org, half, mode, today), ...(notes.length ? { notes } : {}) };
 }
 
 // 팀의 "일반" 파트를 보장한다(없으면 생성). UNIQUE(team_half_id, part_name) 로 중복 불가.

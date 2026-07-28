@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { resolveSeasonPosition, type PositionCode } from "@/lib/positionHistory";
 import {
   buildOverrideIndex,
+  buildSeasonKeyResolver,
   loadUserOverrideRowsUpTo,
   loadUserPositionOverrideRows,
   resolveCurrentWeekStartDate,
@@ -327,6 +328,12 @@ export async function resolvePositionAtWeeksBulk(input: {
     loadMembershipFallback(ids),
   ]);
   const ovrIndex = buildOverrideIndex(overrideRows, (r) => r.userId);
+  // 시즌 경계 — override 는 **같은 시즌 안에서만** 이월한다([[teamWeekPositionOverride]] SEASON BOUNDARY).
+  //   대상 주차 + override 행 주차를 모두 넘겨야 양쪽 시즌을 비교할 수 있다.
+  const seasonKeyOf = await buildSeasonKeyResolver([
+    ...weeks,
+    ...overrideRows.map((r) => r.weekStartDate),
+  ]);
 
   for (const week of weeks) {
     const byUser = out.get(week) as Map<string, ResolvedPosition>;
@@ -337,7 +344,7 @@ export async function resolvePositionAtWeeksBulk(input: {
         decidePositionAt(
           id,
           week,
-          resolveOverrideAt(ovrIndex.get(id), week),
+          resolveOverrideAt(ovrIndex.get(id), week, seasonKeyOf),
           uph.get(id) ?? null,
           membership.get(id) ?? null,
         ),

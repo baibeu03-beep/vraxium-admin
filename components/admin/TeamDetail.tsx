@@ -398,8 +398,12 @@ export default function TeamDetail({
   const teamLabel = data ? toTeamBreadcrumbLabel(data.teamName) : "팀 상세";
 
   // 주차별 파트 운용 상태표 — ① 0주차(전환) 컬럼 제외(이 페이지 표시 필터·DB 무변경). present 는 컬럼
-  //   인덱스와 정렬되므로 남길 인덱스로 각 행을 슬라이스해 정합 유지. ② 선택 주차 컬럼은 [A] operatedParts
-  //   (effective = override ?? UPH)로 덮어써 [A]==[B]==표 정합을 보장(저장 후 재조회하면 즉시 반영).
+  //   인덱스와 정렬되므로 남길 인덱스로 각 행을 슬라이스해 정합 유지. ② 선택 주차 컬럼을 [A] operatedParts
+  //   로 덮어쓴다.
+  //   ⚠ ②는 **정합 보정이 아니다**(2026-07-27 부터). 서버가 매트릭스와 [A] 를 같은 공용 SoT
+  //     (loadTeamWeekRostersBulk)로 만들어 두 값은 이미 같다 — 여기 덮어쓰기는 [B] 저장 후 [A] 만
+  //     재조회되는 구간에서 표를 즉시 따라오게 하는 **즉시성 장치**다. 두 값이 갈리면 클라에서
+  //     가리지 말고 서버 SoT 를 고칠 것.
   const matrixRender = useMemo(() => {
     if (!data) return { cols: [] as PartWeekColumnLike[], matrix: null as PartWeekMatrixLike | null };
     const raw = data.weekColumns;
