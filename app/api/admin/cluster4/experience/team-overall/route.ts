@@ -29,6 +29,7 @@ import {
 } from "@/lib/experienceImpersonation";
 import { resolveActorContext } from "@/lib/adminExperiencePartInput";
 import { publicErrorMessage } from "@/lib/apiError";
+import { lineOpenStage, withLineOpenTrace } from "@/lib/lineOpenTrace";
 
 // 실무 경험 [팀 총괄] — 개설 검수/완료/취소 API.
 //   GET  ?organization=&week_id=&team_id=&team_name=  → 보드(파트별 크루×5열 + 아웃풋 + status + 확장)
@@ -181,10 +182,14 @@ function parseOutputs(raw: unknown): OverallOutput[] {
   return out;
 }
 
-export async function POST(request: NextRequest) {
+export function POST(request: NextRequest) {
+  return withLineOpenTrace("[team-overall POST 개설/취소]", () => postHandler(request));
+}
+
+async function postHandler(request: NextRequest) {
   let admin;
   try {
-    admin = await requireAdmin(ADMIN_WRITE_ROLES);
+    admin = await lineOpenStage("auth", () => requireAdmin(ADMIN_WRITE_ROLES));
   } catch (error) {
     const response = toAdminErrorResponse(error);
     if (response) return response;
@@ -245,14 +250,16 @@ export async function POST(request: NextRequest) {
         : admin.userId;
 
     if (action === "cancel") {
-      const data = await cancelTeamOverall({
-        organization,
-        weekId,
-        teamId,
-        teamName,
-        adminId: admin.userId,
-        actorId,
-      });
+      const data = await lineOpenStage("cancelTeamOverall", () =>
+        cancelTeamOverall({
+          organization,
+          weekId,
+          teamId,
+          teamName,
+          adminId: admin.userId,
+          actorId,
+        }),
+      );
       return Response.json({ success: true, data });
     }
 
@@ -277,18 +284,20 @@ export async function POST(request: NextRequest) {
     }
 
     // action === "open"
-    const data = await openTeamOverall({
-      organization,
-      weekId,
-      teamId,
-      teamName,
-      leaderCells,
-      outputs,
-      lineSelections,
-      adminId: admin.userId,
-      actorId,
-      mode,
-    });
+    const data = await lineOpenStage("openTeamOverall", () =>
+      openTeamOverall({
+        organization,
+        weekId,
+        teamId,
+        teamName,
+        leaderCells,
+        outputs,
+        lineSelections,
+        adminId: admin.userId,
+        actorId,
+        mode,
+      }),
+    );
     return Response.json(
       {
         success: true,

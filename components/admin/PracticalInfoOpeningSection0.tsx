@@ -20,6 +20,7 @@ import {
   formatToday,
 } from "@/lib/practicalInfoSection0Format";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import { coalescedGet } from "@/lib/clientGetCoalesce";
 import {
   LineOpeningSectionDivider,
   StatusList,
@@ -95,7 +96,8 @@ async function queryInfoLineStatus(
   // (a) 활성 라인 존재 여부 — 개설됨 판정.
   const linesQs = new URLSearchParams(baseQs);
   linesQs.set("activity_type_id", activityTypeId);
-  const linesRes = await fetch(
+  // 개설/취소 직후 폼·상위 목록과 같은 tick 에 같은 URL 을 부른다 → 진행 중 요청 공유(중복 왕복 제거).
+  const linesRes = await coalescedGet(
     appendModeQuery(`/api/admin/cluster4/info-lines?${linesQs.toString()}`, mode),
   );
   const linesJson = await linesRes.json();

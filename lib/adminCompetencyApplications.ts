@@ -14,6 +14,7 @@ import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot
 import { payLineOpenTargetsOnce } from "@/lib/processPointAccrual";
 import { computeLineOpenWindowForWeekStart } from "@/lib/cluster4LineSubmissionWindow";
 import { filterGrowthStoppedUserIds } from "@/lib/cluster4GrowthStopPolicy";
+import { mapWithConcurrency, GROWTH_CARD_CONCURRENCY } from "@/lib/concurrency";
 import {
   assertUserIdsInScope,
   resolveUserScope,
@@ -560,14 +561,22 @@ export async function openApprovedApplications(input: {
   let openedCrews = 0;
   let rejectedCrews = 0;
 
-  for (const r of pending) {
+  // ⚡ 신청 건별 처리는 서로 **완전히 독립**이다(라인 insert → 타깃 insert → 신청 update 는 그 건
+  //   안에서만 순서 의존). 종전 for-await 는 승인 크루 N명이면 3N 왕복을 직렬로 기다렸다(원격 Supabase
+  //   왕복 건당 70~350ms → 개설 버튼 지연의 주요 축). 건 단위 동시 실행으로 바꾼다:
+  //     · 건 내부 순서(라인→타깃→신청, 실패 시 라인 롤백)는 그대로 유지한다.
+  //     · 실패 격리도 그대로 — 한 건이 실패하면 그 건만 건너뛰고 나머지는 계속(종전 continue 와 동일).
+  //     · 누적값(affected/openedCrews/openedLineKeys)은 순서 무관 집합·카운터라 결과가 동일하다.
+  //       openedLineIds 는 순서만 비결정적이 되는데, 쓰임은 (a) audience 산정 seed(같은 org 라 아무
+  //       라인이나 동일) (b) payLineOpenTargetsOnce(no-op) 뿐이라 판정에 영향이 없다.
+  await mapWithConcurrency(pending, GROWTH_CARD_CONCURRENCY, async (r) => {
     if (!r.approval_checked) {
       await supabaseAdmin
         .from("cluster4_competency_applications")
         .update({ resolution: "rejected", updated_at: nowIso })
         .eq("id", r.id);
       rejectedCrews++;
-      continue;
+      return;
     }
 
     // 성장 중단 대상 방어 — 라인 생성 없이 pending 유지(로그만). 고객앱 미노출이라 개설 무의미.
@@ -576,7 +585,7 @@ export async function openApprovedApplications(input: {
         applicationId: r.id,
         targetUserId: r.target_user_id,
       });
-      continue;
+      return;
     }
 
     const m = r.competency_line_master_id ? masterMap.get(r.competency_line_master_id) : null;
@@ -610,7 +619,7 @@ export async function openApprovedApplications(input: {
       .single();
     if (lineErr || !lineRow) {
       console.warn("[competency open] line insert failed:", r.id, lineErr?.message);
-      continue;
+      return;
     }
     const lineId = (lineRow as { id: string }).id;
     openedLineIds.push(lineId);
@@ -630,7 +639,7 @@ export async function openApprovedApplications(input: {
     if (tgtErr) {
       console.warn("[competency open] target insert failed:", r.id, tgtErr.message);
       await supabaseAdmin.from("cluster4_lines").delete().eq("id", lineId);
-      continue;
+      return;
     }
     await supabaseAdmin
       .from("cluster4_competency_applications")
@@ -644,7 +653,7 @@ export async function openApprovedApplications(input: {
     affected.add(r.target_user_id);
     openedCrews++;
     openedLineKeys.add(lineKey(r));
-  }
+  });
 
   // 라인 개설 대상자 등록 → Point A·B 즉시 지급(source='line', pay-once). 공통 SoT. best-effort.
   for (const lineId of openedLineIds) {

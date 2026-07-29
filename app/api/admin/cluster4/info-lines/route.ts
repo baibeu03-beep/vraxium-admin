@@ -16,7 +16,6 @@ import {
 } from "@/lib/adminCluster4LinesData";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { QA_HIDE_REAL_USERS } from "@/lib/qaFixedScope";
-import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { payLineOpenTargetsOnce } from "@/lib/processPointAccrual";
 import { isUuid } from "@/lib/isUuid";
 import {
@@ -55,11 +54,13 @@ import {
   resolveUserScope,
   readScopeMode,
   assertUserIdsInScope,
-  assertLineInRequestScope,
+  assertUsersInRequestScope,
+  listLineTargetUserIds,
 } from "@/lib/userScope";
 import { loadWeekOpeningConfig } from "@/lib/adminTeamPartsInfoWeekDetailData";
 import { isInfoLineOpenForWeek } from "@/lib/weekOpenGate";
 import { computeLineOpenWindowForWeekStart } from "@/lib/cluster4LineSubmissionWindow";
+import { lineOpenMark, lineOpenStage, withLineOpenTrace } from "@/lib/lineOpenTrace";
 
 // GET /api/admin/cluster4/info-lines?week_id=&activity_type_id=
 // 실무 정보(part_type='info') 라인을 활동 유형 탭별/주차별로 운영하기 위한
@@ -279,10 +280,14 @@ function parseBody(
   };
 }
 
-export async function POST(request: NextRequest) {
+export function POST(request: NextRequest) {
+  return withLineOpenTrace("[info-lines POST 개설]", () => postHandler(request));
+}
+
+async function postHandler(request: NextRequest) {
   let admin;
   try {
-    admin = await requireAdmin(CLUSTER4_LINE_WRITE_ROLES);
+    admin = await lineOpenStage("auth", () => requireAdmin(CLUSTER4_LINE_WRITE_ROLES));
   } catch (error) {
     const response = toAdminErrorResponse(error);
     if (response) return response;
@@ -322,10 +327,23 @@ export async function POST(request: NextRequest) {
   const scopeOrgRaw = request.nextUrl.searchParams.get("organization")?.trim() || null;
   const scopeOrg = isOrganizationSlug(scopeOrgRaw) ? scopeOrgRaw : null;
 
+  //   mode 축(test_user_markers)과 org 축(user_profiles)은 서로 독립이라 함께 띄운다 —
+  //   판정 순서는 종전 그대로(mode 422 → org 422)라 오류 문구·우선순위 불변.
+  const endScope = lineOpenMark("scope(병렬)");
+  const [scopeResult, orgRowsRes] = await Promise.all([
+    resolveUserScope(scopeMode, scopeOrg),
+    scopeOrg && input.target_user_ids.length > 0
+      ? supabaseAdmin
+          .from("user_profiles")
+          .select("user_id,organization_slug")
+          .in("user_id", input.target_user_ids)
+      : Promise.resolve(null),
+  ]);
+  endScope();
+
   // 1) mode 가드 — test_user_markers 등재 여부 축.
   try {
-    const scope = await resolveUserScope(scopeMode, scopeOrg);
-    assertUserIdsInScope(scope, input.target_user_ids);
+    assertUserIdsInScope(scopeResult, input.target_user_ids);
   } catch (error) {
     if ((error as { status?: number })?.status === 422) {
       return Response.json(
@@ -337,11 +355,8 @@ export async function POST(request: NextRequest) {
   }
 
   // 2) org 가드 — org-scoped 개설은 target 전원이 그 org 소속이어야 한다(동명이인 타org 저장 차단).
-  if (scopeOrg && input.target_user_ids.length > 0) {
-    const { data: orgRows, error: orgErr } = await supabaseAdmin
-      .from("user_profiles")
-      .select("user_id,organization_slug")
-      .in("user_id", input.target_user_ids);
+  if (scopeOrg && input.target_user_ids.length > 0 && orgRowsRes) {
+    const { data: orgRows, error: orgErr } = orgRowsRes;
     if (orgErr) {
       return Response.json({ success: false, error: orgErr.message }, { status: 500 });
     }
@@ -378,6 +393,7 @@ export async function POST(request: NextRequest) {
   let effectiveOpensAt = input.submission_opens_at;
   let effectiveClosesAt = input.submission_closes_at;
 
+  const endWeekPolicy = lineOpenMark("weekPolicy");
   if (!devMode) {
     const todayIso = getCurrentActivityDateIso();
     const clientWeekId = input.week_id; // 이미 UUID 검증됨.
@@ -399,16 +415,20 @@ export async function POST(request: NextRequest) {
     let openableUsable = false;
     if (openable) {
       // 공식 휴식 = seasonCalendar rule(시험) ∨ official_rest_periods overlap(설/추석/임시).
-      const openableRest = await resolveWeekOfficialRest({
-        startDate: openable.weekStart,
-        endDate: openable.weekEnd,
-      });
-      const { data: openableRow, error: openableErr } = await supabaseAdmin
-        .from("weeks")
-        .select("id")
-        .eq("iso_year", openable.isoYear)
-        .eq("iso_week", openable.isoWeek)
-        .maybeSingle();
+      //   ⚠ 휴식 판정과 weeks 행 조회는 서로 독립(입력도 결과도 무관) → 직렬 대기 없이 병렬로 낸다.
+      //     판정 순서·결과는 동일하고 왕복 2회가 1회 구간으로 겹칠 뿐이다.
+      const [openableRest, { data: openableRow, error: openableErr }] = await Promise.all([
+        resolveWeekOfficialRest({
+          startDate: openable.weekStart,
+          endDate: openable.weekEnd,
+        }),
+        supabaseAdmin
+          .from("weeks")
+          .select("id")
+          .eq("iso_year", openable.isoYear)
+          .eq("iso_week", openable.isoWeek)
+          .maybeSingle(),
+      ]);
       if (openableErr) {
         return Response.json(
           { success: false, error: openableErr.message },
@@ -534,12 +554,37 @@ export async function POST(request: NextRequest) {
   //   여기서 재계산해 단일화한다 — 자동 정책/예외/org 수동/dev 어느 분기로 왔든 같은 값이 저장된다.
   //   개설 시각(now)은 개입하지 않는다: 마감이 지난 과거 주차를 뒤늦게 개설하면 즉시 마감 후 상태가
   //   되는 것이 의도된 동작이다.
+  endWeekPolicy();
+  // ── 게이트/사전검증 일괄 조회 ─────────────────────────────────────────────
+  //   effectiveWeekId 가 확정된 뒤 필요한 4개의 조회는 서로 **완전히 독립**이다(입력도 결과도 무관):
+  //     ① 개설 주차 행(기입 기간 산출 + 존재 확인)  ② 주차 오픈 설정(개설 게이트)
+  //     ③ 활동 유형 유효성                          ④ 같은 활동 유형의 활성 라인(중복 개설 판정)
+  //   종전에는 이 4개가 직렬로 실행돼 왕복 4회(실측 ~1.4s)를 그대로 기다렸다. 한 번에 띄우고
+  //   **판정은 종전과 똑같은 순서로** 평가한다 → 오류 우선순위·상태코드·문구 모두 불변, 대기만 겹친다.
+  //   ⚠ 넷 다 read-only 다(쓰기 전). 어느 하나가 4xx 를 내면 그 시점에 중단되는 것도 종전과 같다.
+  const endGates = lineOpenMark("gates(병렬)");
+  const [weekRes, openGateRes, actTypeRes, activeLinesRes] = await Promise.all([
+    supabaseAdmin.from("weeks").select("id,start_date").eq("id", effectiveWeekId).maybeSingle(),
+    scopeOrg ? loadWeekOpeningConfig(effectiveWeekId, scopeOrg) : Promise.resolve(null),
+    supabaseAdmin
+      .from("activity_types")
+      .select("id")
+      .eq("id", input.activity_type_id)
+      .eq("cluster_id", "practical_info")
+      .eq("is_active", true)
+      .maybeSingle(),
+    supabaseAdmin
+      .from("cluster4_lines")
+      .select("id,line_code")
+      .eq("part_type", "info")
+      .eq("activity_type_id", input.activity_type_id)
+      .eq("is_active", true),
+  ]);
+  endGates();
+
+  // ── 2차 기입 창 = 귀속 주차 기준(N+1주차 수요일 22:00 KST) ────────────────────
   {
-    const { data: winWeekRow, error: winWeekErr } = await supabaseAdmin
-      .from("weeks")
-      .select("start_date")
-      .eq("id", effectiveWeekId)
-      .maybeSingle();
+    const { data: winWeekRow, error: winWeekErr } = weekRes;
     if (winWeekErr) {
       return Response.json({ success: false, error: winWeekErr.message }, { status: 500 });
     }
@@ -560,8 +605,8 @@ export async function POST(request: NextRequest) {
   //   open_confirmed=true + practicalInfo[activityType] 체크된 "오픈 라인"만 개설 허용한다.
   //   활동 관리·주차별 개설 결과·개설 폼과 동일 판정 함수(isInfoLineOpenForWeek) — 미오픈이면 409 차단.
   //   org-scoped 개설에만 적용(통합=단일 config 없음). URL/HTTP/dev 조작으로 우회 불가(서버 강제).
-  if (scopeOrg) {
-    const { config: openCfg, openConfirmed } = await loadWeekOpeningConfig(effectiveWeekId, scopeOrg);
+  if (scopeOrg && openGateRes) {
+    const { config: openCfg, openConfirmed } = openGateRes;
     if (!isInfoLineOpenForWeek({ openConfirmed, config: openCfg, activityTypeId: input.activity_type_id })) {
       return Response.json(
         { success: false, error: "이번 주에 오픈되지 않은 라인입니다." },
@@ -570,19 +615,11 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  const endPrechecks = lineOpenMark("prechecks");
   try {
-    // 1. Verify week exists
-    const { data: weekRow, error: weekError } = await supabaseAdmin
-      .from("weeks")
-      .select("id")
-      .eq("id", effectiveWeekId)
-      .maybeSingle();
-    if (weekError) {
-      return Response.json(
-        { success: false, error: weekError.message },
-        { status: 500 },
-      );
-    }
+    // 1. Verify week exists — 위 기입 기간 산출이 같은 행(weekRes)을 이미 읽었고 조회 오류/행 없음은
+    //    거기서 500/409 로 끊었다. 방어적으로 한 번 더 확인만 한다(추가 왕복 없음).
+    const weekRow = weekRes.data;
     if (!weekRow) {
       return Response.json(
         { success: false, error: "week not found" },
@@ -591,13 +628,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Verify activity_type exists in practical_info cluster
-    const { data: actType, error: actError } = await supabaseAdmin
-      .from("activity_types")
-      .select("id")
-      .eq("id", input.activity_type_id)
-      .eq("cluster_id", "practical_info")
-      .eq("is_active", true)
-      .maybeSingle();
+    const { data: actType, error: actError } = actTypeRes;
     if (actError) {
       return Response.json(
         { success: false, error: actError.message },
@@ -618,12 +649,7 @@ export async function POST(request: NextRequest) {
     //    org 인지(2026-06-16): 다른 조직이 같은 주차+활동유형에 개설한 라인은 충돌이 아니다.
     //    org 노출 범위(line_code 토큰)가 현재 org 에 보이는 라인(== scopeOrg OR common)만 후보로 둔다.
     //    scopeOrg 미지정(통합) 이면 종전대로 전부 후보(통합 개설은 전체와 충돌).
-    const { data: activeLines, error: activeLinesError } = await supabaseAdmin
-      .from("cluster4_lines")
-      .select("id,line_code")
-      .eq("part_type", "info")
-      .eq("activity_type_id", input.activity_type_id)
-      .eq("is_active", true);
+    const { data: activeLines, error: activeLinesError } = activeLinesRes;
     if (activeLinesError) {
       return Response.json(
         { success: false, error: activeLinesError.message },
@@ -705,6 +731,8 @@ export async function POST(request: NextRequest) {
       raw_comment_count: input.raw_comment_count,
     };
 
+    endPrechecks();
+    const endInsertLine = lineOpenMark("insertLine");
     type LineRow = { id: string; [key: string]: unknown };
     let lineRow: LineRow | null = null;
     let lineError: { message?: string; code?: string } | null = null;
@@ -737,6 +765,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    endInsertLine();
     if (lineError || !lineRow) {
       const msg = lineError?.message ?? "Failed to create line";
       const status = lineError?.code === "23505" ? 409 : 500;
@@ -782,10 +811,14 @@ export async function POST(request: NextRequest) {
           updated_by: admin.userId,
         }));
 
-    const { data: targets, error: targetError } = await supabaseAdmin
-      .from("cluster4_line_targets")
-      .insert(targetRows)
-      .select("id,line_id,week_id,target_user_id,target_mode");
+    const { data: targets, error: targetError } = await lineOpenStage(
+      "insertTargets",
+      async () =>
+        await supabaseAdmin
+          .from("cluster4_line_targets")
+          .insert(targetRows)
+          .select("id,line_id,week_id,target_user_id,target_mode"),
+    );
 
     if (targetError) {
       // Line was created but targets failed — still report partial success
@@ -805,7 +838,9 @@ export async function POST(request: NextRequest) {
     //   반영되므로, 배정 타깃(즉시 재계산) + org audience(stale→lazy 수렴)를 함께 무효화한다.
     //   0명 개설도 동일 헬퍼로 처리(targets=[] → audience 만 stale). 스코프는 헬퍼가 mode 로 적용
     //   (교차 모드 실유저 무접촉). 과거 targets-only(+미배정 lazy 수렴) 드리프트 제거.
-    await invalidateWeeklyCardsForLineOpen(createdLine.id, input.target_user_ids, scopeMode);
+    await lineOpenStage("snapshotInvalidate", () =>
+      invalidateWeeklyCardsForLineOpen(createdLine.id, input.target_user_ids, scopeMode),
+    );
 
     // 라인 개설 대상자 등록 → Point A·B 즉시 지급(source='line', pay-once). 공통 SoT. best-effort.
     try {
@@ -815,13 +850,15 @@ export async function POST(request: NextRequest) {
     }
 
     // [섹션 0] 로그창: 개설 = [개설 완료] 로그. best-effort(snapshot 무관, 본 동작과 분리).
-    await insertOpeningLogForLine({
-      action: "open",
-      lineId: createdLine.id,
-      weekId: effectiveWeekId,
-      activityTypeId: input.activity_type_id,
-      changedBy: admin.userId,
-    });
+    await lineOpenStage("openingLog", () =>
+      insertOpeningLogForLine({
+        action: "open",
+        lineId: createdLine.id,
+        weekId: effectiveWeekId,
+        activityTypeId: input.activity_type_id,
+        changedBy: admin.userId,
+      }),
+    );
 
     return Response.json(
       {
@@ -860,10 +897,14 @@ export async function POST(request: NextRequest) {
 //      "해당 없음"(not_applicable)으로 복귀(미개설 상태와 동일). (deleteCluster4Line 가 수행)
 //   3) 개설 로그에 'cancel' 이벤트 append(append-only audit — open 로그는 보존). best-effort.
 // 결과: 고객 앱에서도 해당 라인이 존재하지 않는 상태가 된다.
-export async function DELETE(request: NextRequest) {
+export function DELETE(request: NextRequest) {
+  return withLineOpenTrace("[info-lines DELETE 개설취소]", () => deleteHandler(request));
+}
+
+async function deleteHandler(request: NextRequest) {
   let admin;
   try {
-    admin = await requireAdmin(CLUSTER4_LINE_WRITE_ROLES);
+    admin = await lineOpenStage("auth", () => requireAdmin(CLUSTER4_LINE_WRITE_ROLES));
   } catch (error) {
     const response = toAdminErrorResponse(error);
     if (response) return response;
@@ -890,7 +931,9 @@ export async function DELETE(request: NextRequest) {
   }
 
   try {
-    const lineId = await findActiveInfoLineId(weekId, activityTypeId, cancelOrg);
+    const lineId = await lineOpenStage("findActiveLine", () =>
+      findActiveInfoLineId(weekId, activityTypeId, cancelOrg),
+    );
     if (!lineId) {
       return Response.json(
         { success: false, error: "취소할 개설 라인이 없습니다" },
@@ -901,9 +944,17 @@ export async function DELETE(request: NextRequest) {
     // 스코프 가드(fail-closed) — 이 라인의 타깃 유저가 요청 모드(operating/test) 집합에 속할 때만 취소 허용.
     //   ?mode=test 요청이 운영 라인(실유저 타깃)을 삭제하지 못하게 막는다. lines/[id] DELETE 와 동일 가드.
     //   mode 는 대상 사용자 스코프 선택 전용 — 삭제 로직 자체는 operating/test 동일.
+    //   대상자 목록은 여기서 **한 번만** 읽고 삭제 경로까지 그대로 넘긴다 — 종전에는 스코프 가드와
+    //   deleteCluster4Line 이 같은 (line_id, target_mode=user) 조회를 각각 실행했다(동일 결과·2왕복).
     let scope;
+    let targetUserIds: string[] = [];
     try {
-      scope = await assertLineInRequestScope(request, lineId);
+      const guarded = await lineOpenStage("scope:line", async () => {
+        const ids = await listLineTargetUserIds(lineId);
+        return { ids, scope: await assertUsersInRequestScope(request, ids) };
+      });
+      targetUserIds = guarded.ids;
+      scope = guarded.scope;
     } catch (error) {
       return Response.json(
         { success: false, error: error instanceof Error ? error.message : "Scope violation" },
@@ -912,16 +963,20 @@ export async function DELETE(request: NextRequest) {
     }
 
     // 라인 + 타깃 삭제 + 영향 크루 snapshot 재계산 — 재계산 대상도 요청 모드 코호트로 한정(scope.mode).
-    await deleteCluster4Line(lineId, scope.mode);
+    await lineOpenStage("deleteLine+invalidate", () =>
+      deleteCluster4Line(lineId, scope.mode, targetUserIds),
+    );
 
     // 개설 로그: 취소 = [개설 취소] 로그 append. best-effort(snapshot 무관, 본 동작과 분리).
-    await insertOpeningLogForLine({
-      action: "cancel",
-      lineId,
-      weekId,
-      activityTypeId,
-      changedBy: admin.userId,
-    });
+    await lineOpenStage("openingLog", () =>
+      insertOpeningLogForLine({
+        action: "cancel",
+        lineId,
+        weekId,
+        activityTypeId,
+        changedBy: admin.userId,
+      }),
+    );
 
     return Response.json({
       success: true,

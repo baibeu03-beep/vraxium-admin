@@ -134,7 +134,10 @@
     "verify:published-act-rate-read": "tsx --env-file=.env.local scripts/verify-published-act-rate-read-parity.ts",
     "verify:line-award-era-gate": "tsx --env-file=.env.local scripts/verify-line-award-era-gate.ts",
     "verify:week-position-nonretro": "node scripts/verify-week-position-nonretro-cards-http.mjs",
-    "converge:weekly-card-snapshots": "tsx --env-file=.env.local scripts/converge-weekly-card-snapshots-version.ts"
+    "converge:weekly-card-snapshots": "tsx --env-file=.env.local scripts/converge-weekly-card-snapshots-version.ts",
+    "verify:line-open-audience": "tsx --env-file=.env.local scripts/verify-line-open-audience-org-scope.ts",
+    "verify:line-open-dto": "node scripts/verify-line-open-response-dto.mjs",
+    "bench:line-open": "node scripts/bench-line-open-cancel-http.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

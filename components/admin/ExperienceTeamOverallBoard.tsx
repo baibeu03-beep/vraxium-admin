@@ -61,6 +61,7 @@ import {
 import { confirmReinforcementFailure } from "@/lib/experienceReinforcementFailureConfirm";
 import ExperienceLineSelect from "@/components/admin/cluster4/ExperienceLineSelect";
 import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
+import { coalescedGet } from "@/lib/clientGetCoalesce";
 
 // 실무 경험 [팀 총괄] — 개설 검수/완료/취소 편집 보드.
 //   행=전 파트 크루(+파트장), 열=도출/분석/견문(파트신청 라이브, 읽기전용) + 관리/확장(팀장 입력).
@@ -304,7 +305,9 @@ export default function ExperienceTeamOverallBoard({
         team_name: teamName,
       });
       if (mode === "test") qs.set("mode", "test");
-      const res = await fetch(
+      // 개설/취소 성공 직후 보드(fetchBoard)와 상위 상태 조회(statusKey effect)가 **같은 URL** 을
+      //   동시에 부른다 → 진행 중 요청 하나로 합친다(캐시 아님 — 응답 즉시 해제).
+      const res = await coalescedGet(
         `/api/admin/cluster4/experience/team-overall?${qs.toString()}`,
       );
       const json = await res.json();

@@ -34,6 +34,7 @@ import CafeCrewPicker, {
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { useToast } from "@/components/ui/toast";
 import { LINE_OPENING_RESULT, lineOpenSuccessMessage } from "@/lib/lineOpeningResultMessages";
+import { coalescedGet } from "@/lib/clientGetCoalesce";
 import {
   OPENING_INVALID_HIGHLIGHT,
   OPENING_INVALID_HIGHLIGHT_MS,
@@ -398,7 +399,9 @@ export default function PracticalInfoOpeningForm({
         });
         if (org) qs.set("organization", org);
         // ⚠ QA 누수 차단: 개설된 라인(대상 크루 포함)도 mode 전달 필수 — 미전달=operating(실사용자) 노출.
-        const res = await fetch(
+        //   coalescedGet: 개설/취소 직후 폼·상태창·상위 목록이 **같은 tick 에** 이 URL 을 각각 호출한다.
+        //   진행 중인 동일 요청만 공유해 왕복 3회 → 1회로 줄인다(캐시 아님 — 응답 오면 즉시 해제).
+        const res = await coalescedGet(
           appendModeQuery(
             `/api/admin/cluster4/info-lines?${qs.toString()}`,
             readScopeMode(new URLSearchParams(window.location.search)),

@@ -22,6 +22,7 @@ import {
   recomputeWeeklyPointsForUsers,
 } from "@/lib/processPointAccrual";
 import { recomputeDerivedAfterActMutationForUsers } from "@/lib/crewWeekGrowthRejudge";
+import { lineOpenStage } from "@/lib/lineOpenTrace";
 
 async function hasUserTargetOnLine(lineId: string, userId: string): Promise<boolean> {
   const { data } = await supabaseAdmin
@@ -69,12 +70,14 @@ export async function convergeLineChangeForUsers(params: {
   // 1) 라인 A/B 원장 정합 + uwp 재집계 — 코호트 1회(배정 라인만 카드 SoT 로 재도출).
   try {
     if (weekStartDate) {
-      await reconcileLineAwardsForWeek({
-        weekId,
-        weekStartDate,
-        actor,
-        cohortUserIds: uniq,
-      });
+      await lineOpenStage("converge:awards", () =>
+        reconcileLineAwardsForWeek({
+          weekId,
+          weekStartDate,
+          actor,
+          cohortUserIds: uniq,
+        }),
+      );
     }
     // 배정 해제(대상자 삭제/이동)로 카드에서 사라진 라인은 위에서 처리되지 않는다 →
     //   그 (user,line) 지급을 직접 회수(orphanLineId 지정 경로=target CRUD 만). 개설(additive)은 미지정.
@@ -98,7 +101,9 @@ export async function convergeLineChangeForUsers(params: {
 
   // 2) uws 재판정 → snapshot → 성장 통계 → 품계 — 코호트 1회(정본과 동일 composite·결과).
   try {
-    await recomputeDerivedAfterActMutationForUsers({ userIds: uniq, weekId });
+    await lineOpenStage("converge:derived", () =>
+      recomputeDerivedAfterActMutationForUsers({ userIds: uniq, weekId }),
+    );
   } catch (e) {
     console.warn("[lineChangeDerivation] 파생 재계산 실패(best-effort)", {
       weekId,

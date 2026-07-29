@@ -130,6 +130,38 @@ export async function traceSpan<T>(name: string, fn: () => Promise<T>): Promise<
   }
 }
 
+// 콜백으로 감쌀 수 없는 구간(조기 return 이 섞인 선형 블록) 측정용 수동 span.
+//   const end = beginSpan("weekPolicy"); ... end();
+//   · 부모 span 컨텍스트는 "열린 시점" 기준으로 캡처한다(자식 span 을 품지는 않는다).
+//   · end() 미호출 시 그 구간은 리포트에 남지 않는다(계측 누락일 뿐 동작 무영향).
+//   · 트레이스 비활성이면 no-op 함수를 돌려준다(오버헤드 0).
+//   이름은 열 때(beginSpan("x")) 또는 닫을 때(end("x")) 줄 수 있다 — 구간을 다 돌고 나서야
+//   이름이 정해지는 기존 mark(label) 스타일 계측을 그대로 수용하기 위함.
+export function beginSpan(name = "(span)"): (closeName?: string) => void {
+  const store = dataAls.getStore();
+  if (!store) return () => {};
+  const parent = spanAls.getStore() ?? null;
+  const seq = store.seq++;
+  const startMs = now() - store.origin;
+  let closed = false;
+  return (closeName?: string) => {
+    if (closed) return;
+    closed = true;
+    const finalName = closeName ?? name;
+    const endMs = now() - store.origin;
+    store.spans.push({
+      seq,
+      name: finalName,
+      path: parent ? `${parent.path}/${finalName}` : finalName,
+      parentSeq: parent ? parent.seq : null,
+      depth: parent ? parent.depth + 1 : 0,
+      startMs,
+      endMs,
+      ms: endMs - startMs,
+    });
+  };
+}
+
 // 동기 구간(직렬화·순수 계산 등) 측정.
 export function traceSyncSpan<T>(name: string, fn: () => T): T {
   const store = dataAls.getStore();

@@ -7,6 +7,8 @@ import { computeScheduleReliabilityFromRows } from "@/lib/scheduleReliabilityCor
 import { tickTimeout } from "@/lib/supabaseQueryMeter";
 import { runWithCohortRequestCache } from "@/lib/cohortRequestCache";
 import { traceSpan } from "@/lib/perfTrace";
+import { lineOpenStage } from "@/lib/lineOpenTrace";
+import { GROWTH_CARD_CONCURRENCY } from "@/lib/concurrency";
 
 const ROSTER_STATS_TABLE = "cluster4_roster_card_stats";
 
@@ -768,11 +770,18 @@ export async function invalidateWeeklyCardsForUsers(
   if (ids.length === 0) return empty("none");
 
   // 공통 1단계 — 먼저 stale 로 찍어 "재계산 필요" 사실 자체를 DB 에 남긴다(안전망).
-  const stale = await markWeeklyCardsSnapshotStaleMany(ids);
+  const stale = await lineOpenStage("markStale", () =>
+    markWeeklyCardsSnapshotStaleMany(ids),
+  );
   const staleMarked = stale.requested - stale.failed;
 
   if (ids.length <= SNAPSHOT_RECOMPUTE_THRESHOLD) {
-    const r = await recomputeWeeklyCardsSnapshotsForUsers(ids);
+    // ⚡ 동시성 = GROWTH_CARD_CONCURRENCY(8). 종전 기본값 3 은 요청 안에서 즉시 재계산하는 이 경로를
+    //   불필요하게 직렬화했다(실측 10명: conc=3 → 18.7s / conc=8 → 11.0s). 상한 8 은 성장/카드 배치가
+    //   이미 쓰는 공용 상수이며 Supabase 풀 포화 임계 아래로 고정돼 있다. 계산 내용·결과는 불변.
+    const r = await recomputeWeeklyCardsSnapshotsForUsers(ids, {
+      concurrency: GROWTH_CARD_CONCURRENCY,
+    });
     const result: WeeklyCardsInvalidationResult = {
       mode: "immediate",
       count: ids.length,
@@ -831,7 +840,16 @@ export async function invalidateWeeklyCardsForUsers(
 //   다음 조회가 늦어지는 경우 옛값이 계속 노출된다. 저장 시점에 바로 재계산해 그 race 를 제거한다.
 // 실패는 사용자별로 격리(로그+계속) — 실패한 사용자는 markStale 상태로 남아 cron 이 보정한다.
 // best-effort: 전체가 throw 하지 않는다(본 저장 요청 응답을 깨뜨리지 않음).
-export async function recomputeWeeklyCardsSnapshotsForUsers(
+export function recomputeWeeklyCardsSnapshotsForUsers(
+  profileUserIds: string[],
+  opts: { concurrency?: number } = {},
+): Promise<{ requested: number; recomputed: number; failed: number; failedUserIds: string[] }> {
+  return lineOpenStage(`recomputeSnapshots(${new Set(profileUserIds).size}u)`, () =>
+    recomputeWeeklyCardsSnapshotsForUsersImpl(profileUserIds, opts),
+  );
+}
+
+async function recomputeWeeklyCardsSnapshotsForUsersImpl(
   profileUserIds: string[],
   opts: { concurrency?: number } = {},
 ): Promise<{ requested: number; recomputed: number; failed: number; failedUserIds: string[] }> {

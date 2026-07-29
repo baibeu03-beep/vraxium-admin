@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { adminDialog } from "@/components/ui/admin-dialog";
 import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
+import { coalescedGet } from "@/lib/clientGetCoalesce";
 import { cn } from "@/lib/utils";
 import { CUSTOM_DROPDOWN_POPUP_CLASS } from "@/lib/customDropdownStyles";
 import { readOrgParam } from "@/lib/adminOrgContext";
@@ -181,6 +182,29 @@ export default function CompetencyOpeningDashboard() {
     router.replace(`${pathname}?${params.toString()}`);
   }, [openTargetWeek, selectedWeekId, searchParams, pathname, router]);
 
+  // 상태 DTO → 화면 state 반영(단일 SoT). GET 재조회 결과와 개설/취소 응답에 실린 상태를
+  //   **같은 함수**로 적용해 두 경로가 갈라지지 않게 한다.
+  const applyStatus = useCallback((data: Record<string, unknown> | null) => {
+    if (!data) {
+      setOpened(null);
+      setCanOpen(false);
+      return;
+    }
+    setOpened(Boolean(data.opened));
+    setCanOpen(Boolean(data.canOpen));
+    setTargetStartDate(
+      ((data.targetWeek as { startDate?: string } | null)?.startDate ?? null) as string | null,
+    );
+    // 현재 적용된 공통 아웃풋으로 입력칸 prefill(개설 완료/취소 직후 동기화).
+    const link = (data.outputLink1 as string | undefined) ?? "";
+    const desc = (data.outputDescription as string | undefined) ?? "";
+    setLinkUrl(link);
+    setLinkDesc(desc);
+    // [초기화] 기준값 = 로드 시점 prefill.
+    setInitialLink(link);
+    setInitialDesc(desc);
+  }, []);
+
   const fetchStatus = useCallback(async () => {
     setLoadingStatus(true);
     try {
@@ -194,31 +218,15 @@ export default function CompetencyOpeningDashboard() {
       //   실무 정보(info-lines GET)·실무 경험(team-overall GET)과 동일한 규약.
       if (mode === "test") params.set("mode", "test");
       const qs = params.toString() ? `?${params.toString()}` : "";
-      const res = await fetch(`/api/admin/cluster4/competency/opening-status${qs}`);
+      const res = await coalescedGet(`/api/admin/cluster4/competency/opening-status${qs}`);
       const json = await res.json();
-      if (json?.success) {
-        setOpened(Boolean(json.data?.opened));
-        setCanOpen(Boolean(json.data?.canOpen));
-        setTargetStartDate(json.data?.targetWeek?.startDate ?? null);
-        // 현재 적용된 공통 아웃풋으로 입력칸 prefill(개설 완료/취소 직후 동기화).
-        const link = json.data?.outputLink1 ?? "";
-        const desc = json.data?.outputDescription ?? "";
-        setLinkUrl(link);
-        setLinkDesc(desc);
-        // [초기화] 기준값 = 로드 시점 prefill.
-        setInitialLink(link);
-        setInitialDesc(desc);
-      } else {
-        setOpened(null);
-        setCanOpen(false);
-      }
+      applyStatus(json?.success ? (json.data ?? null) : null);
     } catch {
-      setOpened(null);
-      setCanOpen(false);
+      applyStatus(null);
     } finally {
       setLoadingStatus(false);
     }
-  }, [org, mode, selectedWeekId]);
+  }, [org, mode, selectedWeekId, applyStatus]);
 
   useEffect(() => {
     void fetchStatus();
@@ -385,7 +393,11 @@ export default function CompetencyOpeningDashboard() {
             : LINE_OPENING_RESULT.openSuccess,
         );
         setRefreshKey((k) => k + 1);
-        await fetchStatus();
+        // 성공 응답에 처리 직후 상태 DTO(openingStatus)가 실려 오면 그것으로 화면을 갱신하고
+        //   opening-status 재조회(HTTP 1회)를 생략한다. 낙관적 갱신이 아니다 — 서버가 쓰기를 끝낸
+        //   뒤 같은 요청에서 읽어 내려준 **권위 값**이다. 구버전 응답(키 없음)은 종전대로 재조회.
+        if (d.openingStatus) applyStatus(d.openingStatus as Record<string, unknown>);
+        else await fetchStatus();
       } catch (err) {
         console.error("[competency] open/cancel failed", err);
         toast("error", getApiErrorMessage(err, "처리 중 오류가 발생했습니다"));

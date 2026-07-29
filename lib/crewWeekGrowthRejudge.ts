@@ -9,6 +9,7 @@ import { recalcUserGrowthStatsForUsers } from "@/lib/userGrowthStatsData";
 import { resyncGradeStatsBatch } from "@/lib/cluster3ClubRankData";
 import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
 import { mapWithConcurrency, GROWTH_CARD_CONCURRENCY } from "@/lib/concurrency";
+import { lineOpenStage } from "@/lib/lineOpenTrace";
 
 // ─────────────────────────────────────────────────────────────────────
 // 액트 보완/취소 후 "그 크루·그 주차"의 성장 결과(uws.status)를 기존 판정 SoT 로 다시 판정한다.
@@ -331,21 +332,23 @@ export async function recomputeDerivedAfterActMutationForUsers(params: {
   }
 
   // 1) uws 재판정 — 유저별(동시성). 단일판과 동일 엔진·org 해석, 스코프만 코호트.
-  await mapWithConcurrency(uniq, GROWTH_CARD_CONCURRENCY, async (userId) => {
-    try {
-      await rejudgeWeekStatusForUser({
-        userId,
-        weekId,
-        organizationSlug: orgByUser.get(userId) ?? null,
-      });
-    } catch (e) {
-      console.warn("[crew-week-rejudge][batch] uws 재판정 실패(격리)", {
-        userId,
-        weekId,
-        message: e instanceof Error ? e.message : String(e),
-      });
-    }
-  });
+  await lineOpenStage("derived:rejudgeUws", () =>
+    mapWithConcurrency(uniq, GROWTH_CARD_CONCURRENCY, async (userId) => {
+      try {
+        await rejudgeWeekStatusForUser({
+          userId,
+          weekId,
+          organizationSlug: orgByUser.get(userId) ?? null,
+        });
+      } catch (e) {
+        console.warn("[crew-week-rejudge][batch] uws 재판정 실패(격리)", {
+          userId,
+          weekId,
+          message: e instanceof Error ? e.message : String(e),
+        });
+      }
+    }),
+  );
 
   // 2) 카드 snapshot 배치 재생성(유저별 직렬 → 배치·동시성 8).
   try {
@@ -359,7 +362,7 @@ export async function recomputeDerivedAfterActMutationForUsers(params: {
 
   // 3) 성장 통계 배치(1회).
   try {
-    await recalcUserGrowthStatsForUsers(uniq);
+    await lineOpenStage("derived:growthStats", () => recalcUserGrowthStatsForUsers(uniq));
   } catch (e) {
     console.warn("[crew-week-rejudge][batch] 성장 통계 재계산 실패(best-effort)", {
       count: uniq.length,
@@ -369,11 +372,13 @@ export async function recomputeDerivedAfterActMutationForUsers(params: {
 
   // 4) 품계 재동기 — 주차 참여자 전원 스코프로 "1회"(기존: 유저별 N회 → N×P 중복 제거).
   try {
-    const week = await loadWeekRow(weekId);
-    if (week?.iso_year != null && week.iso_week != null) {
-      const participants = await fetchWeekParticipantUserIds(week.iso_year, week.iso_week);
-      if (participants.length > 0) await resyncGradeStatsBatch(participants);
-    }
+    await lineOpenStage("derived:gradeResync", async () => {
+      const week = await loadWeekRow(weekId);
+      if (week?.iso_year != null && week.iso_week != null) {
+        const participants = await fetchWeekParticipantUserIds(week.iso_year, week.iso_week);
+        if (participants.length > 0) await resyncGradeStatsBatch(participants);
+      }
+    });
   } catch (e) {
     console.warn("[crew-week-rejudge][batch] 품계 재동기 실패(best-effort)", {
       weekId,

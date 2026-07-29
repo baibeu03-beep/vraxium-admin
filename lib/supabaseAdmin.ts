@@ -1,19 +1,24 @@
 import { createClient } from "@supabase/supabase-js";
 import { tickQuery } from "@/lib/supabaseQueryMeter";
 import { makeCohortAwareFetch } from "@/lib/cohortRequestCache";
+import { makeReferenceAwareFetch } from "@/lib/referenceReadCache";
 import { makeTracingFetch } from "@/lib/perfTrace";
 
-// fetch 래핑(안 → 밖): real fetch → tracing(net) → cohortAware → tracing(logical).
+// fetch 래핑(안 → 밖): real fetch → tracing(net) → cohortAware → referenceAware → tracing(logical).
 //   · cohortAware: 코호트 배치(runWithCohortRequestCache) 안에서만 동일 GET 을 요청 단위로 공유한다.
 //     그 밖에서는 원본 fetch 그대로(no-op) — 기존 동작 불변. per-user snapshot 재계산이 전역/코호트-
 //     불변 데이터를 유저마다 다시 조회하던 N+1 을 제거한다(조회 방식만 최적화·rows 동일).
+//   · referenceAware: 쓰기 라우트(runWithReferenceReadCache) 안에서 **그 요청이 쓰지 않는 참조
+//     테이블**(weeks·activity_types·user_profiles·test_user_markers 등)의 동일 GET 만 공유한다.
+//     쓰기 대상 테이블은 화이트리스트에 없어 항상 실제 DB 를 읽는다(write-then-read 정합 보존).
 //   · tracing: runWithPerfTrace 스코프 안에서만 동작하는 계측(그 밖에서는 통과·no-op).
 //     logical 층 = supabase-js 가 발행한 쿼리 전부, net 층 = 실제 네트워크로 나간 쿼리.
 //     두 층의 차이가 request cache 적중분이다. 계측은 요청/응답을 변형하지 않는다.
 const cohortAwareFetch = makeCohortAwareFetch(
   makeTracingFetch(globalThis.fetch.bind(globalThis), "net"),
 );
-const instrumentedFetch = makeTracingFetch(cohortAwareFetch, "logical");
+const referenceAwareFetch = makeReferenceAwareFetch(cohortAwareFetch);
+const instrumentedFetch = makeTracingFetch(referenceAwareFetch, "logical");
 
 const rawSupabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

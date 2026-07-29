@@ -33,6 +33,7 @@ import {
 import { resolveOutputLinks } from "@/lib/cluster4OutputLinks";
 import { resolveOverallStatus } from "@/lib/experienceReviewResetPolicy";
 import { insertExperienceOpeningLog } from "@/lib/adminExperienceOpeningLogs";
+import { lineOpenMark, lineOpenStage } from "@/lib/lineOpenTrace";
 import {
   EXPERIENCE_OVERALL_CATEGORIES,
   OVERALL_APPLICATION_INCOMPLETE_MESSAGE,
@@ -1280,22 +1281,28 @@ export async function openTeamOverall(input: {
 }): Promise<OpenOverallResult> {
   const mode: ScopeMode = input.mode ?? "operating";
 
-  await assertPartLeaderScoresRequired(input);
-  await assertPartLeaderLinesRequired(input);
-  await assertOverallOutputsRequired(input);
-
   // 구간별 계측(기본 OFF) — LINE_OPEN_PROFILE=1 일 때만 각 세그먼트 소요(ms)를 수집·로그한다.
   //   운영에선 미동작(오버헤드 0)이며, 비운영 DB/스테이징에서 실제 HTTP 개설 완료의 구간별 ms 를
   //   캡처하기 위한 임시 계측이다. 로직/DTO/SoT 무영향(순수 관찰).
+  //   (2026-07-28) 같은 구간 경계를 공용 라인 개설 트레이스(LINE_OPEN_TRACE=1)에도 span 으로
+  //   흘려보낸다 — 3허브 개설/취소를 같은 리포트에서 비교하기 위함. 둘 다 OFF 면 오버헤드 0.
   const profileOn = process.env.LINE_OPEN_PROFILE === "1";
   const marks: Array<{ label: string; ms: number }> = [];
   let profileLast = process.hrtime.bigint();
+  let endSpan = lineOpenMark();
   const mark = (label: string) => {
+    endSpan(label);
+    endSpan = lineOpenMark();
     if (!profileOn) return;
     const now = process.hrtime.bigint();
     marks.push({ label, ms: Number(now - profileLast) / 1e6 });
     profileLast = now;
   };
+
+  await assertPartLeaderScoresRequired(input);
+  await assertPartLeaderLinesRequired(input);
+  await assertOverallOutputsRequired(input);
+  mark("validateRequiredInputs");
 
   // 공식 휴식 주차 차단(UI canOpen 과 동일 판정) — operating/test 무관, 모든 write 전 422.
   //   예외(line_opening_windows)는 org+hub 스코프로 판정(Encre+실무경험 등록 시 그 org·경험만 통과).
@@ -1589,11 +1596,21 @@ export async function openTeamOverall(input: {
   // weekly-cards snapshot 무효화 = 3허브 통일 헬퍼(info/experience-lines/competency 와 동일 기준):
   //   배정 크루 즉시 재계산(개설 크루 바로 반영) + org audience 분모 A stale(비배정 크루 lazy 수렴).
   //   과거엔 배정자만 무효화해 비배정 크루 강화율 분모가 지연됐다(드리프트) — 통일로 해소.
-  if (affectedUserIds.size > 0) {
+  //
+  // ⚠ 이 단계의 배정 크루 recompute 는 **converge 의 recompute 와 중복이 아니다**(2026-07-28 확인).
+  //   순서 의존이 있다:
+  //     ① 여기서 배정 크루 카드를 다시 굽는다 → 방금 만든 라인이 카드에 들어온다.
+  //     ② converge 의 reconcileLineAwardsForWeek 가 **그 카드**(resolveCrewWeekCard)를 SoT 로 읽어
+  //        라인 A/B 지급/회수를 판정한다. resolveCrewWeekCard 는 snapshot 이 stale 이어도 재계산하지
+  //        않고 그대로 읽으므로, ①을 건너뛰면 개설 **이전** 카드를 보고 지급 판정이 어긋난다.
+  //     ③ converge 의 recompute 는 ②가 바꾼 uwp/uws 를 카드에 반영하는 **다음 단계**다.
+  //   따라서 둘 다 필요하다 — 여기서는 종전 동작을 그대로 유지한다.
+  const affectedList = Array.from(affectedUserIds);
+  if (affectedList.length > 0) {
     if (createdLineIds.length > 0) {
-      await invalidateWeeklyCardsForLineOpen(createdLineIds[0], Array.from(affectedUserIds), mode);
+      await invalidateWeeklyCardsForLineOpen(createdLineIds[0], affectedList, mode);
     } else {
-      await invalidateWeeklyCardsForUsers(Array.from(affectedUserIds));
+      await invalidateWeeklyCardsForUsers(affectedList);
     }
   }
   mark("invalidate");
@@ -1611,10 +1628,11 @@ export async function openTeamOverall(input: {
   //   배정 크루 전원에 대해 라인 A/B 지급·회수 → uwp 재집계 → uws 재판정 → snapshot → 성장통계 →
   //   품계 를 수행한다(payLineOpenTargetsOnce 는 폐기 no-op 이라 이 경로가 실제 지급/판정을 담당).
   //   개설은 additive(회수 없음) → orphanLineId 미지정. best-effort.
-  if (affectedUserIds.size > 0) {
+  //   ⚠ 이 단계의 snapshot 재생성이 배정 크루 카드의 **최종 저장본**이다(위 중복 제거 참조).
+  if (affectedList.length > 0) {
     await convergeLineChangeForUsers({
       weekId: input.weekId,
-      userIds: Array.from(affectedUserIds),
+      userIds: affectedList,
       actor: input.actorId ?? input.adminId ?? null,
     });
   }
@@ -1696,22 +1714,24 @@ export async function cancelTeamOverall(input: {
     }
   }
 
-  await rollbackLines(lineIds);
+  await lineOpenStage("rollbackLines", () => rollbackLines(lineIds));
 
-  // 추적 행 제거.
-  await supabaseAdmin
-    .from("cluster4_experience_team_overall_opened_lines")
-    .delete()
-    .eq("overall_id", h.id);
-
-  // status reviewed 로 복귀(검수 데이터는 보존 — 이어서 수정/재완료 가능).
-  await supabaseAdmin
-    .from("cluster4_experience_team_overall")
-    .update({ status: "reviewed", opened_by: null, opened_at: null })
-    .eq("id", h.id);
+  // 추적 행 제거 + status reviewed 복귀(검수 데이터는 보존 — 이어서 수정/재완료 가능).
+  await lineOpenStage("clearTrackingAndStatus", async () => {
+    await supabaseAdmin
+      .from("cluster4_experience_team_overall_opened_lines")
+      .delete()
+      .eq("overall_id", h.id);
+    await supabaseAdmin
+      .from("cluster4_experience_team_overall")
+      .update({ status: "reviewed", opened_by: null, opened_at: null })
+      .eq("id", h.id);
+  });
 
   if (affected.size > 0) {
-    await invalidateWeeklyCardsForUsers(Array.from(affected));
+    await lineOpenStage("snapshotInvalidate", () =>
+      invalidateWeeklyCardsForUsers(Array.from(affected)),
+    );
   }
 
   await insertExperienceOpeningLog({

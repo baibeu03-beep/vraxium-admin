@@ -72,6 +72,7 @@ import { useToast } from "@/components/ui/toast";
 import { useActionToast } from "@/lib/actionToast";
 import { LINE_OPENING_RESULT } from "@/lib/lineOpeningResultMessages";
 import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
+import { coalescedGet } from "@/lib/clientGetCoalesce";
 
 // ──────────────────────────────────────────────────────────────
 // Types
@@ -1063,7 +1064,7 @@ export default function PracticalInfoManager() {
       // 조직 컨텍스트(?org)를 내부 API 컨벤션(organization)으로 변환해 전달.
       // 조직 모드면 (해당 조직 OR 공통) 라인만, 통합 모드(org 없음)면 전체.
       if (selectedOrg) qs.set("organization", selectedOrg);
-      const res = await fetch(
+      const res = await coalescedGet(
         appendModeQuery(
           `/api/admin/cluster4/info-lines?${qs.toString()}`,
           readScopeMode(new URLSearchParams(window.location.search)),
@@ -1098,7 +1099,7 @@ export default function PracticalInfoManager() {
     try {
       const qs = new URLSearchParams({ week_id: weekId });
       if (selectedOrg) qs.set("organization", selectedOrg);
-      const res = await fetch(
+      const res = await coalescedGet(
         appendModeQuery(
           `/api/admin/cluster4/info-lines?${qs.toString()}`,
           readScopeMode(new URLSearchParams(window.location.search)),

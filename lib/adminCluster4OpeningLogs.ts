@@ -41,27 +41,40 @@ export async function insertOpeningLogForLine(input: {
   note?: string | null;
 }): Promise<void> {
   try {
+    // 표시 라벨 3종은 서로 독립된 조회다(활동유형 / 주차 / 실행자). 종전에는 직렬 3왕복이었는데,
+    //   라인 개설·취소 응답 끝단에서 그대로 대기 시간이 된다(실측 490~620ms). 함께 띄운다 —
+    //   저장되는 denormalized 값은 완전히 동일하다.
+    const [actRes, weekRes, adminName] = await Promise.all([
+      input.activityTypeId
+        ? supabaseAdmin
+            .from("activity_types")
+            .select("name")
+            .eq("id", input.activityTypeId)
+            .maybeSingle()
+        : Promise.resolve(null),
+      input.weekId
+        ? supabaseAdmin
+            .from("weeks")
+            .select("iso_year,season_key,week_number")
+            .eq("id", input.weekId)
+            .maybeSingle()
+        : Promise.resolve(null),
+      input.changedBy
+        ? loadAdminDisplayName(input.changedBy).catch(() => null)
+        : Promise.resolve(null),
+    ]);
+
     // 1. 활동유형 라벨(예: 위즈덤).
     let activityLabel = input.activityTypeId ?? "-";
-    if (input.activityTypeId) {
-      const { data } = await supabaseAdmin
-        .from("activity_types")
-        .select("name")
-        .eq("id", input.activityTypeId)
-        .maybeSingle();
-      const name = (data as { name: string | null } | null)?.name;
+    {
+      const name = (actRes?.data as { name: string | null } | null)?.name;
       if (name && name.trim().length > 0) activityLabel = name.trim();
     }
 
     // 2. 기간 라벨(예: 26년 여름 시즌 1주차) — weeks SoT.
     let periodLabel = "기간 미상";
-    if (input.weekId) {
-      const { data } = await supabaseAdmin
-        .from("weeks")
-        .select("iso_year,season_key,week_number")
-        .eq("id", input.weekId)
-        .maybeSingle();
-      const w = data as {
+    {
+      const w = weekRes?.data as {
         iso_year: number | null;
         season_key: string | null;
         week_number: number | null;
@@ -77,10 +90,7 @@ export async function insertOpeningLogForLine(input: {
 
     // 3. 실행자명(예: 홍길동). display_name 없으면 "관리자".
     let actorName = "관리자";
-    if (input.changedBy) {
-      const name = await loadAdminDisplayName(input.changedBy).catch(() => null);
-      if (name && name.trim().length > 0) actorName = name.trim();
-    }
+    if (adminName && adminName.trim().length > 0) actorName = adminName.trim();
 
     const baseRow = {
       action: input.action,

@@ -16,6 +16,7 @@ import {
   COMPETENCY_OUTPUT_MESSAGE,
 } from "@/lib/competencyOutputValidation";
 import { publicErrorMessage } from "@/lib/apiError";
+import { lineOpenStage, withLineOpenTrace } from "@/lib/lineOpenTrace";
 
 // 실무 역량 [라인 개설] — 허브 전체 개설 완료/취소.
 //   POST { action: 'open'|'cancel', organization, output_link_1?, output_description? }
@@ -86,21 +87,26 @@ export async function POST(request: NextRequest) {
   const mode = parseScopeMode(typeof b.mode === "string" ? b.mode : null);
 
   // 순수 계측(로그 전용, 응답 DTO 미변경): elapsed·supabase 쿼리수·operation·actorMode·영향 라인/크루.
-  return observeApiRoute("[admin/cluster4/competency/opening POST]", async (obs) => {
+  return withLineOpenTrace(`[competency ${action} 개설/취소]`, () =>
+    observeApiRoute("[admin/cluster4/competency/opening POST]", async (obs) => {
     obs.operation = `competency.${action}`;
     obs.actorMode = mode;
     try {
       const data =
         action === "open"
-          ? await openCompetencyHub({
-              organization: orgRaw,
-              outputLink1,
-              description: outputDescription,
-              adminId: admin.userId,
-              mode,
-              weekId,
-            })
-          : await cancelCompetencyHub({ organization: orgRaw, adminId: admin.userId, mode, weekId });
+          ? await lineOpenStage("openCompetencyHub", () =>
+              openCompetencyHub({
+                organization: orgRaw,
+                outputLink1,
+                description: outputDescription,
+                adminId: admin.userId,
+                mode,
+                weekId,
+              }),
+            )
+          : await lineOpenStage("cancelCompetencyHub", () =>
+              cancelCompetencyHub({ organization: orgRaw, adminId: admin.userId, mode, weekId }),
+            );
       obs.affectedLineCount = data.reflectedLines;
       obs.affectedUserCount = data.reflectedCrews;
       return Response.json({ success: true, data }, { status: 201 });
@@ -115,5 +121,6 @@ export async function POST(request: NextRequest) {
         { status },
       );
     }
-  });
+    }),
+  );
 }

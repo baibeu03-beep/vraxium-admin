@@ -59,6 +59,7 @@ import { readScopeMode } from "@/lib/userScopeShared";
 import { formatSeasonWeekLabel } from "@/lib/practicalInfoSection0Format";
 import { formatTeamTabLabel } from "@/lib/teamLabel";
 import ExperienceTeamOverallBoard from "@/components/admin/ExperienceTeamOverallBoard";
+import { coalescedGet } from "@/lib/clientGetCoalesce";
 import { LineOpeningOpenedNotice } from "@/components/admin/lineOpeningStatusUi";
 import type {
   ExperienceLineManageSummary,
@@ -528,7 +529,7 @@ export default function ExperiencePartLeadInput({
           team_name: selectedTeam.teamName,
         });
         if (mode === "test") qs.set("mode", "test");
-        const res = await fetch(
+        const res = await coalescedGet(
           `/api/admin/cluster4/experience/team-overall?${qs.toString()}`,
         );
         const json = await res.json();

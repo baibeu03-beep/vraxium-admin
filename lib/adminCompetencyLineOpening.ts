@@ -47,6 +47,7 @@ import { isCompetencyLineOpenForWeek } from "@/lib/weekOpenGate";
 import type { OrganizationSlug } from "@/lib/organizations";
 import type { ScopeMode } from "@/lib/userScopeShared";
 import type { StatusWeek } from "@/lib/lineOpeningStatusEngine";
+import { lineOpenStage } from "@/lib/lineOpenTrace";
 
 // 실무 역량이 그 주차에 "정상 진행"(practicalCompetency.checked===true)으로 설정되지 않아 개설을
 //   거부할 때의 사유 문구. API(409)·상태창 DTO(openBlockedReason)·UI 차단 패널이 같은 문장을 쓴다.
@@ -196,8 +197,9 @@ async function loadOrgCompetencyLines(
     .in("id", lineIds);
   if (lineErr) throw new Error(lineErr.message);
 
-  const out: CompetencyLineRow[] = [];
-  for (const row of (lineRows ?? []) as Array<{
+  // 라인별 org 판정은 서로 독립이고 각자 DB 를 볼 수 있다(마스터/등록 역참조). 종전 for-await 는
+  //   라인 수만큼 직렬 왕복이었다 → 동시에 해소한다(판정 함수·결과·필터 조건 모두 불변).
+  const rows = (lineRows ?? []) as Array<{
     id: string;
     part_type: string;
     line_code: string | null;
@@ -207,9 +209,11 @@ async function loadOrgCompetencyLines(
     output_link_1: string | null;
     output_link_2: string | null;
     output_links: unknown;
-  }>) {
-    const lineOrg = await resolveCluster4LineOrgScope(row);
-    if (lineOrg === org) {
+  }>;
+  const orgs = await Promise.all(rows.map((row) => resolveCluster4LineOrgScope(row)));
+  const out: CompetencyLineRow[] = [];
+  rows.forEach((row, i) => {
+    if (orgs[i] === org) {
       out.push({
         id: row.id,
         isActive: row.is_active,
@@ -218,7 +222,7 @@ async function loadOrgCompetencyLines(
         outputLink2: row.output_link_2,
       });
     }
-  }
+  });
   return out;
 }
 
@@ -311,21 +315,22 @@ async function upsertWeekOutput(input: {
 async function collectAffectedUsers(lineIds: string[]): Promise<string[]> {
   if (lineIds.length === 0) return [];
   const affected = new Set<string>();
-  const { data: tgts } = await supabaseAdmin
-    .from("cluster4_line_targets")
-    .select("target_user_id")
-    .in("line_id", lineIds);
-  for (const t of (tgts ?? []) as Array<{ target_user_id: string | null }>) {
+  // 직접 타깃 조회와 라인별 org audience 산정은 서로 독립 → 한 번에 띄운다.
+  //   audience 는 라인마다 lineScope 만 다르고 모집단/org 맵은 요청 캐시(runWithLineOrgAudienceCache)로
+  //   공유되므로, 동시 실행해도 스냅샷 전수 스캔은 1회다. 수집 결과(합집합)는 종전과 동일.
+  const [tgtRes, audiences] = await Promise.all([
+    supabaseAdmin.from("cluster4_line_targets").select("target_user_id").in("line_id", lineIds),
+    Promise.all(
+      lineIds.map((lineId) =>
+        collectLineOrgAudience(lineId).catch(() => [] as string[]),
+      ),
+    ),
+  ]);
+  for (const t of (tgtRes.data ?? []) as Array<{ target_user_id: string | null }>) {
     if (t.target_user_id) affected.add(t.target_user_id);
   }
   // 라인 is_active 변화는 같은 org 분모(synthetic fail)에도 영향 → org audience 도 stale 표시.
-  for (const lineId of lineIds) {
-    try {
-      for (const uid of await collectLineOrgAudience(lineId)) affected.add(uid);
-    } catch {
-      /* best-effort — 직접 타깃은 이미 수집됨 */
-    }
-  }
+  for (const list of audiences) for (const uid of list) affected.add(uid);
   return Array.from(affected);
 }
 
@@ -426,6 +431,10 @@ export type CompetencyOpeningActionResult = {
   //   경로로 이뤄지기 때문. 그 결과(openedLines/openedCrews)를 합산해 실제 반영 수를 표시한다.
   reflectedLines: number;
   reflectedCrews: number;
+  // 처리 직후의 대시보드 상태(opened/canOpen/아웃풋 prefill) — 클라이언트가 성공 후
+  //   opening-status 를 **다시 조회하지 않도록** 같은 요청 안에서 계산해 함께 돌려준다.
+  //   ⚠ 순수 추가 키다(기존 키·타입 무변경). 산정 실패 시 null → 클라이언트는 종전처럼 재조회한다.
+  openingStatus: CompetencyOpeningStatus | null;
 };
 
 // ── [개설 완료] 허브 전체 역량 라인 is_active=true + 주차 공통 아웃풋(링크/설명) 반영 + markStale + 로그 ──
@@ -449,7 +458,9 @@ async function openCompetencyHubImpl(input: {
   // 개설(open)도 취소(cancel)와 동일하게 요청 mode 를 존중한다 — mode 는 대상 사용자 집합(+ 주차 예외)만
   //   결정하고, 개설 로직 자체는 동일하다. (과거엔 여기서 "operating" 을 하드코딩해 cancel 과 비대칭이었다.)
   const mode: ScopeMode = input.mode ?? "operating";
-  const { targetWeekId } = await resolveEffectiveWeek(mode, input.weekId, input.organization);
+  const { targetWeekId } = await lineOpenStage("resolveWeek", () =>
+    resolveEffectiveWeek(mode, input.weekId, input.organization),
+  );
   if (!targetWeekId) {
     throw Object.assign(new Error("개설 대상 주차 정보를 확인할 수 없습니다"), { status: 400 });
   }
@@ -459,7 +470,7 @@ async function openCompetencyHubImpl(input: {
   //   그 주차 실무 역량이 "정상 진행"(open_confirmed && practicalCompetency.checked===true)이 아니면
   //   어떤 write(토글/신청 반영)보다 먼저 409 로 중단한다. URL/HTTP 직접 호출로도 우회 불가(서버 강제).
   //   개설 취소(cancelCompetencyHub)는 게이트하지 않는다 — 잘못 개설된 라인 원복은 항상 허용.
-  if (!(await resolveCompetencyLineOpenGate(org, targetWeekId))) {
+  if (!(await lineOpenStage("openGate", () => resolveCompetencyLineOpenGate(org, targetWeekId)))) {
     throw Object.assign(new Error(COMPETENCY_LINE_NOT_NORMAL_REASON), { status: 409 });
   }
 
@@ -468,9 +479,13 @@ async function openCompetencyHubImpl(input: {
 
   // 모집단 스코프 사전 가드(write 0) — 승인 신청 대상이 현재 모집단(QA_HIDE_REAL_USERS 기준)과
   //   어긋나면 어떤 토글보다 먼저 422. 화면에 보인 크루 == 개설 대상이 항상 일치한다.
-  await assertApprovedApplicationsInScope(org, targetWeekId, mode);
+  await lineOpenStage("scope:applications", () =>
+    assertApprovedApplicationsInScope(org, targetWeekId, mode),
+  );
 
-  const lines = await loadOrgCompetencyLines(org, targetWeekId);
+  const lines = await lineOpenStage("loadOrgLines", () =>
+    loadOrgCompetencyLines(org, targetWeekId),
+  );
   const lineIds = lines.map((l) => l.id);
 
   // 1) is_active=true (전체 — 멱등).
@@ -538,14 +553,16 @@ async function openCompetencyHubImpl(input: {
     openedLineIds: [] as string[],
   };
   try {
-    appResult = await openApprovedApplications({
-      org,
-      weekId: targetWeekId,
-      outputLink1: link,
-      description: desc,
-      adminId: input.adminId,
-      mode,
-    });
+    appResult = await lineOpenStage("openApplications", () =>
+      openApprovedApplications({
+        org,
+        weekId: targetWeekId,
+        outputLink1: link,
+        description: desc,
+        adminId: input.adminId,
+        mode,
+      }),
+    );
   } catch (e) {
     // 모드 스코프 위반(422)은 fail-closed — 운영자에게 그대로 노출(라인 타깃 혼입 차단).
     if ((e as { status?: number })?.status === 422) throw e;
@@ -558,25 +575,41 @@ async function openCompetencyHubImpl(input: {
   // 개설 무효화 = 3허브 통일 헬퍼(배정 타깃 즉시 재계산 + org audience 분모 A stale). info/experience 와 동일 기준.
   //   openedLineIds/lineIds 는 동일 org → 아무 라인 하나로 org audience 산정. 스코프는 헬퍼가 mode 로 처리.
   const auditLineId = appResult.openedLineIds[0] ?? lineIds[0] ?? null;
-  if (auditLineId) {
-    await invalidateWeeklyCardsForLineOpen(auditLineId, appResult.affectedUserIds, mode);
-  } else if (appResult.affectedUserIds.length > 0) {
-    const scope = await resolveUserScope(mode, org);
-    await invalidateWeeklyCardsForUsers(scope.filter(appResult.affectedUserIds));
-  }
-
-  await insertCompetencyOpeningLog({
-    action: "open",
-    weekId: targetWeekId,
-    organizationSlug: org,
-    changedBy: input.adminId,
+  await lineOpenStage("snapshotInvalidate", async () => {
+    if (auditLineId) {
+      await invalidateWeeklyCardsForLineOpen(auditLineId, appResult.affectedUserIds, mode);
+    } else if (appResult.affectedUserIds.length > 0) {
+      const scope = await resolveUserScope(mode, org);
+      await invalidateWeeklyCardsForUsers(scope.filter(appResult.affectedUserIds));
+    }
   });
+
+  await lineOpenStage("openingLog", () =>
+    insertCompetencyOpeningLog({
+      action: "open",
+      weekId: targetWeekId,
+      organizationSlug: org,
+      changedBy: input.adminId,
+    }),
+  );
 
   // 배너 "반영 수" = 현재 개설(고객 반영) 총 상태(델타 아님). 통계 카드(개설 크루/라인)와 정합하고,
   //   멱등 재개설·self-heal 후에도 "개설 3 vs 0 반영" 모순이 생기지 않게 한다. resolution='opened' +
   //   실제 라인 존재 신청만 센다(고아 제외 — countOpenedCompetencyState). 사전 토글 org 라인은 합산.
-  const openedState = await countOpenedCompetencyState(org, targetWeekId);
+  //   반영 수 집계와 대시보드 상태 DTO 는 서로 독립된 조회다(둘 다 쓰기 이후 최신 상태를 읽는다) → 병렬.
+  const [openedState, openingStatus] = await lineOpenStage("responseDto", () =>
+    Promise.all([
+      countOpenedCompetencyState(org, targetWeekId),
+      getCompetencyOpeningStatus(org, mode, targetWeekId).catch((e) => {
+        console.warn("[competency open] 상태 DTO 산정 실패 (클라이언트가 재조회로 폴백)", {
+          message: e instanceof Error ? e.message : String(e),
+        });
+        return null;
+      }),
+    ]),
+  );
   return {
+    openingStatus,
     status: "opened",
     linesChanged: lineIds.length,
     linesTotal: lines.length,
@@ -606,12 +639,16 @@ async function cancelCompetencyHubImpl(input: {
   weekId?: string | null;
 }): Promise<CompetencyOpeningActionResult> {
   const mode = input.mode ?? "operating";
-  const { targetWeekId } = await resolveEffectiveWeek(mode, input.weekId, input.organization);
+  const { targetWeekId } = await lineOpenStage("resolveWeek", () =>
+    resolveEffectiveWeek(mode, input.weekId, input.organization),
+  );
   if (!targetWeekId) {
     throw Object.assign(new Error("개설 대상 주차 정보를 확인할 수 없습니다"), { status: 400 });
   }
   const org = input.organization;
-  const lines = await loadOrgCompetencyLines(org, targetWeekId);
+  const lines = await lineOpenStage("loadOrgLines", () =>
+    loadOrgCompetencyLines(org, targetWeekId),
+  );
   const lineIds = lines.map((l) => l.id);
 
   // 1) is_active=false (전체).
@@ -624,27 +661,34 @@ async function cancelCompetencyHubImpl(input: {
   }
 
   // 2) 아웃풋 원복 — prior 스냅샷이 있으면 라인별 복원, 없으면 적용 라인의 공통 아웃풋 제거.
-  const existing = await loadWeekOutput(org, targetWeekId);
+  const existing = await lineOpenStage("loadWeekOutput", () =>
+    loadWeekOutput(org, targetWeekId),
+  );
   const priorById = new Map(
     (existing?.priorOutputs ?? []).map((p) => [p.line_id, p]),
   );
+  await lineOpenStage("restoreOutputs", async () => {
   if (priorById.size > 0) {
-    for (const l of lines) {
-      const prior = priorById.get(l.id);
-      if (!prior) continue;
-      const { error } = await supabaseAdmin
-        .from("cluster4_lines")
-        .update({
-          output_link_1: prior.output_link_1,
-          output_link_2: prior.output_link_2,
-          output_links: prior.output_links ?? [],
-          updated_by: input.adminId,
-        })
-        .eq("id", l.id);
-      if (error) {
-        console.warn("[competency cancel] output restore failed:", l.id, error.message);
-      }
-    }
+    // 라인별 원복 값이 서로 달라 한 문장으로 합칠 수 없다(각자 직전 아웃풋으로 되돌린다).
+    //   대신 직렬 for-await 를 동시 실행으로 바꾼다 — 쓰는 행/값/실패 로그는 그대로다.
+    await Promise.all(
+      lines.map(async (l) => {
+        const prior = priorById.get(l.id);
+        if (!prior) return;
+        const { error } = await supabaseAdmin
+          .from("cluster4_lines")
+          .update({
+            output_link_1: prior.output_link_1,
+            output_link_2: prior.output_link_2,
+            output_links: prior.output_links ?? [],
+            updated_by: input.adminId,
+          })
+          .eq("id", l.id);
+        if (error) {
+          console.warn("[competency cancel] output restore failed:", l.id, error.message);
+        }
+      }),
+    );
   } else if (existing?.outputLink1 && lineIds.length > 0) {
     // prior 없음(테이블 미적용 등) — 적용했던 공통 링크만 제거(원복).
     await supabaseAdmin
@@ -653,6 +697,7 @@ async function cancelCompetencyHubImpl(input: {
       .in("id", lineIds)
       .eq("output_link_1", existing.outputLink1);
   }
+  });
 
   // 3) 적용 상태/적용값/스냅샷 비우기(원복 완료).
   await upsertWeekOutput({
@@ -668,7 +713,9 @@ async function cancelCompetencyHubImpl(input: {
   // 신청/승인 명단 반영 원복 — opened 라인/타깃 삭제 + resolution='pending'.
   let appCancel = { affectedUserIds: [] as string[], removedLines: 0 };
   try {
-    appCancel = await cancelOpenedApplications({ org, weekId: targetWeekId });
+    appCancel = await lineOpenStage("cancelApplications", () =>
+      cancelOpenedApplications({ org, weekId: targetWeekId }),
+    );
   } catch (e) {
     console.warn(
       "[competency cancel] application revert skipped:",
@@ -678,13 +725,21 @@ async function cancelCompetencyHubImpl(input: {
 
   const affected = new Set<string>(appCancel.affectedUserIds);
   if (lineIds.length > 0) {
-    for (const u of await collectAffectedUsers(lineIds)) affected.add(u);
+    for (const u of await lineOpenStage("collectAffected", () =>
+      collectAffectedUsers(lineIds),
+    )) {
+      affected.add(u);
+    }
   }
   const affectedUsers = await scopeAffectedUsers(mode, org, affected);
   // 마크-스테일만으로는 snapshot-only 조회 런타임에서 고객이 옛 snapshot 을 계속 본다(역량만 미반영
   //   버그의 근본 원인). info/experience 개설과 동일하게 invalidate(≤10 즉시 / >10 백그라운드 recompute)로
   //   개설 직후 고객 weekly-cards 에 반영되게 한다(읽기 경로·DTO·demoUserId 무변경).
-  if (affectedUsers.length > 0) await invalidateWeeklyCardsForUsers(affectedUsers);
+  if (affectedUsers.length > 0) {
+    await lineOpenStage("snapshotInvalidate", () =>
+      invalidateWeeklyCardsForUsers(affectedUsers),
+    );
+  }
 
   await insertCompetencyOpeningLog({
     action: "cancel",
@@ -693,7 +748,18 @@ async function cancelCompetencyHubImpl(input: {
     changedBy: input.adminId,
   });
 
+  // 취소 직후 상태 DTO 도 함께 — 클라이언트의 성공 후 opening-status 재조회 1회를 없앤다.
+  const openingStatus = await lineOpenStage("responseDto", () =>
+    getCompetencyOpeningStatus(org, mode, targetWeekId).catch((e) => {
+      console.warn("[competency cancel] 상태 DTO 산정 실패 (클라이언트가 재조회로 폴백)", {
+        message: e instanceof Error ? e.message : String(e),
+      });
+      return null;
+    }),
+  );
+
   return {
+    openingStatus,
     status: "closed",
     linesChanged: lineIds.length,
     linesTotal: lines.length,

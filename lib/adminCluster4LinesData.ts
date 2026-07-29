@@ -1,5 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { lineOpenStage } from "@/lib/lineOpenTrace";
+import { IN_FILTER_ID_CHUNK } from "@/lib/supabaseInChunk";
 import { QA_HIDE_REAL_USERS } from "@/lib/qaFixedScope";
 import { isUuid } from "@/lib/isUuid";
 import {
@@ -436,17 +438,48 @@ export function runWithLineOrgAudienceCache<T>(fn: () => Promise<T>): Promise<T>
   return lineOrgPopulationALS.run({ pop: null }, fn);
 }
 
-async function loadLineOrgPopulation(): Promise<LineOrgPopulation> {
+function loadLineOrgPopulation(): Promise<LineOrgPopulation> {
+  return lineOpenStage("audience:population", loadLineOrgPopulationImpl);
+}
+
+async function loadLineOrgPopulationImpl(): Promise<LineOrgPopulation> {
   const { data: snaps } = await supabaseAdmin
     .from("cluster4_weekly_card_snapshots")
     .select("user_id");
-  const userIds = ((snaps ?? []) as { user_id: string }[]).map((r) => r.user_id);
+  const userIds = Array.from(
+    new Set(
+      ((snaps ?? []) as { user_id: string }[])
+        .map((r) => r.user_id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
   const orgByUser = new Map<string, OrganizationSlug | null>();
-  if (userIds.length > 0) {
-    const { data: profs } = await supabaseAdmin
-      .from("user_profiles")
-      .select("user_id,organization_slug")
-      .in("user_id", userIds);
+  // ⚠ 반드시 청크 .in() (2026-07-28 실측 버그).
+  //   종전에는 스냅샷 보유자 전원(실측 730명)을 단일 .in("user_id", [...730 UUID]) 로 넘겼다.
+  //   URL 이 27KB 라 PostgREST 가 **매번 400 Bad Request** 를 돌려주는데, error 를 읽지 않아
+  //   조용히 삼켜졌다 → orgByUser 가 **항상 빈 맵** → 모든 사용자 org 가 null 로 해석되고,
+  //   isLineVisibleForUserOrg(userOrg=null) 은 항상 노출이므로 **audience = 전원**이 되었다.
+  //   결과: (1) 조직 격리가 무력화(타 org 사용자까지 stale 마킹) (2) 매 요청 400 왕복 낭비.
+  //   IN_FILTER_ID_CHUNK(200) 로 나눠 실제 org 를 채우고, 실패는 로그로 드러낸다.
+  const chunks: string[][] = [];
+  for (let i = 0; i < userIds.length; i += IN_FILTER_ID_CHUNK) {
+    chunks.push(userIds.slice(i, i + IN_FILTER_ID_CHUNK));
+  }
+  // 청크들은 서로 독립(겹치지 않는 id 집합) → 동시에 낸다. 합쳐진 맵은 순서와 무관하게 동일하다.
+  const results = await Promise.all(
+    chunks.map((chunk) =>
+      supabaseAdmin.from("user_profiles").select("user_id,organization_slug").in("user_id", chunk),
+    ),
+  );
+  results.forEach(({ data: profs, error }, i) => {
+    if (error) {
+      // fail-safe: 이 청크는 org 미상(null)으로 남아 종전과 동일하게 "노출"로 취급된다.
+      console.warn("[cluster4/lines] audience org 청크 조회 실패 (해당 청크는 org 미상 처리)", {
+        chunk: chunks[i].length,
+        message: error.message,
+      });
+      return;
+    }
     for (const p of (profs ?? []) as {
       user_id: string;
       organization_slug: string | null;
@@ -456,7 +489,7 @@ async function loadLineOrgPopulation(): Promise<LineOrgPopulation> {
         isOrganizationSlug(p.organization_slug) ? p.organization_slug : null,
       );
     }
-  }
+  });
   return { userIds, orgByUser };
 }
 
@@ -468,7 +501,11 @@ function getLineOrgPopulation(): Promise<LineOrgPopulation> {
   return store.pop;
 }
 
-export async function collectLineOrgAudience(lineId: string): Promise<string[]> {
+export function collectLineOrgAudience(lineId: string): Promise<string[]> {
+  return lineOpenStage("audience", () => collectLineOrgAudienceImpl(lineId));
+}
+
+async function collectLineOrgAudienceImpl(lineId: string): Promise<string[]> {
   const { data: line } = await supabaseAdmin
     .from("cluster4_lines")
     .select(
@@ -557,17 +594,18 @@ export async function invalidateWeeklyCardsForLineOpen(
   if (targets.length > 0) await invalidateWeeklyCardsForUsers(targets);
 
   // 2) org audience(분모 A) 중 배정 외 나머지: 스코프 필터 후 stale 마킹만 → lazy-on-read 로 수렴.
-  let audience: string[] = [];
-  try {
-    audience = await collectLineOrgAudience(lineId);
-  } catch (e) {
-    console.warn("[cluster4/lines] line-open org audience 산정 실패 (배정자만 무효화)", {
-      lineId,
-      message: e instanceof Error ? e.message : String(e),
-    });
-  }
+  //    audience 산정과 모집단 스코프 해소는 서로 독립이라 함께 띄운다(결과 동일, 왕복만 겹침).
+  const [audience, scope] = await Promise.all([
+    collectLineOrgAudience(lineId).catch((e) => {
+      console.warn("[cluster4/lines] line-open org audience 산정 실패 (배정자만 무효화)", {
+        lineId,
+        message: e instanceof Error ? e.message : String(e),
+      });
+      return [] as string[];
+    }),
+    resolveUserScope(mode, null),
+  ]);
   const targetSet = new Set(targets);
-  const scope = await resolveUserScope(mode, null);
   const rest = scope.filter(audience).filter((id) => !targetSet.has(id));
   if (rest.length > 0) await markWeeklyCardsSnapshotStaleMany(rest);
 }
@@ -1285,21 +1323,34 @@ export async function editInfoLineCrew(opts: {
 export async function deleteCluster4Line(
   id: string,
   mode?: ScopeMode,
+  // 호출부가 이미 읽어 둔 대상자(예: DELETE 라우트의 스코프 가드) — 있으면 재조회하지 않는다.
+  //   같은 요청 안에서 cluster4_line_targets 를 3번 읽던 중복 제거용. 값은 동일(같은 라인의 user 타깃).
+  knownTargetUserIds?: ReadonlyArray<string>,
 ): Promise<void> {
-  await ensureLineExists(id);
-  // 삭제 전 대상자 + org audience 수집 — FK cascade 로 targets/라인 행이 사라지기 전에 확보.
+  if (!isUuid(id)) throw new Cluster4LineError(400, "line id must be a UUID");
+  // 존재 확인 + part_type 을 한 번에 읽는다(종전 select("id") → 아래 competency 정리 여부 판정에 재사용).
+  //   삭제 전 대상자 + org audience 수집도 함께 — FK cascade 로 targets/라인 행이 사라지기 전에 확보한다.
   //   (collectLineOrgAudience 는 cluster4_lines 행을 읽으므로 반드시 삭제 전에 호출한다.)
-  const [{ data: affectedTargets }, orgAudience] = await Promise.all([
-    supabaseAdmin
-      .from("cluster4_line_targets")
-      .select("target_user_id")
-      .eq("line_id", id)
-      .eq("target_mode", "user"),
+  const [lineRes, targetsRes, orgAudience] = await Promise.all([
+    supabaseAdmin.from("cluster4_lines").select("id,part_type").eq("id", id).maybeSingle(),
+    knownTargetUserIds
+      ? Promise.resolve(null)
+      : supabaseAdmin
+          .from("cluster4_line_targets")
+          .select("target_user_id")
+          .eq("line_id", id)
+          .eq("target_mode", "user"),
     collectLineOrgAudience(id).catch(() => [] as string[]),
   ]);
-  const affectedUserIds = (affectedTargets ?? [])
-    .map((r) => (r as { target_user_id: string | null }).target_user_id)
-    .filter((u): u is string => Boolean(u));
+  if (lineRes.error) throw new Cluster4LineError(500, lineRes.error.message);
+  const lineRow = lineRes.data as { id: string; part_type: string | null } | null;
+  if (!lineRow) throw new Cluster4LineError(404, "cluster4 line not found");
+
+  const affectedUserIds = knownTargetUserIds
+    ? Array.from(new Set(knownTargetUserIds))
+    : (targetsRes?.data ?? [])
+        .map((r) => (r as { target_user_id: string | null }).target_user_id)
+        .filter((u): u is string => Boolean(u));
   const { error } = await supabaseAdmin.from("cluster4_lines").delete().eq("id", id);
   if (error) {
     throw translatePostgrestError(error.message, error.code);
@@ -1308,16 +1359,20 @@ export async function deleteCluster4Line(
   //   opened_line_id) 로 개설 상태를 별도 추적한다. 라인 행만 지우고 그 application 을 그대로 두면
   //   "opened 인데 라인 없음"(고아) 상태가 되어 통계=개설/고객앱=미표시 불일치가 생긴다. 라인 삭제 시
   //   그 라인을 가리키는 competency 신청을 pending 으로 복원(개설 취소와 동일 정합성) — 다음 개설에서
-  //   재반영 가능. competency 외(info/experience/career) 라인은 매칭 0행이라 무영향. best-effort.
-  const { error: appResetErr } = await supabaseAdmin
-    .from("cluster4_competency_applications")
-    .update({ resolution: "pending", opened_line_id: null, opened_target_id: null })
-    .eq("opened_line_id", id);
-  if (appResetErr) {
-    console.warn("[cluster4/lines] 라인 삭제 후 competency 신청 pending 복원 실패(고아 가능 — self-heal 보정)", {
-      lineId: id,
-      message: appResetErr.message,
-    });
+  //   재반영 가능. best-effort.
+  //   ⚠ part_type='competency' 일 때만 실행한다 — 그 외(info/experience/career)는 opened_line_id 로
+  //     이 라인을 가리키는 신청이 **구조적으로 존재할 수 없어** 항상 0행 UPDATE 였다(왕복만 낭비).
+  if (lineRow.part_type === "competency") {
+    const { error: appResetErr } = await supabaseAdmin
+      .from("cluster4_competency_applications")
+      .update({ resolution: "pending", opened_line_id: null, opened_target_id: null })
+      .eq("opened_line_id", id);
+    if (appResetErr) {
+      console.warn("[cluster4/lines] 라인 삭제 후 competency 신청 pending 복원 실패(고아 가능 — self-heal 보정)", {
+        lineId: id,
+        message: appResetErr.message,
+      });
+    }
   }
   // 회수 정책(2026-07-15): 라인 삭제 시에도 개설 지급 포인트(source='line')는 유지한다(회수 없음).
   //   (info/experience/competency/career 공통 삭제 경로 — 원장은 pay-once 로 보존.)
