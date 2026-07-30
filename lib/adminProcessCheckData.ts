@@ -45,6 +45,7 @@ import { loadWeekOpeningTimeline } from "@/lib/weekOpeningTimeline";
 import { resolveRegularActOccurredAtMs } from "@/lib/regularActRequiredAt";
 import { filterTeamsByScope, isTestTeam } from "@/lib/cluster4ExperienceTestScope";
 import { listPartCrews, listTeamCrews } from "@/lib/adminExperiencePartInput";
+import { resolveCheckScopeRoster } from "@/lib/processCheckScopeRoster";
 import { listOperatedTeamParts } from "@/lib/adminTeamSelectedWeekSummary";
 import { uncompleteResetStamp } from "@/lib/processCheckCollectionReset";
 import type { ScopeMode } from "@/lib/userScopeShared";
@@ -969,10 +970,31 @@ export async function getProcessCheckBoard(
       rosterByPart.set(part, new Set(teamCrews.filter((c) => c.partName === part).map((c) => c.userId)));
     }
   }
-  // 이 행(파트 스코프)의 로스터 집합 — 팀 구분 허브만. 비팀/미선택은 null(필터 no-op).
-  //   미해소 파트는 빈 집합(fail-closed: 타 팀/타 파트/미소속 전면 제외).
-  const rosterForPart = (partForRoster: string | null): Set<string> | null =>
-    teamBased && teamId ? rosterByPart.get(partForRoster ?? "") ?? new Set<string>() : null;
+  // 비팀 허브(info/competency/club) 로스터 — resolveCheckScopeRoster 와 동일 원천(2026-07-30 추가).
+  //   ⚠ 종전에는 이 분기가 없어 팀 구분 허브만 로스터로 걸러지고, 비팀 허브는 rosterForPart 가
+  //     무조건 null(필터 no-op)이었다 — 그 결과 시즌 휴식/주차 휴식/활동 중단/엘리트/바사노스도
+  //     카페 댓글만 매칭되면 "체크 완료 명단"/매칭 수에 그대로 남았다(evaluationEligibility 판정과
+  //     Point C 모집단은 정상이었지만, 화면 표시 단계가 그 판정을 거치지 않은 별도 경로였다).
+  const nonTeamRoster: Set<string> | null =
+    !teamBased && effectiveWeekId
+      ? new Set(
+          await resolveCheckScopeRoster({
+            hub,
+            organization: organization as OrganizationSlug,
+            mode,
+            teamId: null,
+            partName: null,
+            weekId: effectiveWeekId,
+          }),
+        )
+      : null;
+  // 이 행(파트 스코프)의 로스터 집합 — 팀 구분 허브는 팀 선택 시에만, 비팀 허브는 항상 적용.
+  //   미해소 파트(팀 구분 허브)는 빈 집합(fail-closed: 타 팀/타 파트/미소속 전면 제외).
+  //   팀 구분 허브에서 팀 미선택(섹션.0) 상태는 대상자 확정 불가라 null(필터 no-op) 그대로 유지한다.
+  const rosterForPart = (partForRoster: string | null): Set<string> | null => {
+    if (teamBased) return teamId ? rosterByPart.get(partForRoster ?? "") ?? new Set<string>() : null;
+    return nonTeamRoster;
+  };
 
   // 유효 스코프 — 팀 선택(experience)일 때만. 기본 team_all. part 인데 partName 이 팀 파트가 아니면 team_all 폴백.
   // part_name 컬럼 존재 여부(스키마 프로브) — teamId 무관. 선택 팀 로딩(partAvail)과 팀별 상태창 산정 공용.

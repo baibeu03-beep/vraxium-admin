@@ -592,13 +592,28 @@ export async function computeSeasonRecords(
   for (const row of (seasonStatusRes.data ?? []) as Array<{ season_key: string; status: string }>) seasonStatusByKey.set(row.season_key, row.status);
   const cards = cardResult.cards;
   const canonical = buildCanonicalWeeklyMetrics(cards, getCurrentActivityDateIso());
-  const presentSeasonKeys = new Set(cards.filter((card) => card.seasonKey && !card.isTransition).map((card) => card.seasonKey as string));
+  // 시즌 "참여 여부" 판정 — 카드가 하나라도 있으면 참여로 보지 않는다. official_rest(조직 전체
+  // 공식 방학주)는 개인 소속과 무관하게 카드가 생기므로, 그 시즌에 전혀 소속·활동한 적 없는
+  // 사용자도 방학주만으로 시즌이 "있는 것처럼" 잡혀 "통합 휴식"으로 오표시되던 원인이었다.
+  // 실제 참여 신호(승인/실패/개인휴식/집계중) 또는 시즌 상태 행(user_season_statuses)이
+  // 있어야 그 시즌을 이력에 노출한다.
+  const summaryBySeasonKey = new Map(seasons.map((season) => [season.season_key, summarizeSeasonCards(cards, season.season_key)]));
+  const presentSeasonKeys = new Set(
+    seasons
+      .filter((season) => {
+        const summary = summaryBySeasonKey.get(season.season_key)!;
+        const hasRealActivity =
+          summary.approvedWeeks > 0 || summary.failedWeeks > 0 || summary.personalRestWeeks > 0 || summary.tallyingWeeks > 0;
+        return hasRealActivity || seasonStatusByKey.has(season.season_key);
+      })
+      .map((season) => season.season_key),
+  );
   const latestActivitySeasonKey = seasons.find((season) => presentSeasonKeys.has(season.season_key))?.season_key ?? null;
   const todayIso = getCurrentActivityDateIso();
   const organization = profile?.organization_slug as OrganizationSlug | null;
   const seasonPositionMap = resolveSeasonPositionsFromSeries(positionSeries, "effective");
   const rows = await Promise.all(seasons.filter((season) => presentSeasonKeys.has(season.season_key)).map(async (season) => {
-    const summary = summarizeSeasonCards(cards, season.season_key);
+    const summary = summaryBySeasonKey.get(season.season_key)!;
     const progressStatus = resolveSeasonProgressStatus({
       growthStatus: season.season_key === latestActivitySeasonKey ? profile?.growth_status ?? null : null,
       seasonStatus: seasonStatusByKey.get(season.season_key) ?? null,

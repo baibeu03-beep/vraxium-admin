@@ -162,6 +162,41 @@ export async function getApprovedRestWeekIds(opts: {
   return set;
 }
 
+// 다건 사용자 × 다건 주차의 승인 휴식 — bulk 판정용(evaluationEligibility 등, 주차별 재조회 금지).
+//   weekStartDates 를 지정하면 그 주차만 필터링해 반환한다(미지정 시 전체).
+//   반환 = weekStartDate → 그 주차에 승인된 휴식이 있는 userId Set.
+export async function getApprovedRestWeekUserIdsBulk(opts: {
+  userIds: readonly string[];
+  weekStartDates?: readonly string[];
+}): Promise<Map<string, Set<string>>> {
+  const ids = Array.from(new Set(opts.userIds.filter(Boolean)));
+  const wanted = opts.weekStartDates ? new Set(opts.weekStartDates) : null;
+  const out = new Map<string, Set<string>>();
+  if (ids.length === 0) return out;
+  const CHUNK = 200;
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const chunk = ids.slice(i, i + CHUNK);
+    const { data, error } = await supabaseAdmin
+      .from("vacation_requests")
+      .select("user_id,week_start_date,status")
+      .eq("status", "approved")
+      .in("user_id", chunk);
+    if (error) throw new Error(error.message);
+    for (const r of (data ?? []) as Array<{ user_id: string; week_start_date: string | null }>) {
+      const ws = r.week_start_date ? String(r.week_start_date).slice(0, 10) : null;
+      if (!ws) continue;
+      if (wanted && !wanted.has(ws)) continue;
+      let set = out.get(ws);
+      if (!set) {
+        set = new Set<string>();
+        out.set(ws, set);
+      }
+      set.add(r.user_id);
+    }
+  }
+  return out;
+}
+
 // 단일 사용자×주차 휴식 상태(없으면 null). 포인트/게이트 판정 등 단건 조회용.
 export async function getUserWeekRestStatus(opts: {
   userId: string;

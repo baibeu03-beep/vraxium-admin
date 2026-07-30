@@ -186,19 +186,27 @@ export async function getCrewSeasonResults(
   const candidateDates = new Set<string>();
   for (const start of weeklyPoints.keys()) candidateDates.add(start);
   for (const r of weekStatuses) if (r.week_start_date) candidateDates.add(r.week_start_date);
-  if (candidateDates.size === 0) return [];
 
   // week_start_date → season_key(정규 시즌만).
-  const { data: dateWeeks } = await supabaseAdmin
-    .from("weeks")
-    .select("start_date,season_key")
-    .in("start_date", [...candidateDates]);
   const seasonKeyByStart = new Map<string, string>();
   const seasonKeys = new Set<string>();
-  for (const w of (dateWeeks ?? []) as Array<{ start_date: string | null; season_key: string | null }>) {
-    if (!w.start_date || !w.season_key || !CANON_KEY.test(w.season_key)) continue;
-    seasonKeyByStart.set(w.start_date, w.season_key);
-    seasonKeys.add(w.season_key);
+  if (candidateDates.size > 0) {
+    const { data: dateWeeks } = await supabaseAdmin
+      .from("weeks")
+      .select("start_date,season_key")
+      .in("start_date", [...candidateDates]);
+    for (const w of (dateWeeks ?? []) as Array<{ start_date: string | null; season_key: string | null }>) {
+      if (!w.start_date || !w.season_key || !CANON_KEY.test(w.season_key)) continue;
+      seasonKeyByStart.set(w.start_date, w.season_key);
+      seasonKeys.add(w.season_key);
+    }
+  }
+  // 시즌 전체를 공식 휴식/중단한 시즌은 처리된 주차(포인트·주차상태)가 하나도 없을 수 있다 —
+  // 그런 시즌도 user_season_statuses(시즌 스코프 SoT) 행이 있으면 행 자체는 노출해야 한다
+  // (라벨은 아래 deriveSeasonStatusLabel 이 이 SoT 로 그대로 판정). 활동 데이터 유무로
+  // "그 시즌에 있었는지"를 판정하지 않는다.
+  for (const sk of seasonStatusByKey.keys()) {
+    if (CANON_KEY.test(sk)) seasonKeys.add(sk);
   }
   if (seasonKeys.size === 0) return [];
 

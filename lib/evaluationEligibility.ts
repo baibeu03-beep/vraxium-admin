@@ -1,14 +1,15 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { deriveEndStatus, GRADUATING_FROM_APPROVED_WEEKS } from "@/lib/growthCore";
 import { getSeasonRestUserIds, resolveSeasonKeyForWeekStart } from "@/lib/currentSeasonRest";
+import { getApprovedRestWeekUserIdsBulk } from "@/lib/approvedRestWeeks";
 import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 모집단 자격(eligibility) — **단일 권위 모듈**. 화면·API 가 상태 문자열을 다시 비교하지 않는다.
 //
-// 집합 2종만 존재한다(2026-07-27 정책 확정):
+// 집합 2종만 존재한다(2026-07-27 정책 확정, 2026-07-30 주차 휴식 축 추가):
 //
-//   ① 팀·파트 활동 가능 모집단  = 전체 − 시즌 휴식 − (효력 발생 후) 활동 중단
+//   ① 팀·파트 활동 가능 모집단  = 전체 − 시즌 휴식 − 주차 휴식 − (효력 발생 후) 활동 중단
 //        · 팀 소속 크루 / 파트 소속 크루 / <운용> 파트 판정이 쓰는 집합.
 //        · 엘리트·바사노스는 **여기 남는다** — 소속과 평가자·운영자 역할을 유지한다.
 //
@@ -24,6 +25,8 @@ import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 export type EligibilityFlags = {
   /** 그 주차 시즌의 시즌 휴식(user_season_statuses.status='rest'). */
   seasonRest: boolean;
+  /** 그 주차 자체의 개인 승인 휴식(vacation_requests.status='approved', 긴급 휴식 포함). */
+  weekRest: boolean;
   /** 그 주차 시점에 활동 중단 효력이 발생했는가. */
   suspended: boolean;
   /** 그 주차 시점에 엘리트(졸업)인가. */
@@ -36,7 +39,7 @@ export type Eligibility = {
   /** 판정 기준 주차(week_start_date). */
   weekStartDate: string;
   flags(userId: string): EligibilityFlags;
-  /** ① 팀·파트 활동 가능 = !seasonRest && !suspended. */
+  /** ① 팀·파트 활동 가능 = !seasonRest && !weekRest && !suspended. */
   isTeamActive(userId: string): boolean;
   /** ② 실무 평가 가능 = ① && !elite && !basanos. */
   isEvaluable(userId: string): boolean;
@@ -44,6 +47,7 @@ export type Eligibility = {
 
 const NO_FLAGS: EligibilityFlags = {
   seasonRest: false,
+  weekRest: false,
   suspended: false,
   elite: false,
   basanos: false,
@@ -96,11 +100,11 @@ function makeResolver(
     flags: (userId) => flagsByUser.get(userId) ?? NO_FLAGS,
     isTeamActive: (userId) => {
       const f = flagsByUser.get(userId) ?? NO_FLAGS;
-      return !f.seasonRest && !f.suspended;
+      return !f.seasonRest && !f.weekRest && !f.suspended;
     },
     isEvaluable: (userId) => {
       const f = flagsByUser.get(userId) ?? NO_FLAGS;
-      return !f.seasonRest && !f.suspended && !f.elite && !f.basanos;
+      return !f.seasonRest && !f.weekRest && !f.suspended && !f.elite && !f.basanos;
     },
   };
 }
@@ -140,15 +144,21 @@ async function loadEligibilityBulkInternal(
 
   // ── 원천 조회 ────────────────────────────────────────────────────────────
   //   ① 시즌 휴식 = 그 주차 시즌의 rest 집합(lib/currentSeasonRest 단일 규칙).
+  //   ①' 주차 휴식 = 그 주차 자체의 승인된 개인 휴식(lib/approvedRestWeeks 단일 SoT,
+  //       vacation_requests.status='approved' — 긴급 휴식도 이 테이블에 함께 있어 자동 포함).
   //   ② 프로필 = growth_status(수동 override) + suspended_week_id + activity_ended_at.
   //   ③ 시즌 중단 = 그 주차 시즌의 stopped 집합.
   const seasonKeys = Array.from(new Set(weekList.map((w) => w.seasonKey ?? null)));
-  const [seasonRestBySeason, profileRows, seasonStoppedBySeason] = await Promise.all([
+  const [seasonRestBySeason, weekRestByWeek, profileRows, seasonStoppedBySeason] = await Promise.all([
     (async () => {
       const m = new Map<string | null, Set<string>>();
       for (const sk of seasonKeys) m.set(sk, await getSeasonRestUserIds(sk));
       return m;
     })(),
+    getApprovedRestWeekUserIdsBulk({
+      userIds: ids,
+      weekStartDates: weekList.map((w) => w.weekStartDate),
+    }),
     (async () => {
       const out: Array<{
         user_id: string;
@@ -229,6 +239,7 @@ async function loadEligibilityBulkInternal(
     const seasonKey = w.seasonKey ?? null;
     const flagsByUser = flagsByWeek.get(weekStartDate) as Map<string, EligibilityFlags>;
     const seasonRestIds = seasonRestBySeason.get(seasonKey) ?? new Set<string>();
+    const weekRestIds = weekRestByWeek.get(weekStartDate) ?? new Set<string>();
     const seasonStoppedIds = seasonStoppedBySeason.get(seasonKey) ?? new Set<string>();
     const isCurrentOrFuture = currentWeekStart ? weekStartDate >= currentWeekStart : true;
 
@@ -286,6 +297,7 @@ async function loadEligibilityBulkInternal(
 
       flagsByUser.set(uid, {
         seasonRest: seasonRestIds.has(uid),
+        weekRest: weekRestIds.has(uid),
         suspended,
         elite,
         basanos,
@@ -314,7 +326,7 @@ async function loadEligibilityInternal(
 }
 
 /**
- * ① 팀·파트 활동 가능 모집단 — 시즌 휴식 + (효력 발생 후) 활동 중단만 판정한다.
+ * ① 팀·파트 활동 가능 모집단 — 시즌 휴식 + 주차 휴식 + (효력 발생 후) 활동 중단만 판정한다.
  *   엘리트/바사노스 축은 조회하지 않는다(항상 false) — 팀 소속·운용 파트에서는 유지되기 때문.
  */
 export async function loadTeamActivityEligibility(input: Input): Promise<Eligibility> {

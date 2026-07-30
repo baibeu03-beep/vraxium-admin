@@ -91,9 +91,11 @@ export function resolveSeasonProgressStatus(input: SeasonProgressInput): Progres
   if (input.isCurrent || today <= input.seasonEndDate) return STATUS.ongoing;
   if (input.cards.tallyingWeeks > 0) return STATUS.ongoing;
   if (input.cards.failedWeeks > 0 && input.cards.approvedWeeks === 0) return STATUS.stopped;
-  if (input.cards.personalRestWeeks + input.cards.officialRestWeeks > 0 && input.cards.approvedWeeks === 0) {
-    return STATUS.rest;
-  }
+  // "통합 휴식"은 그 시즌의 공식 시즌 휴식 권위 원천(user_season_statuses.status='rest',
+  // 위 seasonStatus==='rest' 분기) 하나로만 판정한다. 주차 카드 구성(개인 휴식·조직 방학주가
+  // 얼마나 섞여 있는지, approvedWeeks 가 0인지)으로 "통합 휴식"을 추론하지 않는다 — 그렇게
+  // 추론하면 미참여 시즌(조직 방학주만 카드로 남음)뿐 아니라 "그냥 주차 휴식 몇 번 쓴 정상
+  // 활동 시즌"까지 시즌 전체 휴식으로 오표시된다. 개인 주차 휴식은 시즌 휴식이 아니다.
   return STATUS.complete;
 }
 
