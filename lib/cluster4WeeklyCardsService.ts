@@ -29,6 +29,7 @@ import {
   type Cluster4LineSecondEntryOverrideRow,
 } from "@/lib/cluster4SecondEntryOverride";
 import { getCurrentWeekStartMs } from "@/lib/cluster4WeekPolicy";
+import { reconcileSuccessLineAwardsOnRead } from "@/lib/processPointAccrual";
 import {
   loadGrowthStopInfo,
   truncateCardsForGrowthStop,
@@ -156,12 +157,18 @@ export async function loadWeeklyCards(
         preload.enhancementRows,
       ),
     );
-    const cards = await traceSpan("applySecondEntryOverridesToCards", () =>
+    const overlaid = await traceSpan("applySecondEntryOverridesToCards", () =>
       applySecondEntryOverridesToCards(
         profileUserId,
         afterEnh,
         preload.secondEntryRows,
       ),
+    );
+    // ③ 조회 시점 즉시지급 — overlay 적용 후 최종본을 기준으로(스윕과 동일 SoT), 강화 성공인데
+    //   아직 지급 안 된 라인이 있으면 즉시 정합화한다. 후보가 없거나 이미 전부 지급됐으면
+    //   추가 쿼리 없이 동일 참조를 그대로 반환한다(대다수 요청 — 성능 영향 없음).
+    const cards = await traceSpan("reconcileSuccessLineAwardsOnRead", () =>
+      reconcileSuccessLineAwardsOnRead(profileUserId, overlaid),
     );
     return cards === result.cards ? result : { ...result, cards };
   } catch (e) {

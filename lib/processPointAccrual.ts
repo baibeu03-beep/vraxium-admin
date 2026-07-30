@@ -36,7 +36,11 @@ import {
   resolveUserScope,
   type ScopeMode,
 } from "@/lib/userScope";
-import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
+import {
+  invalidateWeeklyCardsForUsers,
+  readWeeklyCardsSnapshot,
+} from "@/lib/cluster4WeeklyCardsSnapshot";
+import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 import { processPointAwardsHasCancelColumns } from "@/lib/processPointAwardsCancelState";
 import {
   LEGACY_BASELINE_SELECT,
@@ -1380,6 +1384,25 @@ export async function loadLinePossibleByRefForCrewWeek(
 //     admin 라인 상세 저장 시 호출한다. 원장만 갱신하고 재집계는 하지 않는다 — 호출부가
 //     recomputeWeeklyPointsForUsers 로 1회 수렴(uwp 합산→등급→snapshot→카드→크루페이지).
 //   pay-once 와 공존: 회수는 soft-cancel(행 유지)이라 재등록 시 pay-once 가 "이미 존재"로 건너뛴다.
+// 특정 (user,line) 의 현재 활성 라인 지급 원장(source='line') 유무 — 재지급 여부 판단용 경량 조회.
+//   ⚠ SoT 단일화: lineResultAwardReconcile.ts(주차 스윕)와 조회 시점 즉시지급(아래
+//   reconcileSuccessLineAwardsOnRead) 이 이 함수 하나를 공유한다 — 중복 정의 금지.
+export async function hasActiveLineAward(userId: string, lineId: string): Promise<boolean> {
+  const { data } = await supabaseAdmin
+    .from("process_point_awards")
+    .select("point_check,point_advantage,cancelled_at")
+    .eq("source", "line")
+    .eq("ref_id", lineId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  const row = data as
+    | { point_check: number | null; point_advantage: number | null; cancelled_at: string | null }
+    | null;
+  if (!row) return false;
+  if (row.cancelled_at) return false;
+  return (row.point_check ?? 0) > 0 || (row.point_advantage ?? 0) > 0;
+}
+
 export async function reconcileLineResultAwardForUser(
   userId: string,
   lineId: string,
@@ -1646,6 +1669,96 @@ async function reconcileLineRatingAwardForUser(p: {
         : {}),
     });
   }
+}
+
+// ── 조회(GET) 시점 즉시 지급(2026-07-30) ────────────────────────────────────────
+//   기존 정책: 라인 마감 후 지급은 GitHub Actions 스윕(run-due-closes, 10분 주기)만이 트리거했다
+//   → 사용자가 조회하는 순간과 실제 지급 사이에 최대 10분 지연이 생겼다. 이 함수는 조회 경로에서
+//   호출되어 그 지연을 없앤다. 허브별 지급 조건을 여기서 새로 만들지 않는다 —
+//   computeCluster4Enhancement() 가 카드에 이미 구운 line.enhancementStatus 하나만 보고,
+//   실제 지급/회수는 reconcileLineResultAwardForUser(스윕과 동일 함수)에 위임한다.
+//
+//   ⚠ cards 는 override overlay 적용 후 최종본이어야 한다 — 스윕(lineResultAwardReconcile.ts 의
+//   resolveCrewWeekCard 경로)이 SoT 로 보는 값과 반드시 일치시켜, 실시간 지급과 스윕이 서로 다른
+//   기준으로 "성공"을 판단해 지급/회수를 오가는 flicker 를 막는다.
+//
+//   순환 호출 없음: 이 파일은 cluster4WeeklyCardsSnapshot.ts(저수준 snapshot 원시 함수)만 참조하고
+//   cluster4WeeklyCardsService.ts/adminCrewWeekDetail.ts 는 참조하지 않는다(반대 방향 import만 존재).
+//   그래서 loadWeeklyCards() 안에서 이 함수를 호출해도 순환 재귀가 생기지 않는다.
+//
+//   성능: 대다수 요청(이미 지급 완료 또는 success 라인 없음)은 hasActiveLineAward 경량 조회만 타고
+//   끝난다(무거운 reconcile 은 미지급 라인이 있을 때만 실행). 동시성: 최종 방어는 DB UNIQUE 제약
+//   (source,ref_id,user_id) 이므로 동시 요청 2개가 겹쳐도 원장 행은 하나로 수렴한다.
+//
+//   ⚠ era 밖(레거시) 주차 선제 필터: reconcileLineResultAwardForUser 내부 era 게이트가 레거시
+//   주차는 항상 no-op 하므로(=원장이 영원히 생기지 않음), 선제 필터 없이 두면 이력이 긴 사용자는
+//   조회할 때마다 legacy success 라인마다 매번 무거운 reconcile 을 반복 호출하게 된다(실측: 주차
+//   30개+ 사용자에서 체감 지연). era 게이트와 동일 기준(card.startDate >= 정책 시행일)으로 여기서
+//   먼저 걸러 근본적으로 후보에서 제외한다 — 허브별 조건이 아니라 이미 전역에 존재하는 단일 era
+//   상수를 그대로 재사용하는 것이므로 "허브별 지급 조건 재구현" 이 아니다.
+export async function reconcileSuccessLineAwardsOnRead(
+  userId: string,
+  cards: Cluster4WeeklyCardDto[],
+): Promise<Cluster4WeeklyCardDto[]> {
+  const candidates: Array<{ lineId: string; weekId: string }> = [];
+  for (const card of cards) {
+    if (!card.weekId) continue;
+    if (card.startDate < CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM) continue; // era 밖 — 영원히 no-op
+    for (const line of card.lines ?? []) {
+      if (line.enhancementStatus !== "success") continue;
+      if (!line.lineId || !line.lineTargetId) continue; // 배정 라인만(미배정은 지급 대상 아님)
+      candidates.push({ lineId: line.lineId, weekId: card.weekId });
+    }
+  }
+  if (candidates.length === 0) return cards; // 대다수 요청 — 추가 쿼리 0
+
+  // ⚠ reconcileLineResultAwardForUser 는 void 를 반환하고, era 게이트/대상자 게이트에 걸리면
+  //   내부에서 조용히 no-op 한다. "호출했다"를 "실제로 지급됐다"로 착각하면 no-op 인 candidate 마다
+  //   불필요하게 무거운 포인트 재합산·snapshot 재계산을 태우게 된다 — 호출 전후 hasActiveLineAward
+  //   상태가 false→true 로 바뀐 경우만 실제 지급으로 센다(재조회 1건, 미지급 candidate 에만 발생).
+  const paidWeekIds = new Set<string>();
+  for (const { lineId, weekId } of candidates) {
+    try {
+      if (await hasActiveLineAward(userId, lineId)) continue; // 이미 지급됨 — skip
+      await reconcileLineResultAwardForUser(userId, lineId, weekId, true, null);
+      if (await hasActiveLineAward(userId, lineId)) paidWeekIds.add(weekId);
+    } catch (e) {
+      console.warn("[processPointAccrual] 조회 시점 즉시지급 실패(격리 — 다음 조회/스윕이 재시도)", {
+        userId,
+        lineId,
+        weekId,
+        message: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+  if (paidWeekIds.size === 0) return cards;
+
+  // 지급이 실제로 일어났으면 이 사용자 1명만 포인트 재합산(주차별) — 내부에서
+  // invalidateWeeklyCardsForUsers 가 단건이라 동기로 snapshot 을 재계산·저장한다.
+  for (const weekId of paidWeekIds) {
+    try {
+      await recomputeWeeklyPointsForUsers([userId], weekId);
+    } catch (e) {
+      console.warn("[processPointAccrual] 조회 시점 즉시지급 후 포인트 재합산 실패(격리)", {
+        userId,
+        weekId,
+        message: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
+  // 재합산이 방금 저장한 최신 snapshot 을 다시 읽어 "지급 반영된" DTO 로 교체해 반환한다.
+  //   실패하면 구 cards 로 폴백(지급 자체는 이미 커밋됐으므로 다음 조회에서 반영됨).
+  try {
+    const fresh = await readWeeklyCardsSnapshot(userId);
+    if (fresh.status === "hit" || fresh.status === "stale") return fresh.cards;
+  } catch (e) {
+    console.warn("[processPointAccrual] 조회 시점 즉시지급 후 최신 카드 재조회 실패(구 cards 폴백)", {
+      userId,
+      message: e instanceof Error ? e.message : String(e),
+    });
+  }
+  return cards;
 }
 
 // 라인 개설 포인트 지급 정합(멱등) — 라인의 현재 대상자/설정값에 맞춰 원장을 정합한다.

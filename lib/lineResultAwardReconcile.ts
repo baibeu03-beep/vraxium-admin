@@ -18,6 +18,7 @@ import { resolveCrewWeekCard } from "@/lib/adminCrewWeekDetail";
 import {
   reconcileLineResultAwardForUser,
   recomputeWeeklyPointsForUsers,
+  hasActiveLineAward,
 } from "@/lib/processPointAccrual";
 import { recomputeWeeklyCardsSnapshotsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { mapWithConcurrency, GROWTH_CARD_CONCURRENCY } from "@/lib/concurrency";
@@ -31,23 +32,6 @@ export type LineAwardReconcileSummary = {
   changedUserIds: string[]; // 포인트 재합산이 필요한 user 집합
   failedUsers: number; // 카드 로드/ reconcile 실패한 user 수(격리)
 };
-
-// 특정 (user,line) 의 현재 활성 라인 지급 원장(source='line') 유무.
-async function hasActiveLineAward(userId: string, lineId: string): Promise<boolean> {
-  const { data } = await supabaseAdmin
-    .from("process_point_awards")
-    .select("point_check,point_advantage,cancelled_at")
-    .eq("source", "line")
-    .eq("ref_id", lineId)
-    .eq("user_id", userId)
-    .maybeSingle();
-  const row = data as
-    | { point_check: number | null; point_advantage: number | null; cancelled_at: string | null }
-    | null;
-  if (!row) return false;
-  if (row.cancelled_at) return false;
-  return (row.point_check ?? 0) > 0 || (row.point_advantage ?? 0) > 0;
-}
 
 // 주차 코호트 = user_week_statuses.week_start_date 보유자. scope 필터는 호출부가 이미 반영한
 //   userIds 를 넘기거나(권장), 넘기지 않으면 weekStartDate 로 전원 조회한다.
