@@ -1,10 +1,5 @@
 import { getAdminCrewDtoByLegacyUserId } from "@/lib/adminCrewData";
-import {
-  readWeeklyCardsSnapshot,
-  recomputeAndStoreWeeklyCardsSnapshot,
-} from "@/lib/cluster4WeeklyCardsSnapshot";
-import { applyEnhancementOverridesToCards } from "@/lib/cluster4EnhancementOverride";
-import { applySecondEntryOverridesToCards } from "@/lib/cluster4SecondEntryOverride";
+import { loadWeeklyCards, startSubjectPreload } from "@/lib/cluster4WeeklyCardsService";
 import { breakdownFromLines, emptyBreakdown } from "@/lib/cluster4WeeklyCardsData";
 import { weekClassLabel, classLabel } from "@/lib/adminMembersTypes";
 import { roundGrowthRate } from "@/lib/lineAvailability";
@@ -94,20 +89,16 @@ export type CrewWeekDetailResult =
   | { ok: true; data: CrewWeekDetailDto }
   | { ok: false; reason: "member_not_found" | "week_not_found" };
 
+// 고객 weekly-cards 경로(lib/cluster4WeeklyCardsService.ts)와 **동일 엔진**을 그대로 재사용한다
+//   (snapshot 신선도 판정 재구현 금지 — 예전엔 이 함수가 자체적으로 "hit/stale→그대로, miss→재계산"
+//   만 하고 boundary-stale·마감(수 22:00 KST) 경과 pending 재계산을 전혀 트리거하지 않아, 마감이
+//   지나도 enhancementStatus=pending 이 관리자/크루 "라인 강화 내역" 화면에 영구히 고정되는 버그가
+//   있었다. loadWeeklyCards 는 boundary-stale·is_stale·version_mismatch·마감-stale 을 전부 처리하고
+//   overlay(강화 상태 override → 2차 기입 override)도 동일 순서로 적용한다.)
 async function loadOverlaidCards(userId: string): Promise<Cluster4WeeklyCardDto[]> {
-  const snap = await readWeeklyCardsSnapshot(userId);
-  const raw =
-    snap.status === "hit" || snap.status === "stale"
-      ? snap.cards
-      : await recomputeAndStoreWeeklyCardsSnapshot(userId);
-  // 고객 조회와 동일하게 read-time override overlay 적용(overlay 실패는 raw 폴백).
-  //   ① 강화 상태 overlay → ② 2차 기입 편집권 overlay. 고객 weekly-cards 경로와 동일 순서.
-  try {
-    const afterEnh = await applyEnhancementOverridesToCards(userId, raw);
-    return await applySecondEntryOverridesToCards(userId, afterEnh);
-  } catch {
-    return raw;
-  }
+  const preload = startSubjectPreload(userId);
+  const result = await loadWeeklyCards(userId, preload);
+  return result.cards;
 }
 
 type ResolvedCrew = NonNullable<Awaited<ReturnType<typeof getAdminCrewDtoByLegacyUserId>>>;

@@ -98,7 +98,7 @@ export async function POST(request: NextRequest, { params }: Ctx) {
   } catch (error) {
     if (error instanceof Cluster4PublicLineError) {
       return Response.json(
-        { success: false, error: error.message },
+        { success: false, error: error.message, code: error.code ?? null },
         { status: error.status },
       );
     }
@@ -180,7 +180,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
   } catch (error) {
     if (error instanceof Cluster4PublicLineError) {
       return Response.json(
-        { success: false, error: error.message },
+        { success: false, error: error.message, code: error.code ?? null },
         { status: error.status },
       );
     }

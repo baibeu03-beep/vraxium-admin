@@ -34,11 +34,15 @@ import {
 
 export class Cluster4PublicLineError extends Error {
   status: number;
+  // 머신 판독용 오류 코드(선택) — 프런트가 상태코드/문구 파싱 없이 분기할 수 있게 한다.
+  //   예: 마감 후 저장 시도 → "submission_closed". 미지정 시 undefined(기존 응답과 호환).
+  code?: string;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, code?: string) {
     super(message);
     this.name = "Cluster4PublicLineError";
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -183,28 +187,35 @@ function isSubmissionClosed(closesAt: string, now = new Date()) {
 // Maps the unified hub edit reason to the HTTP status this API previously emitted.
 // Preserves the existing 4xx/501 contract. ok_override 는 운영자 user_edit_windows
 // override 가 OPEN 인 경우로, ok 와 동일하게 200 으로 처리한다.
+// code = 머신 판독용 오류 코드. 상태코드(410 등)는 기존 응답과 호환되도록 유지하고,
+//   프런트/스크립트가 문구 파싱 없이 분기할 수 있도록 code 를 함께 싣는다.
 function hubReasonToHttp(
   reason: Cluster4HubEditDecisionReason,
-): { status: number; message: string } {
+): { status: number; message: string; code: string } {
   switch (reason) {
     case "target_missing":
-      return { status: 404, message: "Line target not found." };
+      return { status: 404, message: "Line target not found.", code: "target_missing" };
     case "unsupported_target_mode":
       return {
         status: 501,
         message: "Rule-based line targets are not implemented yet.",
+        code: "unsupported_target_mode",
       };
     case "line_inactive":
-      return { status: 410, message: "Line is not active." };
+      return { status: 410, message: "Line is not active.", code: "line_inactive" };
     case "not_owner":
-      return { status: 403, message: "This line target is not accessible." };
+      return { status: 403, message: "This line target is not accessible.", code: "not_owner" };
     case "window_not_open":
-      return { status: 410, message: "Submission window is not open yet." };
+      return {
+        status: 410,
+        message: "Submission window is not open yet.",
+        code: "submission_not_open",
+      };
     case "window_closed":
-      return { status: 410, message: "Submission window is closed." };
+      return { status: 410, message: "Submission window is closed.", code: "submission_closed" };
     case "ok":
     case "ok_override":
-      return { status: 200, message: "ok" };
+      return { status: 200, message: "ok", code: "ok" };
   }
 }
 
@@ -445,7 +456,7 @@ async function requireEditableTarget(
       return row;
     }
     const http = hubReasonToHttp(decision.reason);
-    throw new Cluster4PublicLineError(http.status, http.message);
+    throw new Cluster4PublicLineError(http.status, http.message, http.code);
   }
   return row;
 }

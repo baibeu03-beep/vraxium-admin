@@ -524,6 +524,29 @@ export async function readWeeklyCardsSnapshot(
   return { status: "hit", cards, computedAt: row.computed_at };
 }
 
+// 마감 경과 후에도 pending 인 라인이 있는가 — snapshot 이 "고정된 시각"에 구워지는데
+//   enhancementStatus=pending→success 전환은 그 라인의 submission_closes_at(수 22:00 KST) 시점에
+//   일어나야 한다. 그런데 그 시각을 지나도록 아무 write(제출/평가 등)가 없으면 snapshot 을 다시
+//   구울 트리거가 전혀 없어 pending 이 영구히 고정된다(주차 경계 월요일 00:01 KST 와는 별개 축 —
+//   수요일 22:00 마감은 그보다 훨씬 이전에 지나간다). computeCluster4Enhancement 자체는 정확하고
+//   재계산만 하면 즉시 correct 값이 나오므로, "재계산을 트리거해야 하는가"만 이 함수가 판단한다.
+//   추가 쿼리 0(이미 메모리에 있는 cards 를 스캔) — DB 컬럼이 아니라 파생 판단이라 가볍다.
+export function hasPendingLineWithPassedDeadline(
+  cards: Cluster4WeeklyCardDto[],
+  nowMs: number = Date.now(),
+): boolean {
+  for (const card of cards) {
+    for (const line of card.lines ?? []) {
+      if (line.enhancementStatus !== "pending") continue;
+      const closesAt = line.submissionClosesAt;
+      if (!closesAt) continue;
+      const closesMs = Date.parse(closesAt);
+      if (Number.isFinite(closesMs) && closesMs <= nowMs) return true;
+    }
+  }
+  return false;
+}
+
 // 다건 배치 읽기 — 사용자별 1쿼리(.eq().maybeSingle()) 대신 .in() 단일 SELECT 로 N→1 축소.
 //   readWeeklyCardsSnapshot 과 동일한 판정 로직(version_mismatch/is_stale/손상→miss)을 적용한다.
 //   결과 Map 에 없는 user_id = 행 없음 → 호출부가 miss 로 간주한다(여기서는 키를 넣지 않음).

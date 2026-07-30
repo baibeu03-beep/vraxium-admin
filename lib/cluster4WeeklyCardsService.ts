@@ -15,6 +15,7 @@ import { after } from "next/server";
 import {
   readWeeklyCardsSnapshot,
   recomputeAndStoreWeeklyCardsSnapshot,
+  hasPendingLineWithPassedDeadline,
   type WeeklyCardsSnapshotOutcome,
 } from "@/lib/cluster4WeeklyCardsSnapshot";
 import {
@@ -215,13 +216,17 @@ async function loadWeeklyCardsRaw(
   if (snap.status === "hit") {
     const boundaryStale =
       boundaryMs != null && Date.parse(snap.computedAt) < boundaryMs;
-    if (!boundaryStale) {
+    // 마감(수 22:00 KST) 경과 후 pending 고정 방지 — 주차 경계(월요일)와 별개 축이라
+    // boundaryStale 로는 못 잡는다. computeCluster4Enhancement 는 정확하므로 재계산만 트리거하면 된다.
+    const deadlineStale = !boundaryStale && hasPendingLineWithPassedDeadline(snap.cards);
+    if (!boundaryStale && !deadlineStale) {
       return { cards: snap.cards, outcome: "hit", detail: "", lazyRan: false };
     }
     const cards = await lazyRecompute();
+    const detailTag = boundaryStale ? "boundary+lazy" : "deadline+lazy";
     return cards
-      ? { cards, outcome: "stale", detail: "boundary+lazy", lazyRan: true }
-      : { cards: snap.cards, outcome: "stale", detail: "boundary+lazy-failed", lazyRan: false };
+      ? { cards, outcome: "stale", detail: detailTag, lazyRan: true }
+      : { cards: snap.cards, outcome: "stale", detail: `${detailTag}-failed`, lazyRan: false };
   }
 
   if (snap.status === "stale") {
