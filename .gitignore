@@ -36,7 +36,9 @@ yarn-error.log*
 !crawler/.env.example
 
 # claude
-.claude/
+.claude/*
+!.claude/commands/
+!.claude/commands/**
 
 # naver cafe crawl session (local only — never commit)
 .naver-profile/
@@ -57,3 +59,4 @@ screenshots-select/
 claudedocs/
 # 루트 임시 patch 파일
 /*.patch
+.mcp.json
