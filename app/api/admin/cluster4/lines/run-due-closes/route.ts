@@ -1,7 +1,9 @@
 // POST /api/admin/cluster4/lines/run-due-closes
 //
-//   submission_closes_at(개설+48h 또는 수동 조기 마감)이 지난 info/competency 라인의 강화 결과를
-//   일괄 확정·지급한다. 외부 스케줄러(5~10분 간격)가 호출하는 "버튼 없는 자동" 서버 트리거.
+//   submission_closes_at(개설+48h 또는 수동 조기 마감)이 지난 4허브(정보/경험/역량/경력) 라인의
+//   강화 결과를 일괄 확정·지급한다. success 판정은 허브 무관 computeCluster4Enhancement() 단일
+//   기준(finalizeLineResultAwards 경유) — 평점/등급 게이트가 있는 허브(경험/경력)도 여기서 따로
+//   조건을 만들지 않는다. 외부 스케줄러(5~10분 간격)가 호출하는 "버튼 없는 자동" 서버 트리거.
 //   실제 처리 로직은 lib/cluster4LineCloseDueSweep(=finalizeLineResultAwards 반복).
 //
 // 인증(엄격): x-internal-api-key == INTERNAL_API_KEY 만 허용. 세션/쿠키 폴백 없음.

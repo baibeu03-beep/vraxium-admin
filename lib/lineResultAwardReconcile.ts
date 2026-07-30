@@ -140,16 +140,23 @@ export async function reconcileLineAwardsForWeek(params: {
 export type LineFinalizeResult =
   | { status: "no_targets"; lineId: string }
   | { status: "no_week"; lineId: string }
-  | ({ status: "reconciled"; lineId: string } & LineAwardReconcileSummary);
+  | ({ status: "reconciled"; lineId: string; stillPending: boolean } & LineAwardReconcileSummary);
 
-// 라인 1건의 강화 결과를 확정(성공→지급/비성공→회수)한다 — 수동 "2차 기입 마감"과 자동 48h 스윕 공용.
+// 라인 1건의 강화 결과를 확정(성공→지급/비성공→회수)한다 — 수동 "2차 기입 마감"과 자동 마감 스윕 공용.
 //   전제: 호출부가 이미 submission_closes_at 을 마감(now)으로 단축한 뒤 호출한다.
 //   ① 그 라인의 대상자(target_mode='user') snapshot 을 **먼저 재계산**한다. 이유: resolveCrewWeekCard 는
 //      snapshot(hit/stale)을 그대로 읽으므로(부재일 때만 재계산), 방금 바뀐 마감 시각을 반영하려면
 //      원장 정합 전에 재-bake 해야 강화 상태가 pending→success/fail 로 확정된 카드를 읽는다.
 //   ② 재계산된 카드를 SoT 로 reconcileLineAwardsForWeek(대상자 코호트) 실행 — 공표 경로와 동일 규칙.
-//      성공 라인만 지급, 평점 허브(experience/career)는 카드의 평점 게이트가 그대로 반영된다.
+//      **success 판정은 4허브 전부 computeCluster4Enhancement() 결과(카드의 line.enhancementStatus)
+//      하나만 본다** — 여기서 허브별 조건을 다시 구현하지 않는다. 평점/등급 게이트(experience/career)는
+//      이미 그 함수 안에 반영돼 있으므로 카드 값을 그대로 따르면 자동으로 맞는다.
 //   멱등: 원장 upsert(onConflict=source,ref_id,user_id) + 이미 마감 라인 재호출 무해 → 자동/수동 중복지급 0.
+//   ③ 확정 마킹은 **이 라인의 모든 대상자가 더 이상 pending 이 아닐 때만** 한다(2026-07-30 추가). 마감은
+//      지났지만 판정에 필요한 입력(예: experience 평점)이 아직 없어 카드가 pending 을 유지하는 대상자가
+//      남아 있으면 확정 마킹을 보류해 다음 스윕 폴링에서 다시 확인한다 — pending 을 "끝난 라인"으로
+//      착각해 나중에 평점이 들어와도 다시는 재확인하지 않는 사고(이번에 실제로 겪은 experience 누락과
+//      같은 유형)를 막기 위함이다.
 export async function finalizeLineResultAwards(params: {
   lineId: string;
   actor: string | null;
@@ -197,10 +204,26 @@ export async function finalizeLineResultAwards(params: {
     dryRun,
   });
 
-  // ③ 결과 확정 마킹(스윕 재처리 방지). 멱등 — 마커 없어도 이중지급은 upsert 로 방지되므로 best-effort.
-  if (!dryRun) await markLineResultFinalized(lineId);
+  // ③ 이 라인이 아직 pending 인 대상자가 남아 있는지 확인(재계산된 카드를 그대로 재사용 — 재추정 금지).
+  //    dryRun 은 원장/마커를 쓰지 않으므로 stillPending 판정도 건너뛴다(항상 false 로 반환).
+  let stillPending = false;
+  if (!dryRun) {
+    for (const userId of userIds) {
+      const resolved = await resolveCrewWeekCard(userId, weekId);
+      if (!resolved.ok) continue;
+      const line = resolved.card.lines.find((l) => l.lineId === lineId);
+      if (line?.enhancementStatus === "pending") {
+        stillPending = true;
+        break;
+      }
+    }
+  }
 
-  return { status: "reconciled", lineId, ...summary };
+  // ④ 결과 확정 마킹(스윕 재처리 방지) — pending 대상자가 없을 때만. 멱등 — 마커 없어도 이중지급은
+  //    upsert 로 방지되므로 best-effort.
+  if (!dryRun && !stillPending) await markLineResultFinalized(lineId);
+
+  return { status: "reconciled", lineId, stillPending, ...summary };
 }
 
 // result_finalized_at 마커 기록(now). 마이그레이션(2026-07-20) 미적용/실패해도 정합은 유지되므로

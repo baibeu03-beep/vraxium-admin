@@ -3,6 +3,8 @@
 #   검수 시점(scheduled_check_at)이 지난 [체크 대기] 항목을 주기적으로 자동 검수한다.
 #   운영 PC/버튼 없이, GitHub 클라우드 러너가 배포된 admin 의 내부 API 를 호출한다.
 #   실제 처리(크롤·식별·완료·포인트 적립)는 서버(run-due-checks → lib/processCheckDueSweep)가 수행.
+#   같은 폴링 주기에 라인 마감 자동 지급(run-due-closes → lib/cluster4LineCloseDueSweep, 4허브 공통)도
+#   함께 호출한다 — 별도 스케줄을 두지 않고 이 워크플로에 얹는다(2026-07-30 추가).
 #
 #   필요한 GitHub Secrets:
 #     · ADMIN_BASE_URL     배포 admin 베이스 URL (예: https://vraxium-admin.vercel.app)
@@ -133,3 +135,48 @@ jobs:
           if [ "${WFAILED}" != "0" ]; then
             echo "::warning::자동 공표/검수 실패 ${WFAILED}건 — week_auto_action_log·응답 items[] 참고(다음 주기 재시도)."
           fi
+
+      # ── 라인 "2차 기입 마감" 자동 지급 스윕(4허브 공통, 2026-07-30 추가) ──────────────────
+      #   submission_closes_at 이 지난 라인의 강화 결과(computeCluster4Enhancement 단일 기준)를
+      #   재확인해 성공이면 지급한다. 위 두 단계와 독립 — if: always().
+      - name: Call run-due-closes API (라인 마감 자동 지급)
+        if: always()
+        env:
+          BASE_URL: ${{ secrets.ADMIN_BASE_URL }}
+          INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${BASE_URL:-}" ] || [ -z "${INTERNAL_API_KEY:-}" ]; then
+            echo "::error::Secret 미설정 — ADMIN_BASE_URL / INTERNAL_API_KEY 를 등록하세요."
+            exit 1
+          fi
+
+          ENDPOINT="${BASE_URL%/}/api/admin/cluster4/lines/run-due-closes"
+          echo "POST ${ENDPOINT}"
+
+          HTTP_CODE=$(curl -sS -o response_closes.json -w "%{http_code}" \
+            -X POST "${ENDPOINT}" \
+            -H "content-type: application/json" \
+            -H "x-internal-api-key: ${INTERNAL_API_KEY}" \
+            --max-time 300 \
+            -d '{}')
+
+          echo "HTTP ${HTTP_CODE}"
+          echo "----- response body -----"
+          cat response_closes.json || true
+          echo ""
+          echo "-------------------------"
+
+          if [ "${HTTP_CODE}" != "200" ]; then
+            echo "::error::run-due-closes 실패 (HTTP ${HTTP_CODE}). 위 본문에서 원인을 확인하세요."
+            exit 1
+          fi
+
+          SUCCESS=$(jq -r '.success' response_closes.json 2>/dev/null || echo "unknown")
+          if [ "${SUCCESS}" != "true" ]; then
+            echo "::error::run-due-closes 응답 success != true — 본문 확인."
+            exit 1
+          fi
+
+          echo "summary: $(jq -c '.data | {found, processed, capped}' response_closes.json 2>/dev/null || echo '-')"
