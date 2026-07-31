@@ -55,6 +55,7 @@ import {
 } from "@/components/admin/processCheckChoiceStyles";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
+import { getProcessPointLabels } from "@/lib/pointLabels";
 import ProcessIrregularDialog from "@/components/admin/ProcessIrregularDialog";
 import ProcessIrregularManualGrantDialog from "@/components/admin/ProcessIrregularManualGrantDialog";
 import ProcessIrregularReviewDetail from "@/components/admin/ProcessIrregularReviewDetail";
@@ -227,6 +228,8 @@ export default function ProcessIrregularManager() {
   const searchParams = useSearchParams();
   const org = readOrgParam(searchParams);
   const mode = readScopeMode(searchParams);
+  // po A/B/C 표시명 = 조직별 명칭(getProcessPointLabels 단일 출처). org 미상이면 중립 "Po.A/B/C" 폴백.
+  const poLabels = getProcessPointLabels(org);
 
   const [board, setBoard] = useState<ProcessIrregularBoardDto>(() =>
     emptyProcessIrregularBoard(org ?? ""),
@@ -574,9 +577,9 @@ export default function ProcessIrregularManager() {
                     <HeadCell label="신청자" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnApplicant} {...headSort("applicant")} />
                     <HeadCell label="소요 시간(m)" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnDuration} {...headSort("duration")} />
                     <HeadCell label="액트 신청 사유" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnReason} {...headSort("reason")} />
-                    <HeadCell label="po A" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnPoA} {...headSort("pointA")} />
-                    <HeadCell label="po B" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnPoB} {...headSort("pointB")} />
-                    <HeadCell label="po C" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnPoC} {...headSort("pointC")} />
+                    <HeadCell label={poLabels.a} helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnPoA} {...headSort("pointA")} />
+                    <HeadCell label={poLabels.b} helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnPoB} {...headSort("pointB")} />
+                    <HeadCell label={poLabels.c} helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnPoC} {...headSort("pointC")} />
                     {/* 이행 시점(실제) = 신청 시점(실제)+검수 시점(실제) 통합(셀 안 2행).
                         정렬은 신청(createdAt) 기준 — 검수(completedAt) 단독 정렬은 제거. */}
                     <HeadCell label="이행 시점(실제)" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnExecutionTimeActual} {...headSort("createdAt")} />
