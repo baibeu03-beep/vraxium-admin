@@ -52,7 +52,9 @@ const EXCLUDED_PART_NAMES = new Set<string>(["일반"]);
 export type ExperienceRosterRow = {
   userId: string;
   displayName: string;
-  /** 그 주차 effective 파트(비어 있지 않음). */
+  /** 그 주차 effective 파트. 기본 호출(requirePart=true)에서는 비어 있지 않다 — 미배정 행은
+   *  아예 빠진다. loadExperienceWeekRoster(..., { requirePart: false })로 호출한 경우에만
+   *  파트 미배정 크루가 partName=""로 포함될 수 있다(listTeamMembers 전용). */
   partName: string;
   positionCode: string;
   /** 상태 라벨 — 일반/에이전트/파트장. */
@@ -62,8 +64,16 @@ export type ExperienceRosterRow = {
    * 실무 평가 가능 모집단(집합 ②) 소속 여부 — 엘리트/바사노스면 false.
    * ⚠ 로스터에서 빼지 않고 플래그로 남긴다. 엘리트 파트장처럼 **평가 대상은 아니지만 평가자 역할은
    *   유지해야 하는** 사람이 있기 때문(팀 총괄 보드 행·관리 라인은 그대로 부여된다).
+   * ⚠ isEvaluable 은 시즌휴식·주차휴식·활동중단·엘리트·바사노스가 전부 합쳐진 값이다(그중 앞의 3개는
+   *   이미 이 로스터 자체가 집합①에서 걸러졌기 때문에 항상 false 이지만, 값 하나로는 그 사실이 드러나지
+   *   않는다). "엘리트·바사노스만" 별도로 판정해야 하는 소비처(체크 게시판 매칭·포인트 지급 모집단)는
+   *   아래 isElite/isBasanos 를 직접 봐야 한다 — isEvaluable 을 그 용도로 재사용하지 말 것.
    */
   isEvaluable: boolean;
+  /** 그 주차 기준 엘리트(졸업) 여부 — evaluationEligibility 축 그대로(다른 축과 섞지 않음). */
+  isElite: boolean;
+  /** 그 주차 기준 바사노스(29주 누적) 여부 — evaluationEligibility 축 그대로(다른 축과 섞지 않음). */
+  isBasanos: boolean;
 };
 
 export type ExperienceWeekRoster = {
@@ -86,7 +96,12 @@ export async function loadExperienceWeekRoster(
   teamName: string,
   mode: ScopeMode = "operating",
   weekId?: string | null,
+  opts: { requirePart?: boolean } = {},
 ): Promise<ExperienceWeekRoster> {
+  // requirePart=false(2026-07-31 추가) — 파트 미배정 크루도 포함한다(파트 비전용 액트의 "팀 전체
+  //   소속자" 판정용, listTeamMembers 전용 옵션). 기본값 true 는 기존 호출부(평가 대상 계열) 전부와
+  //   byte-identical 하다 — 옵션을 생략하면 이 함수의 동작은 전혀 바뀌지 않는다.
+  const requirePart = opts.requirePart ?? true;
   const roster = await loadTeamWeekEffectiveRoster({
     organization: organization as OrganizationSlug,
     teamName,
@@ -139,17 +154,21 @@ export async function loadExperienceWeekRoster(
   const rows: ExperienceRosterRow[] = [];
   for (const m of roster.members) {
     const part = m.rawPart?.trim() ?? "";
-    if (!part || EXCLUDED_PART_NAMES.has(part)) continue; // 미배정/placeholder '일반'.
+    const hasRealPart = Boolean(part) && !EXCLUDED_PART_NAMES.has(part);
+    if (requirePart && !hasRealPart) continue; // 미배정/placeholder '일반'.
     const status = rosterStatus(m.positionCode);
     if (!status) continue;
+    const flags = evalEligibility.flags(m.userId);
     rows.push({
       userId: m.userId,
       displayName: nameByUser.get(m.userId) ?? "",
-      partName: part,
+      partName: hasRealPart ? part : "",
       positionCode: m.positionCode,
       statusLabel: status.label,
       isPartLeader: status.isPartLeader,
       isEvaluable: evalEligibility.isEvaluable(m.userId),
+      isElite: flags.elite,
+      isBasanos: flags.basanos,
     });
   }
   rows.sort((a, b) => a.displayName.localeCompare(b.displayName));
@@ -169,6 +188,18 @@ export function experienceBoardRows(
   rows: ReadonlyArray<ExperienceRosterRow>,
 ): ExperienceRosterRow[] {
   return rows.filter((r) => r.isEvaluable || r.isPartLeader);
+}
+
+// 팀·파트 "소속" 판정(역할 무관, 엘리트·바사노스만 제외) — 체크 게시판 매칭 집계·포인트 지급
+//   (Point A/B/C) 로스터 전용(2026-07-31 최종 확정). "그 주차에 실제로 소속돼 있고 엘리트·바사노스가
+//   아닌가"만 묻는다. 파트장도 포함하고 일반 파트원도 포함한다 — isPartLeader 는 여기서 보지 않는다.
+//   ⚠ isEvaluable 을 재사용하지 않는다 — isEvaluable 은 시즌휴식·주차휴식·활동중단·엘리트·바사노스가
+//     전부 합쳐진 판정이라 의도가 흐려진다(앞의 3개는 roster.rows 생성 단계(집합①)에서 이미 걸러져
+//     있어 결과적으로는 같지만, 이 함수의 의도는 "엘리트·바사노스 축 하나"만 명시적으로 보는 것이다).
+export function experienceMemberRows(
+  rows: ReadonlyArray<ExperienceRosterRow>,
+): ExperienceRosterRow[] {
+  return rows.filter((r) => !r.isElite && !r.isBasanos);
 }
 
 // 평가 대상 크루가 1명 이상인 파트 = 이 화면의 <운용> 파트. 드롭다운 옵션 SoT.
@@ -257,6 +288,50 @@ export async function listPartCrews(
   return experienceEvaluableRows(roster.rows)
     .filter((r) => r.partName === part)
     .map(toPartInputCrew);
+}
+
+// 파트 "소속" 판정(역할 무관, 엘리트·바사노스 제외) — 프로세스 체크 게시판의 매칭 집계·포인트 지급
+//   (Point A/B/C) 로스터 전용(2026-07-31 최종 정정). "평가 대상"(listPartCrews)과 던지는 질문이
+//   다르다: "그 주차에 이 파트에 실제로 소속돼 있고 엘리트·바사노스가 아닌가"만 묻는다.
+//   ⚠ 파트장도 포함한다 — 파트장 자신도 그 파트 소속 크루로서 활동(체크)을 하고 포인트를 받는다
+//     (평가자 역할은 별개 축, 여기서 섞지 않는다). 엘리트·바사노스는 제외한다(사용자 확정 정책 —
+//     체크 집계·포인트 지급 모집단에서는 엘리트·바사노스도 배제해야 한다). experienceMemberRows 가
+//     그 축 하나만 명시적으로 판정한다(isEvaluable 재사용 아님 — 조건 오염 방지).
+//   팀장은 포함되지 않는다 — 역할 필터가 아니라, 팀장은 애초에 파트가 없다(2026-06-19 확정 정책,
+//     loadTeamWeekEffectiveRoster 가 크루 포지션코드 3종만 취급).
+export async function listPartMembers(
+  organization: string,
+  teamName: string,
+  part: string,
+  mode: ScopeMode = "operating",
+  weekId?: string | null,
+): Promise<PartInputCrew[]> {
+  const roster = await loadExperienceWeekRoster(organization, teamName, mode, weekId);
+  return experienceMemberRows(roster.rows)
+    .filter((r) => r.partName === part)
+    .map(toPartInputCrew);
+}
+
+// 팀 "소속" 판정(역할·파트 배정 여부 무관, 엘리트·바사노스 제외) — 파트 비전용(TEAM 스코프) 액트의
+//   매칭 집계·포인트 지급(Point A/B/C) 로스터 전용(2026-07-31 최종 정정). "그 주차에 이 팀에
+//   소속돼 있고 엘리트·바사노스가 아닌가"만 묻는다.
+//   ⚠ listTeamCrews(평가 대상)와 다르다 — listTeamCrews 는 experienceEvaluableRows(파트장 제외 +
+//     isEvaluable)를 거치므로 "팀 전체"가 아니다. 파트 비전용 액트는 파트 소속 여부와 무관하게 팀
+//     전체(파트 소속자 포함·파트 미배정자 포함·파트장 포함)가 대상이지만, 엘리트·바사노스는 여기서도
+//     제외한다(사용자 확정 정책).
+//   requirePart:false 로 loadExperienceWeekRoster 를 호출해 파트 미배정 크루도 포함시킨다.
+//   팀장은 포함되지 않는다 — 역할 필터가 아니라, 팀장은 크루 포지션코드 3종 밖이라 이 로스터 시스템
+//   자체에 없다(2026-06-19 확정 정책, 이번 수정 범위 밖으로 유지하기로 확정).
+export async function listTeamMembers(
+  organization: string,
+  teamName: string,
+  mode: ScopeMode = "operating",
+  weekId?: string | null,
+): Promise<PartInputCrew[]> {
+  const roster = await loadExperienceWeekRoster(organization, teamName, mode, weekId, {
+    requirePart: false,
+  });
+  return experienceMemberRows(roster.rows).map(toPartInputCrew);
 }
 
 // 팀 전체(모든 파트 합집합)의 평가 대상 크루 — listPartCrews 와 동일 판정. 파트 필터만 없앤 형태.

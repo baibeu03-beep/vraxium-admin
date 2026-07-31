@@ -299,8 +299,10 @@ async function computeDesiredAwards(input: AwardInput): Promise<AccrualPlan> {
   const rawPerformers = await loadMatchedUserIds(input.source, input.refId);
 
   // ── 체크 대상자 로스터 = "선택한 팀/파트에 실제로 소속된 체크 대상 크루"(SoT=resolveCheckScopeRoster) ──
-  //   팀 구분 허브(experience): roster = listPartCrews(part) / listTeamCrews(팀 총괄). 카페 매칭 이행자를
-  //     이 로스터로 교집합해 "카페 링크 집계 ∩ 실제 팀/파트 소속자"만 이행자(A/B)로 남긴다 — 타 팀/타 파트/
+  //   팀 구분 허브(experience): roster = listPartMembers(part, 파트 "소속" 판정 — 파트장 포함, 엘리트·
+  //     바사노스 제외) / listTeamMembers(팀 총괄, 팀 "소속" 판정 — 파트 소속·미배정·파트장 포함, 엘리트·
+  //     바사노스 제외). 카페 매칭 이행자를 이 로스터로 교집합해
+  //     "카페 링크 집계 ∩ 실제 팀/파트 소속자"만 이행자(A/B)로 남긴다 — 타 팀/타 파트/
   //     미소속 매칭자는 이 체크의 대상이 아니므로 제외한다(각자 소속 팀/파트 체크에서 처리).
   //   비팀 허브(info/competency/club)·변동(irregular): 교집합 no-op(카페 매칭이 이미 org+mode 모집단으로
   //     좁혀졌고 로스터도 동일 모집단이라 원본과 동일) → 기존 동작 완전 불변.

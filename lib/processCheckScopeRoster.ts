@@ -4,9 +4,13 @@
 //   그 모집단(roster)은 어디에도 저장돼 있지 않으므로 체크 시점 스코프에서 재계산한다.
 //
 //   ⚠ 새로운 roster 판정 규칙을 만들지 않는다 — 현재 체크 화면/검수가 대상자로 삼는 "기존 공통 조회
-//     로직"을 그대로 재사용한다(UI 체크 대상자 == Point C 모집단). 허브별 기준:
-//       · experience(팀 구분): 파트 스코프 → listPartCrews / 팀 총괄(part=NULL) → listTeamCrews
-//         (= 화면 "체크 대상 크루 수" 산출 로직. 파트장/팀장·휴식·미배정 파트 제외.)
+//     로직"을 그대로 재사용한다(UI 체크 대상자 == Point A/B/C 모집단). 허브별 기준:
+//       · experience(팀 구분): 둘 다 "소속" 판정(역할 무관, 엘리트·바사노스는 제외 — 2026-07-31
+//         최종 확정) — 파트 스코프(partName 있음) → listPartMembers(그 파트 소속자 중 엘리트·바사노스
+//         제외. 파트장은 포함) / 팀 총괄(partName 없음) → listTeamMembers(그 팀 소속자 전원 중
+//         엘리트·바사노스 제외. 파트 소속자·파트 미배정자·파트장 포함 — PART/TEAM 모집단은 상호
+//         배타적이지 않다). 팀장은 어느 쪽에도 없다(역할 필터가 아니라 팀장은 애초에 파트가 없음,
+//         2026-06-19 정책, 이번 수정 범위 밖).
 //       · info/competency/club(비팀): 카페 자동 검수가 매칭 후보로 삼는 org+mode 모집단과 동일
 //         (resolveUserScope(mode,org) ∩ loadCrewRecords(org)). inProcessCrawlAndMatch 와 동일 집합.
 //
@@ -18,7 +22,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { resolveUserScope, type ScopeMode } from "@/lib/userScope";
 import { loadCrewRecords } from "@/lib/cluster4CafeLineMatch";
-import { listPartCrews, listTeamCrews } from "@/lib/adminExperiencePartInput";
+import { listPartMembers, listTeamMembers } from "@/lib/adminExperiencePartInput";
 import { resolveWeekStartDateForWeekId } from "@/lib/seasonRestWeekScope";
 import { loadEvaluationEligibility } from "@/lib/evaluationEligibility";
 import { resolveCurrentWeekStartDate } from "@/lib/teamWeekPositionOverride";
@@ -64,9 +68,11 @@ export async function resolveCheckScopeRoster(scope: CheckScope): Promise<string
     const teamName = await resolveTeamName(teamId, organization);
     if (!teamName) return [];
     // 시즌 휴식 제외는 주차 로스터(loadTeamWeekEffectiveRoster) 안에서 이미 적용된다 — 여기서 덧붙이지 않는다.
+    //   partName 있음(파트 스코프) = 파트 "소속" 판정(파트장 포함, 엘리트·바사노스 제외) — listPartMembers.
+    //   partName 없음(팀 총괄) = 팀 "소속" 판정(파트 소속·미배정·파트장 포함, 엘리트·바사노스 제외) — listTeamMembers.
     const crews = partName
-      ? await listPartCrews(organization, teamName, partName, mode, weekId ?? null)
-      : await listTeamCrews(organization, teamName, mode, weekId ?? null);
+      ? await listPartMembers(organization, teamName, partName, mode, weekId ?? null)
+      : await listTeamMembers(organization, teamName, mode, weekId ?? null);
     return dedup(crews.map((c) => c.userId));
   }
 

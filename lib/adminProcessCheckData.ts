@@ -44,7 +44,11 @@ import { isActOpenAtTime, type ActOpenTimeline } from "@/lib/weekOpenGate";
 import { loadWeekOpeningTimeline } from "@/lib/weekOpeningTimeline";
 import { resolveRegularActOccurredAtMs } from "@/lib/regularActRequiredAt";
 import { filterTeamsByScope, isTestTeam } from "@/lib/cluster4ExperienceTestScope";
-import { listPartCrews, listTeamCrews } from "@/lib/adminExperiencePartInput";
+import {
+  listPartMembers,
+  loadExperienceWeekRoster,
+  experienceMemberRows,
+} from "@/lib/adminExperiencePartInput";
 import { resolveCheckScopeRoster } from "@/lib/processCheckScopeRoster";
 import { listOperatedTeamParts } from "@/lib/adminTeamSelectedWeekSummary";
 import { uncompleteResetStamp } from "@/lib/processCheckCollectionReset";
@@ -955,19 +959,37 @@ export async function getProcessCheckBoard(
   // ── 체크 대상자 로스터(선택 팀/파트 실제 소속자) — 팀 구분 허브(experience)만 산출 ─────────────
   //   체크 완료 명단/매칭 수를 "카페 링크 집계 ∩ 실제 팀/파트 소속자"로 교집합할 때 쓴다(UI 숨김이 아닌
   //   서버 산정 단계 필터). key: 파트명 · "" = 팀 총괄(part_name NULL).
-  //   ⚠ 적립(computeDesiredAwards)이 쓰는 resolveCheckScopeRoster 와 동일 원천(loadTeamCrewRows):
-  //     rosterByPart.get(part) === listPartCrews(part), rosterByPart.get("") === listTeamCrews.
-  //     한 번의 listTeamCrews 로 파트별 로스터까지 파생해(동치) 조회를 줄인다 → 명단·인원·적립이 항상 일치.
+  //
+  //   ⚠ **양쪽 다 "소속" 판정이다(역할 무관, 엘리트·바사노스는 제외 — 2026-07-31 최종 확정)** —
+  //     둘 다 evaluationEligibility 의 실무 평가 가능 모집단(집합②, experienceEvaluableRows)을
+  //     통째로 쓰지 않고, experienceMemberRows(엘리트·바사노스 축만 명시적으로 판정)를 쓴다:
+  //     · 파트별 키(파트 전용) = 그 주차 그 **파트** 소속자 중 엘리트·바사노스 제외. 파트장은 포함.
+  //     · ""(파트 비전용/팀 총괄) = 그 주차 그 **팀** 소속자 전원(파트 배정 여부 무관) 중 엘리트·
+  //       바사노스 제외. 파트 소속자도 포함한다(파트원은 자신의 PART 액트와 팀 전체 대상 TEAM 액트
+  //       양쪽에 동시에 들어간다 — PART/TEAM 모집단은 상호 배타적이지 않다). 파트 미배정 크루·
+  //       파트장 포함.
+  //     둘 다 팀장은 포함하지 않는다 — 역할 필터가 아니라 팀장은 크루 포지션코드 3종 밖이라 이 로스터
+  //     시스템 자체에 없다(2026-06-19 확정 정책, 이번 수정 범위 밖).
+  //   ⚠ 종전엔 여기도 experienceEvaluableRows(listTeamCrews/listPartCrews)를 재사용해 파트장이 실제
+  //     카페 매칭이 있어도 "매칭 사용자 없음"으로 뜨는 버그가 있었다(실측: encre 비주얼랩(T) 아트
+  //     파트, 파트장 1명 매칭됐는데 화면엔 0명). 이후 엘리트·바사노스까지 함께 풀었다가, 체크 집계·
+  //     포인트 지급 모집단에서는 엘리트·바사노스도 제외해야 한다는 정책 정정을 받아 다시 좁혔다.
+  //   ⚠ 적립(computeDesiredAwards)이 쓰는 resolveCheckScopeRoster 도 **같은 정의**를 쓴다
+  //     (partName 있음=파트 소속 판정 listPartMembers / 없음=팀 소속 판정 listTeamMembers)
+  //     → 명단·인원·적립이 항상 일치.
   const rosterByPart = new Map<string, Set<string>>();
   if (teamBased && teamId && teamName) {
     // ⚠ teamParts 와 **같은 weekId** 로 조회한다(2026-07-27). 종전엔 파트 목록만 effectiveWeekId,
     //   로스터는 현재 주차라 축이 갈렸다 — 과거 주차를 열면 "그 주차의 파트"에 "지금의 크루"가 담겼다
     //   (실측: encre 비주얼랩(T) 1~3주차에서 현재 주차 override 가 소급 적용돼 4명이 뒤바뀜).
-    //   Point C 적립 모집단(resolveCheckScopeRoster)은 **이 경로가 아니다** — 그쪽은 현재 주차 정책 유지.
-    const teamCrews = await listTeamCrews(organization, teamName, mode, effectiveWeekId);
-    rosterByPart.set("", new Set(teamCrews.map((c) => c.userId)));
+    //   requirePart:false — 파트 미배정 크루도 "" 로스터(팀 전체)에 포함시킨다.
+    const roster = await loadExperienceWeekRoster(organization, teamName, mode, effectiveWeekId, {
+      requirePart: false,
+    });
+    const members = experienceMemberRows(roster.rows); // 엘리트·바사노스 제외(역할 무관)
+    rosterByPart.set("", new Set(members.map((r) => r.userId)));
     for (const part of teamParts) {
-      rosterByPart.set(part, new Set(teamCrews.filter((c) => c.partName === part).map((c) => c.userId)));
+      rosterByPart.set(part, new Set(members.filter((r) => r.partName === part).map((r) => r.userId)));
     }
   }
   // 비팀 허브(info/competency/club) 로스터 — resolveCheckScopeRoster 와 동일 원천(2026-07-30 추가).
@@ -1213,8 +1235,8 @@ export async function getProcessCheckBoard(
   // 선택 파트의 체크 대상 크루 수(표시·가드 참고) — scope=part 일 때만.
   let selectedPart: { name: string; crewCount: number } | null = null;
   if (effScope === "part" && effPart && teamName) {
-    // 주차 기준을 명시한다 — 위 rosterByPart(listTeamCrews(effectiveWeekId))·적립 로스터와 동일 모집단.
-    const crews = await listPartCrews(organization, teamName, effPart, mode, effectiveWeekId);
+    // 주차 기준을 명시한다 — 위 rosterByPart(파트 소속 판정)·적립 로스터와 동일 모집단(listPartMembers).
+    const crews = await listPartMembers(organization, teamName, effPart, mode, effectiveWeekId);
     selectedPart = { name: effPart, crewCount: crews.length };
   }
 
