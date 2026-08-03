@@ -3,6 +3,7 @@ import { loadFinalizedWeeklyCardsReadOnly } from "@/lib/cluster4WeeklyCardsServi
 import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 import type { ProgressStatus, ReviewStatus } from "@/lib/cluster1ResumeTypes";
 import { getCurrentActivityDateIso, isTransitionWeekStart } from "@/lib/seasonCalendar";
+import { deriveEndStatus } from "@/lib/growthCore";
 import { ORGANIZATIONS, type OrganizationSlug } from "@/lib/organizations";
 import {
   loadWeekOrgResultStates,
@@ -84,7 +85,12 @@ export function resolveSeasonProgressStatus(input: SeasonProgressInput): Progres
   const today = input.todayIso ?? getCurrentActivityDateIso();
   const growth = (input.growthStatus ?? "").toLowerCase();
   if (growth === "graduated") return STATUS.graduated;
-  if (input.seasonStatus === "stopped" || ["suspended", "withdrawn", "expelled", "deferred"].includes(growth)) {
+  // "활동 중단" 판정 = lib/growthCore.deriveEndStatus 단일 SoT 재사용(2026-08-03) — 종전엔
+  // 여기서 ["suspended","withdrawn","expelled","deferred"] 를 따로 나열해 "paused"(성장 유보,
+  // evaluationEligibility/getGrowthBadgeText 는 이미 활동 중단으로 취급)가 빠져 있었다. 그
+  // 결과 growth_status='paused' 사용자는 이력서 카드엔 "성장 중단"이 뜨는데 시즌 행은
+  // 날짜 범위만 보고 "진행 중"으로 표시되는 불일치가 있었다(실측: DB paused 4명 중 다수).
+  if (input.seasonStatus === "stopped" || deriveEndStatus(growth) === "stopped" || ["withdrawn", "expelled", "deferred"].includes(growth)) {
     return STATUS.stopped;
   }
   if (input.seasonStatus === "rest") return STATUS.rest;

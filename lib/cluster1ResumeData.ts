@@ -598,18 +598,22 @@ export async function computeSeasonRecords(
   // 실제 참여 신호(승인/실패/개인휴식/집계중) 또는 시즌 상태 행(user_season_statuses)이
   // 있어야 그 시즌을 이력에 노출한다.
   const summaryBySeasonKey = new Map(seasons.map((season) => [season.season_key, summarizeSeasonCards(cards, season.season_key)]));
+  const todayIso = getCurrentActivityDateIso();
   const presentSeasonKeys = new Set(
     seasons
       .filter((season) => {
         const summary = summaryBySeasonKey.get(season.season_key)!;
         const hasRealActivity =
           summary.approvedWeeks > 0 || summary.failedWeeks > 0 || summary.personalRestWeeks > 0 || summary.tallyingWeeks > 0;
-        return hasRealActivity || seasonStatusByKey.has(season.season_key);
+        const isCurrentSeason = todayIso >= season.start_date && todayIso <= season.end_date;
+        // 현재 시즌은 활동 0건(예: 활동 중단 직후 카드가 아직 없는 사용자)이어도 항상 노출한다 —
+        // 그렇지 않으면 그 사용자의 "현재 시즌" 행 자체가 사라져 활동 중단/시즌 휴식 상태를
+        // 보여줄 자리가 없어진다(2026-08-03, "0주/0주 활동 중단" 실측 확인).
+        return hasRealActivity || seasonStatusByKey.has(season.season_key) || isCurrentSeason;
       })
       .map((season) => season.season_key),
   );
   const latestActivitySeasonKey = seasons.find((season) => presentSeasonKeys.has(season.season_key))?.season_key ?? null;
-  const todayIso = getCurrentActivityDateIso();
   const organization = profile?.organization_slug as OrganizationSlug | null;
   const seasonPositionMap = resolveSeasonPositionsFromSeries(positionSeries, "effective");
   const rows = await Promise.all(seasons.filter((season) => presentSeasonKeys.has(season.season_key)).map(async (season) => {

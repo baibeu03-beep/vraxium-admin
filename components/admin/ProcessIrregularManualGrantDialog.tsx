@@ -3,7 +3,8 @@
 // 수동 입력(manual_grant) 모달 — 사람이 이미 검수 완료한 변동 액트.
 //   검수 링크과 공통 입력(액트명·소요시간·사유·포인트 A/B/C) + "대상 크루" 명단(복수).
 //   검수 링크/시점 없음 · 체크 대기 없음 · [체크 완료] 즉시 생성(created==completed).
-//   대상 크루 = 자동완성 검색(org+mode 스코프, cafe-line-crew GET 재사용) → [확인] → 명단 추가.
+//   대상 크루 = 자동완성 검색(org+mode 스코프 + 실무 평가 가능 모집단, cafe-line-crew GET 재사용
+//     excludeSeasonRest=1 — 시즌 휴식·활동 중단·엘리트·바사노스 제외, 2026-08-03) → [확인] → 명단 추가.
 //   ⚠ user_weekly_points·snapshot 무접촉.
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -119,7 +120,7 @@ export default function ProcessIrregularManualGrantDialog({
       try {
         const res = await fetch(
           appendModeQuery(
-            `/api/admin/cluster4/cafe-line-crew?organization=${encodeURIComponent(organization)}&q=${encodeURIComponent(term)}`,
+            `/api/admin/cluster4/cafe-line-crew?organization=${encodeURIComponent(organization)}&q=${encodeURIComponent(term)}&excludeSeasonRest=1`,
             mode,
           ),
         );

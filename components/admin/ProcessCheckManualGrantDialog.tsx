@@ -4,7 +4,8 @@
 //   변동 수동 부여(ProcessIrregularManualGrantDialog)와 동일 UX이되 정규 액트(act_id)에 귀속된다.
 //   - 필드: 액트명(기본=마스터 액트명·편집 가능)·소요시간·사유·포인트 A/B/C·대상 크루(복수).
 //   - '선별' 규칙상 포인트 C = 0 고정·disabled(시각적 비활성).
-//   - 대상 크루 = org+mode 스코프 자동완성(cafe-line-crew GET 재사용). 저장 시 서버 fail-closed 재검증.
+//   - 대상 크루 = org+mode 스코프 + 실무 평가 가능 모집단 자동완성(cafe-line-crew GET 재사용
+//     excludeSeasonRest=1 — 시즌 휴식·활동 중단·엘리트·바사노스 제외, 2026-08-03). 저장 시 서버 fail-closed 재검증.
 //   - 저장 = POST /api/admin/processes/check { action:'manual_grant', act_id, hub, scope, part_name, … }
 //     → 상태 행 completed+manual_grant + recipients(중복 스킵) + 포인트 적립(snapshot 무효화).
 
@@ -137,7 +138,7 @@ export default function ProcessCheckManualGrantDialog({
       try {
         const res = await fetch(
           appendModeQuery(
-            `/api/admin/cluster4/cafe-line-crew?organization=${encodeURIComponent(organization)}&q=${encodeURIComponent(term)}`,
+            `/api/admin/cluster4/cafe-line-crew?organization=${encodeURIComponent(organization)}&q=${encodeURIComponent(term)}&excludeSeasonRest=1`,
             mode,
           ),
         );
