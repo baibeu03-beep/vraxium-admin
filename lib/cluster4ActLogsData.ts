@@ -20,6 +20,10 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { processPointAwardsHasCancelColumns } from "@/lib/processPointAwardsCancelState";
 import { ACT_PERFORMANCE_SOURCES } from "@/lib/pointAwardSourcePolicy";
+import {
+  IRREGULAR_LINE_GRADE_LABEL,
+  isIrregularHubGrade,
+} from "@/lib/adminProcessIrregularTypes";
 import type {
   Cluster4ActLogDto,
   Cluster4ActLogSource,
@@ -174,14 +178,19 @@ export async function loadActLogsByStartDate(
     crew_reaction: string | null;
     scheduled_check_at: string | null;
     created_at: string | null;
+    // 소속 허브 급(2026-07-31) — 컬럼 미적용 환경에서는 select 자체를 생략(undefined).
+    hub_grade?: string | null;
   };
   const irregularById = new Map<string, IrregularRow>();
   if (irregularRefIds.length) {
-    const irr = await supabaseAdmin
-      .from("process_irregular_acts")
-      .select("id,act_name,duration_minutes,crew_reaction,scheduled_check_at,created_at")
-      .in("id", irregularRefIds);
-    for (const r of (irr.data ?? []) as IrregularRow[]) irregularById.set(r.id, r);
+    // hub_grade 컬럼 존재 여부 프로브(42703 이면 미적용 — 과거 동작대로 hub=null 유지).
+    const probe = await supabaseAdmin.from("process_irregular_acts").select("hub_grade").limit(1);
+    const hubGradeAvail = !probe.error || !["42703", "PGRST204", "PGRST205"].includes(probe.error.code ?? "");
+    const cols = hubGradeAvail
+      ? "id,act_name,duration_minutes,crew_reaction,scheduled_check_at,created_at,hub_grade"
+      : "id,act_name,duration_minutes,crew_reaction,scheduled_check_at,created_at";
+    const irr = await supabaseAdmin.from("process_irregular_acts").select(cols).in("id", irregularRefIds);
+    for (const r of (irr.data ?? []) as unknown as IrregularRow[]) irregularById.set(r.id, r);
   }
 
   // ── 주차 매핑: (iso_year, iso_week) → { startDate, seasonWeekNumber } ──
@@ -245,8 +254,13 @@ export async function loadActLogsByStartDate(
         durationMinutes = irr.duration_minutes ?? 0;
         kind = irr.crew_reaction ?? "";
         occurredAt = irr.scheduled_check_at ?? irr.created_at ?? null;
+        // 소속 허브 급/라인 급(2026-07-31) — 기존 hub/lineGroupName 필드를 그대로 재사용한다
+        //   (크루 앱 DetailLogModal 이 이미 hub→hubLabel·lineGroupName→lineLabel 로 렌더하므로
+        //   신규 DTO 필드가 필요 없다). hub_grade 미적용/이형값이면 hub=null(과거 동작 "-" 유지).
+        hub = isIrregularHubGrade(irr.hub_grade) ? irr.hub_grade : null;
+        lineGroupName = IRREGULAR_LINE_GRADE_LABEL; // 변동 액트는 항상 "변동 액트" 1종 고정.
       }
-      // 변동은 허브/라인급 비귀속 — hub/lineGroupName/requestedAt = null 유지.
+      // requestedAt 은 변동 액트에 체크 신청 개념이 없어 계속 null.
     }
 
     const row: Cluster4ActLogDto = {

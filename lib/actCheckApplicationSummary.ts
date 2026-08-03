@@ -46,6 +46,9 @@ export type ActCheckRegularInput = {
 export type ActCheckVariableInput = {
   id: string;
   isChecked: boolean;
+  // 소속 허브 급(process_irregular_acts.hub_grade) — club|info|experience|competency.
+  //   호출부가 허브별로 filter 해서 buildActCheckApplicationSummary 에 넣는다(여기서 필터링 안 함).
+  hubGrade: string;
 };
 
 export type ActCheckWeekInputs = {

@@ -29,7 +29,7 @@ import { isActOpenAtTime, type ActOpenTimeline, type TimelineVersion } from "@/l
 import { resolveRegularActOccurredAtMs } from "@/lib/regularActRequiredAt";
 import type { SavedConfig } from "@/lib/adminTeamPartsInfoWeekDetailData";
 import { listTeams } from "@/lib/adminExperienceLineData";
-import { effectiveIrregularStatus } from "@/lib/adminProcessIrregularTypes";
+import { effectiveIrregularStatus, isIrregularHubGrade } from "@/lib/adminProcessIrregularTypes";
 import { getCurrentWeekStartMs } from "@/lib/cluster4WeekPolicy";
 import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import type {
@@ -170,6 +170,20 @@ async function loadWeekConfigs(
   return map;
 }
 
+// process_irregular_acts.hub_grade 컬럼 적용 여부(2026-07-31 마이그레이션) — true 만 영구 캐시.
+let _hubGradeColAvail = false;
+async function irrHubGradeColAvailable(): Promise<boolean> {
+  if (_hubGradeColAvail) return true;
+  const { error } = await supabaseAdmin.from("process_irregular_acts").select("hub_grade").limit(1);
+  if (!error) {
+    _hubGradeColAvail = true;
+    return true;
+  }
+  const code = (error as { code?: string }).code;
+  if (code === "42703" || code === "PGRST204" || code === "PGRST205") return false;
+  return true;
+}
+
 /**
  * 주차별 정규/변동 입력 — 목록(전 주차)·상세(단일 주차) 공통.
  *   반환 Map 은 요청한 weekIds 전부에 대해 엔트리를 갖는다(데이터 없으면 빈 배열).
@@ -277,9 +291,14 @@ export async function loadActCheckApplicationInputsByWeek(opts: {
   }
 
   // ── 5) 변동 액트(org, week, scope_mode) — emergency_rest 제외 ──
+  //   허브 급(hub_grade, 2026-07-31) — 컬럼 미적용 환경에서는 과거 동작(전부 실무 정보 귀속)을
+  //   그대로 보존한다(hubGrade="info" 고정 폴백). 컬럼 적용 후에는 실제 저장값(4종)을 쓴다.
+  const hubGradeAvail = await irrHubGradeColAvailable();
   const variableByWeek = new Map<string, ActCheckVariableInput[]>();
   {
-    const IRR_COLS = "id,week_id,kind,status,scheduled_check_at";
+    const IRR_COLS = hubGradeAvail
+      ? "id,week_id,kind,status,scheduled_check_at,hub_grade"
+      : "id,week_id,kind,status,scheduled_check_at";
     const run = (cols: string) =>
       supabaseAdmin
         .from("process_irregular_acts")
@@ -303,6 +322,7 @@ export async function loadActCheckApplicationInputsByWeek(opts: {
         status: string | null;
         scheduled_check_at: string | null;
         origin?: string | null;
+        hub_grade?: string | null;
       }>;
       // 긴급 휴식(Po.C 내부 액트)은 액트가 아니므로 전체/가동/체크/미체크/변동 전부에서 제외.
       const rows = hasOrigin ? raw.filter((r) => r.origin !== "emergency_rest") : raw;
@@ -312,8 +332,15 @@ export async function loadActCheckApplicationInputsByWeek(opts: {
         const rawStatus = r.status === "completed" ? "completed" : "pending";
         const isChecked =
           effectiveIrregularStatus(kind, rawStatus, r.scheduled_check_at, nowMs) === "completed";
+        // 폴백 우선순위: 컬럼 미적용 → "info"(과거 동작 보존) / 컬럼 적용인데 값 이형(NOT NULL 이라
+        //   정상 운영에선 발생하지 않는다) → "club"(§8 backfill 기본값과 동일 SoT).
+        const hubGrade = hubGradeAvail
+          ? isIrregularHubGrade(r.hub_grade)
+            ? r.hub_grade
+            : "club"
+          : "info";
         const arr = variableByWeek.get(r.week_id) ?? [];
-        arr.push({ id: r.id, isChecked });
+        arr.push({ id: r.id, isChecked, hubGrade });
         variableByWeek.set(r.week_id, arr);
       }
     }

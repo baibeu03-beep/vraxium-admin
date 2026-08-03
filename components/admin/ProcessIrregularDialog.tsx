@@ -25,10 +25,15 @@ import { useActionToast } from "@/lib/actionToast";
 import { IrregularPointFields, derivePartialPointMode } from "@/components/admin/IrregularPointFields";
 import {
   IRREGULAR_CREW_REACTION_LABEL,
+  IRREGULAR_HUB_GRADES,
+  IRREGULAR_HUB_GRADE_LABEL,
+  IRREGULAR_LINE_GRADE_LABEL,
   formatCheckDateTimeKo,
+  isIrregularHubGrade,
   validateReviewLink,
   validateScheduledCheckAt,
   type IrregularCrewReaction,
+  type IrregularHubGrade,
 } from "@/lib/adminProcessIrregularTypes";
 import { apiErrorFrom } from "@/lib/apiError";
 
@@ -76,6 +81,9 @@ export default function ProcessIrregularDialog({
   const [pointA, setPointA] = useState(0);
   const [pointB, setPointB] = useState(0);
   const [pointC, setPointC] = useState(0);
+  // 소속 허브 급 — 저장 전 필수 선택(4종). 소속 라인 급은 "변동 액트" 고정(변경 불가).
+  const [hubGrade, setHubGrade] = useState<IrregularHubGrade | "">("");
+  const [hubGradeInvalid, setHubGradeInvalid] = useState(false);
   const [reviewLink, setReviewLink] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
@@ -92,6 +100,7 @@ export default function ProcessIrregularDialog({
     pointA !== 0 ||
     pointB !== 0 ||
     pointC !== 0 ||
+    hubGrade !== "" ||
     reviewLink.trim() !== "" ||
     date !== "" ||
     time !== "";
@@ -121,6 +130,8 @@ export default function ProcessIrregularDialog({
     setPointA(0);
     setPointB(0);
     setPointC(0);
+    setHubGrade("");
+    setHubGradeInvalid(false);
     setReviewLink("");
     setDate("");
     setTime("");
@@ -129,7 +140,12 @@ export default function ProcessIrregularDialog({
 
   const submit = async () => {
     setBanner(null);
+    setHubGradeInvalid(false);
     if (!actName.trim()) return setBanner("액트명을 입력해주세요");
+    if (!isIrregularHubGrade(hubGrade)) {
+      setHubGradeInvalid(true);
+      return setBanner("소속 허브 급을 선택해주세요");
+    }
     const link = validateReviewLink(reviewLink);
     if (!link.ok) return setBanner(link.error);
     if (!scheduledIso) return setBanner("검수 시점(날짜·시간)을 선택해주세요");
@@ -155,6 +171,7 @@ export default function ProcessIrregularDialog({
           crew_reaction: crewReaction,
           // 부분만 포인트 방식(ab|c) 전달 — 값에서 파생. 전원은 서버가 무시.
           ...(isAll ? {} : { point_mode: derivePartialPointMode(pointC) }),
+          hub_grade: hubGrade,
           review_link: reviewLink.trim(),
           scheduled_check_at: scheduledIso,
         }),
@@ -239,6 +256,45 @@ export default function ProcessIrregularDialog({
                 title="액트 종류는 선택한 버튼으로 고정됩니다"
               >
                 {IRREGULAR_CREW_REACTION_LABEL[crewReaction]} (고정)
+              </div>
+            </div>
+          </div>
+
+          {/* 소속 허브 급(필수) + 소속 라인 급(고정) */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">
+                소속 허브 급 <span className="text-red-500">*</span>
+              </label>
+              <select
+                aria-label="소속 허브 급"
+                value={hubGrade}
+                onChange={(e) => {
+                  setHubGrade(e.target.value as IrregularHubGrade);
+                  setHubGradeInvalid(false);
+                }}
+                disabled={submitting}
+                className={cn(
+                  "h-9 w-full rounded-md border bg-background px-2 text-sm",
+                  hubGradeInvalid ? "border-red-500 focus-visible:ring-red-500" : "border-input",
+                )}
+              >
+                <option value="">선택</option>
+                {IRREGULAR_HUB_GRADES.map((h) => (
+                  <option key={h} value={h}>
+                    {IRREGULAR_HUB_GRADE_LABEL[h]} 급
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">소속 라인 급</label>
+              <div
+                aria-label="소속 라인 급"
+                className="flex h-9 cursor-not-allowed items-center rounded-md border border-input bg-muted/50 px-2 text-sm text-muted-foreground"
+                title="변동 액트의 소속 라인 급은 항상 '변동 액트'로 고정됩니다"
+              >
+                {IRREGULAR_LINE_GRADE_LABEL} (고정)
               </div>
             </div>
           </div>

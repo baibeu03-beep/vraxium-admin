@@ -58,6 +58,7 @@ Supabase SQL Editor에서 **파일명 알파벳 순서대로** 실행한다.
 | 47 | `2026-07-24_experience_opening_logs_reapply.sql` | 실무 경험 파트 신청 로그에 `'reapply'`(개설 재신청) action 추가. 파트 신청 POST 직전의 기존 신청 헤더 존재 여부로 `apply/reapply`를 판정하며, 기존 로그는 재분류하지 않는다. 실무 정보·역량·경력 등 다른 유형 로그는 무변경. **CHECK 제약 확장만·기존 데이터 무접촉** |
 
 | 45 | `2026-07-20_transition_week_next_season_reattribution.sql` | 시즌 전환 주차(시즌 사이 1주 브릿지)를 "이전 시즌 마지막 주차"→**다음 시즌 0주차**로 재귀속. `weeks`(4행: season_key/season_id=다음시즌·week_number=0·is_official_rest=false) + `user_week_statuses`(86행 season_key 이동) + `resolve_season_key(date)` 재정의(전환주차=weeks.week_number=0 우선판정→다음시즌 반환). `season_definitions`/`seasons` 공식 경계(1주차 시작)는 불변. **비멱등 1회성 — §2-0 가드가 대상수 4·다음시즌 존재·W0 충돌 사전차단, `_backup_transition_{weeks,uws}_20260720` 백업 후 UPDATE, §2-6 검증→COMMIT/ROLLBACK. weeks/uws 의존.** |
+| 48 | `2026-07-31_process_irregular_acts_hub_line_grade.sql` | 변동 액트(`process_irregular_acts`)에 `hub_grade`(club\|info\|experience\|competency, CHECK) + `line_grade`(항상 'variable_act', CHECK) 컬럼 추가. 기존 행 전부 `hub_grade='club'`·`line_grade='variable_act'` 로 일괄 backfill 후 NOT NULL 적용. 조회 인덱스 `(organization_slug, week_id, scope_mode, hub_grade)` 추가. **nullable 추가 → backfill → NULL 잔여 0 검증(실패 시 전체 ROLLBACK) → NOT NULL/CHECK 순서로 단일 트랜잭션.** 미적용 시에도 코드가 컬럼 존재 여부를 probe 해 select/insert 에서 자동 제외(hub 급 4허브 매칭은 과거처럼 실무 정보 귀속으로 폴백). |
 
 ## 주의사항
 

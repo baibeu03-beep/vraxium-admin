@@ -26,7 +26,14 @@ import { type ScopeMode, appendModeQuery } from "@/lib/userScopeShared";
 import { useActionToast } from "@/lib/actionToast";
 import { excludeAddedByUserId } from "@/lib/crewSearchExclude";
 import { IrregularPointFields, derivePartialPointMode } from "@/components/admin/IrregularPointFields";
-import { irregularCafeLabel } from "@/lib/adminProcessIrregularTypes";
+import {
+  IRREGULAR_HUB_GRADES,
+  IRREGULAR_HUB_GRADE_LABEL,
+  IRREGULAR_LINE_GRADE_LABEL,
+  irregularCafeLabel,
+  isIrregularHubGrade,
+  type IrregularHubGrade,
+} from "@/lib/adminProcessIrregularTypes";
 import { apiErrorFrom } from "@/lib/apiError";
 
 const DURATIONS = Array.from({ length: 18 }, (_, i) => (i + 1) * 5); // 5~90, 5분 단위
@@ -63,6 +70,9 @@ export default function ProcessIrregularManualGrantDialog({
   const [pointB, setPointB] = useState(0);
   const [pointC, setPointC] = useState(0);
   // 수동 부여는 항상 '부분'(전원 불가). 포인트 방식(A+B|C)은 입력값에서 파생(derivePartialPointMode).
+  // 소속 허브 급 — 저장 전 필수 선택(4종). 소속 라인 급은 "변동 액트" 고정(변경 불가).
+  const [hubGrade, setHubGrade] = useState<IrregularHubGrade | "">("");
+  const [hubGradeInvalid, setHubGradeInvalid] = useState(false);
 
   // 대상 크루 — 자동완성 검색/선택 후보 + 명단.
   const [q, setQ] = useState("");
@@ -85,6 +95,7 @@ export default function ProcessIrregularManualGrantDialog({
     pointA !== 0 ||
     pointB !== 0 ||
     pointC !== 0 ||
+    hubGrade !== "" ||
     roster.length > 0 ||
     q.trim() !== "";
 
@@ -165,6 +176,8 @@ export default function ProcessIrregularManualGrantDialog({
     setPointA(0);
     setPointB(0);
     setPointC(0);
+    setHubGrade("");
+    setHubGradeInvalid(false);
     setQ("");
     setResults([]);
     setCandidate(null);
@@ -174,7 +187,12 @@ export default function ProcessIrregularManualGrantDialog({
 
   const submit = async () => {
     setBanner(null);
+    setHubGradeInvalid(false);
     if (!actName.trim()) return setBanner("액트명을 입력해주세요");
+    if (!isIrregularHubGrade(hubGrade)) {
+      setHubGradeInvalid(true);
+      return setBanner("소속 허브 급을 선택해주세요");
+    }
     if (roster.length === 0) return setBanner("대상 크루를 1명 이상 추가해주세요");
     if (!(await confirm({ ...CONFIRM.checkComplete, confirmLabel: "수동 부여 완료" }))) return;
     setSubmitting(true);
@@ -196,6 +214,7 @@ export default function ProcessIrregularManualGrantDialog({
           point_c: pointC,
           crew_reaction: "partial",
           point_mode: derivePartialPointMode(pointC),
+          hub_grade: hubGrade,
         }),
       });
       const json = await res.json().catch(() => ({}));
@@ -263,6 +282,45 @@ export default function ProcessIrregularManualGrantDialog({
                 title="수동 부여는 '부분'만 가능합니다"
               >
                 부분 (수동 부여 고정)
+              </div>
+            </div>
+          </div>
+
+          {/* 소속 허브 급(필수) + 소속 라인 급(고정) */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">
+                소속 허브 급 <span className="text-red-500">*</span>
+              </label>
+              <select
+                aria-label="소속 허브 급"
+                value={hubGrade}
+                onChange={(e) => {
+                  setHubGrade(e.target.value as IrregularHubGrade);
+                  setHubGradeInvalid(false);
+                }}
+                disabled={submitting}
+                className={cn(
+                  "h-9 w-full rounded-md border bg-background px-2 text-sm",
+                  hubGradeInvalid ? "border-red-500 focus-visible:ring-red-500" : "border-input",
+                )}
+              >
+                <option value="">선택</option>
+                {IRREGULAR_HUB_GRADES.map((h) => (
+                  <option key={h} value={h}>
+                    {IRREGULAR_HUB_GRADE_LABEL[h]} 급
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">소속 라인 급</label>
+              <div
+                aria-label="소속 라인 급"
+                className="flex h-9 cursor-not-allowed items-center rounded-md border border-input bg-muted/50 px-2 text-sm text-muted-foreground"
+                title="변동 액트의 소속 라인 급은 항상 '변동 액트'로 고정됩니다"
+              >
+                {IRREGULAR_LINE_GRADE_LABEL} (고정)
               </div>
             </div>
           </div>

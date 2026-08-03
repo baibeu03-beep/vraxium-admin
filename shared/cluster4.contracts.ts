@@ -419,8 +419,13 @@ export type Cluster4ActLogDto = {
   actName: string;
   occurredAt: string | null;      // 실제 발생/검수 시점 (irregular=scheduled_check_at??created_at, regular=completed_at??requested_at)
   requestedAt: string | null;     // 체크 신청 시점 (regular=process_check_statuses.requested_at, irregular=null)
-  hub: string | null;             // regular=process_acts.hub, irregular=null(허브 비귀속)
-  lineGroupName: string | null;   // regular=process_line_groups.name, irregular=null
+  // regular=process_acts.hub("info"|"experience"|"competency"|"career"|"club"...).
+  // irregular=process_irregular_acts.hub_grade("club"|"info"|"experience"|"competency", 2026-07-31
+  //   부터 저장. 마이그레이션 미적용/백필 전 데이터는 null → 프론트가 "-" 로 표시.
+  hub: string | null;
+  // regular=process_line_groups.name.
+  // irregular=항상 "변동 액트" 고정 문자열(소속 라인 급, 2026-07-31부터). 과거엔 null.
+  lineGroupName: string | null;
   durationMinutes: number;        // 소요 시간(분). 없으면 0.
   pointA: number;                 // = process_point_awards.point_check
   pointB: number;                 // = process_point_awards.point_advantage

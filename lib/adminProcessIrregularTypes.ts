@@ -9,6 +9,12 @@
 //     point A/B/C 는 표시/관리용 정의값(고객앱 점수 미연동).
 
 import type { ProcessCheckWeekDto, CommentCollectionStatusKind } from "@/lib/adminProcessCheckTypes";
+import {
+  PROCESS_HUB_LABEL,
+  formatProcessHubLabel,
+  isProcessHub,
+  type ProcessHub,
+} from "@/lib/adminProcessesTypes";
 
 // 주차 DTO 는 프로세스 체크와 동일 SoT(공용) 재사용.
 export type { ProcessCheckWeekDto } from "@/lib/adminProcessCheckTypes";
@@ -17,6 +23,35 @@ export {
   validateReviewLink,
   validateScheduledCheckAt,
 } from "@/lib/adminProcessCheckTypes";
+
+// ── 소속 허브 급 / 소속 라인 급 (2026-07-31) ─────────────────────────────────
+//   변동 액트가 어떤 허브 급 소속인지 명시적으로 저장한다(과거엔 저장 없이 화면마다 info 로
+//   강제 귀속). **신규 enum 을 만들지 않는다** — 프로세스 등록의 허브급 SoT
+//   (lib/adminProcessesTypes.ts 의 ProcessHub/PROCESS_HUB_LABEL)를 그대로 재사용한다.
+//   단, 변동 액트가 선택 가능한 허브 급은 4종(클럽 총괄/실무 정보/실무 경험/실무 역량) 뿐이다 —
+//   career(실무 경력)는 변동 액트 대상이 아니다(요구사항 §4).
+export type IrregularHubGrade = Extract<ProcessHub, "club" | "info" | "experience" | "competency">;
+export const IRREGULAR_HUB_GRADES: readonly IrregularHubGrade[] = ["club", "info", "experience", "competency"];
+export function isIrregularHubGrade(v: unknown): v is IrregularHubGrade {
+  return isProcessHub(v) && (IRREGULAR_HUB_GRADES as readonly string[]).includes(v);
+}
+// 표시 라벨 — PROCESS_HUB_LABEL(허브급 라벨 SoT) 재사용 + "급" 접미(요구사항 §4 예시
+//   "클럽 총괄 급"·"실무 정보 급"과 동일 문자열이어야 한다). null/미지정/미지값 → "-".
+export function formatIrregularHubGradeLabel(hubGrade: string | null | undefined): string {
+  if (!hubGrade) return "-";
+  return isProcessHub(hubGrade) ? `${PROCESS_HUB_LABEL[hubGrade]} 급` : formatProcessHubLabel(hubGrade);
+}
+export { PROCESS_HUB_LABEL as IRREGULAR_HUB_GRADE_LABEL };
+
+// ── 소속 라인 급 — 변동 액트는 항상 "변동 액트" 1종으로 고정 ────────────────────
+//   프로젝트에 이 개념에 해당하는 기존 line-grade SoT 가 없어 신규로 정의한다(재사용 대상 부재 확인).
+//   사용자가 선택/변경할 수 없다 — 서버가 항상 이 값으로 강제한다(클라 입력 무시).
+export const IRREGULAR_LINE_GRADE = "variable_act" as const;
+export type IrregularLineGrade = typeof IRREGULAR_LINE_GRADE;
+export const IRREGULAR_LINE_GRADE_LABEL = "변동 액트" as const;
+export function isIrregularLineGrade(v: unknown): v is IrregularLineGrade {
+  return v === IRREGULAR_LINE_GRADE;
+}
 
 // ── 화면 도움말 key ─────────────────────────────────────────────────────────────
 //   /admin/processes/check/irregular 는 별도 화면(ProcessIrregularManager)이라 검수 링크/수동 부여·
@@ -50,6 +85,8 @@ export const PROCESS_IRREGULAR_HELP_KEYS = {
   columnExecutionTimeActual: "admin.processes.check.irregular.column.executionTimeActual",
   columnStatus: "admin.processes.check.irregular.column.status",
   columnManualAction: "admin.processes.check.irregular.column.manualAction",
+  fieldHubGrade: "admin.processes.check.irregular.field.hubGrade",
+  fieldLineGrade: "admin.processes.check.irregular.field.lineGrade",
 } as const;
 
 // ── 종류 (검수 링크 / 수동 입력) ───────────────────────────────────────────────
@@ -197,6 +234,12 @@ export type ProcessIrregularActRowDto = {
   pointC: number;
   crewReaction: IrregularCrewReaction;
   crewReactionLabel: string;
+  // 소속 허브 급 — 신규 행은 항상 4종 중 하나. 과거(마이그레이션 전) 미적용 컬럼 read 도 방어(null).
+  hubGrade: IrregularHubGrade | null;
+  hubGradeLabel: string;
+  // 소속 라인 급 — 항상 "변동 액트" 고정(서버 강제).
+  lineGrade: IrregularLineGrade;
+  lineGradeLabel: string;
   reviewLink: string | null;
   scheduledCheckAt: string | null; // 검수 시점
   // status = 표시/통계용 유효 상태(검수 시점 자동 완료 반영). rawStatus = DB 원본(취소 가능 판정용).
@@ -285,6 +328,8 @@ export type IrregularCreateInput = {
   pointB: number;
   pointC: number;
   crewReaction: IrregularCrewReaction;
+  // 소속 허브 급 — 저장 시 필수(4종 중 하나). lineGrade 는 입력에 없다(항상 서버 강제).
+  hubGrade: IrregularHubGrade;
   reviewLink: string | null;
   scheduledCheckAt: string | null;
 };

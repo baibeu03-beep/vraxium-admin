@@ -41,16 +41,21 @@ import {
   IRREGULAR_CREW_REACTION_DEFAULT,
   IRREGULAR_CREW_REACTION_LABEL,
   IRREGULAR_KIND_LABEL,
+  IRREGULAR_LINE_GRADE,
+  IRREGULAR_LINE_GRADE_LABEL,
   coerceIrregularCrewReaction,
   effectiveIrregularStatus,
+  formatIrregularHubGradeLabel,
   irregularCafeLabel,
   isIrregularCrewReaction,
   isIrregularDuration,
+  isIrregularHubGrade,
   isIrregularPointMode,
   normalizeIrregularPoints,
   validateReviewLink,
   validateScheduledCheckAt,
   type IrregularCrewReaction,
+  type IrregularHubGrade,
   type IrregularKind,
   type IrregularPointMode,
   type IrregularStatus,
@@ -123,12 +128,22 @@ type IrregularRow = {
   raw_comment_count?: number | null;
   comment_collection_status?: string | null;
   comment_collection_error_code?: string | null;
+  // 소속 허브 급/라인 급(2026-07-31) — 마이그레이션 미적용이면 undefined(hubGradeColumnsAvailable 게이트).
+  hub_grade?: string | null;
+  line_grade?: string | null;
 };
 
 const ROW_SELECT =
   "id,week_id,kind,act_name,applicant_admin_name,target_user_id,target_user_name,duration_minutes,reason,point_a,point_b,point_c,crew_reaction,review_link,scheduled_check_at,status,completed_at,created_at,attempt_count,last_error";
 // 댓글 수집 상태 컬럼 — 적용 시에만 SELECT 에 덧붙인다(getIrregularBoard 에서 collectionColumnsAvailable 게이트).
 const COLLECTION_COLS = "raw_comment_count,comment_collection_status,comment_collection_error_code";
+// 허브급/라인급 컬럼(2026-07-31 마이그레이션) — 적용 시에만 SELECT 에 덧붙인다.
+const HUB_LINE_GRADE_COLS = "hub_grade,line_grade";
+// ROW_SELECT + 허브급/라인급 — .select(...).single() 체이닝에서 supabase-js 가 리터럴 문자열로
+//   행 타입을 추론하므로, 런타임 문자열 연결(`ROW_SELECT + "..."`) 대신 **별도 리터럴 상수**로 둔다
+//   (연결식은 string 으로 widen 되어 GenericStringError 타입 오류가 난다).
+const ROW_SELECT_HUB =
+  "id,week_id,kind,act_name,applicant_admin_name,target_user_id,target_user_name,duration_minutes,reason,point_a,point_b,point_c,crew_reaction,review_link,scheduled_check_at,status,completed_at,created_at,attempt_count,last_error,hub_grade,line_grade";
 
 // 수집 상태 컬럼 적용 여부 — true 만 캐시(적용 후 영구). 미적용이면 SELECT 제외(조회는 unknown/not_collected).
 let _irrCollectionColAvailable = false;
@@ -144,6 +159,23 @@ async function collectionColumnsAvailable(): Promise<boolean> {
   }
   if (error.code === "42703" || error.code === "PGRST204" || error.code === "PGRST205") return false;
   return true; // 다른 에러면 있다고 보고 진행(실제 쿼리에서 표면화).
+}
+
+// 허브급/라인급 컬럼 적용 여부 — db/migrations/2026-07-31_process_irregular_acts_hub_line_grade.sql
+//   미적용 환경에서도 보드/생성이 깨지지 않도록 SELECT/INSERT 를 조건부로 뺀다(42703 graceful degrade).
+let _irrHubGradeColAvailable = false;
+async function hubGradeColumnsAvailable(): Promise<boolean> {
+  if (_irrHubGradeColAvailable) return true;
+  const { error } = await supabaseAdmin
+    .from("process_irregular_acts")
+    .select("hub_grade")
+    .limit(1);
+  if (!error) {
+    _irrHubGradeColAvailable = true;
+    return true;
+  }
+  if (error.code === "42703" || error.code === "PGRST204" || error.code === "PGRST205") return false;
+  return true;
 }
 
 type RecipientRow = {
@@ -166,6 +198,9 @@ function toRowDto(
   const autoCompleted = status === "completed" && rawStatus === "pending";
   // 레거시(required|optional|selection|none) 값도 신규 2종(전원/부분)으로만 표시.
   const crew: IrregularCrewReaction = coerceIrregularCrewReaction(r.crew_reaction);
+  // 소속 허브 급 — 알려진 4종만 신뢰(그 외/미적용 컬럼/backfill 전 데이터는 null·"-" 로 방어).
+  const hubGrade: IrregularHubGrade | null = isIrregularHubGrade(r.hub_grade) ? r.hub_grade : null;
+  // 소속 라인 급 — 변동 액트는 항상 1종. 컬럼 미적용/이형값이어도 표시는 항상 이 값으로 강제(서버 SoT).
   const recs = (recipientsByRef.get(r.id) ?? []).map((rc) => ({
     userId: rc.user_id,
     nickname: rc.nickname,
@@ -188,6 +223,10 @@ function toRowDto(
     pointC: r.point_c,
     crewReaction: crew,
     crewReactionLabel: IRREGULAR_CREW_REACTION_LABEL[crew],
+    hubGrade,
+    hubGradeLabel: formatIrregularHubGradeLabel(hubGrade),
+    lineGrade: IRREGULAR_LINE_GRADE,
+    lineGradeLabel: IRREGULAR_LINE_GRADE_LABEL,
     reviewLink: r.review_link,
     scheduledCheckAt: r.scheduled_check_at,
     status,
@@ -314,7 +353,10 @@ export async function getIrregularBoard(
       .order("created_at", { ascending: false });
   // 댓글 수집 상태 컬럼(적용 시에만 SELECT). origin 컬럼과 독립적으로 degrade.
   const collectionAvail = await collectionColumnsAvailable();
-  const baseSel = collectionAvail ? `${ROW_SELECT},${COLLECTION_COLS}` : ROW_SELECT;
+  const hubGradeAvail = await hubGradeColumnsAvailable();
+  const baseSel =
+    (collectionAvail ? `${ROW_SELECT},${COLLECTION_COLS}` : ROW_SELECT) +
+    (hubGradeAvail ? `,${HUB_LINE_GRADE_COLS}` : "");
   let hasOrigin = true;
   let res = await runQuery(baseSel + ",origin");
   if (res.error && res.error.code === "42703") {
@@ -396,6 +438,19 @@ export async function searchIrregularTargets(
 }
 
 // ── 공통 필드 파싱(검수 링크·수동 입력 공용) ──────────────────────────────────
+// 소속 허브 급 파싱 — 4종(club|info|experience|competency) 중 하나만 허용(필수). 미선택/미지값=400.
+//   ⚠ 컬럼 미적용(마이그레이션 전) 환경에서는 검증만 통과시키고 실제 저장은 호출부가 건너뛴다
+//     (hubGradeColumnsAvailable 게이트) — 검증 자체를 완화하지 않는다(요구사항: 검증은 항상 강제).
+function parseHubGrade(raw: unknown): IrregularHubGrade {
+  if (!isIrregularHubGrade(raw)) {
+    throw new ProcessMasterError(
+      400,
+      "소속 허브 급을 선택해주세요(클럽 총괄/실무 정보/실무 경험/실무 역량 중 하나)",
+    );
+  }
+  return raw;
+}
+
 function parseCommonFields(input: {
   actName: unknown;
   durationMinutes?: unknown;
@@ -405,10 +460,12 @@ function parseCommonFields(input: {
   pointC?: unknown;
   crewReaction?: unknown;
   pointMode?: unknown;
+  hubGrade: unknown;
 }) {
   if (typeof input.actName !== "string" || !input.actName.trim()) {
     throw new ProcessMasterError(400, "액트명(act_name)은 필수입니다");
   }
+  const hubGrade = parseHubGrade(input.hubGrade);
   const actName = input.actName.trim();
   if (actName.length > IRREGULAR_ACT_NAME_MAX) {
     throw new ProcessMasterError(400, `액트명은 최대 ${IRREGULAR_ACT_NAME_MAX}자입니다`);
@@ -439,6 +496,7 @@ function parseCommonFields(input: {
     pointB: norm.pointB,
     pointC: norm.pointC,
     crewReaction,
+    hubGrade,
   };
 }
 
@@ -457,6 +515,7 @@ export async function createIrregularAct(input: {
   pointC?: unknown;
   crewReaction?: unknown;
   pointMode?: unknown;
+  hubGrade: unknown; // 소속 허브 급(필수) — club|info|experience|competency.
   reviewLink?: unknown;
   scheduledCheckAt?: unknown;
   weekId?: unknown; // 선택 주차(weeks.id) — 현재와 다르면 활성 예외("irregular")일 때만 허용.
@@ -491,6 +550,7 @@ export async function createIrregularAct(input: {
   if (!scheduledCheckAt) throw new ProcessMasterError(400, "링크 신청은 검수 시점이 필수입니다");
 
   const applicantAdminName = await resolveAdminName(adminId);
+  const hubGradeAvail = await hubGradeColumnsAvailable();
   const { data: inserted, error: insErr } = await supabaseAdmin
     .from("process_irregular_acts")
     .insert({
@@ -513,11 +573,17 @@ export async function createIrregularAct(input: {
       scheduled_check_at: scheduledCheckAt,
       status: "pending",
       completed_at: null,
+      // 소속 허브 급/라인 급(2026-07-31) — 컬럼 미적용 환경에서는 insert 에서 제외(42703 방지).
+      //   라인 급은 항상 서버 강제값만 저장한다(클라 입력 무시).
+      ...(hubGradeAvail ? { hub_grade: common.hubGrade, line_grade: IRREGULAR_LINE_GRADE } : {}),
     })
-    .select(ROW_SELECT)
+    .select(hubGradeAvail ? ROW_SELECT_HUB : ROW_SELECT)
     .single();
   if (insErr) throw migrationHint(insErr) ?? new ProcessMasterError(500, insErr.message);
-  return toRowDto(inserted as IrregularRow);
+  // ROW_SELECT_HUB 는 아직 생성된 DB 타입(types/*.ts)에 없는 hub_grade/line_grade 를 포함해
+  //   supabase-js 의 정적 select-파서가 ParserError 를 낸다(런타임과 무관 — 컬럼은 실제로 있다/없다에
+  //   따라 조건부로만 select 했다). unknown 경유 캐스팅으로 우회(다른 동적 select 지점과 동일 패턴).
+  return toRowDto(inserted as unknown as IrregularRow);
 }
 
 // ── 수동 입력(manual_grant) 생성 — 대상 크루 명단(복수)·생성 즉시 completed(created==completed) ──
@@ -535,6 +601,7 @@ export async function createManualGrant(input: {
   pointC?: unknown;
   crewReaction?: unknown;
   pointMode?: unknown;
+  hubGrade: unknown; // 소속 허브 급(필수) — club|info|experience|competency.
   weekId?: unknown; // 선택 주차(weeks.id) — 현재와 다르면 활성 예외("irregular")일 때만 허용.
 }): Promise<ProcessIrregularActRowDto> {
   const { organization, mode, adminId } = input;
@@ -576,6 +643,7 @@ export async function createManualGrant(input: {
   // created == completed (사람이 이미 검수 완료) — 검수 링크/시점 없음.
   const nowIso = new Date().toISOString();
   const applicantAdminName = await resolveAdminName(adminId);
+  const hubGradeAvail = await hubGradeColumnsAvailable();
   const { data: inserted, error: insErr } = await supabaseAdmin
     .from("process_irregular_acts")
     .insert({
@@ -598,11 +666,12 @@ export async function createManualGrant(input: {
       scheduled_check_at: nowIso, // 신청 시점 == 검수 시점(개념)
       status: "completed",
       completed_at: nowIso,
+      ...(hubGradeAvail ? { hub_grade: common.hubGrade, line_grade: IRREGULAR_LINE_GRADE } : {}),
     })
-    .select(ROW_SELECT)
+    .select(hubGradeAvail ? ROW_SELECT_HUB : ROW_SELECT)
     .single();
   if (insErr) throw migrationHint(insErr) ?? new ProcessMasterError(500, insErr.message);
-  const act = inserted as IrregularRow;
+  const act = inserted as unknown as IrregularRow;
 
   // 대상 크루 명단 → recipients(matched). user_weekly_points/snapshot 무접촉.
   const recRows = ids.map((id) => ({
@@ -670,11 +739,14 @@ export async function createActSupplement(input: {
 
   // 부분 액트 — 포인트 방식은 값에서 파생(C>0 → "c" else "ab"). 정규화·상호배타는 parseCommonFields(SoT).
   const pointMode = Number(input.pointC ?? 0) > 0 ? "c" : "ab";
+  // 액트 보완(admin 회원 주차 상세)은 허브 급 선택 UI 가 없다 — 기존 변동 액트 backfill 과 동일하게
+  //   '클럽 총괄'(club)로 고정한다(§8 backfill 정책과 일관 — 개별 허브 추정하지 않음).
   const common = parseCommonFields({
     ...input,
     durationMinutes: null,
     crewReaction: "partial",
     pointMode,
+    hubGrade: "club",
   });
   if (common.pointA <= 0 && common.pointB <= 0 && common.pointC <= 0) {
     throw new ProcessMasterError(400, "포인트를 1점 이상 부여해야 합니다");
@@ -742,6 +814,7 @@ export async function createActSupplement(input: {
 
   const nowIso = new Date().toISOString();
   const applicantAdminName = await resolveAdminName(adminId);
+  const hubGradeAvail = await hubGradeColumnsAvailable();
   const { data: inserted, error: insErr } = await supabaseAdmin
     .from("process_irregular_acts")
     .insert({
@@ -765,6 +838,7 @@ export async function createActSupplement(input: {
       status: "completed",
       completed_at: nowIso,
       origin: ACT_SUPPLEMENT_ORIGIN,
+      ...(hubGradeAvail ? { hub_grade: common.hubGrade, line_grade: IRREGULAR_LINE_GRADE } : {}),
     })
     .select("id")
     .single();
@@ -885,6 +959,34 @@ export async function setIrregularCrewReaction(
     .single();
   if (error) throw migrationHint(error) ?? new ProcessMasterError(500, error.message);
   return toRowDto(data as IrregularRow);
+}
+
+// ── 소속 허브 급 변경 (수정 — 테이블/상세 공용) ────────────────────────────────
+//   라인 급은 변경 대상이 아니다(항상 variable_act 고정). 생성과 동일 검증(4종만 허용) 재사용.
+export async function setIrregularHubGrade(
+  id: string,
+  organization: string,
+  mode: ScopeMode,
+  hubGrade: unknown,
+): Promise<ProcessIrregularActRowDto> {
+  const parsed = parseHubGrade(hubGrade);
+  const row = await loadScopedRow(id, organization, mode); // 존재 + org + 대상 스코프 검증
+  await assertCurrentWeekRow(row, mode, organization); // 과거 주차 = 조회 전용
+  const hubGradeAvail = await hubGradeColumnsAvailable();
+  if (!hubGradeAvail) {
+    throw new ProcessMasterError(
+      500,
+      "process_irregular_acts.hub_grade 컬럼이 없습니다. db/migrations/2026-07-31_process_irregular_acts_hub_line_grade.sql 을 SQL Editor 에서 적용해주세요.",
+    );
+  }
+  const { data, error } = await supabaseAdmin
+    .from("process_irregular_acts")
+    .update({ hub_grade: parsed })
+    .eq("id", id)
+    .select(ROW_SELECT_HUB)
+    .single();
+  if (error) throw migrationHint(error) ?? new ProcessMasterError(500, error.message);
+  return toRowDto(data as unknown as IrregularRow);
 }
 
 // ── 삭제 (관리용 — 잘못 등록한 행 제거) ────────────────────────────────────────
@@ -1010,9 +1112,11 @@ async function loadScopedRow(
   organization: string,
   mode: ScopeMode,
 ): Promise<IrregularRow> {
+  const hubGradeAvail = await hubGradeColumnsAvailable();
+  const sel = ROW_SELECT + ",organization_slug,scope_mode" + (hubGradeAvail ? `,${HUB_LINE_GRADE_COLS}` : "");
   const { data, error } = await supabaseAdmin
     .from("process_irregular_acts")
-    .select(ROW_SELECT + ",organization_slug,scope_mode")
+    .select(sel)
     .eq("id", id)
     .maybeSingle();
   if (error) throw migrationHint(error) ?? new ProcessMasterError(500, error.message);

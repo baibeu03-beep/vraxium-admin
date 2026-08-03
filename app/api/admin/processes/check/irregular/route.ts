@@ -28,6 +28,7 @@ import {
   deleteIrregularAct,
   getIrregularBoard,
   setIrregularCrewReaction,
+  setIrregularHubGrade,
 } from "@/lib/adminProcessIrregularData";
 import { publicErrorMessage } from "@/lib/apiError";
 
@@ -125,6 +126,7 @@ export async function POST(request: NextRequest) {
             pointC: b.point_c,
             crewReaction: b.crew_reaction,
             pointMode: b.point_mode,
+            hubGrade: b.hub_grade,
             weekId: selectedWeekId,
           })
         : await createIrregularAct({
@@ -140,6 +142,7 @@ export async function POST(request: NextRequest) {
             pointC: b.point_c,
             crewReaction: b.crew_reaction,
             pointMode: b.point_mode,
+            hubGrade: b.hub_grade,
             reviewLink: b.review_link,
             scheduledCheckAt: b.scheduled_check_at,
             weekId: selectedWeekId,
@@ -180,9 +183,9 @@ export async function PATCH(request: NextRequest) {
   if (!isOrganizationSlug(orgRaw)) {
     return Response.json({ success: false, error: "소속 클럽을 다시 선택해주세요." }, { status: 400 });
   }
-  if (b.action !== "complete" && b.action !== "set_crew_reaction") {
+  if (b.action !== "complete" && b.action !== "set_crew_reaction" && b.action !== "set_hub_grade") {
     return Response.json(
-      { success: false, error: "action 은 complete|set_crew_reaction 이어야 합니다" },
+      { success: false, error: "action 은 complete|set_crew_reaction|set_hub_grade 이어야 합니다" },
       { status: 400 },
     );
   }
@@ -191,7 +194,9 @@ export async function PATCH(request: NextRequest) {
     const data =
       b.action === "set_crew_reaction"
         ? await setIrregularCrewReaction(id, orgRaw, mode, b.crew_reaction, b.point_mode)
-        : await completeIrregularAct(id, orgRaw, mode);
+        : b.action === "set_hub_grade"
+          ? await setIrregularHubGrade(id, orgRaw, mode, b.hub_grade)
+          : await completeIrregularAct(id, orgRaw, mode);
     return Response.json({ success: true, data });
   } catch (error) {
     console.error("[processes/check/irregular PATCH]", error);
