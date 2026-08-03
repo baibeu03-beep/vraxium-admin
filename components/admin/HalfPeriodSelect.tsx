@@ -29,6 +29,8 @@ export default function HalfPeriodSelect() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const value = useMemo(() => readPeriodParam(searchParams), [searchParams]);
+  // 옵션 목록에 "(현재)" 표시용 — 접속 시점 기준 현재 반기(2026-08-03 확정).
+  const currentHalfKey = useMemo(() => halfKeyForDate(getCurrentActivityDateIso()), []);
 
   const onChange = useCallback(
     (next: string) => {
@@ -58,6 +60,7 @@ export default function HalfPeriodSelect() {
         {HALF_PERIODS.map((p) => (
           <option key={p} value={p}>
             {halfLabelKo(p)}
+            {p === currentHalfKey ? " (현재)" : ""}
           </option>
         ))}
       </select>

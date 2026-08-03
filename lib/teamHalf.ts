@@ -144,13 +144,13 @@ export function halfKeyForDate(dateIso: string): string {
   return seasonKeyToHalfKey(seasonDbKey(season)) ?? `${season.year}-H1`;
 }
 
-// '2026-H2' → '26년도 하반기' (드롭다운 표시 전용 어휘 — halfLabel()의 '2026 하반기'와는
-//   다른 화면이 쓰는 별개 어휘라 기존 함수를 바꾸지 않고 새로 둔다).
+// '2026-H2' → '2026년도 하반기' (드롭다운 표시 전용 어휘 — halfLabel()의 '2026 하반기'와는
+//   다른 화면이 쓰는 별개 어휘라 기존 함수를 바꾸지 않고 새로 둔다). 연도는 4자리 그대로 표기한다
+//   (2026-08-03 확정 — 종전 '26년도'처럼 두 자리로 줄이지 않는다).
 export function halfLabelKo(halfKey: string): string {
   const parsed = parseHalfKey(halfKey);
   if (!parsed) return halfKey;
-  const yy = String(parsed.year % 100).padStart(2, "0");
-  return `${yy}년도 ${parsed.period === "H1" ? "상반기" : "하반기"}`;
+  return `${parsed.year}년도 ${parsed.period === "H1" ? "상반기" : "하반기"}`;
 }
 
 // URL 쿼리 period 값 정규화 — 유효하지 않으면(오타·범위 밖·미지정) fallback(보통 현재 반기)으로
