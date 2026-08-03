@@ -110,7 +110,9 @@ try {
   await teamBox.screenshot({ path: resolve(adminRoot, "claudedocs", "team-box.png") }).catch(() => {});
 
   // ── 다음 반기(2026-H2) → 박스 활성 + 팝업 열림 ──
-  await page.locator("#team-parts-half-select").selectOption("2026-H2");
+  //   select id 는 공용 HalfPeriodSelect 로 통합되며 team-parts-period-select 로 개명됐다
+  //   (2026-07-31, URL ?period= 단일 상태 — 종전 team-parts-half-select 로컬 select 대체).
+  await page.locator("#team-parts-period-select").selectOption("2026-H2");
   await page.getByText("다음 반기 · 수정 가능").first().waitFor({ state: "visible", timeout: 10000 });
   await page.waitForTimeout(300);
   ck("다음 반기(2026 하반기) 박스 활성", !(await page.locator("#team-parts-register-box").isDisabled()));
@@ -122,7 +124,7 @@ try {
   ck("다음 반기 팝업 닫힘", (await page.locator("#team-parts-register-modal").count()) === 0);
 
   // ── 과거 반기 → 박스 비활성 ──
-  await page.locator("#team-parts-half-select").selectOption("2024-H1");
+  await page.locator("#team-parts-period-select").selectOption("2024-H1");
   await page.getByText("과거 반기 · 조회 전용").first().waitFor({ state: "visible", timeout: 10000 });
   await page.waitForTimeout(300);
   ck("과거 반기 박스 비활성", await page.locator("#team-parts-register-box").isDisabled());

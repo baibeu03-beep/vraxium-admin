@@ -1,0 +1,325 @@
+{
+  "capturedAt": "baseline-pre-implementation",
+  "orgLabels": {
+    "encre": "엥크레",
+    "oranke": "오랑캐",
+    "phalanx": "팔랑크스"
+  },
+  "summary": {
+    "asOf": "2026-07-31",
+    "currentWeekLabel": "[26년, 여름 시즌, 5주차]",
+    "structureTotals": {
+      "totalClubs": 3,
+      "totalTeams": 11,
+      "totalParts": 22
+    },
+    "rows": [
+      {
+        "clubId": "encre",
+        "clubSlug": "encre",
+        "clubName": "엥크레",
+        "staffCount": 3,
+        "teamLeaderCount": 3,
+        "teamEntityCount": 3,
+        "ambassadorCount": 0,
+        "clubbingCount": 28,
+        "regularCrewCount": 14,
+        "advancedCrewCount": 14,
+        "partCount": 7,
+        "partLeaderCount": 7,
+        "agentCount": 7
+      },
+      {
+        "clubId": "oranke",
+        "clubSlug": "oranke",
+        "clubName": "오랑캐",
+        "staffCount": 3,
+        "teamLeaderCount": 3,
+        "teamEntityCount": 3,
+        "ambassadorCount": 0,
+        "clubbingCount": 27,
+        "regularCrewCount": 13,
+        "advancedCrewCount": 14,
+        "partCount": 8,
+        "partLeaderCount": 8,
+        "agentCount": 6
+      },
+      {
+        "clubId": "phalanx",
+        "clubSlug": "phalanx",
+        "clubName": "팔랑크스",
+        "staffCount": 4,
+        "teamLeaderCount": 4,
+        "teamEntityCount": 5,
+        "ambassadorCount": 0,
+        "clubbingCount": 26,
+        "regularCrewCount": 14,
+        "advancedCrewCount": 12,
+        "partCount": 7,
+        "partLeaderCount": 7,
+        "agentCount": 5
+      }
+    ],
+    "totals": {
+      "staffCount": 10,
+      "teamLeaderCount": 10,
+      "teamEntityCount": 11,
+      "ambassadorCount": 0,
+      "clubbingCount": 81,
+      "regularCrewCount": 41,
+      "advancedCrewCount": 40,
+      "partCount": 22,
+      "partLeaderCount": 22,
+      "agentCount": 18
+    }
+  },
+  "idsByOrg": {
+    "encre": {
+      "teamLeader": [
+        "369d11e5-8c9e-423c-95e8-4e52a62460d7",
+        "75d9cb24-b6ab-495d-a46d-5e021d04bf7b",
+        "9d73cad4-12ec-4bd8-a118-58f8cf705122"
+      ],
+      "ambassador": [],
+      "regularCrew": [
+        "28c60d60-aa17-4614-9127-fd65a8aebcaf",
+        "37b7ddce-6146-4941-8c5f-c1dfa4e09f7e",
+        "42864260-e4ea-4150-a87f-cff545b02af1",
+        "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+        "614f78f4-c372-4c11-a17f-46b9e7bd4523",
+        "76a42307-f3b2-4c08-92ab-f339a20b7d38",
+        "98807fea-2137-4160-ba5c-dedcbdced0e8",
+        "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
+        "ce4085e9-5dff-4f5d-a64a-5ca99c0bfb0e",
+        "e0fc0a80-a4ae-4e39-b709-e09fabc174bd",
+        "f2d5c378-6a50-477f-b50d-2a21241e7640",
+        "f3a9bd26-46c1-4bb7-9285-94692380145f",
+        "f980b257-12b1-4f9c-ae71-307336071785",
+        "fff3941f-071c-4cca-b99a-da8bd6d2fae2"
+      ],
+      "partLeader": [
+        "36138fb1-6fea-4b22-b6d2-9c46cba47314",
+        "5fe0f152-3e4c-4313-8203-6fb6002c5393",
+        "9e2f8097-b1ce-4920-9c67-af9989074cfd",
+        "a3cdb8ca-f9c6-4122-b881-35c5f529f29f",
+        "e1a17a4a-05b5-443e-a95d-db20ec2ad9af",
+        "e649370f-ba2c-4d2f-b642-6800cb078d54",
+        "ee9bf53b-b7cf-4a27-8aeb-fa4a7ec605eb"
+      ],
+      "agent": [
+        "247021bc-374b-48f4-8d49-b181d149ee33",
+        "6293191d-f862-468d-96c3-f1a09c8d36aa",
+        "70abfec0-660b-4af3-a940-5d318f76bd4e",
+        "a3a91b4c-e3e7-45c8-9076-80eea01ad809",
+        "a80ea67a-8836-4c13-8568-66dff79d7a66",
+        "e81c8b30-20a2-4a10-bf2c-8c3ca474e4e7",
+        "ec11fe34-0cba-4bbc-afae-6d7514fdf57e"
+      ]
+    },
+    "oranke": {
+      "teamLeader": [
+        "3330f4c3-5331-4632-bbe6-01a19017a089",
+        "63813dc4-9dec-4511-83be-1f54196d09cf",
+        "dff09eb2-6534-42de-99bd-8bf2ed315c01"
+      ],
+      "ambassador": [],
+      "regularCrew": [
+        "13b8e55e-ff49-43f3-a01f-cb68bfb74581",
+        "3ba642d8-d658-4e87-8e15-3afdab8415c2",
+        "3d968dba-77a4-4382-a5ad-ad5cad7c1c34",
+        "43503c70-8518-4cdf-a05b-e78b5c721ff9",
+        "4bd185be-0c54-470e-a254-588e69064e37",
+        "5b3c0935-9bff-4e96-8efb-b7cbcb092bb2",
+        "5ce78bd8-126f-4636-b6a9-a43031a21930",
+        "87fbff25-c77a-4cf3-9482-67212e55aa6d",
+        "a714b4c6-84f8-4773-b83d-e5d484a1d30c",
+        "e6574586-6279-41cc-ae36-1c9dc3078bc3",
+        "ea286f9d-fb5b-492e-a081-cd5c200a4455",
+        "fd2afa0a-48c8-423c-b3a8-df417990002a",
+        "ff6adaf8-8993-4b5b-b5ea-a4fa1036cdee"
+      ],
+      "partLeader": [
+        "1a0b0f9e-4e10-4d06-aa56-6d26ee4b203a",
+        "28a39131-a719-4264-b2a4-96dbda64cbb6",
+        "58a4c844-6fd2-4108-8d2d-51c701018a7b",
+        "829f3ae6-68f7-4eb5-8bc4-3dcf7044ca06",
+        "8e38d52f-727e-429b-9db3-423cd031d2a5",
+        "92de9b41-6c4f-4684-87d9-6f9db01e5601",
+        "cc05522b-7a71-48fb-a291-3aaaefdf4865",
+        "fe17f587-b518-4b72-9646-5a590524355c"
+      ],
+      "agent": [
+        "020ec835-1ead-4ef5-adce-d0d97585beaa",
+        "0d6ec2d3-ec7a-43cc-b1a9-8bb8b3f18df3",
+        "b70636ec-ad98-43fd-aaf9-4209b9bd1dd4",
+        "bab78175-fd69-4ad3-b59d-6dead49ac3e3",
+        "ddce842a-23a4-49a1-b947-78b2a3f9ca64",
+        "edfe7e58-4681-4d40-ba46-199fc9d99d82"
+      ]
+    },
+    "phalanx": {
+      "teamLeader": [
+        "6678e364-68ad-4aa1-a531-79f62c2c166a",
+        "7e15f412-65be-481c-8525-460b161244ca",
+        "90de758a-3b0c-498d-af55-9b1324f36b88",
+        "f26e0bab-e138-41e6-a28b-676036a6a5aa"
+      ],
+      "ambassador": [],
+      "regularCrew": [
+        "05ff6b96-b3e7-4050-97f1-080633f183d3",
+        "0a113e53-b678-40d1-b51c-1278e1c3f0fa",
+        "5cd3cf48-0a62-41db-beb9-960987a485d2",
+        "5fa52ea5-d2a4-45df-900c-e08b0effc2fb",
+        "7a119bfc-32ef-4615-9ad0-22410785ac4e",
+        "9898f4a2-b873-4231-b2ac-321afa74555c",
+        "a26729db-1c3b-42c0-9bce-4316dd15b2a2",
+        "a4f686e1-867e-4a61-8323-c518c4288a14",
+        "ae55adcf-fd72-479f-86d3-60863b39a03d",
+        "b2e2d277-d40c-4cef-91cb-733b7d6e658a",
+        "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+        "d4033172-918e-4e76-9857-b5b2bb4601cf",
+        "db913eae-d0b2-4681-a257-723f84a4da9d",
+        "fcfbe22a-05d2-4260-bfa4-c716d11d38bd"
+      ],
+      "partLeader": [
+        "00b75923-2109-4214-806a-37667d64ac5e",
+        "35c987bf-015f-482c-b966-63fe55af0256",
+        "3fec1a7e-4a88-4bc7-8da8-9eb9daff6f8a",
+        "4263f72d-60e8-4235-bae2-3ed0921e1508",
+        "b303c17e-26ec-429c-804e-f0d25c3f9463",
+        "c17542ff-4eb2-4b4e-b584-1dfcb8ca39f5",
+        "fecffe36-1e01-40d6-aa83-7e2b698b6b89"
+      ],
+      "agent": [
+        "50f6a693-45fd-4b24-b8ee-959ce3e7fc4c",
+        "59c22d30-aece-4855-9958-bf34f8795d2a",
+        "b817db7d-ecd5-46bb-ab13-cc34134e5f9a",
+        "bd57f30b-308f-4fbb-a7b7-71d76b3ce73a",
+        "e4dcb97e-a515-4ec5-a91e-32ca4e629dae"
+      ]
+    }
+  },
+  "teamsByOrg": {
+    "encre": {
+      "currentHalfKey": "2026-H2",
+      "selectedHalfKey": "2026-H2",
+      "teams": [
+        {
+          "teamName": "비주얼랩(T)",
+          "leaderCrewCode": null,
+          "partCount": 3,
+          "partNames": [
+            "무드",
+            "아트",
+            "포토"
+          ]
+        },
+        {
+          "teamName": "사운드(T)",
+          "leaderCrewCode": null,
+          "partCount": 3,
+          "partNames": [
+            "일반",
+            "비트",
+            "보컬"
+          ]
+        },
+        {
+          "teamName": "팬덤실험(T)",
+          "leaderCrewCode": "026001-1254063",
+          "partCount": 3,
+          "partNames": [
+            "일반",
+            "이벤트",
+            "응원"
+          ]
+        }
+      ]
+    },
+    "oranke": {
+      "currentHalfKey": "2026-H2",
+      "selectedHalfKey": "2026-H2",
+      "teams": [
+        {
+          "teamName": "과일(T)",
+          "leaderCrewCode": "006004-2254013",
+          "partCount": 3,
+          "partNames": [
+            "수박",
+            "오렌지",
+            "참외"
+          ]
+        },
+        {
+          "teamName": "음료(T)",
+          "leaderCrewCode": "026006-2262013",
+          "partCount": 2,
+          "partNames": [
+            "주스",
+            "커피"
+          ]
+        },
+        {
+          "teamName": "콘텐츠실험(T)",
+          "leaderCrewCode": null,
+          "partCount": 3,
+          "partNames": [
+            "젤리",
+            "쿠키",
+            "케이크"
+          ]
+        }
+      ]
+    },
+    "phalanx": {
+      "currentHalfKey": "2026-H2",
+      "selectedHalfKey": "2026-H2",
+      "teams": [
+        {
+          "teamName": "운영(T)",
+          "leaderCrewCode": "035001-3262093",
+          "partCount": 2,
+          "partNames": [
+            "정책",
+            "응대"
+          ]
+        },
+        {
+          "teamName": "전략(T)",
+          "leaderCrewCode": null,
+          "partCount": 2,
+          "partNames": [
+            "기획",
+            "리서치"
+          ]
+        },
+        {
+          "teamName": "제품실험(T)",
+          "leaderCrewCode": null,
+          "partCount": 3,
+          "partNames": [
+            "데이터",
+            "검수",
+            "앱"
+          ]
+        },
+        {
+          "teamName": "테스트(T)",
+          "leaderCrewCode": "016001-3261063",
+          "partCount": 1,
+          "partNames": [
+            "일반"
+          ]
+        },
+        {
+          "teamName": "팀명(T)",
+          "leaderCrewCode": "016001-3261063",
+          "partCount": 1,
+          "partNames": [
+            "일반"
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -256,7 +256,9 @@ export default function TeamDetail({
   const router = useRouter();
   const searchParams = useSearchParams();
   const mode = readScopeMode(searchParams);
-  const halfParam = searchParams.get("half");
+  // 상위 화면(HalfPeriodSelect)이 쓰는 canonical 쿼리 키는 `period` — `half` 는 하위호환 alias.
+  //   ⚠ 이 페이지 내부적으로는 계속 `half` 라는 이름으로 API에 실어 보낸다(팀 상세 API 계약 불변).
+  const halfParam = searchParams.get("period") ?? searchParams.get("half");
   const clubName = ORGANIZATION_LABEL_KO[orgSlug];
 
   const [data, setData] = useState<TeamDetailData | null>(null);

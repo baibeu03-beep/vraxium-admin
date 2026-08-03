@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,25 +10,29 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { readOrgParam, buildAdminContextHref } from "@/lib/adminOrgContext";
 import { readScopeMode } from "@/lib/userScopeShared";
+import { readPeriodParam } from "@/components/admin/HalfPeriodSelect";
 import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
+import type { HalfPeriodMeta } from "@/lib/halfPeriod";
 
 // ── 클럽 목록(상위 페이지) — 각 클럽을 한 행으로 표시하고, 클럽명을 누르면 상세 하위 페이지로 이동 ──
-//   · 모든 값 = 현재 접속 시점(asOf) 기준(상세의 `해당 시기` select 와 무관).
-//   · 일반/test/actAs/demo·전 org 동일 API·DTO(mode 는 조회 컨텍스트로만 전파).
+//   · 모든 값 = 선택 반기(?period=) 기준(2026-07-31 확장). 반기 select 자체는 상위
+//     TeamPartsSummarySection 이 렌더링하고, 이 컴포넌트는 같은 URL 상태(period)만 읽는다.
+//   · 일반/test/actAs/demo·전 org 동일 API·DTO(mode·period 는 조회 컨텍스트로만 전파).
+//   · rosterSource/structureSource==="unavailable" 인 지표는 null → "기록 없음" 표시(0 과 구분).
 
 type ClubRow = {
   clubId: string;
   clubSlug: string;
   clubName: string;
-  staffCount: number;
-  teamLeaderCount: number;
-  ambassadorCount: number;
-  clubbingCount: number;
-  regularCrewCount: number;
-  advancedCrewCount: number;
-  partCount: number;
-  partLeaderCount: number;
-  agentCount: number;
+  staffCount: number | null;
+  teamLeaderCount: number | null;
+  ambassadorCount: number | null;
+  clubbingCount: number | null;
+  regularCrewCount: number | null;
+  advancedCrewCount: number | null;
+  partCount: number | null;
+  partLeaderCount: number | null;
+  agentCount: number | null;
 };
 type Totals = Omit<ClubRow, "clubId" | "clubSlug" | "clubName">;
 type SummaryResponse = {
@@ -36,7 +40,13 @@ type SummaryResponse = {
   currentWeekLabel: string;
   rows: ClubRow[];
   totals: Totals;
+  period: HalfPeriodMeta;
 };
+
+// null=기록 없음(그 반기 원장 자체가 없음), 그 외엔 항상 숫자(0 포함) — 절대 섞어 보이지 않는다.
+function fmtCell(v: number | null): string {
+  return v == null ? "기록 없음" : String(v);
+}
 
 // 숫자 컬럼 정의(표시 순서 = 요구 순서). key = ClubRow/Totals 의 숫자 필드.
 const NUM_COLUMNS: {
@@ -72,38 +82,43 @@ export default function ClubSummaryList() {
   const searchParams = useSearchParams();
   const orgFromUrl = readOrgParam(searchParams);
   const mode = readScopeMode(searchParams);
+  const period = readPeriodParam(searchParams);
 
   const [data, setData] = useState<SummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   useReportLoading(loading);
+  // 오래된 응답이 최신 선택을 덮지 않도록 단조 증가 seq 로 폐기(요구 15).
+  const reqSeqRef = useRef(0);
 
   const load = useCallback(async () => {
+    const seq = ++reqSeqRef.current;
     setLoading(true);
     setError(null);
-    // 로딩 중에는 이전 org/mode 값이 잔상으로 남지 않도록 비운다(skeleton 표시).
+    // 로딩 중에는 이전 org/mode/period 값이 잔상으로 남지 않도록 비운다(skeleton 표시).
     setData(null);
     try {
-      const params = new URLSearchParams();
+      const params = new URLSearchParams({ period });
       if (orgFromUrl) params.set("organization", orgFromUrl);
       if (mode === "test") params.set("mode", "test");
-      const qs = params.toString();
       const res = await fetch(
-        `/api/admin/team-parts/info/summary${qs ? `?${qs}` : ""}`,
+        `/api/admin/team-parts/info/summary?${params.toString()}`,
         { cache: "no-store" },
       );
       const json = await res.json();
       if (!res.ok || !json.success) {
         throw apiErrorFrom(res, json, `조회 실패 (${res.status})`);
       }
+      if (seq !== reqSeqRef.current) return; // 이 응답이 도착하기 전에 반기가 또 바뀜 — 폐기
       setData(json.data as SummaryResponse);
     } catch (e) {
+      if (seq !== reqSeqRef.current) return;
       setData(null);
       setError(getApiErrorMessage(e, "조회 실패"));
     } finally {
-      setLoading(false);
+      if (seq === reqSeqRef.current) setLoading(false);
     }
-  }, [orgFromUrl, mode]);
+  }, [orgFromUrl, mode, period]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -133,8 +148,13 @@ export default function ClubSummaryList() {
             <CardTitle>클럽 현황</CardTitle>
             {data ? (
               <p className="mt-1 text-sm text-muted-foreground">
-                현재 접속 시점(<span data-club-summary-asof>{data.asOf}</span>) 기준 ·{" "}
-                <span data-club-summary-week>{data.currentWeekLabel}</span> · 클럽명을
+                {data.period.isCurrentHalf
+                  ? "현재 접속 시점("
+                  : data.period.asOfDate
+                    ? `${data.period.periodLabel} 마지막 유효 시점(`
+                    : `${data.period.periodLabel} — 해당 시기 기록이 없습니다(`}
+                <span data-club-summary-asof>{data.period.asOfDate ?? "-"}</span>) 기준 ·{" "}
+                <span data-club-summary-week>{data.period.weekLabel ?? "-"}</span> · 클럽명을
                 누르면 상세 페이지로 이동합니다.
               </p>
             ) : null}
@@ -204,8 +224,14 @@ export default function ClubSummaryList() {
                         </Link>
                       </td>
                       {NUM_COLUMNS.map((c) => (
-                        <td key={c.key} data-club-cell={c.key} className={NUM_TD}>
-                          {club[c.key]}
+                        <td
+                          key={c.key}
+                          data-club-cell={c.key}
+                          className={
+                            NUM_TD + (club[c.key] == null ? " text-muted-foreground" : "")
+                          }
+                        >
+                          {fmtCell(club[c.key])}
                         </td>
                       ))}
                     </tr>
@@ -224,7 +250,7 @@ export default function ClubSummaryList() {
                         data-club-total={c.key}
                         className="border-t border-l px-3 py-2 text-center tabular-nums"
                       >
-                        {totals![c.key]}
+                        {fmtCell(totals![c.key])}
                       </td>
                     ))}
                   </tr>

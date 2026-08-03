@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { X } from "lucide-react";
@@ -16,7 +16,8 @@ import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import { organizationLabelKo, type OrganizationSlug } from "@/lib/organizations";
 import type { ClubCurrentSummaryRow } from "@/lib/adminClubSummaryData";
-import { parseHalfKey } from "@/lib/teamHalf";
+import { halfLabelKo } from "@/lib/teamHalf";
+import HalfPeriodSelect, { readPeriodParam } from "@/components/admin/HalfPeriodSelect";
 import { apiErrorFrom, getApiErrorMessage } from "@/lib/apiError";
 import { useActionToast } from "@/lib/actionToast";
 import { buildAdminContextHref } from "@/lib/adminOrgContext";
@@ -137,33 +138,12 @@ const TEAM_BOX_TONES = [
   "border-rose-300 bg-rose-50 dark:border-rose-900/70 dark:bg-rose-950/30",
 ];
 
-const SELECT_CLS =
-  "rounded-md border border-input bg-background px-3 py-2 text-sm";
-
-// 해당 시기 드롭다운 고정 옵션(2022 상반기 ~ 2026 하반기). 편집 가능/현재 여부는 백엔드 SoT.
-const HALF_OPTIONS = [
-  "2022-H1",
-  "2022-H2",
-  "2023-H1",
-  "2023-H2",
-  "2024-H1",
-  "2024-H2",
-  "2025-H1",
-  "2025-H2",
-  "2026-H1",
-  "2026-H2",
-] as const;
-
-function formatHalf(halfKey: string): string {
-  const p = parseHalfKey(halfKey);
-  if (!p) return halfKey;
-  return `${p.year}년 ${p.period === "H1" ? "상반기" : "하반기"}`;
-}
-
-// ── 조직별 현재 시점 현황 스트립 ────────────────────────────────────────────
+// ── 조직별 시점 현황 스트립 ────────────────────────────────────────────────
 //   상위 목록 표(ClubSummaryList)의 해당 조직 행과 **동일 DTO/집계**(loadClubCurrentSummary,
-//   /api/admin/team-parts/info/summary?organization={org})를 재사용해 9개 수치만 가로로 표시한다.
-//   ⚠ 모든 값 = 현재 접속 시점 기준 — 상세의 `해당 시기`(selectedHalf) 변경과 무관하다.
+//   /api/admin/team-parts/info/summary?organization={org}&period={period})를 재사용해
+//   9개 수치만 가로로 표시한다.
+//   ⚠ 값 = 상단 "해당 시기" select 가 가리키는 반기 기준(2026-07-31 확장 — 종전엔 half 와
+//     무관한 현재 시점 고정이었다). null 은 "그 반기 기록 없음"(0 과 구분, "기록 없음" 표시).
 //   ⚠ 표시는 현재 조직 값 하나뿐 — 클럽명 컬럼·다른 클럽 행·합계 행은 포함하지 않는다(org scope).
 //   도움말 키는 상위 목록과 동일 키(admin.teamPartsInfoClubs.column.*) 재사용(중복 정의 금지).
 type SummaryNumKey = Exclude<
@@ -185,9 +165,13 @@ const SUMMARY_ITEMS: { key: SummaryNumKey; label: string; helpKey: string }[] = 
 function ClubCurrentSummaryStrip({
   orgSlug,
   summary,
+  isCurrentHalf,
+  periodLabel,
 }: {
   orgSlug: OrganizationSlug;
   summary: ClubCurrentSummaryRow | null;
+  isCurrentHalf: boolean;
+  periodLabel: string;
 }) {
   return (
     <div
@@ -195,26 +179,34 @@ function ClubCurrentSummaryStrip({
       className="rounded-md border bg-muted/20 px-5 py-4"
     >
       <div className="mb-4 text-sm font-semibold text-muted-foreground">
-        현재 시점 현황
+        {isCurrentHalf ? "현재 시점 현황" : `${periodLabel} 시점 현황`}
       </div>
       {/* 반응형 4열 그리드 — 데스크톱 4열 / 태블릿 2열 / 모바일 1열. 9개 항목이라 큰 화면에서
           4×2 + 마지막(에이전트 수) 1칸(3행 첫 열). 억지 정렬/전체폭 확장 없음. */}
       <div className="grid grid-cols-1 gap-x-10 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
-        {SUMMARY_ITEMS.map((item) => (
-          <div
-            key={item.key}
-            data-club-current-cell={item.key}
-            className="flex items-center gap-2 whitespace-nowrap"
-          >
-            <span className="text-base font-medium text-muted-foreground">
-              · {item.label}
-            </span>
-            <strong className="text-lg font-bold tabular-nums text-foreground">
-              {summary ? summary[item.key] : "–"}
-            </strong>
-            <AdminHelpIconButton helpKey={item.helpKey} title={item.label} />
-          </div>
-        ))}
+        {SUMMARY_ITEMS.map((item) => {
+          const v = summary ? summary[item.key] : null;
+          return (
+            <div
+              key={item.key}
+              data-club-current-cell={item.key}
+              className="flex items-center gap-2 whitespace-nowrap"
+            >
+              <span className="text-base font-medium text-muted-foreground">
+                · {item.label}
+              </span>
+              <strong
+                className={
+                  "text-lg font-bold tabular-nums " +
+                  (v == null ? "text-sm font-normal text-muted-foreground" : "text-foreground")
+                }
+              >
+                {v == null ? "기록 없음" : v}
+              </strong>
+              <AdminHelpIconButton helpKey={item.helpKey} title={item.label} />
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -224,11 +216,14 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
   const searchParams = useSearchParams();
   // QA 모드(?mode=test) — 팀 정보 조회에 전파(백엔드 filterTeamsByScope 와 정합).
   const mode = readScopeMode(searchParams);
+  // 해당 시기(반기) — URL 이 유일한 상태(HalfPeriodSelect 와 동일 SoT). 로컬 half state 없음
+  //   (2026-07-31 확장 — 종전엔 컴포넌트 로컬 state 로만 관리해 URL 에 반영되지 않았다).
+  const period = readPeriodParam(searchParams);
   const activeOrg = clubId;
   const clubName = organizationLabelKo(clubId);
 
-  const [half, setHalf] = useState<string | null>(null);
   const [currentHalfKey, setCurrentHalfKey] = useState<string | null>(null);
+  const [selectedHalfKey, setSelectedHalfKey] = useState<string | null>(null);
   const [editable, setEditable] = useState(false);
   const [teams, setTeams] = useState<TeamDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -236,8 +231,8 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
   const [banner, setBanner] = useState<Banner>(null);
   const t = useActionToast();
 
-  // 조직별 현재 시점 현황(상위 목록과 동일 DTO/집계). ⚠ selectedHalf 무관 — half 변경 시 재조회하지
-  //   않는다. clubId·mode 변경 시에만 한 번 로드한다(현재 접속 시점 고정).
+  // 조직별 시점 현황(상위 목록과 동일 DTO/집계). 선택 반기(period) 기준 — period 변경 시 재조회한다
+  //   (2026-07-31 확장 — 종전엔 half 와 무관한 현재 시점 고정이었다).
   const [summary, setSummary] = useState<ClubCurrentSummaryRow | null>(null);
 
   // 팀 등록/수정 팝업(같은 컴포넌트, editingTeam 으로 모드 구분).
@@ -253,53 +248,56 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
 
   const isEditMode = editingTeam != null;
 
-  const load = useCallback(
-    async (halfKey: string | null) => {
-      setLoading(true);
-      setBanner(null);
-      // 다른 클럽/반기로 전환 시 이전 데이터가 잠깐 남지 않도록 비운다.
-      try {
-        const params = new URLSearchParams({ organization: clubId });
-        if (halfKey) params.set("half", halfKey);
-        if (mode === "test") params.set("mode", "test");
-        const res = await fetch(
-          `/api/admin/team-parts/info?${params.toString()}`,
-          { cache: "no-store" },
-        );
-        const json = await res.json();
-        if (!res.ok || !json.success) {
-          throw apiErrorFrom(res, json, `조회 실패 (${res.status})`);
-        }
-        const dto = json.data as InfoDto;
-        setCurrentHalfKey(dto.currentHalfKey);
-        setHalf(dto.selectedHalfKey);
-        setEditable(dto.editable);
-        setTeams(dto.teams);
-      } catch (e) {
-        setTeams([]);
-        setBanner({
-          kind: "error",
-          message: getApiErrorMessage(e, "조회 실패"),
-        });
-      } finally {
-        setLoading(false);
+  // 오래된 응답이 최신 선택을 덮지 않도록 단조 증가 seq 로 폐기(요구 15).
+  const reqSeqRef = useRef(0);
+
+  const load = useCallback(async () => {
+    const seq = ++reqSeqRef.current;
+    setLoading(true);
+    setBanner(null);
+    // 다른 클럽/반기로 전환 시 이전 데이터가 잠깐 남지 않도록 비운다.
+    setTeams([]);
+    try {
+      const params = new URLSearchParams({ organization: clubId, period });
+      if (mode === "test") params.set("mode", "test");
+      const res = await fetch(
+        `/api/admin/team-parts/info?${params.toString()}`,
+        { cache: "no-store" },
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw apiErrorFrom(res, json, `조회 실패 (${res.status})`);
       }
-    },
-    [clubId, mode],
-  );
+      if (seq !== reqSeqRef.current) return; // 이 응답이 도착하기 전에 반기가 또 바뀜 — 폐기
+      const dto = json.data as InfoDto;
+      setCurrentHalfKey(dto.currentHalfKey);
+      setSelectedHalfKey(dto.selectedHalfKey);
+      setEditable(dto.editable);
+      setTeams(dto.teams);
+    } catch (e) {
+      if (seq !== reqSeqRef.current) return;
+      setTeams([]);
+      setBanner({
+        kind: "error",
+        message: getApiErrorMessage(e, "조회 실패"),
+      });
+    } finally {
+      if (seq === reqSeqRef.current) setLoading(false);
+    }
+  }, [clubId, mode, period]);
 
   useEffect(() => {
-    // clubId·mode 변경 시 재조회.
+    // clubId·mode·period 변경 시 재조회.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load(null);
+    void load();
   }, [load]);
 
-  // 현재 시점 현황 요약 — /summary?organization={org} (상위 목록과 동일 함수·DTO). half 와 독립적으로
-  //   clubId·mode 에만 반응(과거 반기 선택 시에도 숫자 불변). 팀장 지정/교체/삭제로 역할이 바뀌면
-  //   운영진/팀장 수도 즉시 반영돼야 하므로 mutation 후에도 재호출한다(요구 C). 실패해도 팀 상세는 정상.
+  // 시점 현황 요약 — /summary?organization={org}&period={period} (상위 목록과 동일 함수·DTO).
+  //   clubId·mode·period 에 반응. 팀장 지정/교체/삭제로 역할이 바뀌면 운영진/팀장 수도 즉시
+  //   반영돼야 하므로 mutation 후에도 재호출한다(요구 C). 실패해도 팀 상세는 정상.
   const loadSummary = useCallback(async () => {
     try {
-      const params = new URLSearchParams({ organization: clubId });
+      const params = new URLSearchParams({ organization: clubId, period });
       if (mode === "test") params.set("mode", "test");
       const res = await fetch(
         `/api/admin/team-parts/info/summary?${params.toString()}`,
@@ -313,29 +311,27 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
     } catch {
       // 현황 스트립은 보조 정보 — 조회 실패 시 값만 비운다(팀 상세는 그대로).
     }
-  }, [clubId, mode]);
+  }, [clubId, mode, period]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadSummary();
   }, [loadSummary]);
 
-  const onHalfChange = (value: string) => {
-    void load(value);
-  };
-  const isCurrentHalf = half != null && half === currentHalfKey;
+  const isCurrentHalf = selectedHalfKey != null && selectedHalfKey === currentHalfKey;
   const atLimit = teams.length >= MAX_TEAMS_PER_CLUB;
 
-  // 팀 배지 → 팀 상세 링크. path 로 org+teamHalfId, ?half 로 선택 반기 전달(직접 진입=현재 반기).
-  //   org/mode/actAs/demo 컨텍스트는 buildAdminContextHref 로 보존(진입 컨텍스트 유실 방지).
+  // 팀 배지 → 팀 상세 링크. path 로 org+teamHalfId. org/mode/actAs/demo/**period** 컨텍스트는
+  //   buildAdminContextHref 가 현재 URL 에서 그대로 이어붙인다(진입 컨텍스트 유실 방지 — period 는
+  //   ADMIN_CONTEXT_PARAMS 에 등록돼 있어 수동으로 붙일 필요가 없다).
   const teamDetailHref = useMemo(
     () => (teamHalfId: string) =>
       buildAdminContextHref({
-        targetPath: `/admin/team-parts/info/${clubId}/${teamHalfId}${half ? `?half=${half}` : ""}`,
+        targetPath: `/admin/team-parts/info/${clubId}/${teamHalfId}`,
         pathname,
         searchParams,
       }),
-    [clubId, half, pathname, searchParams],
+    [clubId, pathname, searchParams],
   );
 
   // ── 팝업 제어 ──
@@ -422,7 +418,7 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
     !registering;
 
   const submitTeam = async () => {
-    if (!half || !leader) return;
+    if (!leader) return;
     setRegistering(true);
     try {
       const res = await fetch(appendModeQuery(`/api/admin/team-parts/info`, mode), {
@@ -430,7 +426,7 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           organization: activeOrg,
-          halfKey: half,
+          halfKey: period,
           ...(isEditMode ? { teamHalfId: editingTeam!.teamHalfId } : {}),
           teamName: teamName.trim(),
           description: description.trim(),
@@ -446,7 +442,7 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
         isEditMode ? "팀이 수정되었습니다." : "팀이 등록되었습니다.",
       );
       closeModal();
-      await load(half);
+      await load();
       // 팀장 지정/교체로 role 이 바뀌면 운영진/팀장 수도 즉시 갱신.
       void loadSummary();
     } catch (e) {
@@ -459,14 +455,13 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
   };
 
   const confirmDelete = async (target: TeamDto) => {
-    if (!half) return;
     try {
       const res = await fetch(appendModeQuery(`/api/admin/team-parts/info`, mode), {
         method: "DELETE",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           organization: activeOrg,
-          halfKey: half,
+          halfKey: period,
           teamHalfId: target.teamHalfId,
         }),
       });
@@ -475,7 +470,7 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
         throw apiErrorFrom(res, json, "삭제에 실패했습니다.");
       }
       t.success("delete", "팀이 삭제 대기 상태로 전환되었습니다.");
-      await load(half);
+      await load();
       // 팀 삭제로 이전 팀장 role 이 복원되면 운영진/팀장 수도 즉시 갱신.
       void loadSummary();
     } catch (e) {
@@ -516,31 +511,10 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
           </div>
         ) : null}
 
-        {/* 상단 조회 조건(해당 시기) + 팀 수·반기 편집 상태 */}
+        {/* 상단 조회 조건(해당 시기) + 팀 수·반기 편집 상태 — select 는 상위 목록과 동일
+            HalfPeriodSelect 공용 컴포넌트(URL ?period= 단일 상태). */}
         <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3">
-          <div className="flex shrink-0 items-center gap-2 text-sm font-semibold">
-            <span className="inline-flex items-center gap-1">
-              <span>● 해당 시기</span>
-              <AdminHelpIconButton
-                helpKey="admin.teamParts.info.filter.half"
-                title="해당 시기"
-              />
-            </span>
-            <select
-              id="team-parts-half-select"
-              className={SELECT_CLS}
-              value={half ?? ""}
-              onChange={(e) => onHalfChange(e.target.value)}
-              disabled={loading}
-            >
-              {HALF_OPTIONS.map((hk) => (
-                <option key={hk} value={hk}>
-                  {formatHalf(hk)}
-                  {hk === currentHalfKey ? " (현재)" : ""}
-                </option>
-              ))}
-            </select>
-          </div>
+          <HalfPeriodSelect />
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
             <span className="inline-flex items-center gap-1 text-sm">
               · 팀 수{" "}
@@ -576,10 +550,16 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
           </div>
         </div>
 
-        {/* 조직별 현재 시점 현황(운영진·팀장 수·앰배서더·클러빙·정규/심화·파트/파트장·에이전트).
-            ⚠ 위 '해당 시기' select 와 무관한 현재 접속 시점 값 — half 변경 시 이 숫자는 바뀌지 않는다.
-            위 '· 팀 수 3 / 10'(선택 반기 실제 팀 entity 현황)과는 다른 의미다. */}
-        <ClubCurrentSummaryStrip orgSlug={activeOrg} summary={summary} />
+        {/* 조직별 시점 현황(운영진·팀장 수·앰배서더·클러빙·정규/심화·파트/파트장·에이전트).
+            위 '해당 시기' select 가 가리키는 반기 기준(2026-07-31 확장 — 종전엔 half 와 무관한
+            현재 접속 시점 고정이었다). 위 '· 팀 수 3 / 10'(선택 반기 실제 팀 entity 현황)과는
+            다른 의미다(이쪽은 사람/역할 수, 그쪽은 팀 entity 개수). */}
+        <ClubCurrentSummaryStrip
+          orgSlug={activeOrg}
+          summary={summary}
+          isCurrentHalf={isCurrentHalf}
+          periodLabel={halfLabelKo(period)}
+        />
 
         {loading ? (
           <LoadingState active />
@@ -711,8 +691,7 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
           >
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-bold">
-                {isEditMode ? "팀 수정" : "팀 등록"} · {clubName} ·{" "}
-                {half ? formatHalf(half) : ""}
+                {isEditMode ? "팀 수정" : "팀 등록"} · {clubName} · {halfLabelKo(period)}
               </h2>
               <div className="flex items-center gap-2">
                 <span className="inline-flex items-center gap-1">

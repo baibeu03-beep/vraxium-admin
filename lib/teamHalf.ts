@@ -6,6 +6,19 @@
 //     {YYYY} 상반기(H1) → {YYYY}-spring   (겨울·봄 중 마지막)
 //     {YYYY} 하반기(H2) → {YYYY}-autumn   (여름·가을 중 마지막)
 //   season_definitions(연 4시즌)는 그대로 두고, 본 파일이 반기↔시즌 매핑만 더한다.
+//
+// 반기 경계는 **달력 월이 아니라 시즌 일정 기준**이다(2026-07-31 확정). 예:
+//   2026-H1 = 2025-12-29(겨울 시작) ~ 2026-06-28(봄+전환주차 끝)
+//   2026-H2 = 2026-06-29(여름 시작) ~ 2026-12-27(가을+전환주차 끝)
+// `resolveCurrentHalfKey()`(adminTeamHalvesData.ts, DB `season_definitions` 조회)와
+// `halfKeyForDate()`(아래, 순수 캘린더)는 같은 앵커(seasonCalendar ANCHOR_MS)를 쓰므로
+// 항상 같은 결과를 낸다 — 두 SoT 로 갈라지지 않는다.
+
+import {
+  getSeasonForDate,
+  seasonDbKey,
+  type Season,
+} from "@/lib/seasonCalendar";
 
 export type HalfPeriod = "H1" | "H2";
 
@@ -90,4 +103,62 @@ export function isEditableHalf(
 ): boolean {
   if (!currentHalfKey) return false;
   return halfKey === currentHalfKey || halfKey === nextHalfKey(currentHalfKey);
+}
+
+// ── "해당 시기" 드롭다운 공용 SoT (2026-07-31) ────────────────────────────────
+//   /admin/team-parts/info/* 전체(상위 목록·클럽 상세·팀 상세)가 이 상수·함수를 공유한다.
+//   화면마다 옵션 배열을 복붙하지 않는다(종전 ClubTeamDetail.tsx 로컬 HALF_OPTIONS 흡수).
+
+// 고정 10개(2022-H1~2026-H2). DB 에 데이터가 없는 반기도 선택지로는 항상 노출한다
+// (없으면 "기록 없음" — lib/halfPeriod.ts 의 rosterSource/structureSource 가 판정).
+export const HALF_PERIODS = [
+  "2022-H1",
+  "2022-H2",
+  "2023-H1",
+  "2023-H2",
+  "2024-H1",
+  "2024-H2",
+  "2025-H1",
+  "2025-H2",
+  "2026-H1",
+  "2026-H2",
+] as const;
+
+export type HalfPeriodKey = (typeof HALF_PERIODS)[number];
+
+export function isHalfPeriodOption(value: unknown): value is HalfPeriodKey {
+  return typeof value === "string" && (HALF_PERIODS as readonly string[]).includes(value);
+}
+
+// 날짜 → 반기. **순수 함수**(DB 접근 없음) — seasonCalendar 의 앵커 기반 캘린더로만 계산한다.
+//   resolveCurrentHalfKey()(DB `season_definitions` 조회)와 같은 앵커를 쓰므로 항상 일치한다
+//   (전환 주차 경계 포함 실측 확인됨 — 2026-06-28=H1 마지막 날, 2026-06-29=H2 첫날).
+export function halfKeyForDate(dateIso: string): string {
+  const season: Season | null = getSeasonForDate(dateIso);
+  if (!season) {
+    // 캘린더 범위 밖(극단적 과거/미래) — 연도만으로 최선 추정(문서화된 폴백).
+    const year = Number(dateIso.slice(0, 4));
+    const month = Number(dateIso.slice(5, 7));
+    return `${year}-${month <= 6 ? "H1" : "H2"}`;
+  }
+  return seasonKeyToHalfKey(seasonDbKey(season)) ?? `${season.year}-H1`;
+}
+
+// '2026-H2' → '26년도 하반기' (드롭다운 표시 전용 어휘 — halfLabel()의 '2026 하반기'와는
+//   다른 화면이 쓰는 별개 어휘라 기존 함수를 바꾸지 않고 새로 둔다).
+export function halfLabelKo(halfKey: string): string {
+  const parsed = parseHalfKey(halfKey);
+  if (!parsed) return halfKey;
+  const yy = String(parsed.year % 100).padStart(2, "0");
+  return `${yy}년도 ${parsed.period === "H1" ? "상반기" : "하반기"}`;
+}
+
+// URL 쿼리 period 값 정규화 — 유효하지 않으면(오타·범위 밖·미지정) fallback(보통 현재 반기)으로
+//   안전 보정한다. 400 오류를 내지 않는다(요구: 잘못된 값도 화면은 항상 뜬다).
+export function normalizeHalfKeyParam(
+  raw: string | null | undefined,
+  fallback: string,
+): string {
+  const trimmed = raw?.trim();
+  return trimmed && isHalfPeriodOption(trimmed) ? trimmed : fallback;
 }

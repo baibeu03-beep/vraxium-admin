@@ -66,6 +66,9 @@ export const ADMIN_CONTEXT_PARAMS = [
   "club",
   "actAsTestUserId",
   "demoUserId",
+  // /admin/team-parts/info/* 의 "해당 시기" 반기 선택(2026-07-31). 상위 목록 → 클럽 상세 →
+  //   팀 상세 이동 시에도 선택 반기가 유지되도록 다른 컨텍스트 파라미터와 동일하게 전파한다.
+  "period",
 ] as const;
 
 // 목적지 href 에 "출발 화면"의 어드민 컨텍스트를 얹어 돌려준다(수동 문자열 연결 반복 제거).

@@ -9,12 +9,15 @@ import { guardAdminOrgAccess } from "@/lib/adminOrgAccess";
 import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
 import { readScopeMode } from "@/lib/userScopeShared";
 import { loadClubCurrentSummary } from "@/lib/adminClubSummaryData";
+import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
+import { halfKeyForDate, normalizeHalfKeyParam } from "@/lib/teamHalf";
 
 // 클럽 목록(상위 페이지) 요약.
-//   GET ?[organization=]&[mode=test]
+//   GET ?[organization=]&[period=2026-H2]&[mode=test]
 //     · organization 지정 → 해당 클럽 1행(guardAdminOrgAccess 로 권한 검증).
 //     · 미지정(통합) → 전 조직 행.
-//   모든 값 = 현재 접속 시점 기준(상세 페이지의 selectedHalf 와 무관). 일반/test 동일 함수·DTO.
+//     · period 미지정/유효하지 않음 → 현재 반기로 안전 보정(400 을 내지 않는다).
+//   모든 값 = 선택 반기(period) 기준. 일반/test 동일 함수·DTO(응답의 `period` 블록 참고).
 export async function GET(request: NextRequest) {
   let admin: AdminContext;
   try {
@@ -40,9 +43,15 @@ export async function GET(request: NextRequest) {
   }
 
   const mode = readScopeMode(request.nextUrl.searchParams);
+  const today = getCurrentActivityDateIso();
+  const rawPeriod =
+    request.nextUrl.searchParams.get("period")?.trim() ||
+    request.nextUrl.searchParams.get("half")?.trim() ||
+    null;
+  const halfKey = normalizeHalfKeyParam(rawPeriod, halfKeyForDate(today));
 
   try {
-    const data = await loadClubCurrentSummary({ mode, orgs });
+    const data = await loadClubCurrentSummary({ mode, orgs, halfKey });
     return Response.json({ success: true, data });
   } catch (error) {
     console.error("[admin/team-parts/info/summary GET]", error);

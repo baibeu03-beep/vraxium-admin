@@ -43,6 +43,7 @@ import type { ScopeMode } from "@/lib/userScopeShared";
 import { resolveUserScope } from "@/lib/userScope";
 import { SUPER_ADMIN_EXCLUDE_OR } from "@/lib/superAdmins";
 import { markWeeklyCardsSnapshotStaleMany } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { resolveHalfPeriod } from "@/lib/halfPeriod";
 import {
   loadWeekPositionOverridesByUser,
   type OverridePosition,
@@ -922,15 +923,88 @@ export async function loadCurrentClubStructure(
   return { currentHalfKey, perOrg, totals };
 }
 
+// 임의 반기(halfKey) + 기준 주차(asOfWeekId) 기준 조직 "구조" 숫자 — loadCurrentClubStructure 의
+//   반기 파라미터화 버전. `lib/halfPeriod.ts` 의 resolveHalfPeriod() 가 정한 halfKey/asOfWeekId 를
+//   그대로 받는다(이 함수 안에서 "현재가 언제인지"를 다시 판단하지 않는다 — 단일 asOf 원천 원칙).
+//   ⚠ loadCurrentClubStructure(mode, today) 는 위치 인자 시그니처를 쓰는 기존 소비처가 있어
+//     그대로 둔다(무회귀). 이 함수는 별도로 추가한 반기 대응 경로다.
+export type HalfClubStructureRow = {
+  orgSlug: OrganizationSlug;
+  teamEntityCount: number;
+  partCount: number;
+};
+export type HalfClubStructure = {
+  perOrg: HalfClubStructureRow[];
+  totals: { totalClubs: number; totalTeams: number; totalParts: number };
+};
+
+export async function loadClubStructure(opts: {
+  halfKey: string;
+  asOfWeekId: string | null;
+  mode?: ScopeMode;
+  today?: string;
+}): Promise<HalfClubStructure> {
+  const { halfKey, asOfWeekId, mode = "operating", today } = opts;
+  const wantQaTest = resolveEffectiveScopeMode(mode) === "test";
+  const perOrg: HalfClubStructureRow[] = [];
+  const totals = { totalClubs: 0, totalTeams: 0, totalParts: 0 };
+
+  const results = await Promise.all(
+    [...ORGANIZATIONS].map(async (org) => {
+      const scoped = (await loadHalfRows(org, halfKey, { activeOnly: true })).filter(
+        (r) => r.is_qa_test === wantQaTest,
+      );
+      // asOfWeekId 가 없으면(그 반기에 주차 자체가 없음 — 예: 2022) 팀 entity 도 통상 0행이라
+      //   listOperatedTeamParts 를 호출하지 않는다(호출하면 today 로 폴백해 현재 주차를 잘못 본다).
+      const partsPerTeam = asOfWeekId
+        ? await Promise.all(
+            scoped.map((r) =>
+              listOperatedTeamParts({
+                organization: org,
+                teamName: r.team_name,
+                weekId: asOfWeekId,
+                mode,
+                today,
+              }),
+            ),
+          )
+        : scoped.map(() => [] as string[]);
+      const partCount = partsPerTeam.reduce((sum, parts) => sum + parts.length, 0);
+      return { orgSlug: org, teamEntityCount: scoped.length, partCount };
+    }),
+  );
+
+  for (const r of results) {
+    perOrg.push(r);
+    if (r.teamEntityCount > 0) totals.totalClubs += 1;
+    totals.totalTeams += r.teamEntityCount;
+    totals.totalParts += r.partCount;
+  }
+  return { perOrg, totals };
+}
+
+// halfKey 미지정(또는 현재 반기) → 기존 동작 그대로(byte-identical, 무회귀). halfKey 가 과거
+//   반기면 counts(전체 클럽/팀/파트 수)만 그 반기 기준으로 바뀐다 — "오늘은 …" 문구의 날짜·주차는
+//   항상 실제 오늘(변경 없음, 2026-07-31 사용자 확정: "오늘은" 문구는 실제 오늘 안내이므로 유지).
 export async function loadTeamPartsCurrentSummary(
   mode: ScopeMode = "operating",
   today?: string,
+  halfKey?: string | null,
 ): Promise<TeamPartsInfoSummaryDto> {
-  // 날짜·주차 + 구조 숫자를 각각 단일 SoT 함수에서 파생(클럽 목록 표와 완전 동일 원천).
-  const [week, structure] = await Promise.all([
+  const [week, period] = await Promise.all([
     resolveCurrentWeekInfo(today),
-    loadCurrentClubStructure(mode, today),
+    halfKey ? resolveHalfPeriod({ halfKey, today }) : Promise.resolve(null),
   ]);
+
+  if (!period || period.isCurrentHalf) {
+    const structure = await loadCurrentClubStructure(mode, today);
+    return { currentDate: week.currentDate, currentWeek: week.currentWeek, counts: structure.totals };
+  }
+
+  const structure =
+    period.structureSource === "unavailable"
+      ? { totals: { totalClubs: 0, totalTeams: 0, totalParts: 0 } }
+      : await loadClubStructure({ halfKey: period.period, asOfWeekId: period.asOfWeekId, mode, today });
   return {
     currentDate: week.currentDate,
     currentWeek: week.currentWeek,
@@ -989,9 +1063,10 @@ export async function loadTeamPartsInfo(
     ? await fillTeamPartsFromMatrix(organization, selected, teams, mode, todayIso)
     : [];
 
-  // 상단 요약 — 현재 접속 시점 기준(선택 반기와 무관). mode 스코프만 전파(운영/test 동일 함수).
-  //   모든 org 응답이 동일 값을 담으므로 프론트는 base(첫 결과)만 읽어도 전 조직 현황을 얻는다.
-  const summary = await loadTeamPartsCurrentSummary(mode, today);
+  // 상단 요약 — 날짜/주차는 항상 실제 오늘, 전체 클럽/팀/파트 수는 선택 반기(selected) 기준.
+  //   mode 스코프만 전파(운영/test 동일 함수). 모든 org 응답이 동일 값을 담으므로 프론트는
+  //   base(첫 결과)만 읽어도 전 조직 현황을 얻는다.
+  const summary = await loadTeamPartsCurrentSummary(mode, today, selected);
 
   // 팀별 현재 시점 크루 수(클러빙/정규/심화) — team_name 기준·selectedHalf 무관. 클럽 상세 카드 + 팀 상세 공용.
   if (teams.length > 0 && isOrganizationSlug(organization)) {

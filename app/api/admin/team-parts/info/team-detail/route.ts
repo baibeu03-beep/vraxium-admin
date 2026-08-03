@@ -11,7 +11,7 @@ import { readScopeMode } from "@/lib/userScopeShared";
 import { loadTeamDetail } from "@/lib/adminTeamHalvesData";
 
 // 팀 상세(클럽 상세 → 팀 상세).
-//   GET ?organization=&teamHalfId=&half=
+//   GET ?organization=&teamHalfId=&period=(half= 하위호환)
 //     · teamHalfId(앵커) 로 팀(org+team_name)을 확정하고 선택 반기의 상세를 반환.
 //     · 404: 미존재 id / 타 org / 비활성(삭제 대기) / 스코프(QA) 불일치. (loadTeamDetail null)
 //   모든 값 구조는 loadTeamPartsInfo 와 동일 원천 — 크루 수만 현재 시점(팀명 기준·반기 무관).
@@ -43,14 +43,17 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const half = request.nextUrl.searchParams.get("half")?.trim() || null;
+  const period =
+    request.nextUrl.searchParams.get("period")?.trim() ||
+    request.nextUrl.searchParams.get("half")?.trim() ||
+    null;
   const mode = readScopeMode(request.nextUrl.searchParams);
 
   try {
     const data = await loadTeamDetail({
       organization,
       anchorTeamHalfId: teamHalfId,
-      selectedHalfKey: half,
+      selectedHalfKey: period,
       mode,
     });
     if (!data) {

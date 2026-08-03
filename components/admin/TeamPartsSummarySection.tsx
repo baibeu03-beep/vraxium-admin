@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import HalfPeriodSelect, { readPeriodParam } from "@/components/admin/HalfPeriodSelect";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { readOrgParam } from "@/lib/adminOrgContext";
@@ -15,11 +16,11 @@ import {
   type OrganizationSlug,
 } from "@/lib/organizations";
 
-// ── [섹션.1] 상단 요약 — **현재 접속 시점(today) 전용** ──────────────────────────────
-//   오늘 날짜·현재 주차 · 전체 클럽/팀/파트 수 · 클럽별 팀 배지(팀장명). 모두 현재 시점 기준.
-//   ⚠ `해당 시기`(selectedHalf) 선택 UI 는 여기에 두지 않는다 — 그것은 상세 페이지 전용이다.
-//     상위 페이지는 "현재 조직 현황"만 보여주며 selectedHalf 를 사용하지 않는다.
-//   신규 클럽 현황 표(ClubSummaryList)도 현재 시점 기준으로 이 섹션 "아래"에 온다.
+// ── [섹션.1] 상단 요약 ────────────────────────────────────────────────────────────
+//   "오늘은 …" 문구(날짜·주차)는 **항상 실제 오늘** — 선택 반기와 무관(2026-07-31 사용자 확정).
+//   전체 클럽/팀/파트 수·클럽별 팀 배지(팀장명)는 **선택 반기(?period=)** 기준으로 바뀐다.
+//   `해당 시기` select 는 "오늘은 …" 문구 왼쪽에 둔다 — 클럽 상세·팀 상세와 같은 컴포넌트
+//   (HalfPeriodSelect) 를 공유하고, URL 이 유일한 상태다(로컬 half state 없음).
 
 type TeamDto = {
   teamName: string;
@@ -57,6 +58,7 @@ export default function TeamPartsSummarySection() {
   const searchParams = useSearchParams();
   const orgFromUrl = readOrgParam(searchParams);
   const mode = readScopeMode(searchParams);
+  const period = readPeriodParam(searchParams);
   // 개별 경로(?org={slug}) = URL org 1개, 통합(org 없음) = 전 조직 배지.
   const scopeOrgs = useMemo(
     () => (orgFromUrl ? [orgFromUrl] : [...ORGANIZATIONS]),
@@ -66,16 +68,22 @@ export default function TeamPartsSummarySection() {
   const [byOrg, setByOrg] = useState<Record<string, TeamDto[]>>({});
   const [summary, setSummary] = useState<SummaryDto | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   useReportLoading(loading);
+  // 오래된 응답이 최신 선택을 덮지 않도록 단조 증가 seq 로 폐기(요구 15).
+  const reqSeqRef = useRef(0);
 
-  // 현재 시점 조회 — half 파라미터를 넘기지 않는다(서버가 현재 반기로 기본 선택).
-  //   요약(날짜/주차/전체 수치)은 selectedHalf 와 무관한 현재 시점 값이고, 배지 목록은 현재 반기 팀이다.
   const load = useCallback(async () => {
+    const seq = ++reqSeqRef.current;
     setLoading(true);
+    setError(false);
+    // 반기 전환 시 이전 반기 데이터가 새 제목 아래 잠시 보이지 않도록 비운다.
+    setByOrg({});
+    setSummary(null);
     try {
       const results = await Promise.all(
         scopeOrgs.map(async (org) => {
-          const params = new URLSearchParams({ organization: org });
+          const params = new URLSearchParams({ organization: org, period });
           if (mode === "test") params.set("mode", "test");
           const res = await fetch(
             `/api/admin/team-parts/info?${params.toString()}`,
@@ -88,6 +96,7 @@ export default function TeamPartsSummarySection() {
           return json.data as InfoDto;
         }),
       );
+      if (seq !== reqSeqRef.current) return; // 이 응답이 도착하기 전에 반기가 또 바뀜 — 폐기
       setSummary(results[0].summary);
       const map: Record<string, TeamDto[]> = {};
       scopeOrgs.forEach((org, i) => {
@@ -95,11 +104,13 @@ export default function TeamPartsSummarySection() {
       });
       setByOrg(map);
     } catch {
-      setByOrg({});
+      if (seq !== reqSeqRef.current) return;
+      // 오류 시 기존 데이터를 비운 채 오류만 표시(잘못된 반기처럼 0 을 보여주지 않는다).
+      setError(true);
     } finally {
-      setLoading(false);
+      if (seq === reqSeqRef.current) setLoading(false);
     }
-  }, [mode, scopeOrgs]);
+  }, [mode, period, scopeOrgs]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -115,10 +126,12 @@ export default function TeamPartsSummarySection() {
         </div>
       </CardHeader>
       <CardContent>
-        {/* ── [섹션.1] 요약(현재 시점 전용) ─────────────────────────── */}
+        {/* ── [섹션.1] 요약 ────────────────────────────────────────── */}
         <section className="rounded-lg border border-dashed border-red-300 p-4">
-          {/* 좌: 오늘 날짜·현재 주차 / 우(맨 끝): 전체 클럽·팀·파트 수. ml-auto 로 카드 오른쪽 끝 고정. */}
+          {/* 좌: 해당 시기 select + 오늘 날짜·현재 주차 / 우(맨 끝): 전체 클럽·팀·파트 수(선택 반기 기준).
+              ml-auto 로 카드 오른쪽 끝 고정. 좁은 화면은 자연 줄바꿈, select 내부 문구만 nowrap. */}
           <div className="mb-3 flex flex-wrap items-center gap-x-6 gap-y-3">
+            <HalfPeriodSelect />
             <p className="min-w-0 whitespace-nowrap text-sm text-muted-foreground">
               오늘은{" "}
               <span
@@ -169,6 +182,15 @@ export default function TeamPartsSummarySection() {
               </span>
             </div>
           </div>
+
+          {error ? (
+            <div
+              data-team-parts-summary-error
+              className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700"
+            >
+              조회 실패 — 값을 표시할 수 없습니다.
+            </div>
+          ) : null}
 
           {loading ? (
             <LoadingState active />
