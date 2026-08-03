@@ -747,29 +747,6 @@ function VariableCard({ act }: { act: ActCheckVariableActDto }) {
   );
 }
 
-// 실무 경험 허브 전체(팀 무관) 변동 액트 — process_irregular_acts 에 team_id 가 없어 팀별로
-//   나눌 수 없는 hub_grade='experience' 변동 액트를 팀 탭과 별도로 한 곳에 모아 보여준다.
-function ExperienceHubVariableRow({ variableActsByDay }: { variableActsByDay: HubVariableByDay }) {
-  const flatDays = DAY_GROUPS.flat();
-  const cards = flatDays.flatMap((d) => variableActsByDay[d.key].map((v) => ({ day: d.label, v })));
-  if (cards.length === 0) return null;
-  return (
-    <div className="rounded-md border border-orange-200 bg-orange-50 p-3 dark:border-orange-900 dark:bg-orange-950/20">
-      <p className="mb-2 text-xs font-bold text-orange-900 dark:text-orange-200">
-        변동 액트(허브 전체 — 팀 무관, {cards.length}건)
-      </p>
-      <div className="flex flex-wrap gap-2">
-        {cards.map(({ day, v }) => (
-          <div key={v.id} className="flex flex-col gap-0.5">
-            <span className="text-[10px] text-muted-foreground">{day}요일</span>
-            <VariableCard act={v} />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 // 허브 라인/변동 데이터 타입(실무 정보·실무 경험 팀 공용).
 type HubLine = ActCheckManagementData["practicalInfo"]["lines"][number];
 type HubVariableByDay = ActCheckManagementData["practicalInfo"]["variableActsByDay"];
@@ -2035,7 +2012,6 @@ export default function TeamPartsInfoWeekDetailManager({
                       return (
                         <div className="space-y-4 border-t border-zinc-200 pt-8 dark:border-zinc-800" data-hub-section="experience">
                           <ActSummaryRow title="허브 급 2 : [실무 경험]" s={actData.practicalExperience.summary} level={2} />
-                          <ExperienceHubVariableRow variableActsByDay={actData.practicalExperience.variableActsByDay} />
                           {teams.length === 0 ? (
                             <p className="rounded-md border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
                               이번 주 활동하는 팀이 없습니다.

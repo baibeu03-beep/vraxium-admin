@@ -163,6 +163,12 @@ export default function ProcessIrregularReviewDetail({
           />
           <Row label="액트 종류" value={IRREGULAR_CREW_REACTION_LABEL[act.crewReaction]} />
           <Row label="소속 허브 급" value={act.hubGradeLabel} />
+          {act.hubGrade === "experience" && (
+            <>
+              <Row label="소속 팀" value={act.teamName ?? "-"} />
+              <Row label="소속 파트" value={act.partScopeLabel ?? "-"} />
+            </>
+          )}
           <Row label="소속 라인 급" value={act.lineGradeLabel} />
           <Row
             label="링크"

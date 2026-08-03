@@ -138,14 +138,12 @@ export type ActCheckManagementData = {
     // 요일별 변동 액트(정규 액트 아래 "변동 액트" 행에 표시).
     variableActsByDay: Record<DayKey, ActCheckVariableActDto[]>;
   };
-  // 실무 경험 — 허브 요약 + 팀 탭(팀별 요약/라인급/요일 액트).
+  // 실무 경험 — 허브 요약 + 팀 탭(팀별 요약/라인급/요일 액트). 변동 액트(hub_grade='experience')는
+  //   2026-08-03 부터 team_id/team_name 을 가지므로 팀별로 정확히 매칭된다(teams[].variableActsByDay,
+  //   part_scope='team_overall' 고정 — 특정 파트 아님). 허브 전체 별도 집계(임시 박스)는 폐기.
   practicalExperience: {
     summary: ActCheckApplicationSummary;
     teams: ActCheckHubTeam[];
-    // 허브 급(hub_grade='experience') 변동 액트 — 팀 귀속 정보가 없어(process_irregular_acts 에
-    //   team_id 컬럼 없음) 특정 팀에 배정할 수 없다. 그래서 팀별(teams[].variableActsByDay)이 아니라
-    //   허브 전체 1곳에 모아 표시한다. summary 집계에는 포함되지만 팀별 카드에는 나타나지 않는다.
-    variableActsByDay: Record<DayKey, ActCheckVariableActDto[]>;
   };
   // 실무 역량 — 실무 정보와 동일 구조(허브 요약 + 라인급/요일 액트). 현재 라인 1개.
   practicalCompetency: {
@@ -446,14 +444,22 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
     scheduled_check_at: string | null; completed_at: string | null; created_at: string | null; status: string | null;
     // 소속 허브 급(2026-07-31) — 컬럼 미적용/이형값이면 아래에서 폴백(과거 동작 보존).
     hub_grade?: string | null;
+    // 소속 팀 식별자(2026-08-03, hub_grade='experience' 만) — team_name(동명 팀/이름 변경 위험)이
+    //   아니라 team_id 로 매칭한다. 컬럼 미적용/미배정이면 null.
+    team_id?: string | null;
   };
   let irr: IrrRow[] = [];
   let hubGradeColAvail = true;
+  let teamScopeColAvail = false;
   {
     const { error: probeErr } = await supabaseAdmin.from("process_irregular_acts").select("hub_grade").limit(1);
     hubGradeColAvail = !probeErr || !["42703", "PGRST204", "PGRST205"].includes(probeErr.code ?? "");
+    if (hubGradeColAvail) {
+      const { error: teamProbeErr } = await supabaseAdmin.from("process_irregular_acts").select("team_id").limit(1);
+      teamScopeColAvail = !teamProbeErr || !["42703", "PGRST204", "PGRST205"].includes(teamProbeErr.code ?? "");
+    }
     const IRR_COLS = hubGradeColAvail
-      ? "id,act_name,applicant_admin_id,applicant_admin_name,scheduled_check_at,completed_at,created_at,status,hub_grade"
+      ? `id,act_name,applicant_admin_id,applicant_admin_name,scheduled_check_at,completed_at,created_at,status,hub_grade${teamScopeColAvail ? ",team_id" : ""}`
       : "id,act_name,applicant_admin_id,applicant_admin_name,scheduled_check_at,completed_at,created_at,status";
     const runIrrQuery = (cols: string) =>
       supabaseAdmin
@@ -532,17 +538,18 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
   };
 
   // 7) 변동 액트 → 요일별 카드(담당자명(역할) 포함). 허브 급별로 분리 배치(§11 — 섞이거나
-  //    중복 집계되면 안 된다). 실무 경험은 팀 귀속이 불가해 허브 전체 1곳에 모은다(위 타입 주석 참고).
+  //    중복 집계되면 안 된다). 실무 경험은 팀별로 추가 분리(2026-08-03, team_id 매칭 — 동명 팀·
+  //    조직 간 동명 충돌·팀명 변경에 안전). team_id 미배정 행은 어느 팀 카드에도 넣을 수 없어
+  //    표시에서 제외한다(허브 요약 합계에는 여전히 포함 — inputs.variable 기준, 9) 참고).
   const variableActsByDayClub = emptyByDay<ActCheckVariableActDto>();
   const variableActsByDayInfo = emptyByDay<ActCheckVariableActDto>();
-  const variableActsByDayExperience = emptyByDay<ActCheckVariableActDto>();
   const variableActsByDayCompetency = emptyByDay<ActCheckVariableActDto>();
-  const variableActsByDayForHub: Record<IrregularHubGrade, Record<DayKey, ActCheckVariableActDto[]>> = {
+  const variableActsByDayForHub: Record<Exclude<IrregularHubGrade, "experience">, Record<DayKey, ActCheckVariableActDto[]>> = {
     club: variableActsByDayClub,
     info: variableActsByDayInfo,
-    experience: variableActsByDayExperience,
     competency: variableActsByDayCompetency,
   };
+  const variableActsByDayForExpTeam = new Map<string, Record<DayKey, ActCheckVariableActDto[]>>();
   for (const r of irr) {
     const anchor = r.scheduled_check_at ?? r.created_at;
     const dow = kstDow(anchor);
@@ -562,12 +569,21 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
       nowMs,
       weekStart,
     });
-    variableActsByDayForHub[irrHubGrade(r)][key].push({
+    const card: ActCheckVariableActDto = {
       id: r.id,
       actName: r.act_name ?? "(변동 액트)",
       requesterLabel: name ? `${name} 님(${role})` : null,
       ...fields,
-    });
+    };
+    const hub = irrHubGrade(r);
+    if (hub === "experience") {
+      if (!r.team_id) continue; // 팀 미배정 — 카드 표시 불가(요약 합계에는 포함, 위 주석 참고).
+      const byDay = variableActsByDayForExpTeam.get(r.team_id) ?? emptyByDay<ActCheckVariableActDto>();
+      byDay[key].push(card);
+      variableActsByDayForExpTeam.set(r.team_id, byDay);
+    } else {
+      variableActsByDayForHub[hub][key].push(card);
+    }
   }
 
   // 7) 정규 액트 → 카드 필드 계산. info/competency/club 전용(experience 는 expCardOf 별도).
@@ -663,6 +679,16 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
       ...fields,
     };
   };
+  // 목록과 동일한 공통 로더(정규+변동 입력) — expTeams 팀별 변동 요약에도 필요해 여기서 먼저 로드한다
+  //   (9) 에서 다시 선언하지 않고 이 값을 그대로 재사용).
+  const inputsByWeek = await loadActCheckApplicationInputsByWeek({
+    weekIds: [weekId],
+    organization,
+    mode,
+    nowMs,
+  });
+  const inputs = inputsByWeek.get(weekId) ?? { regular: [], variable: [] };
+
   const expTeams: ActCheckHubTeam[] = await Promise.all(teams.map(async (t) => {
     // 팀 운용 파트(조회 주차 weekId 기준 배정 크루 ≥1·"일반" 제외) — 파트 전용 라인급 펼침용.
     //   현재 멤버십이 아니라 팀 상세 매트릭스와 동일한 주차 기준 SoT(listOperatedTeamParts).
@@ -687,9 +713,7 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
       }
       return { lineId: lg.id, lineName: lg.name, isOpenThisWeek: lineOpen, regularActsByDay: byDay };
     });
-    // 팀 스코프 요약 — 입력만 팀으로 좁히고 산식은 공통 빌더(자체 계산 금지). 변동 액트는
-    //   hub_grade='experience' 여도 팀 귀속 정보가 없어 팀별로 나눌 수 없다 → 팀 요약은 항상 [].
-    //   (허브 전체 집계는 practicalExperience.summary/variableActsByDay 가 담당.)
+    // 팀 스코프 요약 — 입력만 팀으로 좁히고 산식은 공통 빌더(자체 계산 금지).
     //   ⚠ 팀별 가동/신청은 팀 스코프라 공통 로더(액트 단위 any-team 판정)로 대체할 수 없다 → 여기서 구성.
     const teamRegular: ActCheckRegularInput[] = expActs.map((a) => ({
       actId: a.id,
@@ -697,12 +721,15 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
       isActive: a.check_target === "check" && expActiveForSummary(t.id, a.line_group_id, occMs(a)),
       isApplied: appliedExpSet.has(`${a.id}::${t.id}`),
     }));
+    // 변동 액트(hub_grade='experience') 중 이 팀으로 배정된 것만 — team_id 매칭(동명 팀·조직 간
+    //   동명 충돌·팀명 변경에 안전. team_name 은 표시/이력 보존용일 뿐 매칭 기준이 아니다).
+    const teamVariable = inputs.variable.filter((v) => v.hubGrade === "experience" && v.teamId === t.id);
     return {
       teamId: t.id,
       teamName: t.teamName,
-      summary: buildActCheckApplicationSummary(teamRegular, []),
+      summary: buildActCheckApplicationSummary(teamRegular, teamVariable),
       lines: teamLines,
-      variableActsByDay: emptyByDay<ActCheckVariableActDto>(),
+      variableActsByDay: variableActsByDayForExpTeam.get(t.id) ?? emptyByDay<ActCheckVariableActDto>(),
     };
   }));
 
@@ -738,19 +765,12 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
   // ── 9) 요약 = **목록과 동일한 공통 로더 + 공통 빌더** ───────────────────────────
   //   ⚠ 여기서 자체 산식을 만들지 않는다. 목록(/admin/team-parts/info/weeks)이 같은 함수를 호출하므로
   //     "목록 == 상세" 가 구조적으로 보장된다(과거엔 서로 다른 산식이라 전체 11 vs 19·가동 11 vs 0 발산).
-  //   변동 액트는 info 허브 귀속(기존 정책) → 주차 전체·실무 정보 요약에만 포함, 그 외 허브는 [].
-  const inputsByWeek = await loadActCheckApplicationInputsByWeek({
-    weekIds: [weekId],
-    organization,
-    mode,
-    nowMs,
-  });
-  const inputs = inputsByWeek.get(weekId) ?? { regular: [], variable: [] };
+  //   inputs/inputsByWeek 는 위(8b, expTeams 직전)에서 이미 로드했다 — 여기서 다시 로드하지 않는다.
   const regularOf = (hub: string): ActCheckRegularInput[] =>
     inputs.regular.filter((r) => r.hub === hub);
   // 변동 액트 — 허브 급별로 분리 집계(§11). 총계(inputs.variable)는 4 갈래 합과 항상 일치한다
   //   (매 행이 정확히 하나의 hubGrade 로 폴백되므로 — loadActCheckApplicationInputsByWeek 의
-  //   irrHubGradeColAvailable 폴백과 동일 정책).
+  //   irrHubGradeColAvailable 폴백과 동일 정책). experience 총계는 팀 배정 여부 무관 전체(허브 요약용).
   const variableOf = (hub: IrregularHubGrade): typeof inputs.variable =>
     inputs.variable.filter((v) => v.hubGrade === hub);
 
@@ -772,7 +792,6 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
     practicalExperience: {
       summary: buildActCheckApplicationSummary(regularOf("experience"), variableOf("experience")),
       teams: expTeams,
-      variableActsByDay: variableActsByDayExperience,
     },
     practicalCompetency: {
       summary: buildActCheckApplicationSummary(regularOf("competency"), variableOf("competency")),

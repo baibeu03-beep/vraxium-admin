@@ -49,6 +49,10 @@ export type ActCheckVariableInput = {
   // 소속 허브 급(process_irregular_acts.hub_grade) — club|info|experience|competency.
   //   호출부가 허브별로 filter 해서 buildActCheckApplicationSummary 에 넣는다(여기서 필터링 안 함).
   hubGrade: string;
+  // 소속 팀 식별자(2026-08-03, hub_grade='experience' 만 값) — 호출부가 팀별로 filter 할 때 사용.
+  //   teamName(표시용) 이 아니라 teamId 로 매칭한다(동명 팀·팀명 변경·조직 간 동명 충돌 방지).
+  //   그 외 허브/미배정 experience 행은 null.
+  teamId: string | null;
 };
 
 export type ActCheckWeekInputs = {

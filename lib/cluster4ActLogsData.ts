@@ -22,6 +22,7 @@ import { processPointAwardsHasCancelColumns } from "@/lib/processPointAwardsCanc
 import { ACT_PERFORMANCE_SOURCES } from "@/lib/pointAwardSourcePolicy";
 import {
   IRREGULAR_LINE_GRADE_LABEL,
+  IRREGULAR_PART_SCOPE_LABEL,
   isIrregularHubGrade,
 } from "@/lib/adminProcessIrregularTypes";
 import type {
@@ -180,14 +181,23 @@ export async function loadActLogsByStartDate(
     created_at: string | null;
     // 소속 허브 급(2026-07-31) — 컬럼 미적용 환경에서는 select 자체를 생략(undefined).
     hub_grade?: string | null;
+    // 소속 팀 식별자/팀명(2026-08-03, hub_grade='experience' 만) — 컬럼 미적용/미배정이면 undefined/null.
+    //   team_id 가 매칭 권위 원천이고 team_name 은 표시용(과거 이름 보존용) 스냅샷.
+    team_id?: string | null;
+    team_name?: string | null;
   };
   const irregularById = new Map<string, IrregularRow>();
   if (irregularRefIds.length) {
-    // hub_grade 컬럼 존재 여부 프로브(42703 이면 미적용 — 과거 동작대로 hub=null 유지).
+    // hub_grade/team_id 컬럼 존재 여부 프로브(42703 이면 미적용 — 과거 동작대로 유지).
     const probe = await supabaseAdmin.from("process_irregular_acts").select("hub_grade").limit(1);
     const hubGradeAvail = !probe.error || !["42703", "PGRST204", "PGRST205"].includes(probe.error.code ?? "");
+    let teamScopeAvail = false;
+    if (hubGradeAvail) {
+      const teamProbe = await supabaseAdmin.from("process_irregular_acts").select("team_id").limit(1);
+      teamScopeAvail = !teamProbe.error || !["42703", "PGRST204", "PGRST205"].includes(teamProbe.error.code ?? "");
+    }
     const cols = hubGradeAvail
-      ? "id,act_name,duration_minutes,crew_reaction,scheduled_check_at,created_at,hub_grade"
+      ? `id,act_name,duration_minutes,crew_reaction,scheduled_check_at,created_at,hub_grade${teamScopeAvail ? ",team_id,team_name" : ""}`
       : "id,act_name,duration_minutes,crew_reaction,scheduled_check_at,created_at";
     const irr = await supabaseAdmin.from("process_irregular_acts").select(cols).in("id", irregularRefIds);
     for (const r of (irr.data ?? []) as unknown as IrregularRow[]) irregularById.set(r.id, r);
@@ -227,6 +237,9 @@ export async function loadActLogsByStartDate(
     const source: Cluster4ActLogSource = a.source === "regular" ? "regular" : "irregular";
     let actName = "";
     let hub: string | null = null;
+    let teamId: string | null = null;
+    let teamName: string | null = null;
+    let partName: string | null = null;
     let lineGroupName: string | null = null;
     let durationMinutes = 0;
     let kind = "";
@@ -254,11 +267,17 @@ export async function loadActLogsByStartDate(
         durationMinutes = irr.duration_minutes ?? 0;
         kind = irr.crew_reaction ?? "";
         occurredAt = irr.scheduled_check_at ?? irr.created_at ?? null;
-        // 소속 허브 급/라인 급(2026-07-31) — 기존 hub/lineGroupName 필드를 그대로 재사용한다
-        //   (크루 앱 DetailLogModal 이 이미 hub→hubLabel·lineGroupName→lineLabel 로 렌더하므로
-        //   신규 DTO 필드가 필요 없다). hub_grade 미적용/이형값이면 hub=null(과거 동작 "-" 유지).
+        // 소속 허브 급(2026-07-31). hub_grade 미적용/이형값이면 hub=null(과거 동작 "-" 유지).
         hub = isIrregularHubGrade(irr.hub_grade) ? irr.hub_grade : null;
-        lineGroupName = IRREGULAR_LINE_GRADE_LABEL; // 변동 액트는 항상 "변동 액트" 1종 고정.
+        // 소속 팀/파트(2026-08-03, hub_grade='experience' 이고 팀이 배정된 행만) — 별도 필드로
+        //   분리 노출한다(lineGroupName 셀에 접어 넣지 않음). team_id 가 있으면 파트는 항상 "팀 총괄".
+        if (hub === "experience" && irr.team_id) {
+          teamId = irr.team_id;
+          teamName = irr.team_name ?? null;
+          partName = IRREGULAR_PART_SCOPE_LABEL;
+        }
+        // 소속 라인 급(2026-07-31) — 항상 "변동 액트" 고정.
+        lineGroupName = IRREGULAR_LINE_GRADE_LABEL;
       }
       // requestedAt 은 변동 액트에 체크 신청 개념이 없어 계속 null.
     }
@@ -270,6 +289,9 @@ export async function loadActLogsByStartDate(
       occurredAt,
       requestedAt,
       hub,
+      teamId,
+      teamName,
+      partName,
       lineGroupName,
       durationMinutes,
       pointA: a.point_check ?? 0,

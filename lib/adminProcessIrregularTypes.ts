@@ -53,6 +53,25 @@ export function isIrregularLineGrade(v: unknown): v is IrregularLineGrade {
   return v === IRREGULAR_LINE_GRADE;
 }
 
+// ── 소속 팀 / 소속 파트(2026-08-03) — hub_grade='experience' 전용 ────────────────
+//   실무 경험 급 변동 액트만 팀 귀속이 있다. 파트는 항상 "팀 총괄" 1종 고정(특정 파트 아님).
+//   값 "team_overall" 은 프로세스 체크 보드의 기존 스코프 어휘(lib/adminProcessCheckTypes.ts
+//   ProcessCheckScopeKind="team_all"|"team_overall"|"part")와 동일한 의미로 문자열을 맞췄다
+//   (그 타입 자체는 재사용하지 않음 — 변동 액트엔 "team_all"/"part" 개념이 없어 값 1종만 필요).
+//   라벨도 기존 상수(lib/adminExperienceOpeningLogs.ts EXPERIENCE_LOG_TEAM_OVERALL_PART_LABEL=
+//   "팀 총괄")와 동일 문자열 — 단, 그 파일은 server-only(supabaseAdmin import)라 여기서 직접
+//   재사용(import)하지 못하고 같은 리터럴로 맞췄다(브라우저 세이프 유지).
+export const IRREGULAR_PART_SCOPE = "team_overall" as const;
+export type IrregularPartScope = typeof IRREGULAR_PART_SCOPE;
+export const IRREGULAR_PART_SCOPE_LABEL = "팀 총괄" as const;
+export function isIrregularPartScope(v: unknown): v is IrregularPartScope {
+  return v === IRREGULAR_PART_SCOPE;
+}
+// 팀 귀속이 필요한 허브 — 실무 경험만.
+export function irregularHubRequiresTeam(hubGrade: IrregularHubGrade): boolean {
+  return hubGrade === "experience";
+}
+
 // ── 화면 도움말 key ─────────────────────────────────────────────────────────────
 //   /admin/processes/check/irregular 는 별도 화면(ProcessIrregularManager)이라 검수 링크/수동 부여·
 //   전원/부분·통계 7칸 등 이 페이지 고유 요소가 많다 → 프로세스 체크(admin.processCheck.*)와 섞지 않고
@@ -87,6 +106,8 @@ export const PROCESS_IRREGULAR_HELP_KEYS = {
   columnManualAction: "admin.processes.check.irregular.column.manualAction",
   fieldHubGrade: "admin.processes.check.irregular.field.hubGrade",
   fieldLineGrade: "admin.processes.check.irregular.field.lineGrade",
+  fieldTeam: "admin.processes.check.irregular.field.team",
+  fieldPart: "admin.processes.check.irregular.field.part",
 } as const;
 
 // ── 종류 (검수 링크 / 수동 입력) ───────────────────────────────────────────────
@@ -240,6 +261,11 @@ export type ProcessIrregularActRowDto = {
   // 소속 라인 급 — 항상 "변동 액트" 고정(서버 강제).
   lineGrade: IrregularLineGrade;
   lineGradeLabel: string;
+  // 소속 팀/파트 — hub_grade='experience' 만 값을 가진다. 그 외 허브는 전부 null(§17).
+  teamId: string | null;
+  teamName: string | null;
+  partScope: IrregularPartScope | null;
+  partScopeLabel: string | null;
   reviewLink: string | null;
   scheduledCheckAt: string | null; // 검수 시점
   // status = 표시/통계용 유효 상태(검수 시점 자동 완료 반영). rawStatus = DB 원본(취소 가능 판정용).
@@ -330,6 +356,9 @@ export type IrregularCreateInput = {
   crewReaction: IrregularCrewReaction;
   // 소속 허브 급 — 저장 시 필수(4종 중 하나). lineGrade 는 입력에 없다(항상 서버 강제).
   hubGrade: IrregularHubGrade;
+  // 소속 팀 — hubGrade='experience' 일 때만 필수(그 외는 무시·서버가 NULL 강제). partScope 는
+  //   입력에 없다(항상 "team_overall" 서버 강제 — 사용자가 다른 값을 보낼 수 없다).
+  teamId: string | null;
   reviewLink: string | null;
   scheduledCheckAt: string | null;
 };

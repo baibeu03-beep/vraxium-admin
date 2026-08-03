@@ -184,6 +184,20 @@ async function irrHubGradeColAvailable(): Promise<boolean> {
   return true;
 }
 
+// process_irregular_acts.team_id/team_name 컬럼 적용 여부(2026-08-03 마이그레이션) — true 만 영구 캐시.
+let _teamScopeColAvail = false;
+async function irrTeamScopeColAvailable(): Promise<boolean> {
+  if (_teamScopeColAvail) return true;
+  const { error } = await supabaseAdmin.from("process_irregular_acts").select("team_id").limit(1);
+  if (!error) {
+    _teamScopeColAvail = true;
+    return true;
+  }
+  const code = (error as { code?: string }).code;
+  if (code === "42703" || code === "PGRST204" || code === "PGRST205") return false;
+  return true;
+}
+
 /**
  * 주차별 정규/변동 입력 — 목록(전 주차)·상세(단일 주차) 공통.
  *   반환 Map 은 요청한 weekIds 전부에 대해 엔트리를 갖는다(데이터 없으면 빈 배열).
@@ -294,10 +308,11 @@ export async function loadActCheckApplicationInputsByWeek(opts: {
   //   허브 급(hub_grade, 2026-07-31) — 컬럼 미적용 환경에서는 과거 동작(전부 실무 정보 귀속)을
   //   그대로 보존한다(hubGrade="info" 고정 폴백). 컬럼 적용 후에는 실제 저장값(4종)을 쓴다.
   const hubGradeAvail = await irrHubGradeColAvailable();
+  const teamScopeAvail = hubGradeAvail && (await irrTeamScopeColAvailable());
   const variableByWeek = new Map<string, ActCheckVariableInput[]>();
   {
     const IRR_COLS = hubGradeAvail
-      ? "id,week_id,kind,status,scheduled_check_at,hub_grade"
+      ? `id,week_id,kind,status,scheduled_check_at,hub_grade${teamScopeAvail ? ",team_id" : ""}`
       : "id,week_id,kind,status,scheduled_check_at";
     const run = (cols: string) =>
       supabaseAdmin
@@ -323,6 +338,7 @@ export async function loadActCheckApplicationInputsByWeek(opts: {
         scheduled_check_at: string | null;
         origin?: string | null;
         hub_grade?: string | null;
+        team_id?: string | null;
       }>;
       // 긴급 휴식(Po.C 내부 액트)은 액트가 아니므로 전체/가동/체크/미체크/변동 전부에서 제외.
       const rows = hasOrigin ? raw.filter((r) => r.origin !== "emergency_rest") : raw;
@@ -339,8 +355,9 @@ export async function loadActCheckApplicationInputsByWeek(opts: {
             ? r.hub_grade
             : "club"
           : "info";
+        const teamId = teamScopeAvail && hubGrade === "experience" ? (r.team_id ?? null) : null;
         const arr = variableByWeek.get(r.week_id) ?? [];
-        arr.push({ id: r.id, isChecked, hubGrade });
+        arr.push({ id: r.id, isChecked, hubGrade, teamId });
         variableByWeek.set(r.week_id, arr);
       }
     }

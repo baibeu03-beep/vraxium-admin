@@ -27,6 +27,7 @@ import { type ScopeMode, appendModeQuery } from "@/lib/userScopeShared";
 import { useActionToast } from "@/lib/actionToast";
 import { excludeAddedByUserId } from "@/lib/crewSearchExclude";
 import { IrregularPointFields, derivePartialPointMode } from "@/components/admin/IrregularPointFields";
+import { IrregularTeamPartFields } from "@/components/admin/IrregularTeamPartFields";
 import {
   IRREGULAR_HUB_GRADES,
   IRREGULAR_HUB_GRADE_LABEL,
@@ -74,6 +75,9 @@ export default function ProcessIrregularManualGrantDialog({
   // 소속 허브 급 — 저장 전 필수 선택(4종). 소속 라인 급은 "변동 액트" 고정(변경 불가).
   const [hubGrade, setHubGrade] = useState<IrregularHubGrade | "">("");
   const [hubGradeInvalid, setHubGradeInvalid] = useState(false);
+  // 소속 팀 — hubGrade='experience' 일 때만 필수(그 외 허브로 바뀌면 즉시 초기화 — §6).
+  const [teamId, setTeamId] = useState("");
+  const [teamIdInvalid, setTeamIdInvalid] = useState(false);
 
   // 대상 크루 — 자동완성 검색/선택 후보 + 명단.
   const [q, setQ] = useState("");
@@ -97,6 +101,7 @@ export default function ProcessIrregularManualGrantDialog({
     pointB !== 0 ||
     pointC !== 0 ||
     hubGrade !== "" ||
+    teamId !== "" ||
     roster.length > 0 ||
     q.trim() !== "";
 
@@ -179,6 +184,8 @@ export default function ProcessIrregularManualGrantDialog({
     setPointC(0);
     setHubGrade("");
     setHubGradeInvalid(false);
+    setTeamId("");
+    setTeamIdInvalid(false);
     setQ("");
     setResults([]);
     setCandidate(null);
@@ -189,10 +196,15 @@ export default function ProcessIrregularManualGrantDialog({
   const submit = async () => {
     setBanner(null);
     setHubGradeInvalid(false);
+    setTeamIdInvalid(false);
     if (!actName.trim()) return setBanner("액트명을 입력해주세요");
     if (!isIrregularHubGrade(hubGrade)) {
       setHubGradeInvalid(true);
       return setBanner("소속 허브 급을 선택해주세요");
+    }
+    if (hubGrade === "experience" && !teamId) {
+      setTeamIdInvalid(true);
+      return setBanner("소속 팀을 선택해주세요");
     }
     if (roster.length === 0) return setBanner("대상 크루를 1명 이상 추가해주세요");
     if (!(await confirm({ ...CONFIRM.checkComplete, confirmLabel: "수동 부여 완료" }))) return;
@@ -216,6 +228,7 @@ export default function ProcessIrregularManualGrantDialog({
           crew_reaction: "partial",
           point_mode: derivePartialPointMode(pointC),
           hub_grade: hubGrade,
+          team_id: hubGrade === "experience" ? teamId : null,
         }),
       });
       const json = await res.json().catch(() => ({}));
@@ -297,8 +310,14 @@ export default function ProcessIrregularManualGrantDialog({
                 aria-label="소속 허브 급"
                 value={hubGrade}
                 onChange={(e) => {
-                  setHubGrade(e.target.value as IrregularHubGrade);
+                  const next = e.target.value as IrregularHubGrade | "";
+                  setHubGrade(next);
                   setHubGradeInvalid(false);
+                  // 실무 경험 급이 아닌 값으로 바뀌면 팀 선택 상태를 즉시 초기화(§6).
+                  if (next !== "experience") {
+                    setTeamId("");
+                    setTeamIdInvalid(false);
+                  }
                 }}
                 disabled={submitting}
                 className={cn(
@@ -325,6 +344,20 @@ export default function ProcessIrregularManualGrantDialog({
               </div>
             </div>
           </div>
+
+          {/* 소속 팀/파트 — 실무 경험 급일 때만 표시(§2) */}
+          <IrregularTeamPartFields
+            hubGrade={hubGrade}
+            organization={organization}
+            mode={mode}
+            teamId={teamId}
+            setTeamId={(v) => {
+              setTeamId(v);
+              setTeamIdInvalid(false);
+            }}
+            disabled={submitting}
+            invalid={teamIdInvalid}
+          />
 
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">

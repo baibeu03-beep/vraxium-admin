@@ -423,8 +423,17 @@ export type Cluster4ActLogDto = {
   // irregular=process_irregular_acts.hub_grade("club"|"info"|"experience"|"competency", 2026-07-31
   //   부터 저장. 마이그레이션 미적용/백필 전 데이터는 null → 프론트가 "-" 로 표시.
   hub: string | null;
+  // 소속 팀(2026-08-03부터, hub_grade='experience' 인 irregular 행만) — process_irregular_acts.team_id/
+  //   team_name 을 그대로 분리 노출한다("팀명 · 변동 액트"처럼 다른 필드에 접어 넣지 않는다).
+  //   regular 행·팀 미배정 experience 행·컬럼 미적용 환경은 모두 null.
+  teamId: string | null;
+  teamName: string | null;
+  // 소속 파트(2026-08-03부터) — experience+팀배정 행은 항상 "팀 총괄"(IRREGULAR_PART_SCOPE_LABEL).
+  //   그 외(정규, 팀 미배정 experience, 비-experience 허브)는 null.
+  partName: string | null;
   // regular=process_line_groups.name.
-  // irregular=항상 "변동 액트" 고정 문자열(소속 라인 급, 2026-07-31부터). 과거엔 null.
+  // irregular=항상 "변동 액트" 고정 문자열(소속 라인 급, 2026-07-31부터). 팀 정보는 위 teamId/teamName/
+  //   partName 전용 필드로 분리되어 있으며 이 필드에 접어 넣지 않는다.
   lineGroupName: string | null;
   durationMinutes: number;        // 소요 시간(분). 없으면 0.
   pointA: number;                 // = process_point_awards.point_check

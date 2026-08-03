@@ -24,6 +24,7 @@ import {
   hasActiveProcessCheckException,
 } from "@/lib/processCheckWindowsData";
 import { resolveUserScope, assertUserIdsInScope } from "@/lib/userScope";
+import { resolvePositionAtBatch } from "@/lib/positionResolver";
 import {
   accrueForCompletedIrregular,
   isAccrualAllowedWeek,
@@ -43,10 +44,13 @@ import {
   IRREGULAR_KIND_LABEL,
   IRREGULAR_LINE_GRADE,
   IRREGULAR_LINE_GRADE_LABEL,
+  IRREGULAR_PART_SCOPE,
+  IRREGULAR_PART_SCOPE_LABEL,
   coerceIrregularCrewReaction,
   effectiveIrregularStatus,
   formatIrregularHubGradeLabel,
   irregularCafeLabel,
+  irregularHubRequiresTeam,
   isIrregularCrewReaction,
   isIrregularDuration,
   isIrregularHubGrade,
@@ -57,6 +61,7 @@ import {
   type IrregularCrewReaction,
   type IrregularHubGrade,
   type IrregularKind,
+  type IrregularPartScope,
   type IrregularPointMode,
   type IrregularStatus,
   type IrregularTargetUserDto,
@@ -131,6 +136,10 @@ type IrregularRow = {
   // 소속 허브 급/라인 급(2026-07-31) — 마이그레이션 미적용이면 undefined(hubGradeColumnsAvailable 게이트).
   hub_grade?: string | null;
   line_grade?: string | null;
+  // 소속 팀/파트(2026-08-03) — hub_grade='experience' 만 값을 가진다. 마이그레이션 미적용이면 undefined.
+  team_id?: string | null;
+  team_name?: string | null;
+  part_scope?: string | null;
 };
 
 const ROW_SELECT =
@@ -144,6 +153,10 @@ const HUB_LINE_GRADE_COLS = "hub_grade,line_grade";
 //   (연결식은 string 으로 widen 되어 GenericStringError 타입 오류가 난다).
 const ROW_SELECT_HUB =
   "id,week_id,kind,act_name,applicant_admin_name,target_user_id,target_user_name,duration_minutes,reason,point_a,point_b,point_c,crew_reaction,review_link,scheduled_check_at,status,completed_at,created_at,attempt_count,last_error,hub_grade,line_grade";
+// 팀급/파트 컬럼(2026-08-03 마이그레이션)까지 포함 — 같은 이유로 별도 리터럴 상수.
+const TEAM_SCOPE_COLS = "team_id,team_name,part_scope";
+const ROW_SELECT_TEAM =
+  "id,week_id,kind,act_name,applicant_admin_name,target_user_id,target_user_name,duration_minutes,reason,point_a,point_b,point_c,crew_reaction,review_link,scheduled_check_at,status,completed_at,created_at,attempt_count,last_error,hub_grade,line_grade,team_id,team_name,part_scope";
 
 // 수집 상태 컬럼 적용 여부 — true 만 캐시(적용 후 영구). 미적용이면 SELECT 제외(조회는 unknown/not_collected).
 let _irrCollectionColAvailable = false;
@@ -178,6 +191,20 @@ async function hubGradeColumnsAvailable(): Promise<boolean> {
   return true;
 }
 
+// 팀급/파트 컬럼 적용 여부 — db/migrations/2026-08-03_process_irregular_acts_team_scope.sql
+//   미적용 환경에서도 보드/생성이 깨지지 않도록 SELECT/INSERT 를 조건부로 뺀다(42703 graceful degrade).
+let _irrTeamScopeColAvailable = false;
+async function teamScopeColumnsAvailable(): Promise<boolean> {
+  if (_irrTeamScopeColAvailable) return true;
+  const { error } = await supabaseAdmin.from("process_irregular_acts").select("team_id").limit(1);
+  if (!error) {
+    _irrTeamScopeColAvailable = true;
+    return true;
+  }
+  if (error.code === "42703" || error.code === "PGRST204" || error.code === "PGRST205") return false;
+  return true;
+}
+
 type RecipientRow = {
   user_id: string | null;
   nickname: string;
@@ -201,6 +228,11 @@ function toRowDto(
   // 소속 허브 급 — 알려진 4종만 신뢰(그 외/미적용 컬럼/backfill 전 데이터는 null·"-" 로 방어).
   const hubGrade: IrregularHubGrade | null = isIrregularHubGrade(r.hub_grade) ? r.hub_grade : null;
   // 소속 라인 급 — 변동 액트는 항상 1종. 컬럼 미적용/이형값이어도 표시는 항상 이 값으로 강제(서버 SoT).
+  // 소속 팀/파트 — experience 만 값을 가진다(그 외 허브·미배정 experience 과거 행은 null).
+  const teamId = hubGrade === "experience" && r.team_id ? r.team_id : null;
+  const teamName = hubGrade === "experience" && r.team_name ? r.team_name : null;
+  const partScope: IrregularPartScope | null = teamId ? IRREGULAR_PART_SCOPE : null;
+  const partScopeLabel = partScope ? IRREGULAR_PART_SCOPE_LABEL : null;
   const recs = (recipientsByRef.get(r.id) ?? []).map((rc) => ({
     userId: rc.user_id,
     nickname: rc.nickname,
@@ -227,6 +259,10 @@ function toRowDto(
     hubGradeLabel: formatIrregularHubGradeLabel(hubGrade),
     lineGrade: IRREGULAR_LINE_GRADE,
     lineGradeLabel: IRREGULAR_LINE_GRADE_LABEL,
+    teamId,
+    teamName,
+    partScope,
+    partScopeLabel,
     reviewLink: r.review_link,
     scheduledCheckAt: r.scheduled_check_at,
     status,
@@ -354,9 +390,11 @@ export async function getIrregularBoard(
   // 댓글 수집 상태 컬럼(적용 시에만 SELECT). origin 컬럼과 독립적으로 degrade.
   const collectionAvail = await collectionColumnsAvailable();
   const hubGradeAvail = await hubGradeColumnsAvailable();
+  const teamScopeAvail = hubGradeAvail && (await teamScopeColumnsAvailable());
   const baseSel =
     (collectionAvail ? `${ROW_SELECT},${COLLECTION_COLS}` : ROW_SELECT) +
-    (hubGradeAvail ? `,${HUB_LINE_GRADE_COLS}` : "");
+    (hubGradeAvail ? `,${HUB_LINE_GRADE_COLS}` : "") +
+    (teamScopeAvail ? `,${TEAM_SCOPE_COLS}` : "");
   let hasOrigin = true;
   let res = await runQuery(baseSel + ",origin");
   if (res.error && res.error.code === "42703") {
@@ -451,6 +489,67 @@ function parseHubGrade(raw: unknown): IrregularHubGrade {
   return raw;
 }
 
+// ── 소속 팀/파트(2026-08-03) ────────────────────────────────────────────────
+//   hub_grade='experience' 만 팀이 필수. 그 외 허브는 클라 입력을 무시하고 항상 NULL 강제.
+//   서버가 team_id 로 cluster4_teams(팀 원장 SoT)를 재조회해 organization 일치까지 검증한다
+//   (화면이 보낸 teamName 을 그대로 신뢰하지 않음 — teamName 은 여기서 권위 원천으로 재결정).
+type TeamAssignment = { teamId: string | null; teamName: string | null; partScope: IrregularPartScope | null };
+
+async function resolveTeamAssignment(
+  hubGrade: IrregularHubGrade,
+  rawTeamId: unknown,
+  organization: string,
+): Promise<TeamAssignment> {
+  if (!irregularHubRequiresTeam(hubGrade)) {
+    // club/info/competency — 팀 개념 없음. 클라가 무엇을 보내든 저장은 항상 NULL(위조 방어).
+    return { teamId: null, teamName: null, partScope: null };
+  }
+  const teamId = typeof rawTeamId === "string" && rawTeamId.trim() ? rawTeamId.trim() : null;
+  if (!teamId) {
+    throw new ProcessMasterError(400, "실무 경험 급은 소속 팀을 선택해야 합니다");
+  }
+  const { data, error } = await supabaseAdmin
+    .from("cluster4_teams")
+    .select("id,team_name,organization_slug")
+    .eq("id", teamId)
+    .maybeSingle();
+  if (error) throw new ProcessMasterError(500, error.message);
+  const team = data as { id: string; team_name: string; organization_slug: string | null } | null;
+  if (!team || team.organization_slug !== organization) {
+    throw new ProcessMasterError(400, "유효하지 않은 팀입니다(해당 클럽 소속 팀이 아닙니다)");
+  }
+  // team_name 은 클라가 보낸 표시값을 신뢰하지 않고 원장에서 다시 결정(권위 원천).
+  return { teamId: team.id, teamName: team.team_name, partScope: IRREGULAR_PART_SCOPE };
+}
+
+// 대상 크루가 지정 주차에 실제로 그 팀 소속인지 검증(§14) — 현재 소속이 아니라 그 주차 기준
+//   effective 판정(override→UPH→membership 순, positionResolver 단일 SoT). 하나라도 다르면 전체 거부
+//   (한 행이 여러 팀에 걸쳐 저장되지 않게 — §13/§14 "하나의 행은 하나의 팀").
+async function assertTargetsBelongToTeamAtWeek(input: {
+  userIds: string[];
+  organization: string;
+  weekStartDate: string;
+  teamName: string;
+}): Promise<void> {
+  if (input.userIds.length === 0) return;
+  const resolved = await resolvePositionAtBatch({
+    userIds: input.userIds,
+    targetWeekStart: input.weekStartDate,
+    organization: input.organization,
+  });
+  const mismatched: string[] = [];
+  for (const userId of input.userIds) {
+    const pos = resolved.get(userId);
+    if (!pos || pos.teamName !== input.teamName) mismatched.push(userId);
+  }
+  if (mismatched.length > 0) {
+    throw new ProcessMasterError(
+      400,
+      `대상 크루 ${mismatched.length}명이 선택한 팀(${input.teamName})의 그 주차 소속이 아닙니다`,
+    );
+  }
+}
+
 function parseCommonFields(input: {
   actName: unknown;
   durationMinutes?: unknown;
@@ -516,6 +615,7 @@ export async function createIrregularAct(input: {
   crewReaction?: unknown;
   pointMode?: unknown;
   hubGrade: unknown; // 소속 허브 급(필수) — club|info|experience|competency.
+  teamId?: unknown; // 소속 팀 — hubGrade='experience' 일 때만 필수.
   reviewLink?: unknown;
   scheduledCheckAt?: unknown;
   weekId?: unknown; // 선택 주차(weeks.id) — 현재와 다르면 활성 예외("irregular")일 때만 허용.
@@ -525,6 +625,9 @@ export async function createIrregularAct(input: {
     throw new ProcessMasterError(400, "이 경로는 링크 신청(review_request) 전용입니다");
   }
   const common = parseCommonFields(input);
+  // 검수 링크는 대상자가 저장 전에 확정되지 않아(worker 가 사후 매칭) 팀 소속 교차검증은 못 한다 —
+  //   팀 자체의 존재/조직 일치만 검증(§15).
+  const team = await resolveTeamAssignment(common.hubGrade, input.teamId, organization);
 
   // 검수 링크(필수·http) + 검수 시점(필수·now<.<=now+7d).
   let reviewLink: string | null = null;
@@ -551,6 +654,7 @@ export async function createIrregularAct(input: {
 
   const applicantAdminName = await resolveAdminName(adminId);
   const hubGradeAvail = await hubGradeColumnsAvailable();
+  const teamScopeAvail = hubGradeAvail && (await teamScopeColumnsAvailable());
   const { data: inserted, error: insErr } = await supabaseAdmin
     .from("process_irregular_acts")
     .insert({
@@ -576,8 +680,10 @@ export async function createIrregularAct(input: {
       // 소속 허브 급/라인 급(2026-07-31) — 컬럼 미적용 환경에서는 insert 에서 제외(42703 방지).
       //   라인 급은 항상 서버 강제값만 저장한다(클라 입력 무시).
       ...(hubGradeAvail ? { hub_grade: common.hubGrade, line_grade: IRREGULAR_LINE_GRADE } : {}),
+      // 소속 팀/파트(2026-08-03) — experience 만 값, 그 외는 team=null(resolveTeamAssignment 강제).
+      ...(teamScopeAvail ? { team_id: team.teamId, team_name: team.teamName, part_scope: team.partScope } : {}),
     })
-    .select(hubGradeAvail ? ROW_SELECT_HUB : ROW_SELECT)
+    .select(teamScopeAvail ? ROW_SELECT_TEAM : hubGradeAvail ? ROW_SELECT_HUB : ROW_SELECT)
     .single();
   if (insErr) throw migrationHint(insErr) ?? new ProcessMasterError(500, insErr.message);
   // ROW_SELECT_HUB 는 아직 생성된 DB 타입(types/*.ts)에 없는 hub_grade/line_grade 를 포함해
@@ -602,6 +708,7 @@ export async function createManualGrant(input: {
   crewReaction?: unknown;
   pointMode?: unknown;
   hubGrade: unknown; // 소속 허브 급(필수) — club|info|experience|competency.
+  teamId?: unknown; // 소속 팀 — hubGrade='experience' 일 때만 필수.
   weekId?: unknown; // 선택 주차(weeks.id) — 현재와 다르면 활성 예외("irregular")일 때만 허용.
 }): Promise<ProcessIrregularActRowDto> {
   const { organization, mode, adminId } = input;
@@ -610,6 +717,7 @@ export async function createManualGrant(input: {
     throw new ProcessMasterError(400, "수동 부여는 '전원'을 선택할 수 없습니다(부분만 가능)");
   }
   const common = parseCommonFields({ ...input, crewReaction: "partial" });
+  const team = await resolveTeamAssignment(common.hubGrade, input.teamId, organization);
 
   // 대상 크루 명단 — 비어 있으면 거부.
   const ids = Array.isArray(input.targetUserIds)
@@ -640,10 +748,22 @@ export async function createManualGrant(input: {
     throw new ProcessMasterError(400, "현재 주차(weeks 행)를 찾을 수 없어 변동 액트를 저장할 수 없습니다");
   }
 
+  // 실무 경험 — 대상 크루 전원이 그 주차에 실제로 선택한 팀 소속이어야 저장 가능(§14). 한 행이
+  //   여러 팀에 걸쳐 저장되지 않도록 하나라도 다르면 전체 거부.
+  if (team.teamName) {
+    await assertTargetsBelongToTeamAtWeek({
+      userIds: ids,
+      organization,
+      weekStartDate: week.startDate,
+      teamName: team.teamName,
+    });
+  }
+
   // created == completed (사람이 이미 검수 완료) — 검수 링크/시점 없음.
   const nowIso = new Date().toISOString();
   const applicantAdminName = await resolveAdminName(adminId);
   const hubGradeAvail = await hubGradeColumnsAvailable();
+  const teamScopeAvail = hubGradeAvail && (await teamScopeColumnsAvailable());
   const { data: inserted, error: insErr } = await supabaseAdmin
     .from("process_irregular_acts")
     .insert({
@@ -667,8 +787,9 @@ export async function createManualGrant(input: {
       status: "completed",
       completed_at: nowIso,
       ...(hubGradeAvail ? { hub_grade: common.hubGrade, line_grade: IRREGULAR_LINE_GRADE } : {}),
+      ...(teamScopeAvail ? { team_id: team.teamId, team_name: team.teamName, part_scope: team.partScope } : {}),
     })
-    .select(hubGradeAvail ? ROW_SELECT_HUB : ROW_SELECT)
+    .select(teamScopeAvail ? ROW_SELECT_TEAM : hubGradeAvail ? ROW_SELECT_HUB : ROW_SELECT)
     .single();
   if (insErr) throw migrationHint(insErr) ?? new ProcessMasterError(500, insErr.message);
   const act = inserted as unknown as IrregularRow;
@@ -751,6 +872,8 @@ export async function createActSupplement(input: {
   if (common.pointA <= 0 && common.pointB <= 0 && common.pointC <= 0) {
     throw new ProcessMasterError(400, "포인트를 1점 이상 부여해야 합니다");
   }
+  // hubGrade 가 항상 'club' 고정이라 팀 개념 없음(no-op, DB 조회 없이 즉시 null 반환).
+  const team = await resolveTeamAssignment(common.hubGrade, null, organization);
 
   // 대상 크루 스코프+소속 검증(fail-closed).
   const scope = await resolveUserScope(mode, organization as OrganizationSlug);
@@ -815,6 +938,7 @@ export async function createActSupplement(input: {
   const nowIso = new Date().toISOString();
   const applicantAdminName = await resolveAdminName(adminId);
   const hubGradeAvail = await hubGradeColumnsAvailable();
+  const teamScopeAvail = hubGradeAvail && (await teamScopeColumnsAvailable());
   const { data: inserted, error: insErr } = await supabaseAdmin
     .from("process_irregular_acts")
     .insert({
@@ -839,6 +963,7 @@ export async function createActSupplement(input: {
       completed_at: nowIso,
       origin: ACT_SUPPLEMENT_ORIGIN,
       ...(hubGradeAvail ? { hub_grade: common.hubGrade, line_grade: IRREGULAR_LINE_GRADE } : {}),
+      ...(teamScopeAvail ? { team_id: team.teamId, team_name: team.teamName, part_scope: team.partScope } : {}),
     })
     .select("id")
     .single();
@@ -961,15 +1086,20 @@ export async function setIrregularCrewReaction(
   return toRowDto(data as IrregularRow);
 }
 
-// ── 소속 허브 급 변경 (수정 — 테이블/상세 공용) ────────────────────────────────
-//   라인 급은 변경 대상이 아니다(항상 variable_act 고정). 생성과 동일 검증(4종만 허용) 재사용.
-export async function setIrregularHubGrade(
+// ── 소속 허브 급 + 소속 팀/파트 변경 (수정 — 테이블/상세 공용, 원자적 단일 UPDATE) ────────
+//   라인 급은 변경 대상이 아니다(항상 variable_act 고정). 생성과 동일 검증(허브 4종·팀 필수 여부) 재사용.
+//   ⚠ 하나의 update() 호출로 hub_grade+team_id+team_name+part_scope 를 함께 반영한다 — §10 요구사항
+//     ("hub_grade='experience', team_id=NULL" 같은 중간 상태가 DB 에 남으면 안 됨) 충족.
+//   teamId 는 hubGrade='experience' 로 바뀔 때만 필수 — 그 외 허브로 바뀌면 클라 입력과 무관하게
+//     항상 NULL 로 강제(resolveTeamAssignment 가 처리).
+export async function setIrregularAssignmentScope(
   id: string,
   organization: string,
   mode: ScopeMode,
   hubGrade: unknown,
+  teamId: unknown,
 ): Promise<ProcessIrregularActRowDto> {
-  const parsed = parseHubGrade(hubGrade);
+  const parsedHub = parseHubGrade(hubGrade);
   const row = await loadScopedRow(id, organization, mode); // 존재 + org + 대상 스코프 검증
   await assertCurrentWeekRow(row, mode, organization); // 과거 주차 = 조회 전용
   const hubGradeAvail = await hubGradeColumnsAvailable();
@@ -979,11 +1109,45 @@ export async function setIrregularHubGrade(
       "process_irregular_acts.hub_grade 컬럼이 없습니다. db/migrations/2026-07-31_process_irregular_acts_hub_line_grade.sql 을 SQL Editor 에서 적용해주세요.",
     );
   }
+  const teamScopeAvail = await teamScopeColumnsAvailable();
+  if (parsedHub === "experience" && !teamScopeAvail) {
+    throw new ProcessMasterError(
+      500,
+      "process_irregular_acts.team_id 컬럼이 없습니다. db/migrations/2026-08-03_process_irregular_acts_team_scope.sql 을 SQL Editor 에서 적용해주세요.",
+    );
+  }
+  const team = await resolveTeamAssignment(parsedHub, teamId, organization);
+
+  // 이미 매칭된 대상 크루(수동 부여 recipients)가 있으면 그 주차 기준 새 팀 소속인지 재검증(§21
+  //   "experience A팀 → experience B팀"). 검수 링크(대상 미확정)는 재검증 대상 없음.
+  if (team.teamName) {
+    const { data: recips } = await supabaseAdmin
+      .from("process_check_review_recipients")
+      .select("user_id")
+      .eq("source", "irregular")
+      .eq("ref_id", id)
+      .not("user_id", "is", null);
+    const userIds = ((recips ?? []) as { user_id: string | null }[])
+      .map((r) => r.user_id)
+      .filter((v): v is string => Boolean(v));
+    if (userIds.length > 0) {
+      const { data: wk } = await supabaseAdmin.from("weeks").select("start_date").eq("id", row.week_id).maybeSingle();
+      const startDate = (wk as { start_date: string } | null)?.start_date;
+      if (startDate) {
+        await assertTargetsBelongToTeamAtWeek({ userIds, organization, weekStartDate: startDate, teamName: team.teamName });
+      }
+    }
+  }
+
+  // 단일 update — hub_grade/line_grade(불변)/team_id/team_name/part_scope 를 한 번에 반영(원자적).
   const { data, error } = await supabaseAdmin
     .from("process_irregular_acts")
-    .update({ hub_grade: parsed })
+    .update({
+      hub_grade: parsedHub,
+      ...(teamScopeAvail ? { team_id: team.teamId, team_name: team.teamName, part_scope: team.partScope } : {}),
+    })
     .eq("id", id)
-    .select(ROW_SELECT_HUB)
+    .select(teamScopeAvail ? ROW_SELECT_TEAM : ROW_SELECT_HUB)
     .single();
   if (error) throw migrationHint(error) ?? new ProcessMasterError(500, error.message);
   return toRowDto(data as unknown as IrregularRow);
@@ -1113,7 +1277,12 @@ async function loadScopedRow(
   mode: ScopeMode,
 ): Promise<IrregularRow> {
   const hubGradeAvail = await hubGradeColumnsAvailable();
-  const sel = ROW_SELECT + ",organization_slug,scope_mode" + (hubGradeAvail ? `,${HUB_LINE_GRADE_COLS}` : "");
+  const teamScopeAvail = hubGradeAvail && (await teamScopeColumnsAvailable());
+  const sel =
+    ROW_SELECT +
+    ",organization_slug,scope_mode" +
+    (hubGradeAvail ? `,${HUB_LINE_GRADE_COLS}` : "") +
+    (teamScopeAvail ? `,${TEAM_SCOPE_COLS}` : "");
   const { data, error } = await supabaseAdmin
     .from("process_irregular_acts")
     .select(sel)
