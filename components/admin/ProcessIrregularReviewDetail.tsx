@@ -35,7 +35,9 @@ const RECOLLECT_FAIL_MESSAGE = "댓글 정보를 일시적으로 가져오지 �
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex gap-3 text-sm">
-      <span className="w-24 shrink-0 text-muted-foreground">{label}</span>
+      {/* 좌측 컬럼명은 항상 한 줄 — "소속 허브 급"/"소속 라인 급" 같은 긴 라벨도 줄바꿈 없이
+          한 줄에 들어오도록 w-24→w-32(폭 확보) + whitespace-nowrap 추가(2026-08-03). */}
+      <span className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">{label}</span>
       <span className="min-w-0 break-words font-medium">{value}</span>
     </div>
   );
