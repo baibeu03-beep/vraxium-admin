@@ -14,6 +14,7 @@ import { Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
+import { DetailRow } from "@/components/ui/detail-row";
 import { cn } from "@/lib/utils";
 // 안내/오류 박스 색 — /admin/integrated/line-opening/* 과 동일한 공용 tone SoT 재사용(다크 대응).
 import { lineManagementBoxClass } from "@/components/admin/lineManagementTone";
@@ -259,16 +260,12 @@ export default function ProcessCheckManualGrantDialog({
           /* 체크 완료 — 읽기 전용(액트 정보 + 체크 완료 크루 명단). 입력/버튼 비활성. */
           <div className="space-y-3">
             <div className="space-y-1.5 rounded-md border bg-muted/30 px-3 py-2 text-sm">
-              <div className="flex gap-3">
-                <span className="w-28 shrink-0 whitespace-nowrap text-muted-foreground">액트명</span>
-                <span className="min-w-0 break-words font-medium">{act.actName}</span>
-              </div>
-              <div className="flex gap-3">
-                <span className="w-28 shrink-0 whitespace-nowrap text-muted-foreground">완료 시점</span>
-                <span className="font-medium">
-                  {act.completedAt ? formatCheckDateTimeKo(act.completedAt) : "-"}
-                </span>
-              </div>
+              <DetailRow label="액트명" value={act.actName} />
+              <DetailRow
+                label="완료 시점"
+                value={act.completedAt ? formatCheckDateTimeKo(act.completedAt) : "-"}
+                valueClassName="break-normal"
+              />
             </div>
             <ProcessCheckCompletedCrewList crews={act.completedCrewList} />
           </div>

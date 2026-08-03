@@ -36,6 +36,7 @@ import { useStickyColumns, type StickyColProps } from "@/components/ui/sticky-co
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { Checkbox, checkedTextClass, checkedRowClass } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { DETAIL_ROW_LABEL_CLASS, DETAIL_ROW_VALUE_CLASS } from "@/components/ui/detail-row";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { readScopeMode } from "@/lib/userScopeShared";
 import { excludeAddedByUserId } from "@/lib/crewSearchExclude";
@@ -685,11 +686,11 @@ export default function CompetencyApplicantSection({
             <p>아래 수동 추가 항목을 승인 명단에서 삭제하시겠습니까? (되돌릴 수 없음)</p>
             <dl className="space-y-1.5 rounded-md border bg-muted/30 px-3 py-2 text-sm">
               <div className="flex gap-2">
-                <dt className="w-24 shrink-0 text-muted-foreground">크루명</dt>
-                <dd className="min-w-0 break-words font-medium">{app.crewLabel}</dd>
+                <dt className={DETAIL_ROW_LABEL_CLASS}>크루명</dt>
+                <dd className={DETAIL_ROW_VALUE_CLASS}>{app.crewLabel}</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-24 shrink-0 text-muted-foreground">라인명</dt>
+                <dt className={DETAIL_ROW_LABEL_CLASS}>라인명</dt>
                 <dd className="font-medium">{app.lineName}</dd>
               </div>
             </dl>
@@ -1079,7 +1080,7 @@ export default function CompetencyApplicantSection({
             </h3>
             <dl className="space-y-1.5 rounded-md border bg-muted/30 px-3 py-2 text-sm">
               <div className="flex gap-2">
-                <dt className="inline-flex w-24 shrink-0 items-center gap-1 whitespace-nowrap text-muted-foreground">
+                <dt className={cn(DETAIL_ROW_LABEL_CLASS, "inline-flex items-center gap-1")}>
                   크루명
                   <AdminHelpIconButton
                     size="xs"
@@ -1090,7 +1091,7 @@ export default function CompetencyApplicantSection({
                 <dd className="min-w-0 break-words font-medium">{rejectApp.crewLabel}</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="inline-flex w-24 shrink-0 items-center gap-1 whitespace-nowrap text-muted-foreground">
+                <dt className={cn(DETAIL_ROW_LABEL_CLASS, "inline-flex items-center gap-1")}>
                   라인명
                   <AdminHelpIconButton
                     size="xs"
@@ -1101,7 +1102,7 @@ export default function CompetencyApplicantSection({
                 <dd className="font-medium">{rejectApp.lineName}</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="inline-flex w-24 shrink-0 items-center gap-1 whitespace-nowrap text-muted-foreground">
+                <dt className={cn(DETAIL_ROW_LABEL_CLASS, "inline-flex items-center gap-1")}>
                   제출 링크
                   <AdminHelpIconButton
                     size="xs"

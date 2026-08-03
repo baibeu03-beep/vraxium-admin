@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox, checkedTextClass } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { DETAIL_ROW_LABEL_CLASS } from "@/components/ui/detail-row";
 import { formatClubDate } from "@/lib/clubDate";
 import { formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
@@ -1246,27 +1247,27 @@ export default function PracticalInfoOpeningForm({
             <p className="text-sm text-muted-foreground">아래 정보로 라인을 개설합니다.</p>
             <dl className="space-y-1.5 rounded-md border bg-muted/30 px-3 py-2 text-sm">
               <div className="flex gap-2">
-                <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">개설 주차</dt>
+                <dt className={DETAIL_ROW_LABEL_CLASS}>개설 주차</dt>
                 <dd className="font-medium">{weekTitle(effectiveWeek)}</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">라인명</dt>
+                <dt className={DETAIL_ROW_LABEL_CLASS}>라인명</dt>
                 <dd className="font-medium">{lineName}</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">메인 타이틀</dt>
+                <dt className={DETAIL_ROW_LABEL_CLASS}>메인 타이틀</dt>
                 <dd className="min-w-0 break-words font-medium">{mainTitle.trim()}</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">아웃풋 링크</dt>
+                <dt className={DETAIL_ROW_LABEL_CLASS}>아웃풋 링크</dt>
                 <dd className="font-medium">{linkUrl.trim() ? 1 : 0}개</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">아웃풋 이미지</dt>
+                <dt className={DETAIL_ROW_LABEL_CLASS}>아웃풋 이미지</dt>
                 <dd className="font-medium">{image ? 1 : 0}개</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">개설 크루</dt>
+                <dt className={DETAIL_ROW_LABEL_CLASS}>개설 크루</dt>
                 <dd className="font-medium">{candidates.length}명</dd>
               </div>
             </dl>
@@ -1342,15 +1343,15 @@ export default function PracticalInfoOpeningForm({
             </p>
             <dl className="space-y-1.5 rounded-md border bg-muted/30 px-3 py-2 text-sm">
               <div className="flex gap-2">
-                <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">개설 주차</dt>
+                <dt className={DETAIL_ROW_LABEL_CLASS}>개설 주차</dt>
                 <dd className="font-medium">{weekTitle(effectiveWeek)}</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">라인명</dt>
+                <dt className={DETAIL_ROW_LABEL_CLASS}>라인명</dt>
                 <dd className="font-medium">{lineName}</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">메인 타이틀</dt>
+                <dt className={DETAIL_ROW_LABEL_CLASS}>메인 타이틀</dt>
                 <dd className="min-w-0 break-words font-medium">{openedLine.mainTitle}</dd>
               </div>
             </dl>

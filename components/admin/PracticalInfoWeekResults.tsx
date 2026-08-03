@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { DETAIL_ROW_LABEL_CLASS } from "@/components/ui/detail-row";
 import { formatClubDateTime } from "@/lib/clubDate";
 import {
   computeOpenNeed,
@@ -446,7 +447,7 @@ function Row({
 }) {
   return (
     <div className="flex gap-2">
-      <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">{label}</dt>
+      <dt className={DETAIL_ROW_LABEL_CLASS}>{label}</dt>
       <dd
         className={cn(
           "min-w-0 text-foreground",

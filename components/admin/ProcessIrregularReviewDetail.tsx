@@ -28,20 +28,10 @@ import { commentCollectionAllowsRecollect } from "@/lib/adminProcessCheckTypes";
 import CommentCollectionStatusView from "@/components/admin/CommentCollectionStatusView";
 import { getProcessPointLabels } from "@/lib/pointLabels";
 import { apiErrorFrom } from "@/lib/apiError";
+import { DetailRow as Row } from "@/components/ui/detail-row";
 
 // 재수집 실패 시 사용자 문구(도메인 상수 · 서버 원문 아님) — 반드시 "일시적으로" 포함.
 const RECOLLECT_FAIL_MESSAGE = "댓글 정보를 일시적으로 가져오지 못했습니다. 다시 수집해주세요.";
-
-function Row({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex gap-3 text-sm">
-      {/* 좌측 컬럼명은 항상 한 줄 — "소속 허브 급"/"소속 라인 급" 같은 긴 라벨도 줄바꿈 없이
-          한 줄에 들어오도록 w-24→w-32(폭 확보) + whitespace-nowrap 추가(2026-08-03). */}
-      <span className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">{label}</span>
-      <span className="min-w-0 break-words font-medium">{value}</span>
-    </div>
-  );
-}
 
 export default function ProcessIrregularReviewDetail({
   act,
