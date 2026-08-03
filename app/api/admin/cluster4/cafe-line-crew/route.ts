@@ -21,6 +21,9 @@ import { resolveWeekStartDateForWeekId } from "@/lib/seasonRestWeekScope";
 import { loadEvaluationEligibility } from "@/lib/evaluationEligibility";
 import { resolveCurrentWeekStartDate } from "@/lib/teamWeekPositionOverride";
 import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
+import { resolvePositionAtBatch } from "@/lib/positionResolver";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { isUuid } from "@/lib/isUuid";
 
 // 현재 URL org 컨텍스트 → organization_slug. 라인 개설 크루는 해당 조직 소속만 매칭한다(org 격리).
 //   미지정/무효 = null(통합 모드, 전체 크루). 실무 정보 개설 폼은 항상 org-scoped 로 진입한다.
@@ -70,6 +73,38 @@ async function loadScopedCrews(
     weekStartDate: weekStart,
   });
   return { crews: scoped.filter((c) => eligibility.isEvaluable(c.userId)), mode: scope.mode };
+}
+
+// 변동 액트(실무 경험 급)의 "소속 팀" 필터(2026-08-03) — team_id + week_id 를 받아 그 주차 실제
+//   소속 팀(override→UPH→membership, positionResolver 단일 SoT)이 일치하는 크루만 남긴다.
+//   ⚠ 현재 팀(멤버십)이 아니라 **대상 주차 기준 effective 팀** — 저장 검증(assertTargetsBelongToTeamAtWeek)과
+//   동일 기준을 써야 "검색에는 나오는데 저장은 거부" 되는 모순이 없다.
+async function filterCrewsByTeamAtWeek(
+  crews: CrewRecord[],
+  organization: OrganizationSlug | null,
+  teamId: string,
+  weekIdRaw: string | null,
+): Promise<CrewRecord[]> {
+  if (!organization || !isUuid(teamId)) return [];
+  const { data, error } = await supabaseAdmin
+    .from("cluster4_teams")
+    .select("id,team_name,organization_slug")
+    .eq("id", teamId)
+    .maybeSingle();
+  if (error || !data || (data as { organization_slug: string | null }).organization_slug !== organization) {
+    return []; // 유효하지 않은 팀/타 조직 팀 — 결과 없음(위조 방어).
+  }
+  const teamName = (data as { team_name: string }).team_name;
+  const weekStart =
+    (await resolveWeekStartDateForWeekId(weekIdRaw?.trim() || null)) ??
+    (await resolveCurrentWeekStartDate(getCurrentActivityDateIso()));
+  if (!weekStart) return [];
+  const resolved = await resolvePositionAtBatch({
+    userIds: crews.map((c) => c.userId),
+    targetWeekStart: weekStart,
+    organization,
+  });
+  return crews.filter((c) => resolved.get(c.userId)?.teamName === teamName);
 }
 
 // 라인 개설 크루 — 카페 링크 검수(POST) + 수동추가 검색(GET).
@@ -170,7 +205,17 @@ export async function GET(request: NextRequest) {
     // 수동 추가 검색도 현재 org + mode 모집단으로 한정 — 조직/운영·테스트 경계를 벗어난
     // 동명이인이 섞이지 않게 한다. (부분일치 검색이라 "김민지"로 "T김민지"도 이미 걸린다.)
     const { crews } = await loadScopedCrews(request);
-    const matches = filterCrewRecords(crews, q).slice(0, 30);
+    // 변동 액트 실무 경험 급 — team_id 가 오면 그 주차 실제 소속 팀으로 후보를 좁힌다(§클라 위조 방어 겸용).
+    const teamIdParam = request.nextUrl.searchParams.get("team_id")?.trim() || null;
+    const scoped = teamIdParam
+      ? await filterCrewsByTeamAtWeek(
+          crews,
+          readOrganization(request),
+          teamIdParam,
+          request.nextUrl.searchParams.get("week_id"),
+        )
+      : crews;
+    const matches = filterCrewRecords(scoped, q).slice(0, 30);
     return Response.json({ success: true, data: { crews: matches } });
   } catch (error) {
     return Response.json(

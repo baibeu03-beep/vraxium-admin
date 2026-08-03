@@ -112,10 +112,15 @@ export default function ProcessIrregularManualGrantDialog({
     onClose();
   };
 
+  // 실무 경험 급은 "허브 선택 → 팀 선택 → 사용자 검색" 순서 강제 — 팀 미선택이면 검색 자체를 막는다.
+  const searchDisabled = hubGrade === "experience" && !teamId;
+
   // 디바운스 자동완성 — org+mode 스코프(cafe-line-crew GET).
+  //   hubGrade='experience' 면 teamId+weekId 를 함께 보내 그 주차 실제 소속 팀 사용자만 받는다
+  //   (positionResolver 단일 SoT — 저장 검증 assertTargetsBelongToTeamAtWeek 과 동일 기준).
   useEffect(() => {
     const term = q.trim();
-    if (!term) {
+    if (!term || searchDisabled) {
       setResults([]);
       return;
     }
@@ -123,9 +128,13 @@ export default function ProcessIrregularManualGrantDialog({
     setSearching(true);
     const t = setTimeout(async () => {
       try {
+        const teamParam =
+          hubGrade === "experience" && teamId
+            ? `&team_id=${encodeURIComponent(teamId)}${weekId ? `&week_id=${encodeURIComponent(weekId)}` : ""}`
+            : "";
         const res = await fetch(
           appendModeQuery(
-            `/api/admin/cluster4/cafe-line-crew?organization=${encodeURIComponent(organization)}&q=${encodeURIComponent(term)}&excludeSeasonRest=1`,
+            `/api/admin/cluster4/cafe-line-crew?organization=${encodeURIComponent(organization)}&q=${encodeURIComponent(term)}&excludeSeasonRest=1${teamParam}`,
             mode,
           ),
         );
@@ -147,7 +156,22 @@ export default function ProcessIrregularManualGrantDialog({
       }
     }, 250);
     return () => clearTimeout(t);
-  }, [q, organization, mode]);
+  }, [q, organization, mode, hubGrade, teamId, weekId, searchDisabled]);
+
+  // 팀이 바뀌면(§6) 이전 팀 기준으로 고른 대상/검색 상태를 초기화하고 새 팀 기준으로 다시 조회한다.
+  //   실무 경험 급을 유지한 채 "팀 A → 팀 B"로 바꾼 경우에만 적용 — 허브를 아예 벗어나 teamId 가
+  //   자동으로 비워지는 경우(§다른 허브는 팀 개념 없음)까지 로스터를 지우면 과잉 동작이라 제외한다.
+  const prevTeamRef = useRef({ hubGrade, teamId });
+  useEffect(() => {
+    const prev = prevTeamRef.current;
+    if (prev.hubGrade === "experience" && hubGrade === "experience" && prev.teamId !== teamId) {
+      setRoster([]);
+      setQ("");
+      setResults([]);
+      setCandidate(null);
+    }
+    prevTeamRef.current = { hubGrade, teamId };
+  }, [hubGrade, teamId]);
 
   // 검색 결과에서 이미 명단(roster)에 있는 크루는 완전 제외(userId 기준·공통 SoT).
   // roster 변화 시 재계산 → 추가 즉시 사라지고 삭제하면 다시 나타난다. mode/test/demo 무관.
@@ -398,10 +422,10 @@ export default function ProcessIrregularManualGrantDialog({
                     setCandidate(null);
                     setQ(e.target.value);
                   }}
-                  placeholder="이름으로 검색"
-                  disabled={submitting}
+                  placeholder={searchDisabled ? "먼저 소속 팀을 선택해주세요" : "이름으로 검색"}
+                  disabled={submitting || searchDisabled}
                 />
-                {!candidate && q.trim() && (searching || visibleResults.length > 0) && (
+                {!searchDisabled && !candidate && q.trim() && (searching || visibleResults.length > 0) && (
                   <div className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-md border bg-card shadow-lg">
                     {searching ? (
                       <p className="px-3 py-2 text-xs text-muted-foreground">검색 중…</p>
