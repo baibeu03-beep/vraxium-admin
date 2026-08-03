@@ -15,15 +15,20 @@ type SidebarContextValue = {
 
 const SidebarContext = createContext<SidebarContextValue | null>(null);
 
+// 탭별 독립 상태: sessionStorage 는 브라우저 탭마다 별도 영역을 가지므로
+// 다른 탭·다른 브라우저와 절대 공유되지 않는다(새로고침 시에는 같은 탭이라 유지됨).
 const STORAGE_KEY = "admin.sidebar.open";
+// 같은 탭 안에서 setOpen 직후 즉시 리렌더시키기 위한 커스텀 이벤트.
+// 브라우저 네이티브 storage 이벤트는 다른 탭에만 발화되므로 여기서는 쓰지 않는다.
+const CHANGE_EVENT = "admin-sidebar-open-change";
 
 function getSnapshot() {
   if (typeof window === "undefined") return true;
   try {
-    const saved = window.localStorage.getItem(STORAGE_KEY);
+    const saved = window.sessionStorage.getItem(STORAGE_KEY);
     if (saved === "false") return false;
   } catch {
-    // localStorage unavailable
+    // sessionStorage unavailable
   }
   return true;
 }
@@ -33,14 +38,8 @@ function subscribe(onStoreChange: () => void) {
     return () => {};
   }
 
-  const handler = (event: StorageEvent) => {
-    if (!event.key || event.key === STORAGE_KEY) {
-      onStoreChange();
-    }
-  };
-
-  window.addEventListener("storage", handler);
-  return () => window.removeEventListener("storage", handler);
+  window.addEventListener(CHANGE_EVENT, onStoreChange);
+  return () => window.removeEventListener(CHANGE_EVENT, onStoreChange);
 }
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
@@ -48,8 +47,8 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 
   const setOpen = useCallback((value: boolean) => {
     try {
-      window.localStorage.setItem(STORAGE_KEY, String(value));
-      window.dispatchEvent(new StorageEvent("storage", { key: STORAGE_KEY }));
+      window.sessionStorage.setItem(STORAGE_KEY, String(value));
+      window.dispatchEvent(new Event(CHANGE_EVENT));
     } catch {
       // ignore
     }
