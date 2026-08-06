@@ -79,9 +79,14 @@ async function main() {
   const browser = await chromium.launch({ headless: true });
   try {
     // ── 1) 재현 전제 세팅 — 대상 유저를 여름5 시점에 "테스트" 파트로(carry-forward 로 여름6~8 도 "테스트"). ──
-    const targetUser = snapshotBefore?.[0]?.user_id; // 기존 관리자가 이미 다루던 유저 재사용(오염 최소화).
+    //   기존 관리자가 이미 다루던 유저를 재사용하되, [B] 표(crewRows)는 배정 가능(집합②) 크루만 나오므로
+    //   role=crew·현역(졸업 아님)인 유저를 골라야 한다 — 안 그러면 [B] select 를 찾지 못해 오탐한다
+    //   (실제로 스냅샷 0번째가 졸업(엘리트) 유저라 1차 시도에서 타임아웃 발생).
+    const snapUserIds = [...new Set((snapshotBefore ?? []).map((r) => r.user_id))];
+    const { data: snapProfs } = await sb.from("user_profiles").select("user_id,role,growth_status").in("user_id", snapUserIds);
+    const targetUser = (snapProfs ?? []).find((p) => p.role === "crew" && p.growth_status !== "graduated")?.user_id;
     if (!targetUser) {
-      console.log("대상 유저 없음 — abort");
+      console.log("배정 가능한(현역 crew) 대상 유저 없음 — abort");
       process.exit(1);
     }
     const { data: uprof } = await sb.from("user_profiles").select("display_name").eq("user_id", targetUser).limit(1);
@@ -135,7 +140,7 @@ async function main() {
           out[part] = cells.map((c) => c.getAttribute("data-pw-cell"));
         }
         return out;
-      }, label);
+      });
     };
     const colIndexOf = async (weekLabel) =>
       page.evaluate((lbl) => {
@@ -172,8 +177,10 @@ async function main() {
       },
       { timeout: 20000 },
     );
-    // 저장 API 응답을 확실히 반영할 시간(비동기 재조회) 대기 — load() 재조회까지 넉넉히.
-    await page.waitForTimeout(6000);
+    // ⚠ 버튼 문구가 "저장 중…"에서 풀리는 시점 = saveRows() 가 load()+loadWeekSummary() 를 모두
+    //   await 하고 끝난 시점(코드 보장) — 추가 임의 대기 없이 바로 확인해도 이미 최신이어야 한다.
+    //   React 렌더 flush 만 최소 대기.
+    await page.waitForTimeout(200);
 
     // ── 4) 새로고침 없이 — 매트릭스 여름6·7·8 열이 즉시 정답으로 바뀌었는지 ──
     //   (쿠키는 다른 유저 기여로 이미 ●일 수 있어 판별력이 없다 — "테스트"가 0으로 꺼지는지가 핵심.)

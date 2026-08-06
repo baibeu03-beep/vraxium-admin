@@ -293,7 +293,6 @@ export default function TeamDetail({
     new Map(),
   );
   const [savingRows, setSavingRows] = useState(false);
-  const [weekReloadTick, setWeekReloadTick] = useState(0); // 저장 후 [A]/[B]/매트릭스 재조회 트리거.
   // [B] 표 정렬 — null=기본(서버 순서: 소속 파트 ASC → 이름 ASC). 헤더 3단계 순환(없음→asc→desc→기본).
   //   저장(재조회)에도 유지된다(sort 는 weekSummary 변경으로 리셋되지 않는 독립 상태).
   const [sort, setSort] = useState<{ key: CrewSortKey; dir: SortDirection } | null>(null);
@@ -331,40 +330,42 @@ export default function TeamDetail({
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
-    // ⚠ weekReloadTick 의존성 필수 — [B] 저장 후 이 effect 도 다시 돌아야 `data.selectedTeam.
-    //   partWeekMatrix`(존재표 전체 열)가 최신화된다. 이게 빠져 있으면 [A]/weekSummary 만 새로고침되고
-    //   matrixRender 는 "선택된 주차 열 1개만" 클라이언트에서 덮어써서, 선택하지 않은 다른 주차 열
-    //   (예: 방금 저장한 주차의 다음 주들)이 저장 이전 값으로 남는다(실측 2026-08: 여름6 저장 직후
-    //   여름7·8 열이 구 값 유지 — 서버는 이미 정답을 반환하는데 화면만 안 따라옴).
-  }, [load, weekReloadTick]);
+  }, [load]);
 
-  // [A] 선택 주차 요약 로드 — selectedWeekId(미지정=현재 주차) 변경 시 이 영역만 갱신. 요청 버저닝으로
-  //   연속 선택 시 이전 응답이 최신을 덮어쓰지 않게 한다. 상단 상세/매트릭스와 독립(전체 깜빡임 없음).
-  useEffect(() => {
+  // [A] 선택 주차 요약 로드 — selectedWeekId(미지정=현재 주차) 변경 시 자동 갱신(effect). **저장 후에는
+  //   saveRows() 가 이 함수를 직접 await 로 호출**한다(아래 참고) — weekReloadTick 같은 간접 트리거로
+  //   effect 재실행에 기대면 이 effect·load() effect 가 동시에 걸려 이중 fetch·타이밍 불확실성이
+  //   생긴다(실측 2026-08: 저장 직후 몇 초는 새로고침 없이도 반영되다가 더 걸리는 경우 체감상 "안 바뀜"
+  //   으로 보임). saveRows 에서 명시적으로 await 하면 저장 버튼이 "저장 중…"에서 풀리는 시점 = 화면이
+  //   이미 최신인 시점이 되어 체감 지연이 없다. 요청 버저닝(weekReqRef)은 유지 — 주차 select 를 빠르게
+  //   연속 클릭해도 이전 응답이 최신을 덮어쓰지 않는다.
+  const loadWeekSummary = useCallback(async () => {
     if (!data) return;
     const reqId = ++weekReqRef.current;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setWeekLoading(true);
-    void (async () => {
-      try {
-        const params = new URLSearchParams({ organization: orgSlug, teamHalfId });
-        if (selectedWeekId) params.set("weekId", selectedWeekId);
-        if (data.selectedHalfKey) params.set("half", data.selectedHalfKey);
-        if (mode === "test") params.set("mode", "test");
-        const res = await fetch(
-          `/api/admin/team-parts/info/team-detail/week-summary?${params.toString()}`,
-          { cache: "no-store" },
-        );
-        const json = await res.json();
-        if (weekReqRef.current !== reqId) return; // 최신 요청만 반영(stale drop)
-        if (res.ok && json.success) setWeekSummary(json.data as TeamSelectedWeekSummary);
-      } catch {
-        // [A]는 보조 영역 — 실패해도 상단 상세는 유지.
-      } finally {
-        if (weekReqRef.current === reqId) setWeekLoading(false);
-      }
-    })();
-  }, [data, orgSlug, teamHalfId, mode, selectedWeekId, weekReloadTick]);
+    try {
+      const params = new URLSearchParams({ organization: orgSlug, teamHalfId });
+      if (selectedWeekId) params.set("weekId", selectedWeekId);
+      if (data.selectedHalfKey) params.set("half", data.selectedHalfKey);
+      if (mode === "test") params.set("mode", "test");
+      const res = await fetch(
+        `/api/admin/team-parts/info/team-detail/week-summary?${params.toString()}`,
+        { cache: "no-store" },
+      );
+      const json = await res.json();
+      if (weekReqRef.current !== reqId) return; // 최신 요청만 반영(stale drop)
+      if (res.ok && json.success) setWeekSummary(json.data as TeamSelectedWeekSummary);
+    } catch {
+      // [A]는 보조 영역 — 실패해도 상단 상세는 유지.
+    } finally {
+      if (weekReqRef.current === reqId) setWeekLoading(false);
+    }
+  }, [data, orgSlug, teamHalfId, mode, selectedWeekId]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadWeekSummary();
+  }, [loadWeekSummary]);
 
   useEffect(() => {
     const resolvedWeekId = weekSummary?.week?.weekId ?? null;
@@ -543,7 +544,10 @@ export default function TeamDetail({
       } else {
         t.success("update", "파트·클래스가 저장되었습니다.");
       }
-      setWeekReloadTick((x) => x + 1); // [A]/[B]/매트릭스 재조회 → dirty 리셋.
+      // ⚠ tick 을 올려 effect 가 알아서 재조회하길 기다리지 않는다 — 여기서 직접 await 해서 이 함수가
+      //   끝나는 시점(=저장 버튼이 "저장 중…"에서 풀리는 시점)에 [A]/[B]/매트릭스가 이미 최신이도록
+      //   보장한다(새로고침 없이 즉시 반영, dirty 는 weekSummary 갱신에 딸려 자동 리셋).
+      await Promise.all([load(), loadWeekSummary()]);
     } catch (e) {
       await adminDialog.alert({
         variant: "danger",
