@@ -331,7 +331,12 @@ export default function TeamDetail({
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
-  }, [load]);
+    // ⚠ weekReloadTick 의존성 필수 — [B] 저장 후 이 effect 도 다시 돌아야 `data.selectedTeam.
+    //   partWeekMatrix`(존재표 전체 열)가 최신화된다. 이게 빠져 있으면 [A]/weekSummary 만 새로고침되고
+    //   matrixRender 는 "선택된 주차 열 1개만" 클라이언트에서 덮어써서, 선택하지 않은 다른 주차 열
+    //   (예: 방금 저장한 주차의 다음 주들)이 저장 이전 값으로 남는다(실측 2026-08: 여름6 저장 직후
+    //   여름7·8 열이 구 값 유지 — 서버는 이미 정답을 반환하는데 화면만 안 따라옴).
+  }, [load, weekReloadTick]);
 
   // [A] 선택 주차 요약 로드 — selectedWeekId(미지정=현재 주차) 변경 시 이 영역만 갱신. 요청 버저닝으로
   //   연속 선택 시 이전 응답이 최신을 덮어쓰지 않게 한다. 상단 상세/매트릭스와 독립(전체 깜빡임 없음).
