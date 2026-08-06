@@ -2,7 +2,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import { loadSeasonWeeks } from "@/lib/adminSeasonWeeksData";
 import { resolveUserScope } from "@/lib/userScope";
-import { loadTeamActivityEligibilityBulk } from "@/lib/evaluationEligibility";
+import { loadTeamActivityEligibilityBulk, loadEvaluationEligibility } from "@/lib/evaluationEligibility";
 import {
   loadWeekOrgResultStates,
   resolveWeekOrgResultState,
@@ -104,7 +104,9 @@ export type TeamSelectedWeekSummary = {
   };
   // 그 주차 배정 크루 ≥1 파트(‘일반’ 포함). crewCount = distinct userId. 최신 표시순('일반' 우선).
   operatedParts: Array<{ partName: string; crewCount: number }>;
-  // [B] 편집표 행 — 전체 크루(정규+심화). 소속 파트(rawPart)·클래스(positionCode)만 편집 대상, 나머지 조회전용.
+  // [B] 편집표 행 — "팀 파트 배정 가능" 크루만(crew.total 과 달리 집합②: 시즌휴식·주차휴식·활동중단·
+  //   엘리트·바사노스 제외 — 소속은 유지해도 신규 배정 대상은 아니다). 소속 파트(rawPart)·클래스
+  //   (positionCode)만 편집 대상, 나머지 조회전용.
   crewRows: CrewRow[];
 };
 
@@ -551,9 +553,25 @@ export async function getTeamSelectedWeekSummary(opts: {
   // 7) 운용 파트(배정 크루 ≥1) — 공용 집계기(파트×주차 존재표와 동일 함수).
   const operatedParts = operatedPartsFromRoster(rosterMembers);
 
-  // 8) [B] 크루 행 — 전체 크루(정규+심화) 각자의 프로필 + effective 파트/클래스 + 주차결과.
+  // 8) [B] 크루 행 — "팀 파트 배정 가능" 크루만(집합②: 시즌휴식·주차휴식·활동중단·엘리트·바사노스 제외).
+  //    ⚠ crew.total/growth/operatedParts(위 5~7단계)는 집합①(팀·파트 활동 가능 — 엘리트·바사노스 유지) 그대로다.
+  //      [B] 편집표는 "이번 주 누구를 어느 파트에 배정할지 고르는 화면"이라 의미가 다르다 — 졸업·엘리트·
+  //      바사노스·활동 중단 크루는 소속은 유지되어도(집합①) **신규 배정 대상은 아니다**(집합②). 두 집합이
+  //      우연히 조건이 같아 lib/evaluationEligibility 를 그대로 재사용한다(중복 구현 금지) — 조건이 갈리면
+  //      그때 이 화면 전용 함수로 분리할 것. 판정 기준 시점은 **선택 주차의 시즌**(현재 시점 소급 없음),
+  //      과거 주차를 조회하면 그 시점엔 활동 중이었던 이력이 그대로 보인다.
+  const assignEligibility = crewIds.length
+    ? await loadEvaluationEligibility({
+        userIds: crewIds,
+        weekStartDate: weekStart,
+        seasonKey: targetRow.season_key ?? null,
+        today: opts.today,
+      })
+    : null;
+  const assignableCrewIds = crewIds.filter((uid) => assignEligibility?.isEvaluable(uid) ?? true);
+
   //    ⚠ 파트/클래스는 effective(override ?? UPH), 프로필/품계/결과는 기존 SoT. 결과류는 검수 완료 전 null(-).
-  const basics = await getLeaderBasicsBatch(crewIds);
+  const basics = await getLeaderBasicsBatch(assignableCrewIds);
   // 조회 전용 결과류 — 검수 완료 주차만 batch(N+1 없음). 미완료 주차는 호출 자체를 생략 → 전부 null('-').
   //   · 3종(성장 성공·라인 강화율·액트 체크율) = weekly-cards snapshot SoT.
   //   · 품계 = **주차 확정 품계 이력**(user_week_grade_histories) — 현재값(user_grade_stats) fallback 금지.
@@ -561,11 +579,11 @@ export async function getTeamSelectedWeekSummary(opts: {
   const [weekResults, gradeHistory] =
     reviewCompleted && weekStart
       ? await Promise.all([
-          loadWeeklyCrewResults({ userIds: crewIds, weekStartDate: weekStart }),
-          loadWeekGradeHistory({ userIds: crewIds, weekStartDate: weekStart }),
+          loadWeeklyCrewResults({ userIds: assignableCrewIds, weekStartDate: weekStart }),
+          loadWeekGradeHistory({ userIds: assignableCrewIds, weekStartDate: weekStart }),
         ])
       : [new Map<string, WeeklyCrewResult>(), new Map<string, WeekGradeHistoryEntry>()];
-  const crewRows: CrewRow[] = crewIds
+  const crewRows: CrewRow[] = assignableCrewIds
     .map((uid) => {
       const eff = effectiveByUser.get(uid);
       const b = basics.get(uid);

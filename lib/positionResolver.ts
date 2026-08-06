@@ -7,6 +7,7 @@ import {
   loadUserPositionOverrideRows,
   resolveCurrentWeekStartDate,
   resolveOverrideAt,
+  stripTeamParen,
   type WeekPositionOverrideRow,
 } from "@/lib/teamWeekPositionOverride";
 import { roleLevelToPositionCode } from "@/shared/crewClassPosition";
@@ -241,12 +242,17 @@ async function loadUphAtWeeks(
 }
 
 // 한 유저 × 한 주차의 결정 — override(≤W 최신) → UPH(W) → 현재 멤버십. 단일/벌크 공용 순수 로직.
-function decidePositionAt(
+//   rawPriorOverride = 시즌 경계를 **무시하고** 찾은 "≤W 최신 override"(있으면). ovr(시즌 경계 적용)가
+//   null 인데 이게 있다는 건 "예전에 override 로 다른 데로 옮겨졌는데, 그 시즌이 끝나 carry-forward 가
+//   끊겼다"는 뜻이다 — 아래 멤버십 폴백 가드에서만 쓴다(그 외 분기는 기존과 동일).
+// export = 순수 단위 검증용(DB 없이 decidePositionAt 자체를 직접 두드린다). 동작 변경 아님.
+export function decidePositionAt(
   userId: string,
   week: string,
   ovr: { weekStartDate: string; rawTeam: string | null; rawPart: string | null; positionCode: PositionCode | null } | null,
   uphEntry: UphEntry | null,
   membershipFallback: MembershipFallback | null,
+  rawPriorOverride: { weekStartDate: string; rawTeam: string | null; rawPart: string | null; positionCode: PositionCode | null } | null = null,
 ): ResolvedPosition {
   if (ovr) {
     const values = resolvePositionValues({
@@ -282,7 +288,24 @@ function decidePositionAt(
       membershipLevel: membershipFallback?.level ?? null,
     });
   }
+  // ── 시즌 경계 너머 멤버십 폴백 가드(2026-08 정책) ──────────────────────────────
+  //   override(같은 시즌)도 UPH(그 주차)도 없어 "현재 멤버십"으로 최후 폴백하려는 시점이다. 그런데
+  //   이 유저가 **과거 다른 시즌에 override 를 받은 적**이 있고, 그 override 값이 지금 라이브 멤버십과
+  //   다르면 — 그 override 저장(PATCH week-position)은 UPH/멤버십을 갱신하지 않으므로 멤버십은
+  //   "그 override 이후로 한 번도 안 바뀐 낡은 값"일 뿐, "이 유저가 실제로 복귀했다"는 근거가 아니다.
+  //   이 상태로 멤버십을 그대로 쓰면, 관리자가 시즌 A 에 어떤 파트에서 뺀 크루가 시즌 B 미래 주차에
+  //   "현재 소속" 이란 이름으로 자동 부활한다(운용 파트 carry-forward 요구사항 위반). 값이 멤버십과
+  //   **똑같으면**(=드리프트 없음) 되살릴 것도 없으므로 평소대로 폴백한다.
   const m = membershipFallback;
+  if (rawPriorOverride) {
+    const driftedTeam =
+      stripTeamParen(rawPriorOverride.rawTeam) !== stripTeamParen(m?.team ?? null);
+    const driftedPart = (rawPriorOverride.rawPart ?? null) !== (m?.part ?? null);
+    if (driftedTeam || driftedPart) {
+      void week;
+      return EMPTY(userId); // 시즌 경계 너머 미배정 — "현재 소속" 자동 부활 차단.
+    }
+  }
   if (m && (m.code !== null || m.team !== null || m.part !== null)) {
     return withLabels({
       userId,
@@ -347,6 +370,8 @@ export async function resolvePositionAtWeeksBulk(input: {
           resolveOverrideAt(ovrIndex.get(id), week, seasonKeyOf),
           uph.get(id) ?? null,
           membership.get(id) ?? null,
+          // 시즌 경계 미적용(3번째 인자 생략) — "예전에 override 가 있었는지"만 본다. 드리프트 가드 전용.
+          resolveOverrideAt(ovrIndex.get(id), week),
         ),
       );
     }

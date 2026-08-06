@@ -202,6 +202,14 @@ const CHIP_CLS: Record<OrganizationSlug, string> = {
 const MAX_PART_NAME = 12;
 const WEEK_SELECT_CLS =
   "min-w-[230px] rounded-md border border-input bg-background px-4 py-2.5 text-base font-medium";
+// 서버 lib/adminTeamHalvesData.ts::DEFAULT_PART_NAME 과 동일 값 — 그 파일은 서버 전용(supabaseAdmin)이라
+//   클라이언트 컴포넌트가 import 할 수 없어 값만 복제한다(둘 다 "일반" 리터럴을 SoT 주석으로 명시).
+const DEFAULT_PART_NAME = "일반";
+// 생성 파트 배지 스타일 — 선택 주차 기준 운용/미운용 구분(요구사항: 강조=emerald 계열, 미운용=중립).
+const GENERATED_PART_BADGE_OPERATED_CLS =
+  "rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-sm font-medium text-emerald-700";
+const GENERATED_PART_BADGE_IDLE_CLS =
+  "rounded-md border border-input bg-background px-2.5 py-1 text-sm font-medium text-muted-foreground";
 
 // 주차 옵션 표시명 — 연도+시즌+주차(예: "26년, 여름, 4주차 (현재)"). 값(week.id)·정렬·필터는 불변.
 //   year/seasonLabel/weekNumber 는 서비스가 공식 주차 데이터에서 파생해 넘긴 값(재계산 없음).
@@ -432,6 +440,20 @@ export default function TeamDetail({
     return { cols, matrix };
   }, [data, weekSummary]);
 
+  // 상단 "생성 파트" 배지 강조 — [A] 와 **같은 weekSummary**(선택 주차) 기준 운용 파트 집합.
+  //   생성 파트 목록은 '일반' 제외(카탈로그 비-일반만)이므로 비교 전에 '일반'을 뺀다.
+  //   ⚠ weekSummary 는 별도 요청(selectedWeekId 변경 시)이라 최초 로드 전엔 빈 Set(=전부 중립) —
+  //     주차 select 가 응답을 받는 즉시 이 값도 함께 갱신된다(별도 상태 없이 weekSummary 파생).
+  const selectedWeekOperatedPartNames = useMemo(
+    () =>
+      new Set(
+        (weekSummary?.operatedParts ?? [])
+          .map((p) => p.partName)
+          .filter((name) => name !== DEFAULT_PART_NAME),
+      ),
+    [weekSummary],
+  );
+
   // [B] 편집 파생값 — base(저장본) 대비 dirty 판정, 파트 옵션, 변경/저장 핸들러.
   const baseByUser = useMemo(() => {
     const m = new Map<string, { rawPart: string | null; positionCode: PositionCode }>();
@@ -641,27 +663,31 @@ export default function TeamDetail({
                       data-team-detail-operated-part-count
                       className="ml-1 text-base text-foreground"
                     >
-                      {data.operatedPartCount}
+                      {selectedWeekOperatedPartNames.size}
                     </strong>
                     <span className="mx-2 text-muted-foreground">|</span>
                   </span>
                   {data.generatedParts.length === 0 ? (
                     <span className="text-sm text-muted-foreground">생성된 파트 없음</span>
                   ) : (
-                    data.generatedParts.map((p) => (
-                      <span
-                        key={p}
-                        data-generated-part={p}
-                        className="rounded-md border border-input bg-background px-2.5 py-1 text-sm font-medium"
-                      >
-                        {p}
-                      </span>
-                    ))
+                    data.generatedParts.map((p) => {
+                      const operated = selectedWeekOperatedPartNames.has(p);
+                      return (
+                        <span
+                          key={p}
+                          data-generated-part={p}
+                          data-generated-part-operated={operated ? "1" : "0"}
+                          className={operated ? GENERATED_PART_BADGE_OPERATED_CLS : GENERATED_PART_BADGE_IDLE_CLS}
+                        >
+                          {p}
+                        </span>
+                      );
+                    })
                   )}
                 </div>
                 <div className="ml-auto flex shrink-0 items-center gap-3">
                   <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
-                    <strong className="text-base text-foreground">{data.operatedPartCount}</strong>
+                    <strong className="text-base text-foreground">{selectedWeekOperatedPartNames.size}</strong>
                     <span>/ {data.maxCreatedParts}</span>
                     <AdminHelpIconButton
                       helpKey="admin.teamParts.info.summary.operatedPartCount"
