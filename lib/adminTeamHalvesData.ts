@@ -49,6 +49,9 @@ import {
   type OverridePosition,
 } from "@/lib/teamWeekPositionOverride";
 import { applyMemberRolePosition, MemberPatchError } from "@/lib/adminMembersData";
+import { roleLevelToPositionCode } from "@/shared/crewClassPosition";
+import type { PositionCode } from "@/lib/positionHistory";
+import { selectMembershipRow, type SelectableMembership } from "@/lib/membershipResolver";
 
 // 반기별 팀 SoT(cluster4_team_halves) 데이터 접근.
 //   · 조회: 반기 → 그 반기의 팀 목록(불변 스냅샷 team_name).
@@ -1549,9 +1552,86 @@ async function leadsOtherActiveTeam(userId: string, excludeTeamHalfId: string): 
   return (data?.length ?? 0) > 0;
 }
 
+// ── 현재 주차 override 동기화 ────────────────────────────────────────────
+//   applyMemberRolePosition(→user_memberships)만으로는 부족하다. positionResolver 는
+//   override(≤현재 주차 최신) 를 멤버십보다 **먼저** 본다(2026-07-22 SoT, [[project_team-week-
+//   position-override-common-sot]]). 그런데 이 유저에게 "이 팀 승격/복원과 무관한" 과거 override
+//   행이 이미 있으면(예: 다른 관리자가 예전에 파트만 편집해 둔 행), 그 옛 값이 carry-forward 로
+//   계속 이겨서 방금 바꾼 멤버십이 화면에 반영되지 않는다(2026-08-07 실측: T김기연에게 2026-07-27
+//   override 행이 있어, 승격 후에도 /api/admin/members 가 옛 팀·파트를 계속 보여줬다). 그래서
+//   승격/복원 시 **현재 주차** override 도 함께 upsert 해 override 축과 멤버십 축을 같은 값으로
+//   맞춘다 — 과거 주차 override/UPH 는 절대 건드리지 않는다(carry-forward 는 이 시점부터만).
+async function upsertLeaderPositionOverride(params: {
+  userId: string;
+  organization: string;
+  rawTeam: string | null;
+  rawPart: string | null;
+  positionCode: PositionCode | null;
+  actorId: string | null;
+}): Promise<string | null> {
+  const { userId, organization, rawTeam, rawPart, positionCode, actorId } = params;
+  if (!rawTeam || !positionCode) return null; // 복원 근거(팀/코드) 없으면 override 를 만들지 않는다.
+  const weekStart = await resolveCurrentWeekStartDate(getCurrentActivityDateIso());
+  if (!weekStart) return null; // 현재 주차를 못 찾으면(달력 갭) 손대지 않는다 — 무회귀.
+  const { data: weekRow } = await supabaseAdmin.from("weeks").select("id").eq("start_date", weekStart).maybeSingle();
+  const weekId = (weekRow as { id?: string } | null)?.id ?? null;
+  const actor = actorId ?? "system:team-leader-lifecycle";
+  // 같은 유저·같은 주차에 **다른** raw_team 으로 남아 있는 행(같은 주차 안에서 승격→복원처럼 팀이 두 번
+  //   바뀐 경우)을 먼저 지운다. upsert 충돌 키가 raw_team 까지 포함해 그런 행은 새 값과 공존하는데,
+  //   resolveOverrideAt 은 "그 유저의 ≤W 최신 1행"만 보므로 같은 주차에 행이 2개면 어느 게 이기는지
+  //   DB 반환 순서에 좌우된다(비결정적) — 팀장은 한 시점에 팀이 하나뿐이라는 모델과도 맞지 않는다.
+  const { error: cleanupError } = await supabaseAdmin
+    .from("cluster4_team_week_position_overrides")
+    .delete()
+    .eq("user_id", userId)
+    .eq("organization", organization)
+    .eq("week_start_date", weekStart)
+    .neq("raw_team", rawTeam);
+  if (cleanupError) {
+    console.warn("[adminTeamHalvesData] 같은 주차 중복 override 정리 실패", { userId, message: cleanupError.message });
+  }
+  const { error } = await supabaseAdmin.from("cluster4_team_week_position_overrides").upsert(
+    {
+      user_id: userId,
+      organization,
+      week_id: weekId,
+      week_start_date: weekStart,
+      raw_team: rawTeam,
+      raw_part: rawPart,
+      position_code: positionCode,
+      created_by: actor,
+      updated_by: actor,
+    },
+    { onConflict: "user_id,week_start_date,organization,raw_team" },
+  );
+  if (!error) return null;
+  console.warn("[adminTeamHalvesData] 팀장 소속 override upsert 실패", { userId, organization, rawTeam, message: error.message });
+  return `소속(팀/파트) 주차 반영 실패(${rawTeam}): ${error.message} (userId=${userId})`;
+}
+
+// snapshot.role(승격 전 role) + 현재 멤버십 등급으로 override position_code 를 역산한다.
+//   team_leader/ambassador/club_leader 는 등급 무관(role 만으로 확정) — 나머지(crew)는 멤버십
+//   등급(일반/심화)이 필요해 재조회한다(멤버십 자체는 이 lifecycle 이 건드리지 않은 값이라 안전).
+async function resolveSnapshotPositionCode(userId: string, role: string | null): Promise<PositionCode | null> {
+  if (!role) return null;
+  const direct = roleLevelToPositionCode(role, null);
+  if (direct) return direct;
+  const { data } = await supabaseAdmin
+    .from("user_memberships")
+    .select("team_name,part_name,membership_level,is_current,updated_at")
+    .eq("user_id", userId);
+  const row = selectMembershipRow((data ?? []) as SelectableMembership[]);
+  return roleLevelToPositionCode(role, row?.membership_level ?? null);
+}
+
 // 새 팀장 B 승격 — role='team_leader' + current_team_name=팀명(결합 모델). 공용 도메인 서비스 재사용.
 //   유일성 충돌(예: 그 팀에 이미 팀장 — 교체 흐름에서 A 를 먼저 강등하지 않은 경우) 등은 note 로 보고.
-async function promoteTeamLeader(userId: string, teamName: string, actorId: string | null): Promise<string | null> {
+async function promoteTeamLeader(
+  userId: string,
+  teamName: string,
+  actorId: string | null,
+  organization: string,
+): Promise<string | null> {
   try {
     await applyMemberRolePosition({
       userId,
@@ -1561,8 +1641,17 @@ async function promoteTeamLeader(userId: string, teamName: string, actorId: stri
       actorId,
       reason: `team_leader_assign:${teamName}`,
     });
+    // 팀장 = 파트 없음 정책 유지([[project_team-leader-no-part-policy]]) — rawPart 는 항상 null.
+    const overrideNote = await upsertLeaderPositionOverride({
+      userId,
+      organization,
+      rawTeam: teamName,
+      rawPart: null,
+      positionCode: "operating_team_leader",
+      actorId,
+    });
     await markWeeklyCardsSnapshotStaleMany([userId]).catch(() => {});
-    return null;
+    return overrideNote;
   } catch (e) {
     if (e instanceof MemberPatchError) return `팀장 승격 보류(${teamName}): ${e.message} (userId=${userId})`;
     throw e;
@@ -1577,8 +1666,9 @@ async function restoreFormerLeader(params: {
   snapshot: LeaderPositionSnapshot | null;
   actorId: string | null;
   teamLabel: string;
+  organization: string;
 }): Promise<string | null> {
-  const { userId, excludeTeamHalfId, snapshot, actorId, teamLabel } = params;
+  const { userId, excludeTeamHalfId, snapshot, actorId, teamLabel, organization } = params;
   if (!userId) return null;
   if (await leadsOtherActiveTeam(userId, excludeTeamHalfId)) return null; // 다른 팀 리더 → 유지.
   const cur = await readPositionSnapshot(userId);
@@ -1596,8 +1686,22 @@ async function restoreFormerLeader(params: {
       actorId,
       reason: `team_leader_remove:${teamLabel}`,
     });
+    // 승격 시 얹었던 현재 주차 override 를 원래 소속으로 되돌린다 — 안 하면 방금 강등했는데도
+    //   override carry-forward 로 옛(승격 중이던) 팀이 미래 주차까지 계속 보인다.
+    let overrideNote: string | null = null;
+    if (snapshot.teamName) {
+      const positionCode = await resolveSnapshotPositionCode(userId, snapshot.role);
+      overrideNote = await upsertLeaderPositionOverride({
+        userId,
+        organization,
+        rawTeam: snapshot.teamName,
+        rawPart: snapshot.partName,
+        positionCode,
+        actorId,
+      });
+    }
     await markWeeklyCardsSnapshotStaleMany([userId]).catch(() => {});
-    return null;
+    return overrideNote;
   } catch (e) {
     if (e instanceof MemberPatchError) return `팀장 해제 복원 보류(${teamLabel}): ${e.message} (userId=${userId})`;
     throw e;
@@ -1760,7 +1864,7 @@ export async function registerTeamHalf(
   //   이전 팀장 강등 없음. 유일성 충돌 등은 note 로 보고(팀 등록 자체는 성공).
   const notes: string[] = [];
   if (roleLifecycle) {
-    const note = await promoteTeamLeader(leaderUserId, teamName, actorId);
+    const note = await promoteTeamLeader(leaderUserId, teamName, actorId, organization);
     if (note) notes.push(note);
   }
 
@@ -1915,11 +2019,12 @@ export async function updateTeamHalf(
       snapshot: oldSnapshot,
       actorId,
       teamLabel: teamName,
+      organization,
     });
     if (note) notes.push(note);
   }
   if (roleLifecycle) {
-    const note = await promoteTeamLeader(leaderUserId, teamName, actorId);
+    const note = await promoteTeamLeader(leaderUserId, teamName, actorId, organization);
     if (note) notes.push(note);
   }
 
@@ -1988,6 +2093,7 @@ export async function markTeamHalfDeletionPending(
       snapshot: prevPos,
       actorId,
       teamLabel: target.team_name,
+      organization: org,
     });
     if (note) notes.push(note);
   }

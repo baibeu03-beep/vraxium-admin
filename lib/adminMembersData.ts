@@ -1062,12 +1062,96 @@ async function assertRoleUniqueness(
   }
 }
 
+type CurrentMembershipRow = {
+  id: string;
+  team_name: string | null;
+  part_name: string | null;
+  is_current: boolean | null;
+  updated_at: string | null;
+};
+
+// user_memberships(is_current=true 행)가 소속(team/part)의 SoT — user_profiles.current_team_name/
+//   current_part_name 은 DB 트리거(user_memberships_sync_current, 2026-06-01_member_roles_uniqueness.sql)
+//   가 미러링하는 파생 컬럼이다. 소속을 바꿀 때는 반드시 이 함수로 user_memberships 를 갱신해서
+//   트리거가 profile 을 따라오게 한다 — profile 컬럼을 직접 쓰면 나중에 그 유저의 멤버십 행이 다른
+//   이유로(예: 관리자가 파트 개편 화면에서 저장) 갱신되는 순간 트리거가 옛 값으로 되돌린다.
+async function syncCurrentMembership(
+  userId: string,
+  teamName: string | null,
+  partName: string | null,
+): Promise<void> {
+  const { data, error } = await supabaseAdmin
+    .from("user_memberships")
+    .select("id,team_name,part_name,is_current,updated_at")
+    .eq("user_id", userId);
+  if (error) throw new MemberPatchError(500, `멤버십 조회 실패: ${error.message}`);
+  const rows = (data ?? []) as CurrentMembershipRow[];
+
+  const alreadyCurrent = rows.find(
+    (r) => r.is_current && r.team_name === teamName && (r.part_name ?? null) === (partName ?? null),
+  );
+  if (alreadyCurrent) return; // 이미 목표 소속과 동일한 현재 행 — 변경 없음(불필요한 트리거 재실행 방지).
+
+  const currentRows = rows.filter((r) => r.is_current);
+  // 정상 상태는 is_current 행 최대 1개다. 여러 개면(드묾) 가장 최근 것만 재사용하고 나머지는 은퇴.
+  const reuse = [...currentRows].sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? ""))[0] ?? null;
+  const retireIds = currentRows.filter((r) => r.id !== reuse?.id).map((r) => r.id);
+  if (retireIds.length) {
+    const { error: retireErr } = await supabaseAdmin
+      .from("user_memberships")
+      .update({ is_current: false })
+      .in("id", retireIds);
+    if (retireErr) throw new MemberPatchError(500, `기존 멤버십 은퇴 실패: ${retireErr.message}`);
+  }
+
+  if (teamName === null) {
+    // 소속 팀 없음으로 되돌리는 경우 — 남은 현재 행도 은퇴만 하고 새로 만들지 않는다.
+    if (reuse) {
+      const { error: clearErr } = await supabaseAdmin
+        .from("user_memberships")
+        .update({ is_current: false })
+        .eq("id", reuse.id);
+      if (clearErr) throw new MemberPatchError(500, `멤버십 정리 실패: ${clearErr.message}`);
+    }
+    return;
+  }
+
+  if (reuse) {
+    const { error: updErr } = await supabaseAdmin
+      .from("user_memberships")
+      .update({ team_name: teamName, part_name: partName, is_current: true })
+      .eq("id", reuse.id);
+    if (updErr) {
+      if (updErr.code === "23505") {
+        throw new MemberPatchError(409, "같은 파트/팀에 동일 역할 멤버가 이미 존재합니다(유일성 제약 위반).");
+      }
+      throw new MemberPatchError(500, `멤버십 갱신 실패: ${updErr.message}`);
+    }
+    return;
+  }
+
+  const { error: insErr } = await supabaseAdmin.from("user_memberships").insert({
+    user_id: userId,
+    team_name: teamName,
+    part_name: partName,
+    membership_state: "active",
+    is_current: true,
+  });
+  if (insErr) {
+    if (insErr.code === "23505") {
+      throw new MemberPatchError(409, "같은 파트/팀에 동일 역할 멤버가 이미 존재합니다(유일성 제약 위반).");
+    }
+    throw new MemberPatchError(500, `멤버십 생성 실패: ${insErr.message}`);
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // 공용 도메인 서비스 — 멤버의 role + 현재 팀/파트를 한 번에 정합(유일성 검증 + 감사).
 //   "team_leader ⟺ current_team_name" 결합 모델을 지키기 위해 role/team/part 를 함께 세팅한다.
 //   team-parts 팀장 lifecycle 과 /admin/members 편집이 같은 규칙/유일성/감사를 쓰도록 추출(중복 금지).
 //   유일성 위반(팀장=팀 유일·agent/part_leader=팀+파트 유일)은 MemberPatchError(409).
-//   ⚠ user_position_histories(주차·PMS)·user_memberships 는 건드리지 않는다(현재 role 축만).
+//   ⚠ user_position_histories(주차·PMS) 는 건드리지 않는다(주차 이력은 별도 SoT, positionResolver 참조).
+//   team/part 는 syncCurrentMembership 을 통해 user_memberships(SoT)로 반영한다.
 // ─────────────────────────────────────────────────────────────────────────
 export async function applyMemberRolePosition(params: {
   userId: string;
@@ -1098,15 +1182,54 @@ export async function applyMemberRolePosition(params: {
     await assertRoleUniqueness(userId, role, org, currentTeamName, currentPartName);
   }
 
-  const { error: updErr } = await supabaseAdmin
-    .from("user_profiles")
-    .update({ role, current_team_name: currentTeamName, current_part_name: currentPartName })
-    .eq("user_id", userId);
-  if (updErr) {
-    if (updErr.code === "23505") {
-      throw new MemberPatchError(409, "같은 파트/팀에 동일 역할 멤버가 이미 존재합니다(유일성 제약 위반).");
+  // role 갱신 함수 — team/part 쓰기(syncCurrentMembership)와 순서를 바꿔가며 재사용한다.
+  const writeRole = async () => {
+    const { error: updErr } = await supabaseAdmin.from("user_profiles").update({ role }).eq("user_id", userId);
+    if (updErr) {
+      if (updErr.code === "23505") {
+        throw new MemberPatchError(409, "같은 파트/팀에 동일 역할 멤버가 이미 존재합니다(유일성 제약 위반).");
+      }
+      throw new MemberPatchError(500, updErr.message);
     }
-    throw new MemberPatchError(500, updErr.message);
+  };
+  const writePosition = () => syncCurrentMembership(userId, currentTeamName, currentPartName);
+
+  // ── 쓰기 순서 — 부분 유니크 인덱스(uniq_team_leader_per_team 등, (org, team/part) WHERE role=X)가
+  //   과도기(중간 단계) 상태에도 그대로 적용되므로, role/team 중 "제약이 걸리는 축으로 들어가는 변경"을
+  //   **나중에** 반영해야 중간 상태가 절대 그 인덱스에 걸리지 않는다(2026-08-07 실측 2건 — 아래).
+  //   team/part 갱신은 user_memberships(SoT)를 통해서만 한다 — user_profiles.current_team_name/
+  //   current_part_name 은 DB 트리거(user_memberships_sync_current)가 미러링하는 파생값이라 직접
+  //   쓰기 금지(마이그레이션 주석, db/migrations/2026-06-01_member_roles_uniqueness.sql). 예전엔
+  //   여기서 profile 컬럼에 직접 썼다가 positionResolver 의 멤버십 폴백(멤버십 우선)이 옛 멤버십
+  //   행을 계속 읽어, 팀장 승격 시 클래스는 바뀌는데 팀·파트는 예전 값이 남는 버그가 났다.
+  const constrainedRoles: readonly string[] = [...TEAM_UNIQUE_ROLES, ...PART_UNIQUE_ROLES];
+  const oldRoleConstrained = oldRole != null && constrainedRoles.includes(oldRole);
+  const newRoleConstrained = role != null && constrainedRoles.includes(role);
+  if (newRoleConstrained && !oldRoleConstrained) {
+    // 승격(비제약→제약): team/part 를 먼저 새 값으로 맞춘 뒤 role 을 바꾼다. 그 반대로 하면
+    //   role 만 먼저 바뀌어 "옛 팀 + 새 제약 role" 과도기가 생기고, 옛 팀에 이미 그 role 을 가진
+    //   다른 사람이 있으면 최종 상태는 유효한데도 이 과도기에서 409 오탐이 난다
+    //   (실측: T김예령을 새 팀장으로 승격하는데 옛 소속 팀의 기존 팀장과 충돌 판정).
+    await writePosition();
+    await writeRole();
+  } else if (oldRoleConstrained && !newRoleConstrained) {
+    // 강등(제약→비제약): role 을 먼저 비제약으로 바꾼 뒤 team/part 를 옮긴다. 그 반대로 하면
+    //   role 은 그대로 제약군인 채 team/part 만 새 값으로 바뀌는 과도기가 생기고, 새 team/part 에
+    //   이미 그 role 을 가진 다른 사람이 있으면(예: 원래 소속 팀의 실제 팀장) 그 과도기에서 409
+    //   오탐이 난다(실측: 팀장 해제 복원 시 원래 팀에 이미 있는 실제 팀장과 충돌 판정).
+    await writeRole();
+    await writePosition();
+  } else {
+    // role 자체가 비제약이거나(crew↔crew 등) 제약군 안에서의 이동(team_leader→다른 팀 team_leader 등,
+    //   드묾) — 어느 순서든 과도기 충돌 여지가 있을 수 있어 한쪽이 409 면 반대 순서로 한 번 더 시도한다.
+    try {
+      await writePosition();
+      await writeRole();
+    } catch (e) {
+      if (!(e instanceof MemberPatchError) || e.status !== 409) throw e;
+      await writeRole();
+      await writePosition();
+    }
   }
   // 감사 — role 이 실제로 바뀐 경우만(best-effort). changed_by 는 uuid NOT NULL 이라 actor 없으면 스킵.
   if (actorId && oldRole !== (role ?? null)) {
