@@ -4,7 +4,8 @@
 //   - 개설 완료/필요 상태 = 팀 총괄 status(opened ↔ 개설 완료, 신청/검수만 있음 ↔ 개설 필요).
 //   - 파트별 [개설 신청] 여부(파트 신청 라이브).
 //   - 라인(도출/분석/견문/관리/확장)별 강화 결과(전체/성공/미이행/평점 미비).
-//   - 확장 라인은 확장 주간(cluster4_experience_extension_periods)일 때만 집계, 아니면 "해당 기간 아님".
+//   - 확장 라인은 그 주차에 확장 류가 활성일 때만 집계, 아니면 "해당 기간 아님".
+//     활성 판정 SoT = 주차 최신 설정(board.extensionActive ← cluster4_week_opening_configs). 팀 총괄 화면과 동일.
 //
 // ⚠ 표시 전용 — cluster4_lines/snapshot 생성·조회·고객 반영 로직 무관. demoUserId 경로 없음(org·주차 스코프).
 //   대상 주차 = 개설 대상(금요일 경계, openable) — 상태창(opening-status)·팀 총괄과 동일 SoT.

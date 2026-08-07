@@ -85,6 +85,26 @@ export function isExperienceLineOpenForWeek(opts: {
   return Object.values(exp).some((team) => teamHasAnyChecked(team));
 }
 
+// 실무 경험 <확장> 류가 이번 주 "개설 대상" 인가 — 오픈 확인 + practicalExperience[teamId].expansion === true.
+//   ⚠ 확장 류 활성 여부의 **단일 SoT** 다. 과거에는 cluster4_experience_extension_periods(= /admin/season-weeks
+//     확장 기간 원장)와 주차 [월~일] 겹침으로 자동 판정했으나, 그 원장은 관리자가 주차 상세
+//     (/admin/team-parts/info/weeks/[weekId])에서 확장을 끄고 저장해도 바뀌지 않아 "끈 주차인데 개설 화면은
+//     확장 필수" 로 갈라졌다. 이제 확장 활성은 주차 최신 저장 설정만 따른다(과거 기간 원장은 활성 판정 불참).
+//   ⚠ 확장 기간 원장은 **종류(online/offline) 표시·라인명 매칭 힌트**로만 남는다 — 활성 판정에는 쓰지 않는다.
+//   실무 정보(isInfoLineOpenForWeek)와 동일한 엄격 규칙: "설정 없음 / open_confirmed=false = 미활성".
+//   teamId 미지정(허브 단위 상태창)은 어느 팀이든 확장이 체크돼 있으면 true.
+export function isExperienceExpansionOpenForWeek(opts: {
+  openConfirmed: boolean;
+  config: SavedConfig | null;
+  teamId?: string | null;
+}): boolean {
+  if (!opts.openConfirmed) return false;
+  const exp = opts.config?.practicalExperience;
+  if (!exp) return false;
+  if (opts.teamId != null) return exp[opts.teamId]?.expansion === true;
+  return Object.values(exp).some((team) => team?.expansion === true);
+}
+
 // ── [오픈 확인] 재실행 타임라인(시점 경계) ────────────────────────────────────
 //   재실행 정책: 각 액트는 "그 액트의 발생 예정 시각(occur)에 유효했던 config 버전"으로 가동을 판정한다.
 //   변경 이전 액트는 구설정 유지, 변경 이후 액트만 신설정 적용(과거 기록 보존·미래만 변경).

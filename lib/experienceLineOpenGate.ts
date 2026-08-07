@@ -8,7 +8,10 @@
 //     org 유무로 게이트 여부를 정한다). resolveExperienceLineOpenGate 자체는 org=null 을 false 로 본다.
 
 import { loadWeekOpeningConfig } from "@/lib/adminTeamPartsInfoWeekDetailData";
-import { isExperienceLineOpenForWeek } from "@/lib/weekOpenGate";
+import {
+  isExperienceExpansionOpenForWeek,
+  isExperienceLineOpenForWeek,
+} from "@/lib/weekOpenGate";
 import { isOrganizationSlug } from "@/lib/organizations";
 
 // 개설 기간이 아니어서 개설을 거부할 때의 사유 문구 — API(409)·상태창 DTO(openBlockedReason)·UI 차단 패널 공용.
@@ -25,6 +28,35 @@ export async function resolveExperienceLineOpenGate(
   if (!org || !weekId || !isOrganizationSlug(org)) return false;
   const { config, openConfirmed } = await loadWeekOpeningConfig(weekId, org);
   return isExperienceLineOpenForWeek({ openConfirmed, config, teamId });
+}
+
+// 그 주차·팀의 실무 경험 개설 상태(개설 기간 + 확장 류 활성)를 **config 1회 조회**로 함께 해소한다.
+//   두 값 모두 같은 주차 최신 설정(cluster4_week_opening_configs)에서 나오므로 원천이 갈라질 수 없고,
+//   보드 조회처럼 둘 다 필요한 경로에서 DB 왕복이 늘지 않는다.
+//   ⚠ 확장 활성(expansionActive)의 SoT 는 여기(주차 최신 저장 설정)뿐이다 — 확장 기간 원장
+//     (cluster4_experience_extension_periods)은 종류(online/offline) 표시 힌트로만 쓰고 활성 판정에 쓰지 않는다.
+export async function resolveExperienceOpenState(
+  org: string | null,
+  weekId: string | null,
+  teamId?: string | null,
+): Promise<{ canOpen: boolean; expansionActive: boolean }> {
+  if (!org || !weekId || !isOrganizationSlug(org)) {
+    return { canOpen: false, expansionActive: false };
+  }
+  const { config, openConfirmed } = await loadWeekOpeningConfig(weekId, org);
+  return {
+    canOpen: isExperienceLineOpenForWeek({ openConfirmed, config, teamId }),
+    expansionActive: isExperienceExpansionOpenForWeek({ openConfirmed, config, teamId }),
+  };
+}
+
+// 확장 류 활성 판정 단독 조회 — 주차 최신 설정 단일 SoT(위 resolveExperienceOpenState 와 동일 값).
+export async function resolveExperienceExpansionActive(
+  org: string | null,
+  weekId: string | null,
+  teamId?: string | null,
+): Promise<boolean> {
+  return (await resolveExperienceOpenState(org, weekId, teamId)).expansionActive;
 }
 
 // 개설 write 직전 강제 가드 — 개설 기간이 아니면 409 throw(모든 write 이전). URL/HTTP 직접 호출로도 우회 불가.

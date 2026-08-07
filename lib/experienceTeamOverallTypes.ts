@@ -296,7 +296,10 @@ export type ExperienceTeamOverallBoard = {
   canOpen: boolean;
   // canOpen=false 일 때 사유(개설 차단 패널 문구). true 면 null.
   openBlockedReason: string | null;
-  // 확장 주간 여부 + 종류(상태창 SoT 와 동일 — cluster4_experience_extension_periods).
+  // 확장 류 활성 여부 — 단일 SoT = 주차 최신 설정(cluster4_week_opening_configs.config
+  //   .practicalExperience.<teamId>.expansion → isExperienceExpansionOpenForWeek). 주차 상세
+  //   (/admin/team-parts/info/weeks/[weekId])에서 끄고 저장하면 개설 화면·서버 검증이 함께 확장을 뺀다.
+  //   ⚠ cluster4_experience_extension_periods(확장 기간 원장)는 활성 판정에 쓰지 않는다 — extensionKind 전용.
   extensionActive: boolean;
   extensionKind: "online" | "offline" | null;
   parts: OverallBoardPart[];

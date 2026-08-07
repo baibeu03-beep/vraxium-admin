@@ -27,7 +27,8 @@ import { invalidateWeeklyCardsForLineOpen } from "@/lib/adminCluster4LinesData";
 import { assertWeekOpenable } from "@/lib/cluster4OfficialRestWeek";
 import {
   assertExperienceLineOpenable,
-  resolveExperienceLineOpenGate,
+  resolveExperienceExpansionActive,
+  resolveExperienceOpenState,
   EXPERIENCE_LINE_NOT_OPEN_REASON,
 } from "@/lib/experienceLineOpenGate";
 import { resolveOutputLinks } from "@/lib/cluster4OutputLinks";
@@ -232,12 +233,17 @@ async function loadOverallStored(
   };
 }
 
-// ── 확장 주간 판정(상태창 SoT 와 동일 — extension periods 와 대상 주차 [월~일] overlap) ──
-async function resolveExtension(
+// ── 확장 류 <종류>(online/offline) 표시 힌트 ──
+//   ⚠ **활성 판정에는 절대 쓰지 않는다.** 확장 류가 그 주차에 존재하는지는 주차 최신 설정
+//     (cluster4_week_opening_configs → isExperienceExpansionOpenForWeek)만이 SoT 다.
+//     이 함수는 이미 활성으로 판정된 확장 류의 라인명 매칭("온라인"/"오프라인")용 부가 정보만 준다.
+//     기간 원장(cluster4_experience_extension_periods)은 관리자가 주차 상세에서 확장을 꺼도 바뀌지 않으므로,
+//     활성 판정에 섞으면 "끈 주차인데 확장 필수" 로 되돌아간다.
+async function resolveExtensionKind(
   organization: string,
   weekStart: string,
   weekEnd: string,
-): Promise<{ active: boolean; kind: "online" | "offline" | null }> {
+): Promise<"online" | "offline" | null> {
   try {
     let q = supabaseAdmin
       .from("cluster4_experience_extension_periods")
@@ -253,33 +259,35 @@ async function resolveExtension(
       start_date: string;
       end_date: string;
     }>).find((p) => p.start_date <= weekEnd && p.end_date >= weekStart);
-    if (matched) return { active: true, kind: matched.extension_kind };
+    if (matched) return matched.extension_kind;
   } catch (e) {
-    // 테이블 미적용/조회 실패 — fail-closed(확장 비활성).
+    // 테이블 미적용/조회 실패 — 종류 미상(null). 활성 여부에는 영향 없음.
     console.warn(
-      "[experience team-overall] extension lookup skipped:",
+      "[experience team-overall] extension kind lookup skipped:",
       e instanceof Error ? e.message : e,
     );
   }
-  return { active: false, kind: null };
+  return null;
 }
 
 /** 개설 검수/완료 공통 서버 가드. 어떤 mode/org 요청도 동일한 정책으로 DB write 전에 차단한다. */
+//   ⚠ 확장 류 필수 여부는 주차 최신 설정(teamId 스코프)만 본다 — 화면 DTO(board.extensionActive)와 동일 SoT.
 async function assertOverallOutputsRequired(input: {
   organization: string;
   weekId: string;
+  teamId: string;
   outputs: OverallOutput[];
 }): Promise<void> {
   const weekDates = await loadWeekDates(input.weekId);
   if (!weekDates) {
     throw Object.assign(new Error("주차 정보를 찾을 수 없습니다"), { status: 404 });
   }
-  const extension = await resolveExtension(
+  const extensionActive = await resolveExperienceExpansionActive(
     input.organization,
-    weekDates.startDate,
-    weekDates.endDate,
+    input.weekId,
+    input.teamId,
   );
-  const issue = validateOverallOutputRequirements(input.outputs, extension.active);
+  const issue = validateOverallOutputRequirements(input.outputs, extensionActive);
   if (issue) throw Object.assign(new Error(issue.message), { status: 422 });
 }
 
@@ -427,7 +435,7 @@ export async function getTeamOverallBoard(
   //   화면 조회(GET route)만 true 로 켜 "이미 개설된 실제 라인명"이 트리거에 뜨게 한다(요구 §3·§6).
   resolveAssignedLineFallback = false,
 ): Promise<ExperienceTeamOverallBoard> {
-  const [roster, partCellsData, stored, weekDates, lineOptions] = await Promise.all([
+  const [roster, partCellsData, stored, weekDates, lineOptions, openState] = await Promise.all([
     // 그 주차 공용 로스터 — 파트장 입력 화면(part-input)의 파트 드롭다운/평가 대상 크루와 **같은 배열**.
     //   두 화면이 같은 원천을 쓰지 않으면, 드롭다운에만 있는 파트가 submitted 상태를 영영 못 받아
     //   "신청했는데 개설 신청 필요"로 보이거나, 반대로 신청 불가능한 파트가 검수를 영구 차단한다.
@@ -437,6 +445,9 @@ export async function getTeamOverallBoard(
     loadWeekDates(weekId),
     // 라인명 드롭다운 옵션(5카테고리) — 개설 신청과 동일 원천(org+공통 활성 라인).
     listExperienceOverallLineOptions(organization),
+    // 개설 기간 + 확장 류 활성 — 주차 최신 설정(cluster4_week_opening_configs) 1회 조회로 함께 해소.
+    //   서버 write 가드(assertExperienceLineOpenable · assertOverallOutputsRequired)와 동일 SoT.
+    resolveExperienceOpenState(organization, weekId, teamId),
   ]);
   const members: OverallMemberRow[] = experienceBoardRows(roster.rows).map((r) => ({
     userId: r.userId,
@@ -448,9 +459,14 @@ export async function getTeamOverallBoard(
   // 신청 가능 파트 = 평가 대상 크루 ≥1 (part-input 드롭다운과 동일 함수·동일 배열).
   const operatedParts = experienceEvaluablePartNames(roster.rows);
 
-  const extension = weekDates
-    ? await resolveExtension(organization, weekDates.startDate, weekDates.endDate)
-    : { active: false, kind: null as "online" | "offline" | null };
+  // 확장 류 — 활성은 주차 최신 설정(openState)만, 종류(online/offline)는 활성일 때만 기간 원장에서 표시용 조회.
+  const extension = {
+    active: openState.expansionActive,
+    kind:
+      openState.expansionActive && weekDates
+        ? await resolveExtensionKind(organization, weekDates.startDate, weekDates.endDate)
+        : (null as "online" | "offline" | null),
+  };
 
   // 표시 전용: 실제 배정·개설된 라인(line_targets) → user::category → 라인 id. 셀에 selected_line_id 가
   //   비어도 "이미 개설된 라인명"을 표시하기 위한 fallback 원천(옵션 역맵으로 카테고리 판정·옵션 라인만).
@@ -539,7 +555,7 @@ export async function getTeamOverallBoard(
 
   // 개설 기간 판정(단일 SoT) — 이 주차·팀이 실무 경험 라인 개설 기간인가. 프론트 버튼 게이팅/차단 패널이
   //   그대로 소비하고, 서버 write 가드(openTeamOverall assertExperienceLineOpenable)와 동일 함수를 쓴다.
-  const canOpen = await resolveExperienceLineOpenGate(organization, weekId, teamId);
+  const canOpen = openState.canOpen;
 
   return {
     status: stored.status ?? "none",

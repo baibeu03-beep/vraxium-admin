@@ -18,9 +18,12 @@ import {
   loadWeekOpeningConfig,
   type SavedConfig,
 } from "@/lib/adminTeamPartsInfoWeekDetailData";
-import { isExperienceLineOpenForWeek } from "@/lib/weekOpenGate";
+import {
+  isExperienceExpansionOpenForWeek,
+  isExperienceLineOpenForWeek,
+} from "@/lib/weekOpenGate";
 import { EXPERIENCE_LINE_NOT_OPEN_REASON } from "@/lib/experienceLineOpenGate";
-import { isOrganizationSlug } from "@/lib/organizations";
+import { isOrganizationSlug, ORGANIZATIONS } from "@/lib/organizations";
 import type {
   StatusExtension,
   StatusTeam,
@@ -226,10 +229,38 @@ export async function GET(request: NextRequest) {
         : {}),
     }));
 
-    // ── 확장 기간 판정 ──
+    // ── 확장 류 판정 ──
+    //   활성 여부의 단일 SoT = 주차 최신 설정(cluster4_week_opening_configs → isExperienceExpansionOpenForWeek).
+    //   주차 상세(/admin/team-parts/info/weeks/[weekId])에서 확장을 끄고 저장하면 이 상태창 배지도 즉시 사라진다.
+    //   확장 기간 원장은 종류(online/offline)·회차 표시용으로만 조회한다(활성 판정 불참).
+    //   ⚠ org 미지정(통합)도 예외가 아니다 — 단일 클럽 config 가 없을 뿐이므로 전 클럽의 주차 설정을 모아
+    //     "어느 클럽이든 확장이 켜져 있을 때만" 활성으로 본다. 여기서 게이트를 풀면 세 클럽 모두 확장을 끈
+    //     주차인데도 통합 화면만 "확장 기간입니다" 로 남아, 고치려던 원 증상(옛 원장이 최신 설정을 덮음)이 재발한다.
     // 테이블 미적용(마이그레이션 전)이면 쿼리가 실패할 수 있으므로 fail-closed → kind:"none".
     let extension: StatusExtension = { kind: "none", index: null, total: null };
-    if (targetInfo && targetWeekStartMs != null) {
+    let expansionActive = false;
+    if (targetWeekId) {
+      if (orgSlug) {
+        expansionActive = isExperienceExpansionOpenForWeek({
+          openConfirmed,
+          config: openConfig,
+          teamId: null,
+        });
+      } else {
+        // 통합 — 전 클럽 주차 설정 합집합(어느 클럽이든 확장 활성이면 표시).
+        const loadedAll = await Promise.all(
+          ORGANIZATIONS.map((slug) => loadWeekOpeningConfig(targetWeekId, slug)),
+        );
+        expansionActive = loadedAll.some((loaded) =>
+          isExperienceExpansionOpenForWeek({
+            openConfirmed: loaded.openConfirmed,
+            config: loaded.config,
+            teamId: null,
+          }),
+        );
+      }
+    }
+    if (expansionActive && targetInfo && targetWeekStartMs != null) {
       try {
         let q = supabaseAdmin
           .from("cluster4_experience_extension_periods")
