@@ -16,6 +16,7 @@
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { loadCurrentWeekOverrideLabels } from "@/lib/positionResolver";
+import { resolveCurrentWeekStartDate } from "@/lib/teamWeekPositionOverride";
 import type { AdminContext } from "@/lib/adminAuth";
 import { resolveAdminOrgAccess } from "@/lib/adminOrgAccess";
 import { resolveEffectiveActorUserId } from "@/lib/experienceImpersonation";
@@ -25,6 +26,7 @@ import { resolveCurrentHalfKey, listHalfTeams } from "@/lib/adminTeamHalvesData"
 import { loadSeasonWeeks } from "@/lib/adminSeasonWeeksData";
 import { isWeekOfficialRestById } from "@/lib/cluster4OfficialRestWeek";
 import { resolveUserScope, assertUserIdsInScope } from "@/lib/userScope";
+import { loadEvaluationEligibility } from "@/lib/evaluationEligibility";
 import { accrueForCompletedIrregular, revokeForAct } from "@/lib/processPointAccrual";
 import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { fetchCrewCodeMap } from "@/lib/adminCrewCode";
@@ -410,10 +412,23 @@ export async function listEmergencyCrews(
   for (const r of rows) levelByUser.set(r.user_id, r.membership_level);
 
   // 모집단 스코프(operating=실사용자만/test=테스트 유저만) + org 매칭.
-  const crewUids = uids.filter((u) => {
+  let crewUids = uids.filter((u) => {
     const p = profById.get(u);
     return p?.organization_slug === organization && scope.includes(u);
   });
+  if (crewUids.length === 0) return [];
+
+  // 졸업(엘리트) 효력이 시작된 크루는 현재 주차 긴급 휴식 대상에서 제외한다(공용 판정 단일 SoT,
+  //   lib/evaluationEligibility). 시즌휴식/주차휴식/활동중단 축은 이 화면 기존 규칙을 그대로 둔다
+  //   (membership_state 기반) — 여기서 건드리는 건 졸업 축 하나뿐이다.
+  const emergencyWeekStart = await resolveCurrentWeekStartDate(getCurrentActivityDateIso());
+  if (emergencyWeekStart) {
+    const eligibility = await loadEvaluationEligibility({
+      userIds: crewUids,
+      weekStartDate: emergencyWeekStart,
+    });
+    crewUids = crewUids.filter((u) => !eligibility.flags(u).elite);
+  }
   if (crewUids.length === 0) return [];
 
   const crewCodes = await fetchCrewCodeMap(crewUids);
