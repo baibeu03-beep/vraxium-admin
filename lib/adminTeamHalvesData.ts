@@ -48,6 +48,7 @@ import {
   loadWeekPositionOverridesByUser,
   type OverridePosition,
 } from "@/lib/teamWeekPositionOverride";
+import { resolveTeamLifecyclesAtWeek } from "@/lib/teamLifecycle";
 import { applyMemberRolePosition, MemberPatchError } from "@/lib/adminMembersData";
 import { roleLevelToPositionCode } from "@/shared/crewClassPosition";
 import type { PositionCode } from "@/lib/positionHistory";
@@ -185,6 +186,7 @@ type Row = {
   leader_user_id: string | null;
   leader_crew_code: string | null;
   leader_name: string | null;
+  updated_at?: string | null;
 };
 
 // 팀 생성 직후/점유 파트가 없을 때 노출하는 기본 파트명.
@@ -192,7 +194,7 @@ export const DEFAULT_PART_NAME = "일반";
 
 // 스코프 컬럼(is_qa_test) 없이 조회하던 기본 컬럼 셋.
 const TEAM_HALF_BASE_COLS =
-  "id,team_name,team_id,display_order,is_active,description,leader_user_id,leader_crew_code,leader_name";
+  "id,team_name,team_id,display_order,is_active,description,leader_user_id,leader_crew_code,leader_name,updated_at";
 
 // is_qa_test 컬럼 존재 여부 캐시 — true(=컬럼 있음)로 확정되면 유지(컬럼은 사라지지 않음).
 //   false 는 캐시하지 않는다 → 마이그레이션(수동) 적용 직후 재시작 없이 즉시 감지.
@@ -443,8 +445,18 @@ export async function getLeaderBasicsBatch(
 export async function listHalfTeams(
   organization: string,
   halfKey: string,
+  opts: {
+    /**
+     * true 면 삭제(is_active=false)된 팀도 함께 반환한다(2026-08-08 추가 — 관리 원장 전용).
+     *   ⚠ 기본값 false — activeOnly:true(종전 동작 그대로) 무회귀. "지금 활동 중인 팀만" 필요한
+     *   호출부(예: 긴급 휴식 대상 산정, lib/adminEmergencyRest.ts)는 옵션을 생략하면 된다.
+     *   관리 원장(팀 목록 CRUD 화면)만 명시적으로 true 를 넘긴다 — 삭제팀을 숨기지 않되, 그 팀을
+     *   "지금 존재하는 팀"으로 계산에 섞으면 안 되므로 호출부가 반드시 isActive 로 구분해서 쓸 것.
+     */
+    includeInactive?: boolean;
+  } = {},
 ): Promise<TeamHalfTeamDto[]> {
-  const rows = await loadHalfRows(organization, halfKey, { activeOnly: true });
+  const rows = await loadHalfRows(organization, halfKey, { activeOnly: !opts.includeInactive });
 
   const leaderIds = Array.from(
     new Set(rows.map((r) => r.leader_user_id).filter((id): id is string => !!id)),
@@ -525,7 +537,9 @@ async function listHalfTeamsWithParts(
   mode: ScopeMode,
   today?: string,
 ): Promise<TeamHalfTeamDto[]> {
-  const teams = await listHalfTeams(organization, halfKey);
+  // 관리 원장 쓰기(등록/수정/삭제)의 응답 목록 — 삭제팀도 포함해 돌려준다(방금 삭제한 팀이
+  //   응답에서 바로 사라지면 "삭제됐는데 원장에서도 안 보인다"는 오해를 만든다).
+  const teams = await listHalfTeams(organization, halfKey, { includeInactive: true });
   await fillTeamPartsFromMatrix(
     organization,
     halfKey,
@@ -882,6 +896,30 @@ export type CurrentClubStructure = {
   totals: { totalClubs: number; totalTeams: number; totalParts: number };
 };
 
+// "그 주차 시점에 존재했던 팀만" 필터 — 공용 lifecycle resolver(lib/teamLifecycle.ts) 위임.
+//   ⚠ is_active(현재값) 하나만으로 반기 전체 요약을 내는 것을 막기 위해 도입(2026-08-08).
+//   반기 요약(loadCurrentClubStructure/loadClubStructure)이 팀 엔티티 수를 셀 때 반드시 이 함수를
+//   거친다 — is_active 를 직접 필터 조건으로 다시 쓰지 말 것(그 순간 "종료 이후에도 그 반기 전체
+//   요약에서 통째로 빠지는" 회귀가 재현된다).
+async function filterRowsAliveAtWeek<T extends { team_name: string; is_active: boolean; updated_at?: string | null; leader_user_id: string | null }>(
+  organization: string,
+  rows: T[],
+  weekStartDate: string,
+): Promise<T[]> {
+  if (rows.length === 0) return rows;
+  const lifecycles = await resolveTeamLifecyclesAtWeek({
+    organization,
+    rows: rows.map((r) => ({
+      teamName: r.team_name,
+      isActive: r.is_active,
+      updatedAt: r.updated_at ?? null,
+      currentLeaderUserId: r.leader_user_id,
+    })),
+    weekStartDate,
+  });
+  return rows.filter((r) => lifecycles.get(r.team_name)?.exists ?? r.is_active);
+}
+
 export async function loadCurrentClubStructure(
   mode: ScopeMode = "operating",
   today?: string,
@@ -897,12 +935,18 @@ export async function loadCurrentClubStructure(
   }
 
   const wantQaTest = resolveEffectiveScopeMode(mode) === "test";
+  const todayIso = today ?? getCurrentActivityDateIso();
+  const currentWeekStart = await resolveCurrentWeekStartDate(todayIso);
   const results = await Promise.all(
     [...ORGANIZATIONS].map(async (org) => {
-      // 현재 반기 활성 + 스코프(is_qa_test) 팀.
-      const scoped = (
-        await loadHalfRows(org, currentHalfKey, { activeOnly: true })
-      ).filter((r) => r.is_qa_test === wantQaTest);
+      // 현재 반기 + 스코프(is_qa_test) 팀 — is_active 로 미리 거르지 않는다. "지금" 시점 존재 여부는
+      //   공용 lifecycle resolver(effectiveFrom/effectiveTo)로 판정한다(2026-08-08, 종료 시점 반영).
+      //   currentWeekStart 를 못 구하면(달력 갭) 종전처럼 is_active 만으로 안전 폴백.
+      const allRows = await loadHalfRows(org, currentHalfKey, {});
+      const scopedAll = allRows.filter((r) => r.is_qa_test === wantQaTest);
+      const scoped = currentWeekStart
+        ? await filterRowsAliveAtWeek(org, scopedAll, currentWeekStart)
+        : scopedAll.filter((r) => r.is_active);
       // 파트 수 SoT = 팀별 listOperatedTeamParts(현재 주차).length 합.
       //   ⚠ 종전엔 user_memberships(is_current·비휴식) 로 따로 셌다. 주차 override 가 반영되지 않고
       //     휴식자 제외 규칙도 달라, 팀 상세/[A] 와 총합이 갈렸다(실측 2026-07-27: 22 vs 24).
@@ -952,11 +996,21 @@ export async function loadClubStructure(opts: {
   const perOrg: HalfClubStructureRow[] = [];
   const totals = { totalClubs: 0, totalTeams: 0, totalParts: 0 };
 
+  // asOfWeekId → week_start_date(1회 조회, org 무관 공통값). 팀 엔티티 존재 판정에 쓴다
+  //   (2026-08-08 — 종전엔 asOfWeekId 를 파트 수 계산에만 쓰고 팀 존재 자체는 is_active 만 봤다.
+  //   그 결과 반기 중간에 종료된 팀이 "그 반기가 끝난 시점" 요약에서 통째로 빠지거나, 반대로
+  //   반기 중 잠깐 존재했다 사라진 팀이 남아있는 것처럼 보일 수 있었다).
+  const asOfWeekStart = asOfWeekId
+    ? ((await supabaseAdmin.from("weeks").select("start_date").eq("id", asOfWeekId).maybeSingle())
+        .data as { start_date?: string } | null)?.start_date ?? null
+    : null;
+
   const results = await Promise.all(
     [...ORGANIZATIONS].map(async (org) => {
-      const scoped = (await loadHalfRows(org, halfKey, { activeOnly: true })).filter(
-        (r) => r.is_qa_test === wantQaTest,
-      );
+      const allRows = (await loadHalfRows(org, halfKey, {})).filter((r) => r.is_qa_test === wantQaTest);
+      const scoped = asOfWeekStart
+        ? await filterRowsAliveAtWeek(org, allRows, asOfWeekStart)
+        : allRows.filter((r) => r.is_active);
       // asOfWeekId 가 없으면(그 반기에 주차 자체가 없음 — 예: 2022) 팀 entity 도 통상 0행이라
       //   listOperatedTeamParts 를 호출하지 않는다(호출하면 today 로 폴백해 현재 주차를 잘못 본다).
       const partsPerTeam = asOfWeekId
@@ -1053,9 +1107,14 @@ export async function loadTeamPartsInfo(
 
   // 팀 목록 스코프 — 저장된 is_qa_test(스코프 SoT) == 실효 모드. 팀명/(T) 규칙이 아니라 각인된 스코프로
   //   필터한다(DB 직삽입 팀도 조건 맞으면 노출). 매트릭스 계산 전에 적용해 존재표/파트수도 통일.
+  //   ⚠ includeInactive:true — 이 화면(관리 원장)은 삭제(is_active=false)된 팀도 조회 가능해야
+  //   한다(2026-08-08). "지금 활동 중인 팀"이 필요한 화면(● 해당 시기 요약 등)은 응답의
+  //   teams[].isActive 로 직접 걸러서 쓴다 — 이 함수가 대신 숨기면 원장에서도 사라진다.
   const wantQaTest = resolveEffectiveScopeMode(mode) === "test";
   const teams = selected
-    ? (await listHalfTeams(organization, selected)).filter((t) => t.isQaTest === wantQaTest)
+    ? (await listHalfTeams(organization, selected, { includeInactive: true })).filter(
+        (t) => t.isQaTest === wantQaTest,
+      )
     : [];
   const editable = selected != null && isEditableHalf(selected, currentHalfKey);
 

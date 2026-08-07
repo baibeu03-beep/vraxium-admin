@@ -25,6 +25,7 @@ import {
 type TeamDto = {
   teamName: string;
   leaderName: string | null;
+  isActive: boolean;
 };
 
 type SummaryDto = {
@@ -98,9 +99,13 @@ export default function TeamPartsSummarySection() {
       );
       if (seq !== reqSeqRef.current) return; // 이 응답이 도착하기 전에 반기가 또 바뀜 — 폐기
       setSummary(results[0].summary);
+      // ⚠ "● 해당 시기" 요약은 관리 원장과 달리 **그 시기에 실제 존재하는 팀만** 보여야 한다
+      //   (2026-08-08). API 응답(data.teams)은 관리 원장과 공유하는 계약이라 삭제된 팀도 함께
+      //   내려온다 — 여기서만 isActive 로 걸러서 렌더한다(원장 쪽은 그대로 전부 보여줘야 하므로
+      //   서버에서 미리 자르지 않는다).
       const map: Record<string, TeamDto[]> = {};
       scopeOrgs.forEach((org, i) => {
-        map[org] = results[i].teams;
+        map[org] = results[i].teams.filter((t) => t.isActive);
       });
       setByOrg(map);
     } catch {

@@ -359,7 +359,12 @@ type CrewMetadata = {
   roleLabelRaw: string | null;
   membershipStatusLabelRaw: string | null;
   organizationSlug: string | null;
+  /** date-only(YYYY-MM-DD). 이 주차보다 이른 카드엔 현재 소속/직책 fallback 을 쓰지 않는다(2026-08 정책). */
+  activityStartDate: string | null;
 };
+
+// 활동 시작 이전 카드에 "없음"을 표시할 때 쓰는 라벨 — 현재 소속을 절대 보여주지 않는다.
+const NO_HISTORY_LABEL = "-";
 
 async function computeWeeklyCards(
   userId: string,
@@ -367,7 +372,7 @@ async function computeWeeklyCards(
   crewMeta: CrewMetadata,
   opts: { effectiveFrom?: string } = {},
 ): Promise<{ cards: WeeklyCardDto[] }> {
-  const { teamLabel, partLabel, activityStatus } = crewMeta;
+  const { teamLabel, partLabel, activityStatus, activityStartDate } = crewMeta;
   // 레거시 경계 오버라이드(테스트 시즌 시뮬레이션) — 기본=CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM.
   //   과거 날짜면 legacyWeekIdSet 비고 slotPolicyWeekIds 가 전 주차 포함 → 여름 정책 집계/verdict.
   const effectiveFrom = opts.effectiveFrom ?? CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM;
@@ -607,15 +612,21 @@ async function computeWeeklyCards(
   //   (두 맵을 병행하면 tier 가 각자 풀려 라벨과 코드가 갈릴 수 있다 — 2026-07-26 실사고).
   const weekPositionCodeByStart = new Map<string, PositionCode>(); // week_start_date → position_code
   const seasonPositionCodeMap = new Map<string, PositionCode>();   // season_key → 시즌대표 position_code
-  // 소속(팀/파트) 주차 핀 — **override 가 있는 주차만**. 카드 header teamName/partName SoT.
-  //   ⚠ 의도적으로 UPH 는 원천에 넣지 않는다. 클래스는 v26 부터 이미 UPH 주차핀을 쓰고 있었지만
-  //     소속은 한 번도 주차핀인 적이 없어(항상 현재 멤버십), 여기서 UPH 까지 켜면 이번 변경과 무관한
-  //     과거 카드 수천 건의 팀/파트 표기가 한꺼번에 달라진다. 관리자 override 로 명시 지정한 주차만
-  //     주차값을 쓰고, 나머지는 종전대로 멤버십 기준선(crewMeta)을 유지한다.
-  //   ⚠ crewMeta 의 소속은 **override 무관 기준선**이어야 한다(getWeeklyGrowth 의 baselineTeamName
-  //     주석 참조). 현재 주차 override 가 섞인 값을 fallback 으로 쓰면, 이 맵이 비어 있는 과거 주차가
-  //     전부 그 override 값으로 소급된다 — v49 에서 고친 회귀.
+  // 소속(팀/파트) 주차 핀 — **그 주차 행이 있는 전부**(override ?? UPH). 카드 header teamName/partName SoT.
+  //   ⚠ (2026-08 정책 변경) 종전엔 override 가 있는 주차만 주차값을 쓰고 나머지는 항상 현재 멤버십
+  //     기준선(crewMeta)이었다("팀 이동 전 주차도 이전 팀이 아니라 현재 팀으로 보임" 회귀). 클래스는
+  //     이미 UPH 주차핀을 쓰고 있었으므로, 소속도 같은 series.rows(=override ?? UPH, 실제 이력)를
+  //     원천으로 삼아 클래스와 완전히 같은 tier 로 맞춘다.
+  //   ⚠ crewMeta 의 소속(teamNameRaw/partNameRaw)은 **override 무관 현재 기준선**이고, 아래 tier③
+  //     (activityStartDate 이후의 "이력 자체가 없는" 주차에만) 최후 fallback 으로만 쓴다 — 그 전에는
+  //     실제 이력(series.rows)이 항상 우선한다.
   const weekTeamPartByStart = new Map<string, { team: string | null; part: string | null }>();
+  // 관리자가 이 유저에게 처음 override 를 남긴 주차. 이보다 이른 "이력 없는" 주차엔 tier③(현재값)을
+  //   쓰지 않는다 — override 가 존재한다는 것 자체가 "그 시점에 뭔가 바뀌었다"는 신호이고, current 는
+  //   그 변경 **이후** 상태이므로 이전 주차의 참값이 아니다(2026-08 정책, scenario C — 팀장/파트장
+  //   승격 전 주차에 지금의 "팀장"이 소급되던 문제). decidePositionAt 의 시즌경계 드리프트 가드와
+  //   같은 원칙을 여기(loadUserWeekPositionSeries 소비부)에도 적용한다.
+  let earliestOverrideWeek: string | null = null;
   if (seasonKeys.length > 0) {
     // 조립은 **공통 resolver 단일 구현**(loadUserWeekPositionSeries). carry-forward · UPH 없는 주차
     //   보강 · uph/effective 분리는 전부 그쪽에 있다. 여기서는 소비만 한다.
@@ -628,16 +639,22 @@ async function computeWeeklyCards(
         return season ? seasonDbKey(season) : null;
       },
     });
-    for (const [ws, tp] of series.overriddenTeamPartByWeek) weekTeamPartByStart.set(ws, tp);
-    // ① 주차 단위 정확 매칭 (week_start_date = 카드 startDate). carry-forward override 포함.
+    // ① 주차 단위 정확 매칭 (week_start_date = 카드 startDate). carry-forward override 포함,
+    //   소속도 클래스와 같은 행(series.rows)에서 함께 핀한다(rawTeam/rawPart 는 이미 override ?? UPH).
     for (const r of series.rows) {
       if (!r.weekStart) continue;
       weekPositionCodeByStart.set(r.weekStart, r.effectiveCode);
+      weekTeamPartByStart.set(r.weekStart, { team: r.rawTeam, part: r.rawPart });
     }
     // ② 시즌 대표(PMS gap 주차 fallback) — basis="uph". override 를 섞으면 4주차 편집이 시즌
     //   대표로 승격돼 UPH 행이 없는 0~3주차 카드까지 소급으로 덮인다(resolver 주석 참조).
     for (const [key, code] of resolveSeasonPositionsFromSeries(series, "uph")) {
       seasonPositionCodeMap.set(key, code);
+    }
+    for (const o of series.overrideRows) {
+      if (earliestOverrideWeek == null || o.weekStartDate < earliestOverrideWeek) {
+        earliestOverrideWeek = o.weekStartDate;
+      }
     }
   }
 
@@ -1078,10 +1095,21 @@ async function computeWeeklyCards(
     //     같은 카드 한 장 안에서 디테일 로그(코드 기반)는 심화(파트장), 요약/헤더(라벨 기반)는
     //     심화(에이전트) 로 갈렸다(실측 52명·429카드). 한 tier 결과에서 둘 다 파생하면 구조적으로
     //     불가능해진다. 코드가 안 나오는 경우(신호 전무)에만 종전 등급 라벨을 그대로 싣는다.
+    // tier③(현재 role/level·현재 소속 freeze)를 쓰지 않는 두 경우(2026-08 정책):
+    //   · scenario A — 활동 시작 이전 주차. activityStartDate 미상(레거시)이면 게이트 미적용.
+    //   · scenario C — 그 주차보다 **이후**에 관리자 override 가 있었던 경우. override 는 "그 시점에
+    //     뭔가 바뀌었다"는 신호라, current(=변경 이후 상태)를 그 이전 주차로 되돌리면 안 된다
+    //     (예: 오늘 팀장으로 승격 → 승격 이전 주차 카드에 "팀장"이 소급 표시되던 문제).
+    const beforeActivityStart =
+      activityStartDate != null && startDate < activityStartDate;
+    const beforeKnownOverrideHistory =
+      earliestOverrideWeek != null && startDate < earliestOverrideWeek;
+    const suppressCurrentFallback = beforeActivityStart || beforeKnownOverrideHistory;
+
     const classPositionCode: PositionCode | null =
       weekPositionCodeByStart.get(startDate) ??
       (seasonKey ? seasonPositionCodeMap.get(seasonKey) : undefined) ??
-      currentClassPositionCode ??
+      (suppressCurrentFallback ? null : currentClassPositionCode) ??
       null;
 
     const fmRaw = fmByStart.get(startDate) ?? null;
@@ -1104,17 +1132,21 @@ async function computeWeeklyCards(
       accumulatedApprovedWeeks: accByStart.get(startDate) ?? 0,
       targetWeeks,
       activityStatus,
-      // 소속 = 그 주차 override 가 있으면 주차값, 없으면 현재 멤버십(crewMeta) — 위 weekTeamPartByStart 주석 참조.
+      // 소속 = 그 주차 실이력(override ?? UPH)이 있으면 주차값, 없으면 현재 멤버십(crewMeta) —
+      //   단 활동 시작 이전이거나(scenario A) 이후에 override 로 뭔가 바뀐 적이 있으면(scenario C)
+      //   이력이 없어도 현재 소속으로 fallback 하지 않는다.
       //   card.teamName/partName 은 teamNameRaw/partNameRaw 를 그대로 싣는다(cluster4WeeklyCardsData).
-      teamLabel: weekTeamPartByStart.get(startDate)?.team ?? teamLabel,
-      partLabel: weekTeamPartByStart.get(startDate)?.part ?? partLabel,
-      teamNameRaw: weekTeamPartByStart.get(startDate)?.team ?? crewMeta.teamNameRaw,
-      partNameRaw: weekTeamPartByStart.get(startDate)?.part ?? crewMeta.partNameRaw,
+      teamLabel: weekTeamPartByStart.get(startDate)?.team ?? (suppressCurrentFallback ? NO_HISTORY_LABEL : teamLabel),
+      partLabel: weekTeamPartByStart.get(startDate)?.part ?? (suppressCurrentFallback ? NO_HISTORY_LABEL : partLabel),
+      teamNameRaw: weekTeamPartByStart.get(startDate)?.team ?? (suppressCurrentFallback ? null : crewMeta.teamNameRaw),
+      partNameRaw: weekTeamPartByStart.get(startDate)?.part ?? (suppressCurrentFallback ? null : crewMeta.partNameRaw),
       // 역할 배지 = 그 카드 "주차" 당시 단계. 위 classPositionCode 3-tier 결과에서 파생한다
       //   (한 시즌 안에서도 주차별로 다르게 표시된다: W2 정규 / W7 심화(파트장) 등).
       roleLabelRaw: classPositionCode
         ? POSITION_CODE_TO_LABEL[classPositionCode]
-        : crewMeta.roleLabelRaw,
+        : suppressCurrentFallback
+          ? null
+          : crewMeta.roleLabelRaw,
       // 클래스(직책) 원시 코드 — 위와 **동일한** tier 결과. 라벨과 갈릴 수 없다.
       crewClassPositionCodeRaw: classPositionCode,
       membershipStatusLabelRaw: crewMeta.membershipStatusLabelRaw,
@@ -1680,6 +1712,7 @@ export async function getWeeklyGrowth(
         roleLabelRaw: crew.membershipLevel ?? null,
         membershipStatusLabelRaw: crew.membershipState ?? null,
         organizationSlug: crew.organizationSlug ?? null,
+        activityStartDate: crew.activityStartedAt ?? null,
       },
       { effectiveFrom: opts.effectiveFromOverride },
     ),

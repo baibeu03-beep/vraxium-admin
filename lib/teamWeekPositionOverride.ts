@@ -177,6 +177,45 @@ export async function loadUserPositionOverrideRows(
   return toRows(data);
 }
 
+// 유저별 **가장 이른** override 주차(전체 이력, maxWeekStartDate 상한 없음) — 2026-08 정책.
+//   decidePositionAt 의 멤버십 최종 폴백은 "그 주차보다 **이후**에 override 가 있었는지"를 모르면
+//   현재값을 그대로 되돌려주는데, override 가 (아무리 미래라도) 존재한다는 것 자체가 "그 시점에
+//   뭔가 바뀌었다"는 신호다 — current 는 그 변경 이후 상태이므로 그 이전 "이력 없는" 주차의 참값이
+//   아니다(예: 오늘 팀장 승격 → 승격 이전 주차를 지금 공표/조회하면 "팀장"이 소급되던 문제).
+//   loadUserOverrideRowsUpTo(...,maxWeek,...) 는 배치의 **최신 대상 주차 이하**만 읽으므로 이 신호를
+//   못 본다 — 그래서 상한 없는 별도 쿼리로 "가장 이른 행"만 가볍게 가져온다.
+export async function loadEarliestOverrideWeekByUser(
+  userIds: string[],
+  organization?: string | null,
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const ids = Array.from(new Set(userIds.filter(Boolean)));
+  if (ids.length === 0) return out;
+  const CHUNK = 100;
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const chunk = ids.slice(i, i + CHUNK);
+    let q = supabaseAdmin
+      .from("cluster4_team_week_position_overrides")
+      .select("user_id,week_start_date")
+      .in("user_id", chunk)
+      .order("week_start_date", { ascending: true });
+    if (organization) q = q.eq("organization", organization);
+    const { data, error } = await q;
+    if (error) {
+      if (isMissingTableError(error)) return out;
+      console.warn("[team-week-position-override] 최초 override 주차 조회 실패 → 게이트 미적용", {
+        message: (error as { message?: string }).message,
+      });
+      return out;
+    }
+    for (const r of (data ?? []) as Array<{ user_id: string; week_start_date: string }>) {
+      const ws = String(r.week_start_date).slice(0, 10);
+      if (!out.has(r.user_id)) out.set(r.user_id, ws); // 오름차순 정렬이라 첫 행 = 최초.
+    }
+  }
+  return out;
+}
+
 // ── "현재 시점" 화면용 — 오늘이 속한 주차의 override ──────────────────────────
 //   회원 목록/상세의 상태 칩·소속, 팀 상세 [A] 현재 크루 수는 원래 user_memberships(현재) SoT 였다.
 //   그런데 관리자가 **현재 주차**의 파트/클래스를 바꾸면 두 값이 같은 사람을 서로 다르게 표시한다
@@ -271,6 +310,83 @@ export async function loadOrgOverrideRowsUpTo(
     if (batch.length < 1000) break;
   }
   return out;
+}
+
+// ── 팀장 배정 이력 — "이 팀의 리더가 언제부터 누구였는가" (2026-08-07 추가) ─────────────
+//   cluster4_team_week_position_overrides 에 position_code='operating_team_leader' 로 쌓인 행을
+//   팀(raw_team) 별로 모은 것. adminTeamHalvesData.promoteTeamLeader(팀 등록/팀장 교체 시 호출)가
+//   항상 이 테이블에 행을 쓰므로(upsertLeaderPositionOverride), 팀별 **첫 행의 주차 = 그 팀이
+//   이 lifecycle 로 처음 생성/등록된 주차**로 쓸 수 있다(같은 요청 안에서 팀 생성 직후 팀장 승격이
+//   일어난다 — registerTeamHalf 참고). 레거시 팀(이 lifecycle 이전에 시드/생성된 팀, 예: 2026-06-26
+//   반기 시드 데이터)은 행이 아예 없다 → null(제한 없음 = 기존 동작 그대로, 무회귀).
+//
+//   Why: cluster4_team_halves 는 half(반기) 단위 카탈로그라 주차 단위 effective-from 이 없다.
+//     새 컬럼/새 테이블 없이, 이미 주차마다 정확히 기록되는 이 override 이력을 "팀의 시간축"으로도
+//     재사용한다 — 화면마다 새 계산기를 만들지 않는다.
+export type TeamLeaderHistoryEntry = { userId: string; weekStartDate: string };
+
+export async function loadTeamLeaderAssignmentHistory(
+  organization: string,
+  teamNames: string[],
+): Promise<Map<string, TeamLeaderHistoryEntry[]>> {
+  const names = Array.from(new Set(teamNames.filter(Boolean)));
+  const out = new Map<string, TeamLeaderHistoryEntry[]>();
+  if (names.length === 0) return out;
+  const CHUNK = 100;
+  for (let i = 0; i < names.length; i += CHUNK) {
+    const chunk = names.slice(i, i + CHUNK);
+    const { data, error } = await supabaseAdmin
+      .from("cluster4_team_week_position_overrides")
+      .select("user_id,raw_team,week_start_date")
+      .eq("organization", organization)
+      .eq("position_code", "operating_team_leader")
+      .in("raw_team", chunk)
+      .order("week_start_date", { ascending: true });
+    if (error) {
+      if (isMissingTableError(error)) return out;
+      console.warn("[team-week-position-override] 팀장 이력 조회 실패 → 시간축 게이트 없음(레거시 동작)", {
+        message: (error as { message?: string }).message,
+      });
+      return out;
+    }
+    for (const r of (data ?? []) as Array<{
+      user_id: string;
+      raw_team: string;
+      week_start_date: string;
+    }>) {
+      const arr = out.get(r.raw_team) ?? [];
+      arr.push({ userId: r.user_id, weekStartDate: String(r.week_start_date).slice(0, 10) });
+      out.set(r.raw_team, arr);
+    }
+  }
+  for (const arr of out.values()) arr.sort((a, b) => a.weekStartDate.localeCompare(b.weekStartDate));
+  return out;
+}
+
+// 그 팀이 이 lifecycle 로 처음 등록된 주차. null = 레거시(제한 없음 — 그 half 안에서 항상 존재했던 것으로 본다).
+export function resolveTeamExistenceFromWeek(
+  history: TeamLeaderHistoryEntry[] | undefined,
+): string | null {
+  return history && history.length > 0 ? history[0].weekStartDate : null;
+}
+
+// 그 팀의 weekStartDate 시점 리더.
+//   · 이력이 있으면 "≤ weekStartDate 중 가장 최근 승격 행"의 유저(팀장 교체 이력을 그대로 반영,
+//     이전 리더는 그 이전 주차까지만 유효). 이력 시작보다 이전 주차면 null(아직 팀장 없음/팀 미존재
+//     구간 — 호출부가 팀 존재 여부를 먼저 resolveTeamExistenceFromWeek 로 가르는 것을 전제한다).
+//   · 이력이 아예 없는 레거시 팀은 fallbackLeaderUserId(카탈로그 현재값)를 그대로 쓴다(무회귀).
+export function resolveTeamLeaderAtWeek(
+  history: TeamLeaderHistoryEntry[] | undefined,
+  weekStartDate: string,
+  fallbackLeaderUserId: string | null,
+): string | null {
+  if (!history || history.length === 0) return fallbackLeaderUserId;
+  let result: string | null = null;
+  for (const row of history) {
+    if (row.weekStartDate > weekStartDate) break;
+    result = row.userId;
+  }
+  return result;
 }
 
 export function makeAssignmentKey(input: {

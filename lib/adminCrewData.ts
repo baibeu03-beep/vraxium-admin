@@ -49,6 +49,7 @@ type UserProfileRow = {
   // 비정규화된 현재 팀/파트 — membership 행에 team_name 이 전혀 없을 때의 최종 폴백(고객앱 resolver 규칙 5).
   current_team_name: string | null;
   current_part_name: string | null;
+  activity_started_at: string | null;
   updated_at: string | null;
 };
 
@@ -148,6 +149,9 @@ export type AdminCrewDto = {
   membershipPartName: string | null;
   membershipLevel: string | null;
   membershipState: string | null;
+  // date-only(YYYY-MM-DD, 항상 월요일). 활동 시작 이전 주차엔 소속/직책을 투영하지 않는 게이트용
+  //   (2026-08 정책, [[project_uwp-legacy-award-layering]] 계열). 없으면(레거시) 게이트 미적용.
+  activityStartedAt: string | null;
   approvedWeeks: number | null;
   cumulativeWeeks: number | null;
   organizationSlug: string | null;
@@ -175,6 +179,7 @@ const PROFILE_SELECT = [
   "role",
   "current_team_name",
   "current_part_name",
+  "activity_started_at",
   "updated_at",
 ].join(",");
 
@@ -524,6 +529,9 @@ function buildAdminCrewDtos(rows: CrewSourceRows): AdminCrewDto[] {
       membershipPartName: partName,
       membershipLevel,
       membershipState,
+      activityStartedAt: profile.activity_started_at
+        ? String(profile.activity_started_at).slice(0, 10)
+        : null,
       approvedWeeks,
       cumulativeWeeks,
       organizationSlug: profile.organization_slug ?? null,

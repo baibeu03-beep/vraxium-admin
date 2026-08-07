@@ -83,6 +83,9 @@ const LABEL_TONE: Record<string, BadgeTone> = {
   반려: "danger",
   승인: "success",
   신청: "info",
+
+  // 팀 생명주기(관리 원장 — 삭제된 팀도 원장에는 남지만 활동 화면에서는 제외됨을 표시)
+  삭제됨: "neutral",
 }
 
 /**

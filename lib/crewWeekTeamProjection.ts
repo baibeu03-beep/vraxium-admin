@@ -34,6 +34,7 @@ import { resolveRepresentativeEducations } from "@/lib/educationResolver";
 import { displayNameFromProfile } from "@/lib/displayNameResolver";
 import type { OrganizationSlug } from "@/lib/organizations";
 import type { PositionCode } from "@/shared/crewClassPosition";
+import { resolveTeamLifecyclesAtWeek } from "@/lib/teamLifecycle";
 
 export type TeamBattleResult = "win" | "lose" | "draw";
 
@@ -103,6 +104,8 @@ type HalfTeamRow = {
   display_order: number | null;
   leader_user_id: string | null;
   leader_name: string | null;
+  is_active?: boolean;
+  updated_at?: string | null;
 };
 
 export type CrewWeekTeamContext = {
@@ -116,6 +119,19 @@ export type CrewWeekTeamContext = {
 export async function loadCrewWeekTeamContext(opts: {
   organization: OrganizationSlug;
   halfKey: string | null;
+  /**
+   * 조회 대상 주차(week_start_date). 주면 **그 주차 시점 존재하는 팀 · 그 주차 시점 팀장**만
+   *   카탈로그에 남긴다(2026-08-07 추가 — [[project_team-week-position-override-common-sot]] 확장).
+   *   cluster4_team_halves 는 half(반기, ~26주) 단위 카탈로그라 주차 단위 effective-from 이 없다 —
+   *   "이번 반기 중 아무 때나 등록한 팀"이 반기 안의 지나간 주차에도 소급 노출되는 문제(실측
+   *   2026-08-07: 여름6주차에 만든 팀이 여름5주차 조회에도 존재/팀장으로 나타남)를 여기서 막는다.
+   *   판정 소스는 새 컬럼이 아니라 팀장 배정 이력(cluster4_team_week_position_overrides,
+   *   position_code='operating_team_leader') 재사용 — registerTeamHalf/updateTeamHalf 가 팀 생성·
+   *   팀장 교체마다 이미 이 표에 정확한 주차로 행을 쓴다(promoteTeamLeader). 이 lifecycle 이전에
+   *   시드/생성된 레거시 팀은 이력이 없어 게이트가 걸리지 않는다(기존 동작 무회귀).
+   *   생략하면(undefined/null) 종전처럼 게이트 없이 반기 카탈로그 그대로 반환한다(하위호환).
+   */
+  weekStartDate?: string | null;
 }): Promise<CrewWeekTeamContext> {
   const catalogByName = new Map<string, HalfTeamRow>();
   const leaderById = new Map<
@@ -124,9 +140,12 @@ export async function loadCrewWeekTeamContext(opts: {
   >();
 
   // 1) 팀 카탈로그 — 정확 halfKey 우선, 없으면 최신 half 폴백(front 와 동일 정책).
+  //   ⚠ is_active 로 미리 거르지 않는다 — 지금은 비활성(삭제)이어도 조회 대상 주차엔 활동 중이었을
+  //   수 있다(예: 오늘 삭제한 팀을 지난 주차로 조회). 존재 판정은 아래 1b 의 lifecycle resolver 가
+  //   대상 주차 기준으로 한다.
   const { data: halves } = await supabaseAdmin
     .from("cluster4_team_halves")
-    .select("id,team_name,display_order,leader_user_id,leader_name,half_key")
+    .select("id,team_name,display_order,leader_user_id,leader_name,half_key,is_active,updated_at")
     .eq("organization_slug", opts.organization);
   const latest = new Map<string, { hk: string; row: HalfTeamRow }>();
   for (const r of (halves ?? []) as Array<HalfTeamRow & { half_key: string }>) {
@@ -140,6 +159,34 @@ export async function loadCrewWeekTeamContext(opts: {
     }
   }
   for (const [k, v] of latest) catalogByName.set(k, v.row);
+
+  // 1b) 주차 시간축 게이트 — 팀 존재 여부(생성~종료)·그 주차 팀장을 공용 lifecycle resolver로 재판정.
+  //   (2026-08-08 확장) 종전엔 effectiveFrom(생성 주차)만 봤다 — 이번에 effectiveTo(종료 주차)도
+  //   추가해 "지금은 삭제됐지만 그 주차엔 존재했음"과 "그 주차엔 이미 종료됨"을 둘 다 정확히 가른다.
+  const weekStartDate = opts.weekStartDate ?? null;
+  if (weekStartDate) {
+    const rowsForLifecycle = [...catalogByName.values()].map((r) => ({
+      teamName: r.team_name,
+      isActive: r.is_active !== false,
+      updatedAt: r.updated_at ?? null,
+      currentLeaderUserId: r.leader_user_id,
+    }));
+    const lifecycles = await resolveTeamLifecyclesAtWeek({
+      organization: opts.organization,
+      rows: rowsForLifecycle,
+      weekStartDate,
+    });
+    for (const [key, row] of [...catalogByName.entries()]) {
+      const lc = lifecycles.get(row.team_name);
+      if (!lc?.exists) {
+        // 생성 이전이거나 이미 종료된 주차 — 카탈로그에서 제외(팀 자체가 없는 것으로 취급).
+        catalogByName.delete(key);
+        continue;
+      }
+      // 존재하는(또는 레거시) 팀은 리더를 그 주차 시점 값으로 교체(현재값 소급 금지).
+      row.leader_user_id = lc.leaderUserId;
+    }
+  }
 
   // 2) 팀장 표시 정보 — user_educations 우선, user_profiles 폴백(front leaderById 규칙).
   const leaderIds = [...catalogByName.values()]

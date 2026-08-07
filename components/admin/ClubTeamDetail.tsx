@@ -7,6 +7,7 @@ import { X } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { adminDialog } from "@/components/ui/admin-dialog";
 import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
@@ -319,7 +320,11 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
   }, [loadSummary]);
 
   const isCurrentHalf = selectedHalfKey != null && selectedHalfKey === currentHalfKey;
-  const atLimit = teams.length >= MAX_TEAMS_PER_CLUB;
+  // ⚠ 삭제(is_active=false)된 팀도 원장 목록(teams)엔 남아있다(2026-08-08) — 10개 등록 한도는
+  //   "지금 활동 중인 팀" 기준이어야 한다(서버 registerTeamHalf 의 activeCount 판정과 동일 기준).
+  //   teams.length 를 그대로 쓰면 삭제팀까지 한도에 세어 신규 등록이 부당하게 막힌다.
+  const activeTeamCount = teams.filter((t) => t.isActive).length;
+  const atLimit = activeTeamCount >= MAX_TEAMS_PER_CLUB;
 
   // 팀 배지 → 팀 상세 링크. path 로 org+teamHalfId. org/mode/actAs/demo/**period** 컨텍스트는
   //   buildAdminContextHref 가 현재 URL 에서 그대로 이어붙인다(진입 컨텍스트 유실 방지 — period 는
@@ -519,7 +524,7 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
             <span className="inline-flex items-center gap-1 text-sm">
               · 팀 수{" "}
               <strong id="team-parts-active-team-count" className="text-base">
-                {teams.length}
+                {activeTeamCount}
               </strong>
               <span className="text-muted-foreground"> / {MAX_TEAMS_PER_CLUB}</span>
               <AdminHelpIconButton
@@ -581,11 +586,18 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
                     data-team-detail-link={team.teamHalfId}
                     className={
                       "shrink-0 rounded-md border px-3 py-1 text-sm font-bold outline-none transition hover:brightness-95 focus-visible:ring-2 focus-visible:ring-ring " +
-                      CHIP_CLS[activeOrg]
+                      CHIP_CLS[activeOrg] +
+                      (team.isActive ? "" : " opacity-60")
                     }
                   >
                     {team.teamName}
                   </Link>
+                  {/* 삭제된 팀 표시 — 원장에서 숨기지 않고 배지로만 구분한다(2026-08-08).
+                      활동 화면(주차별 결과·팀 상세 [A]/[B] 등)에서는 이 팀 자체가 안 보인다 —
+                      여기(관리 원장)에서만 이력 확인용으로 남아있다. */}
+                  {!team.isActive ? (
+                    <StatusBadge label="삭제됨" size="sm" title="삭제된 팀 — 활동 화면에는 노출되지 않습니다" />
+                  ) : null}
                   <span className="flex-1 rounded-md border border-input bg-muted/30 px-3 py-1.5 text-sm">
                     {dash(team.description)}
                   </span>
@@ -596,7 +608,7 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
                         variant="outline"
                         size="sm"
                         data-team-edit={team.teamName}
-                        disabled={!editable}
+                        disabled={!editable || !team.isActive}
                         onClick={() => openEditModal(team)}
                       >
                         수정
@@ -612,7 +624,7 @@ export default function ClubTeamDetail({ clubId }: { clubId: OrganizationSlug })
                         variant="outline"
                         size="sm"
                         data-team-delete={team.teamName}
-                        disabled={!editable}
+                        disabled={!editable || !team.isActive}
                         onClick={() => void requestDelete(team)}
                       >
                         삭제

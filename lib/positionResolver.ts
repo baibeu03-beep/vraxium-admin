@@ -3,6 +3,7 @@ import { resolveSeasonPosition, type PositionCode } from "@/lib/positionHistory"
 import {
   buildOverrideIndex,
   buildSeasonKeyResolver,
+  loadEarliestOverrideWeekByUser,
   loadUserOverrideRowsUpTo,
   loadUserPositionOverrideRows,
   resolveCurrentWeekStartDate,
@@ -112,6 +113,8 @@ type MembershipFallback = {
   code: PositionCode | null;
   role: string | null;
   level: string | null;
+  /** user_profiles.activity_started_at(date-only, 항상 월요일). 없으면 활동 시작 게이트 미적용. */
+  activityStartDate: string | null;
 };
 
 function firstNonEmpty(...vals: Array<string | null | undefined>): string | null {
@@ -150,6 +153,7 @@ async function loadMembershipFallback(
     role: string | null;
     current_team_name: string | null;
     current_part_name: string | null;
+    activity_started_at: string | null;
   };
   const profByUser = new Map<string, ProfileRow>();
   const memByUser = new Map<string, MembershipRow[]>();
@@ -158,7 +162,7 @@ async function loadMembershipFallback(
     const [profRes, memRes] = await Promise.all([
       supabaseAdmin
         .from("user_profiles")
-        .select("user_id,role,current_team_name,current_part_name")
+        .select("user_id,role,current_team_name,current_part_name,activity_started_at")
         .in("user_id", chunk),
       supabaseAdmin
         .from("user_memberships")
@@ -181,6 +185,7 @@ async function loadMembershipFallback(
       code: roleLevelToPositionCode(p?.role ?? null, m?.membership_level ?? null),
       role: p?.role ?? null,
       level: m?.membership_level ?? null,
+      activityStartDate: p?.activity_started_at ? String(p.activity_started_at).slice(0, 10) : null,
     });
   }
   return out;
@@ -253,6 +258,8 @@ export function decidePositionAt(
   uphEntry: UphEntry | null,
   membershipFallback: MembershipFallback | null,
   rawPriorOverride: { weekStartDate: string; rawTeam: string | null; rawPart: string | null; positionCode: PositionCode | null } | null = null,
+  /** 이 유저의 **가장 이른** override 주차(전체 이력, 상한 없음). 미래 override 드리프트 가드 전용. */
+  earliestOverrideWeek: string | null = null,
 ): ResolvedPosition {
   if (ovr) {
     const values = resolvePositionValues({
@@ -306,6 +313,24 @@ export function decidePositionAt(
       return EMPTY(userId); // 시즌 경계 너머 미배정 — "현재 소속" 자동 부활 차단.
     }
   }
+  // ── 활동 시작 이전 주차 가드(2026-08 정책 확정) ──────────────────────────────
+  //   override 도 UPH 도 없어 현재 멤버십으로 최후 폴백하려는 시점인데, 그 주차가 이 유저의
+  //   활동 시작 주차(user_profiles.activity_started_at)보다 이르면 애초에 그 시점엔 이 유저가
+  //   활동을 시작하지 않았다 — "현재 소속"을 그 이전 과거로 투영하지 않는다(scenario A).
+  //   activity_started_at 이 없는(레거시/미상) 유저는 게이트 미적용 — 기존 동작 무회귀.
+  if (m?.activityStartDate && week < m.activityStartDate) {
+    void week;
+    return EMPTY(userId);
+  }
+  // ── 미래 override 드리프트 가드(2026-08 정책, scenario C) ──────────────────────
+  //   이 주차엔 override/UPH 가 없어 현재 멤버십으로 폴백하려는데, 이 유저에게 **이후** 주차에라도
+  //   override 이력이 있다면(=관리자가 그 시점부터 뭔가를 명시적으로 바꿨다는 뜻 — 팀장 승격 등)
+  //   지금의 "현재값"은 그 변경 **이후** 상태다. 승격 이전 주차를 지금 조회/공표하면 "팀장"이
+  //   소급되던 문제(예: 오늘 팀장 승격 → 승격 이전 주차에 이미 팀장으로 표시)를 막는다.
+  if (earliestOverrideWeek && week < earliestOverrideWeek) {
+    void week;
+    return EMPTY(userId);
+  }
   if (m && (m.code !== null || m.team !== null || m.part !== null)) {
     return withLabels({
       userId,
@@ -345,10 +370,12 @@ export async function resolvePositionAtWeeksBulk(input: {
   if (ids.length === 0 || weeks.length === 0) return out;
 
   const maxWeek = weeks[weeks.length - 1];
-  const [overrideRows, uphByWeek, membership] = await Promise.all([
+  const [overrideRows, uphByWeek, membership, earliestOverrideByUser] = await Promise.all([
     loadUserOverrideRowsUpTo(ids, maxWeek, input.organization ?? null),
     loadUphAtWeeks(ids, weeks, input.organization ?? null),
     loadMembershipFallback(ids),
+    // maxWeek 상한 없이 유저별 전체 이력 중 가장 이른 override 주차만 — 미래 드리프트 가드 전용.
+    loadEarliestOverrideWeekByUser(ids, input.organization ?? null),
   ]);
   const ovrIndex = buildOverrideIndex(overrideRows, (r) => r.userId);
   // 시즌 경계 — override 는 **같은 시즌 안에서만** 이월한다([[teamWeekPositionOverride]] SEASON BOUNDARY).
@@ -372,6 +399,7 @@ export async function resolvePositionAtWeeksBulk(input: {
           membership.get(id) ?? null,
           // 시즌 경계 미적용(3번째 인자 생략) — "예전에 override 가 있었는지"만 본다. 드리프트 가드 전용.
           resolveOverrideAt(ovrIndex.get(id), week),
+          earliestOverrideByUser.get(id) ?? null,
         ),
       );
     }

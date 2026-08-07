@@ -24,6 +24,7 @@ import { type PositionCode } from "@/lib/positionHistory";
 import type { ScopeMode } from "@/lib/userScopeShared";
 import { type OrganizationSlug } from "@/lib/organizations";
 import { resolvePositionAtWeeksBulk } from "@/lib/positionResolver";
+import { resolveTeamLifecycleBounds } from "@/lib/teamLifecycle";
 
 // ── 팀 상세 [A] — 선택 주차 요약 ─────────────────────────────────────────────
 //   특정 (organization, teamName, weekId) 에 대해 그 주차 기준 크루 수·성장 결과·운용 파트를 반환.
@@ -169,6 +170,16 @@ async function resolveSelectableWeeks(opts: {
   weekId?: string | null;
   halfKey?: string | null;
   today?: string;
+  /**
+   * 주면 그 팀의 생애주기(생성~종료) 밖 주차는 선택지에서 제외한다(2026-08-07 추가, 2026-08-08
+   *   종료 시점까지 확장). cluster4_team_halves 는 반기 단위 카탈로그라 주차 단위 effectiveFrom/To
+   *   가 없어, 반기 중간에 만든 팀이 지나간 주차에도, 이미 종료된 팀이 종료 이후 주차에도 그대로
+   *   선택/노출되던 문제(팀 상세 [A]/[B])를 막는다. 공용 lifecycle resolver
+   *   (lib/teamLifecycle.ts resolveTeamLifecyclesAtWeek — loadCrewWeekTeamContext 와 동일 판정
+   *   소스) 재사용 — 레거시 팀·이력 없는 팀은 게이트가 걸리지 않는다(무회귀). teamScope 를 생략하면
+   *   종전과 동일(하위호환).
+   */
+  teamScope?: { organization: string; teamName: string } | null;
 }): Promise<{
   selectableWeeks: SelectableWeek[];
   targetRow: Awaited<ReturnType<typeof loadSeasonWeeks>>["rows"][number] | null;
@@ -180,16 +191,40 @@ async function resolveSelectableWeeks(opts: {
   //   ⚠ 이 페이지 전용 UI 필터(공식 week_number 기준) — DB 의 0주차 데이터·다른 페이지(기간 관리 등)엔 영향 없음.
   //   현재 활동일은 월요일 00:01 KST 경계(getCurrentActivityDateIso) — "그 주 월요일 00:01부터 현재 주차 노출".
   const { rows: weekRows } = await loadSeasonWeeks(today);
-  const selectable = weekRows
-    .filter(
-      (w) =>
-        w.week_start_date &&
-        w.week_start_date <= todayIso &&
-        (w.week_number ?? 0) > 0 &&
-        (!opts.halfKey ||
-          (w.season_key && seasonKeyToHalfKey(w.season_key) === opts.halfKey)),
-    )
-    .sort((a, b) => (b.week_start_date ?? "").localeCompare(a.week_start_date ?? ""));
+  let effectiveFrom: string | null = null;
+  let effectiveTo: string | null = null;
+  if (opts.teamScope) {
+    const { data: halfRows } = await supabaseAdmin
+      .from("cluster4_team_halves")
+      .select("team_name,is_active,updated_at,half_key")
+      .eq("organization_slug", opts.teamScope.organization)
+      .eq("team_name", opts.teamScope.teamName);
+    // 여러 반기에 걸쳐 동일 팀명 행이 있을 수 있다 — 최신(half_key desc) 1건을 대표로 쓴다
+    //   (반기 자체는 lifecycle 판정에 관여하지 않는다 — 팀장 이력·is_active 만 본다).
+    const rep = ((halfRows ?? []) as Array<{
+      team_name: string;
+      is_active: boolean | null;
+      updated_at: string | null;
+      half_key: string;
+    }>).sort((a, b) => b.half_key.localeCompare(a.half_key))[0];
+    if (rep) {
+      const bounds = await resolveTeamLifecycleBounds({
+        organization: opts.teamScope.organization,
+        row: { teamName: rep.team_name, isActive: rep.is_active !== false, updatedAt: rep.updated_at },
+      });
+      effectiveFrom = bounds.effectiveFrom;
+      effectiveTo = bounds.effectiveTo;
+    }
+  }
+  const selectable = weekRows.filter(
+    (w) =>
+      w.week_start_date &&
+      w.week_start_date <= todayIso &&
+      (w.week_number ?? 0) > 0 &&
+      (!opts.halfKey || (w.season_key && seasonKeyToHalfKey(w.season_key) === opts.halfKey)) &&
+      (effectiveFrom == null || w.week_start_date >= effectiveFrom) &&
+      (effectiveTo == null || w.week_start_date < effectiveTo),
+  );
   const yearOf = (w: (typeof selectable)[number]): number => {
     // 표시 연도 — 주차 종료일 우선(주 경계 넘김 대비), 없으면 시작/시즌 시작일. resolveCurrentWeekInfo 와 동일.
     const iso = w.week_end_date ?? w.week_start_date ?? w.season_start_date ?? "";
@@ -423,7 +458,10 @@ export async function loadTeamWeekEffectiveRoster(opts: {
   mode?: ScopeMode;
   today?: string;
 }): Promise<TeamWeekRoster> {
-  const { targetRow } = await resolveSelectableWeeks(opts);
+  const { targetRow } = await resolveSelectableWeeks({
+    ...opts,
+    teamScope: { organization: opts.organization, teamName: opts.teamName },
+  });
   if (!targetRow || !targetRow.week_start_date) return { week: null, members: [] };
   const members = await loadTeamWeekRosterAt(
     opts.organization,
@@ -455,8 +493,11 @@ export async function getTeamSelectedWeekSummary(opts: {
   const { organization, teamName } = opts;
   const mode = opts.mode ?? "operating";
 
-  // 1~2) 선택 가능 주차 + 대상 주차.
-  const { selectableWeeks, targetRow } = await resolveSelectableWeeks(opts);
+  // 1~2) 선택 가능 주차 + 대상 주차. 이 팀의 존재 시작 주차 이전은 선택지에서 제외(시간축 게이트).
+  const { selectableWeeks, targetRow } = await resolveSelectableWeeks({
+    ...opts,
+    teamScope: { organization, teamName },
+  });
   if (!targetRow || !targetRow.week_start_date) {
     return { selectableWeeks, week: null, ...emptyBody() };
   }

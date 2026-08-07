@@ -442,10 +442,14 @@ export async function computeCrewWeekPreview(opts: {
       c.grade = b?.grade ?? null;
       c.gradeLabel = b?.gradeLabel ?? null;
       // 팀·파트·클래스를 같은 resolver 산출로 덮어쓴다(시점 통일).
+      //   ⚠ resolver 가 EMPTY(rawTeam=null)를 준 경우 base row 의 현재 프로필값(234행 placeholder)
+      //     으로 되돌아가면 안 된다 — resolver 가 일부러 비운 값이 "현재 소속"으로 되살아나
+      //     그대로 공표 저장(cluster4_week_finalize_run_crew_results)까지 흘러가는 사고였다
+      //     (2026-08-07 발견). resolver 결과가 SoT — null 이면 null 로 저장한다.
       const pos = positions.get(c.userId) ?? null;
       c.classLabel = pos?.classLabel ?? null;
-      c.teamName = pos?.rawTeam ?? c.teamName;
-      c.partName = pos?.rawPart ?? c.partName;
+      c.teamName = pos?.rawTeam ?? null;
+      c.partName = pos?.rawPart ?? null;
       c.rank = ranks.get(c.userId) ?? null;
       c.earnedPointA = pt?.a ?? c.earnedPointA;
       c.pointB = pt?.b ?? null;
@@ -493,6 +497,7 @@ export async function computeCrewWeekPreview(opts: {
           ctx: await loadCrewWeekTeamContext({
             organization,
             halfKey: week.season_key ? seasonKeyToHalfKey(week.season_key) : null,
+            weekStartDate: week.start_date,
           }),
           // 소속은 **크루 행에 최종 표시된 값 그대로** 넘긴다(rawTeam ?? 프로필 폴백까지 동일).
           //   → 크루 표의 팀별 인원 합 == 팀 표 totalCrew 합 이 구조적으로 보장된다.
