@@ -60,3 +60,17 @@ claudedocs/
 # 루트 임시 patch 파일
 /*.patch
 .mcp.json
+
+# playwright MCP 브라우저 자동화 산출물(콘솔 로그·페이지 스냅샷 — 실행할 때마다 쌓인다)
+.playwright-mcp/
+
+# 데이터 백업·복구 산출물(로컬 보존 — 수십 MB 라 코드 저장소에 두지 않는다)
+backups/
+
+# scripts/ 의 "_" 접두 = 일회성 진단·검증 스크립트와 그 출력물(scratch 관례).
+#   정식 검증 스크립트는 접두 없이 두고 커밋한다(verify-*.ts / browser-verify-*.mjs).
+scripts/_*
+
+# 루트 임시 감사 출력물·스크린샷(작업 중 생기는 scratch — 문서용은 docs/ 에 둔다)
+/audit-result*.txt
+/*.png
