@@ -1171,7 +1171,7 @@ export default function ExperienceTeamOverallBoard({
           />
         </p>
         <p className="text-xs text-muted-foreground">
-          <span className="text-destructive">*</span> 활성 류별 링크 1개, 그 설명, 이미지 1개, 이미지 설명은 모두 필수 입력입니다.
+          <span className="text-destructive">*</span> 활성 류별 링크 1개, 링크 설명, 이미지 1개, 이미지 설명은 모두 필수 입력입니다.
         </p>
         {EXPERIENCE_OVERALL_CATEGORIES.map((c) => {
           const o = getOutput(c.key);
